@@ -25,7 +25,11 @@ namespace XboxGamingBar
         // ── LocalSettings keys ──────────────────────────────────────────────────────
         private const string MsiLedColorKey         = "MsiClaw_LedColor";       // "R,G,B"
         private const string MsiChargeLimitEnabledKey = "MsiClaw_ChargeLimitOn";  // bool
-        private const string MsiChargeLimitPercentKey = "MsiClaw_ChargeLimitPct"; // int 60/80/100
+        private const string MsiChargeLimitPercentKey = "MsiClaw_ChargeLimitPct"; // int 20..100
+        // Set true the first time the user enables the charge limiter in the System tab. The
+        // Quick Settings ChargeLimiter tile only works after this initial setup.
+        private const string MsiChargeLimitInitKey    = "MsiClaw_ChargeLimitInit"; // bool
+        private const int    MsiChargeLimitTileDefault = 90;  // tile default % when the user has no stored value
 
         // ── State ───────────────────────────────────────────────────────────────────
         private bool   _msiLedExpanded       = false;
@@ -182,6 +186,8 @@ namespace XboxGamingBar
             bool on = MsiChargeLimitToggle?.IsOn ?? false;
 
             ApplicationData.Current.LocalSettings.Values[MsiChargeLimitEnabledKey] = on;
+            // First-time enable in Settings unlocks the Quick Settings tile.
+            if (on) ApplicationData.Current.LocalSettings.Values[MsiChargeLimitInitKey] = true;
             if (MsiChargeLimitPercentPanel != null)
                 MsiChargeLimitPercentPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
 
@@ -223,6 +229,64 @@ namespace XboxGamingBar
         internal void MsiChargeLimitVerifyButton_Click(object sender, RoutedEventArgs e)
         {
             _ = QueryMsiChargeLimitStatusAsync();
+        }
+
+        // ── Charge Limiter Quick Settings tile ───────────────────────────────────────
+        /// <summary>True once the user has enabled the charge limiter in the System tab at least once.</summary>
+        internal bool IsChargeLimiterInitialized()
+        {
+            var s = ApplicationData.Current.LocalSettings.Values;
+            return s.TryGetValue(MsiChargeLimitInitKey, out var v) && v is bool b && b;
+        }
+
+        internal bool IsChargeLimiterEnabled()
+        {
+            var s = ApplicationData.Current.LocalSettings.Values;
+            return s.TryGetValue(MsiChargeLimitEnabledKey, out var v) && v is bool b && b;
+        }
+
+        internal int ChargeLimiterPercent()
+        {
+            var s = ApplicationData.Current.LocalSettings.Values;
+            return s.TryGetValue(MsiChargeLimitPercentKey, out var v) && v is int i ? i : MsiChargeLimitTileDefault;
+        }
+
+        /// <summary>
+        /// Quick Settings tile: simple on/off. Only works once the limiter has been set up in the
+        /// System tab (IsChargeLimiterInitialized). Toggling on restores the user's stored percent
+        /// (or 90% if none). Keeps the System-tab UI in sync.
+        /// </summary>
+        private void ToggleChargeLimiterTile()
+        {
+            if (!IsChargeLimiterInitialized())
+            {
+                // Not set up yet — tell the user to enable it once in Settings.
+                _ = SendActionNotificationAsync("Charge Limit\nEnable it once in the System tab first");
+                Logger.Info("[BattMgr] ChargeLimiter tile tapped but not initialized — prompting Settings setup");
+                return;
+            }
+
+            bool newOn = !IsChargeLimiterEnabled();
+            int pct = ChargeLimiterPercent();
+            if (pct < 20 || pct > 100) pct = MsiChargeLimitTileDefault;
+
+            ApplicationData.Current.LocalSettings.Values[MsiChargeLimitEnabledKey] = newOn;
+            ApplicationData.Current.LocalSettings.Values[MsiChargeLimitPercentKey] = pct;
+
+            // Keep the System-tab controls in sync (without re-triggering their handlers).
+            _msiChargeLimitLoading = true;
+            try
+            {
+                if (MsiChargeLimitToggle != null) MsiChargeLimitToggle.IsOn = newOn;
+                if (MsiChargeLimitPercentPanel != null)
+                    MsiChargeLimitPercentPanel.Visibility = newOn ? Visibility.Visible : Visibility.Collapsed;
+                if (MsiChargeLimitSlider != null) MsiChargeLimitSlider.Value = pct;
+                if (MsiChargeLimitValue != null)  MsiChargeLimitValue.Text = $"{pct}%";
+            }
+            finally { _msiChargeLimitLoading = false; }
+
+            _ = SendMsiChargeLimitAsync(newOn, pct);
+            Logger.Info($"[BattMgr] ChargeLimiter tile → {(newOn ? "On" : "Off")} {pct}%");
         }
 
         private async Task SendMsiChargeLimitAsync(bool enabled, int percent)

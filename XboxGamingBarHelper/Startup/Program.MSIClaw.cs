@@ -456,6 +456,72 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Charge Limiter Quick Settings tile triggered by a controller shortcut while the Game
+        /// Bar is CLOSED (widget suspended). Toggles the charge limit on/off using the persisted
+        /// user value. Only acts if the limiter was configured at least once (persisted % present).
+        /// </summary>
+        internal static void ToggleMsiChargeLimitFromHotkey()
+        {
+            try
+            {
+                if (!Settings.LocalSettingsHelper.TryGetValue<int>(ChargeLimitPctKey, out int pct))
+                {
+                    Logger.Info("ChargeLimiter hotkey: not set up yet — ignoring");
+                    rtssManager?.ShowNotification("Charge Limit: set it up in Settings first", 4000);
+                    return;
+                }
+                if (pct < 20 || pct > 100) pct = 90;
+
+                bool curOn = Settings.LocalSettingsHelper.TryGetValue<bool>(ChargeLimitOnKey, out bool on) && on;
+                bool newOn = !curOn;
+
+                Devices.MSIClaw.MsiClawBatteryManager.SetPercent(pct);
+                Devices.MSIClaw.MsiClawBatteryManager.SetEnabled(newOn);
+                PersistMsiChargeLimit(newOn, pct);
+                Logger.Info($"ChargeLimiter hotkey → {(newOn ? $"On {pct}%" : "Off")}");
+                rtssManager?.ShowNotification($"Charge Limit: {(newOn ? $"On {pct}%" : "Off")}", 4000);
+            }
+            catch (Exception ex) { Logger.Warn($"ToggleMsiChargeLimitFromHotkey: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// FPS Limiter Quick Settings tile triggered by a controller shortcut while the Game Bar is
+        /// CLOSED. Cycles the FPS cap in the CURRENT mode (RTSS or Intel), including Off — never
+        /// switches mode. Uses the helper's own FPS/Intel properties whose SetValue applies the
+        /// hardware change AND syncs the value back to the widget.
+        /// </summary>
+        internal static void CycleFpsLimitFromHotkey()
+        {
+            try
+            {
+                bool isIntel = intelGpuManager?.FpsCapMode?.Value == 1;
+                if (isIntel)
+                {
+                    var tier = intelGpuManager?.IntelFpsTier;
+                    if (tier == null) return;
+                    int next = (tier.Value + 1) % 4;            // 0=Off,1=60,2=40,3=30
+                    tier.SetValue(next);
+                    string[] labels = { "Off", "60 FPS", "40 FPS", "30 FPS" };
+                    Logger.Info($"FpsLimiter hotkey (Intel) → tier {next}");
+                    rtssManager?.ShowNotification($"FPS Limit: {labels[next]}", 4000);
+                }
+                else
+                {
+                    var fp = rtssManager?.FPSLimit;
+                    if (fp == null) return;
+                    int[] vals = { 0, 30, 40, 60, 90, 120 };
+                    int cur = fp.Value, idx = 0;
+                    for (int i = 0; i < vals.Length; i++) if (vals[i] == cur) { idx = i; break; }
+                    int nextV = vals[(idx + 1) % vals.Length];
+                    fp.SetValue(nextV);
+                    Logger.Info($"FpsLimiter hotkey (RTSS) → {nextV}");
+                    rtssManager?.ShowNotification($"FPS Limit: {(nextV > 0 ? nextV + " FPS" : "Off")}", 4000);
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"CycleFpsLimitFromHotkey: {ex.Message}"); }
+        }
+
+        /// <summary>
         /// Re-apply the last saved MSI fan command at startup (EC resets on reboot).
         /// Only acts when a custom curve was enabled; otherwise leaves firmware control alone.
         /// </summary>

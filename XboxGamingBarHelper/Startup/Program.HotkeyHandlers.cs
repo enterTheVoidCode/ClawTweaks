@@ -726,6 +726,17 @@ namespace XboxGamingBarHelper
                                             // Toggle the on-screen / touch keyboard (same as the tile click).
                                             TouchKeyboardHelper.Toggle();
                                             break;
+                                        case "FpsLimiter":
+                                            // Cycle FPS cap in the current mode (RTSS/Intel) — helper-side
+                                            // so it works with the Game Bar closed. Shows its own notification.
+                                            CycleFpsLimitFromHotkey();
+                                            skipGenericNotification = true;
+                                            break;
+                                        case "ChargeLimiter":
+                                            // Toggle battery charge limit on/off using the persisted value.
+                                            ToggleMsiChargeLimitFromHotkey();
+                                            skipGenericNotification = true;
+                                            break;
                                         case "Overlay":
                                             // Cycle the OSD overlay levels 0→1→2→3→0 (same states the
                                             // tile dropdown exposes) and show the level we switched to —
