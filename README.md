@@ -7,6 +7,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-F59E0B" alt="License: AGPLv3"></a>
 </p>
 
+<p align="center">
+  <img src="Doku/ClawTweaks Logo Handheld.PNG" width="320" alt="Logo"><br>
+</p>
+
 > ### ✅ Supported Devices
 > | Device | Status |
 > |--------|--------|
