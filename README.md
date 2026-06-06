@@ -1,4 +1,4 @@
-# ClawTweaks
+# ClawTweaks - CTW
 
 <p align="center">
   <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases/latest"><img src="https://img.shields.io/github/v/release/enterTheVoidCode/ClawTweaks?display_name=tag&label=Latest%20Release&color=7C3AED&logo=github&logoColor=white" alt="Latest Release"></a>
@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="Doku/ClawTweaks Logo Handheld.PNG" width="320" alt="Logo"><br>
+  <img src="Doku/ClawTweaks Logo Handheld.PNG" width="420" alt="Logo"><br>
 </p>
 
 > ### ✅ Supported Devices
