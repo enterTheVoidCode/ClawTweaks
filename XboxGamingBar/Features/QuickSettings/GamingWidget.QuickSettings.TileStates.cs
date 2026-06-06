@@ -116,6 +116,20 @@ namespace XboxGamingBar
                 HorizontalContentAlignment = HorizontalAlignment.Stretch
             };
 
+            // Gate the tile shimmer by the active theme (ShimmerEnabled). The "Shimmer" rectangle
+            // is a template part, only realised once the button is in the tree — set its visibility
+            // on Loaded. Tiles are rebuilt on theme change, so this re-evaluates per theme.
+            button.Loaded += (s, e) =>
+            {
+                try
+                {
+                    bool shimmerOn = WidgetThemes.TryGetValue(currentThemeName, out var th) && th.ShimmerEnabled;
+                    if (FindDescendantByName(button, "Shimmer") is FrameworkElement shim)
+                        shim.Visibility = shimmerOn ? Visibility.Visible : Visibility.Collapsed;
+                }
+                catch { }
+            };
+
             // Stretch so the state-text Canvas below gets the full tile width to scroll in
             // (otherwise the StackPanel sizes to its widest child — usually the centered label —
             // and marquees scroll in a narrow strip). Icon and label stay Center-aligned per-child
