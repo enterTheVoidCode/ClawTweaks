@@ -1,6 +1,17 @@
 # ClawTweaks
 
-> **⚠️ Beta Software** — ClawTweaks is actively developed and not yet feature-complete. Tested primarily on **MSI Claw 7 AI** and **MSI Claw 8 AI** (A1M / A2VM). Other MSI Claw models may work but are untested and could have issues. Use at your own risk.
+> ### ✅ Supported Devices
+> | Device | Status |
+> |--------|--------|
+> | **MSI Claw 8 AI+ A2VM** (Lunar Lake, MS-1T52) | ✅ Supported |
+> | **MSI Claw 7 AI+ A2VM / A2VMX** (Lunar Lake, MS-1T42) | ✅ Supported |
+> | MSI Claw A1M (Meteor Lake) | ❌ Not supported — different processor, EC and HW controller |
+> | MSI Claw 8 EX (Panther Lake) | 🔮 Possible future support — shares Intel architecture |
+> | Other MSI Claw models | ❌ Not tested / not supported |
+>
+> **The installer will abort with an error message if run on an unsupported device.**
+
+> **⚠️ Beta Software** — ClawTweaks is actively developed. Use at your own risk.
 
 A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [GoTweaks](https://github.com/corando98/GoTweaks) (a Lenovo Legion Go widget), ClawTweaks replaces AMD-specific features with Intel equivalents, adds MSI Claw-specific hardware support, and introduces a range of new features alongside a streamlined UI.
 
@@ -145,7 +156,7 @@ Windows Smart App Control may prevent the app from running correctly. If you exp
 
 ## Known Limitations
 
-- Tested only on **MSI Claw 7 AI (A1M)** and **MSI Claw 8 AI (A2VM)**. Other Claw models are untested.
+- **Only supports MSI Claw 7/8 AI+ A2VM (Lunar Lake)**. The A1M (Meteor Lake) and other variants are not supported — installation will be blocked on unsupported hardware.
 - VIIPER controller backend is not yet available (Coming Soon).
 - This is beta software — expect rough edges and report issues.
 

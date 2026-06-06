@@ -1130,31 +1130,29 @@
                                             KeyDown="FPSLimitSlider_KeyDown"/>
                                 </StackPanel>
 
-                                <!-- Right: 3-state cycle button (Off → RTSS → Intel → …) -->
-                                <Button x:Name="FPSStateCycleButton"
-                                        Grid.Column="2"
-                                        Click="FPSStateCycleButton_Click"
-                                        KeyDown="FPSStateCycleButton_KeyDown"
-                                        IsTabStop="True"
-                                        XYFocusUp="{x:Bind PerGameProfileToggle}"
-                                        XYFocusDown="{x:Bind TDPSlider}"
-                                        VerticalAlignment="Stretch"
-                                        HorizontalAlignment="Stretch"
-                                        MinWidth="60"
-                                        Padding="10,6">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <TextBlock Text="FPS"
-                                                   FontSize="10"
-                                                   HorizontalAlignment="Center"
-                                                   Foreground="#A0A0A0"
-                                                   Margin="0,0,0,3"/>
-                                        <TextBlock x:Name="FPSStateCycleText"
-                                                   Text="Off"
-                                                   FontSize="13"
-                                                   FontWeight="SemiBold"
-                                                   HorizontalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
+                                <!-- Right: 3-state cycle toggle (Off → RTSS → Intel → …)
+                                     ToggleSwitch is used instead of Button because Button controls
+                                     do not receive D-Pad focus in the Xbox Game Bar context. -->
+                                <StackPanel Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Center">
+                                    <TextBlock x:Name="FPSStateCycleText"
+                                               Text="Off"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               HorizontalAlignment="Center"
+                                               Foreground="#FFFFFF"
+                                               Margin="0,0,0,4"/>
+                                    <ToggleSwitch x:Name="FPSStateCycleButton"
+                                                 Style="{StaticResource ModernToggleStyle}"
+                                                 IsTabStop="True"
+                                                 XYFocusUp="{x:Bind PerGameProfileToggle}"
+                                                 XYFocusDown="{x:Bind TDPSlider}"
+                                                 VerticalAlignment="Center"
+                                                 Width="52"
+                                                 Toggled="FPSStateCycleButton_Toggled"
+                                                 KeyDown="FPSStateCycleButton_KeyDown"/>
+                                </StackPanel>
 
                                 <!-- Hidden legacy elements: retained for settings/profile compat; never shown -->
                                 <ToggleSwitch x:Name="FPSLimitToggle"     Grid.Column="0" Visibility="Collapsed"/>
@@ -6044,10 +6042,11 @@
 
                                 <!-- Mouse Emulation Settings -->
                                 <StackPanel x:Name="ControllerEmulationMouseSettingsPanel" Margin="0,16,0,0" Visibility="Collapsed">
-                                    <TextBlock Text="Mouse Emulation" FontSize="13" Foreground="#FFFFFF"/>
+                                <Border Style="{StaticResource CardStyle}">
+                                <StackPanel>
+                                    <TextBlock Text="Mouse Emulation" Style="{StaticResource CardTitleStyle}"/>
                                     <TextBlock Text="Fine-tune mouse behavior"
-                                               FontSize="11"
-                                               Foreground="#888888"
+                                               Style="{StaticResource CardCaptionStyle}"
                                                Margin="0,0,0,6"/>
 
                                     <Grid Margin="0,8,0,0">
@@ -6287,6 +6286,8 @@
                                             IsEnabled="False"
                                             ValueChanged="ControllerEmulationMouseGainYSlider_ValueChanged"/>
                                     </StackPanel>
+                                </StackPanel>
+                                </Border>
                                 </StackPanel>
 
                                 <!-- Joystick Output Group -->
