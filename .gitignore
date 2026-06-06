@@ -30,3 +30,6 @@ _ReSharper*/
 
 # Rider
 .idea/
+
+# Private build/packaging tooling — kept local, not published
+Build-Package.ps1
