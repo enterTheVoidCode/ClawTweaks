@@ -46,23 +46,33 @@ namespace XboxGamingBar
 
         // ── Performance tab D-Pad navigation ────────────────────────────────────
         //
-        // Spine (top→bottom):
+        // PHYSICAL / NAVIGATION SPINE (top→bottom) — FPS limiter relocated below TDP for the
+        // "test in the proven-working zone" layout:
         //   0 PerGameProfileToggle  (only when game running)
-        //   1 FPSStateCycleButton
-        //   2 TDPSlider
-        //   3 TDPBoostToggle        ←Left→ TDPBoostFPPTSliderCard
+        //   1 TDPSlider
+        //   2 FPSStateCycleButton (On/Off)  ←Left→ FPSModeToggle ←Left→ FPSLimitSlider
+        //   3 TDPBoostToggle               ←Left→ TDPBoostFPPTSliderCard
         //   4 OSPowerModeComboBox
         //   5 CPUBoostToggle
         //   6 PerformanceOverlayComboBox → (loop)
         //
-        // D-Pad Up is owned by GamingWidget_PreviewKeyDown (tunneling) via TryMoveFocus;
-        // XYFocusUp in XAML guides TryMoveFocus to the correct spine element.
-        // D-Pad Down and D-Pad Left are handled here via KeyDown (bubbling).
+        // Every spine hop is done EXPLICITLY here in KeyDown for BOTH Up and Down so it never
+        // depends on UWP spatial guessing. .Focus(Keyboard) is the controller-correct state.
         // ────────────────────────────────────────────────────────────────────────────────
 
         private void PerGameProfileToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             // Up: PreviewKeyDown + spatial nav handle it (nothing above → nav bar).
+            if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                TDPSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void TDPSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            // Up owned by PreviewKeyDown (XYFocusUp=PerGameProfileToggle). Down → FPS On/Off toggle.
             if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
                 FPSStateCycleButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
@@ -72,42 +82,62 @@ namespace XboxGamingBar
 
         private void FPSStateCycleButton_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // Up: XYFocusUp=PerGameProfileToggle in XAML → PreviewKeyDown + TryMoveFocus handle it.
-            if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            // On/Off toggle (far right). Up → TDPSlider, Down → TDPBoostToggle, Left → Mode toggle.
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
                 TDPSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                TDPBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
             else if (e.Key == Windows.System.VirtualKey.Left || e.Key == Windows.System.VirtualKey.GamepadDPadLeft)
             {
-                if (FPSLimitSlider?.IsEnabled == true)
-                {
-                    FPSLimitSlider.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                    e.Handled = true;
-                }
+                FPSModeToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void FPSModeToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            // Mode toggle (middle). Left → slider; Right/Up/Down → On/Off toggle.
+            if (e.Key == Windows.System.VirtualKey.Left || e.Key == Windows.System.VirtualKey.GamepadDPadLeft)
+            {
+                FPSLimitSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Right || e.Key == Windows.System.VirtualKey.GamepadDPadRight ||
+                     e.Key == Windows.System.VirtualKey.Up    || e.Key == Windows.System.VirtualKey.GamepadDPadUp   ||
+                     e.Key == Windows.System.VirtualKey.Down  || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                FPSStateCycleButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
             }
         }
 
         private void FPSLimitSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // Up/Down: XYFocusUp/Down=FPSStateCycleButton in XAML handle it via TryMoveFocus.
-            // Left/Right: change slider value naturally (Slider default).
-        }
-
-        private void TDPSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
-        {
-            // Up: XYFocusUp=FPSStateCycleButton in XAML → PreviewKeyDown + TryMoveFocus handle it.
-            if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            // Slider (far left). Up/Down/Right → back to Mode toggle. Left changes value (slider default).
+            if (e.Key == Windows.System.VirtualKey.Up    || e.Key == Windows.System.VirtualKey.GamepadDPadUp   ||
+                e.Key == Windows.System.VirtualKey.Down  || e.Key == Windows.System.VirtualKey.GamepadDPadDown ||
+                e.Key == Windows.System.VirtualKey.Right || e.Key == Windows.System.VirtualKey.GamepadDPadRight)
             {
-                TDPBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                FPSModeToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }
 
         private void TDPBoostToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // Up: XYFocusUp=TDPSlider in XAML (set below) → PreviewKeyDown + TryMoveFocus handle it.
-            if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            // Up → FPS On/Off toggle, Down → OSPowerMode, Left → PL2 slider.
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                FPSStateCycleButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
                 OSPowerModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
