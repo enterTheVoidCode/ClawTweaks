@@ -24,33 +24,32 @@
 
 > **⚠️ Beta Software** — ClawTweaks is actively developed. Use at your own risk.
 
-A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [GoTweaks](https://github.com/corando98/GoTweaks) (a Lenovo Legion Go widget), ClawTweaks replaces AMD-specific features with Intel equivalents, adds MSI Claw-specific hardware support, and introduces a range of new features alongside a streamlined UI.
+A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [GoTweaks](https://github.com/corando98/GoTweaks) (a Lenovo Legion Go widget), ClawTweaks replaces AMD-specific features with Intel equivalents, adds MSI Claw-specific hardware support, and introduces a wide range of new features alongside a streamlined UI.
 
 ---
 
 ## Features
 
 ### Quick Settings
-Customizable dashboard with quick-access tiles for your most-used settings.
+Customizable dashboard with quick-access tiles for  most-used settings.
 
-- Gamebar widget settings for TDP, FPS Limit, Overlay, Profile, and more
-- **Controller ↔ Mouse mode tile** — switch input mode without opening the full settings
-- Custom keyboard shortcut tiles and predefined action tiles (Brightness, Volume, Desktop, etc.)
-- Device-specific tiles appear only when the relevant hardware or software is detected
+- Gamebar widget settings for TDP, FPS Limit, Overlay, Profile, Charge Limiter and more
+- **Controller ↔ Mouse mode** — switch input mode quickly via tile ore controller shortcut
+- Custom keyboard shortcut tiles, predefined and user created action tiles (Brightness, Volume, Desktop,Launch Apps and own EXE (even Powershell), Gyro, Media: Play, Next Track etc.)
 
 <p align="center">
   <img src="Doku/Homepage/1_Overview_Tiles.png" width="320" alt="Overview — Tiles"><br>
   <em>Overview — Tiles</em>
 </p>
 
-**In-game controller shortcuts:**
-Every tile can be assigned a controller button combo that triggers it directly while in a game — without opening the Game Bar. Examples:
+**Controller shortcut support for every tile an in App-Actions:**
+ You can adjust TDP, brightness, FPS cap, overlay level, or trigger any custom action mid-game using only the controller — no interruption to gameplay.
+ Examples:
 - `M1 + D-Pad Up/Down` — raise or lower TDP by 1W on the fly
 - `M1 + D-Pad Left/Right` — cycle FPS limit up or down
 - `Select + A/B` — toggle brightness up/down
 - Any combination of 2+ buttons can be assigned to any tile
 
-This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger any custom action mid-game using only the controller — no interruption to gameplay.
 
 <p align="center">
   <img src="Doku/Homepage/2_Overview_Shortcuts.png" width="380" alt="Overview — Shortcuts"><br>
@@ -92,12 +91,12 @@ This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger an
 
 ### Controller (MSI Claw)
 
-ClawTweaks implements software controller emulation: it hides the physical controller via HidHide and presents a clean virtual Xbox 360 controller to games and Steam. All features run through this virtual device.
+ClawTweaks implements software controller emulation: it hides the physical controller via HidHide. All  customfeatures run through this virtual device.
 
 **Button remapping — per game:**
 Every hardware button on the Claw is remappable independently for each game. Profiles switch automatically when a game launches.
 - **M1, M2** (right side back buttons) — remap to any gamepad button, D-pad direction, stick click, or keyboard/mouse input
-- **Left front OEM button** — assign a **single-click** action and an optional **double-click** action (with adjustable detection window), e.g. toggle Controller/Mouse mode on single press and cycle through apps on double press
+- **Left front OEM button** — assign a **single-click** action and an optional **double-click** action (with adjustable detection window), e.g. toggle Controller/Mouse mode on single press and cycle through apps on double press. By default single click switches between Controller and Mouse mode
 - All remaps are per-game: M1 can be "Jump" in one game and "Dodge" in another, applied automatically
 
 <p align="center">
@@ -120,12 +119,11 @@ Every hardware button on the Claw is remappable independently for each game. Pro
 
 **Controller ↔ Mouse mode:**
 - **Controller mode** (default) — full virtual gamepad, all inputs forwarded
-- **Mouse mode** — right stick → cursor, left stick → scroll, LB/RB → mouse buttons
-- Switch instantly via the Quick Settings tile without opening the full widget
+- **Mouse mode** — left stick → scroll, right stick → cursor, , LT/RT → mouse buttons
 
 **Technical:**
-- Virtual Xbox 360 controller via ViGEm (DInput path)
-- HidHide hides only the gamepad interface — keyboard and Win+G stay fully functional
+- Virtual Xbox 360 controller via ViGEm (DInput path). (VIIPER Support coming soon).
+- HidHide hides only the hw gamepad interface —  Win+G/Gamebar and long click App overview stay fully functional
 - MSI Center M detection — emulation suspends automatically when MSI Center M is active
 
 > Requires [ViGEmBus](https://github.com/nefarius/ViGEmBus) and [HidHide](https://github.com/nefarius/HidHide).
@@ -187,11 +185,9 @@ Custom fan curve written directly to the EC (Lunar Lake).
 ### Battery Charge Limit (MSI Claw)
 Cap the battery charge level to extend long-term battery lifespan.
 
-- Granular limit slider, written to the EC via ACPI/WMI (firmware-level)
+- Granular limit slider, written to  EC via ACPI/WMI (firmware-level)
 - Enforced by the EC even while the device is asleep or shut down (as long as it stays plugged in)
 - Re-applied automatically on helper start / reboot, so it survives an EC reset
-- **Verify** button reads the live value back from the EC
-- Quick Settings tile + in-game shortcut once it has been set up in Settings
 
 <p align="center">
   <img src="Doku/Homepage/9_Charge%20Limitter.png" width="480" alt="Charge Limiter"><br>
@@ -202,46 +198,30 @@ Cap the battery charge level to extend long-term battery lifespan.
 
 ## Installation
 
-Download the latest release, extract the ZIP, and run `Install.ps1` with PowerShell (right-click → **Run with PowerShell**). The script handles everything automatically.
-
-See the release page for step-by-step instructions.
+Download the latest release, extract the ZIP, and run `Install.bat`. The script handles everything automatically. (See the release page for step-by-step instructions).
 
 ### Enable the Widget
 
 1. Open Xbox Game Bar (`Win + G`)
 2. Click the **Widgets** menu
 3. Find and enable **"Gaming"**
-
-### Enable Game Detection
-
-Required for per-game profiles:
-
-1. Open Xbox Game Bar → **Settings** → **More Settings**
-2. Find **Gaming** widget
-3. Enable **"Know which game or app is in focus"**
-
+4. Confirm UAC so that CTW can launch as admin afte reboot
 ---
 
 ## Requirements
 
-- Windows 10/11
+- Windows 11
 - Xbox Game Bar
 - **For controller emulation:** [ViGEmBus](https://github.com/nefarius/ViGEmBus) + [HidHide](https://github.com/nefarius/HidHide)
 - **Optional:**
   - [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) — required for OSD overlay and RTSS FPS limiter
   - [PawnIO](https://github.com/SuporteTI/PawnIO) — required for extended sensors (fan speed, GPU power draw on some devices)
   - Lossless Scaling — for scaling integration
-
-### Smart App Control
-
-Windows Smart App Control may prevent the app from running correctly. If you experience issues, disable Smart App Control in Windows Security settings.
-
 ---
 
 ## Known Limitations
 
 - **Only supports MSI Claw 7/8 AI+ A2VM (Lunar Lake)**. The A1M (Meteor Lake) and other variants are not supported — installation will be blocked on unsupported hardware.
-- VIIPER controller backend is not yet available (Coming Soon).
 - This is beta software — expect rough edges and report issues.
 
 ---
@@ -261,7 +241,7 @@ Windows Smart App Control may prevent the app from running correctly. If you exp
 
 Based on [GoTweaks](https://github.com/corando98/GoTweaks) by [namquang93](https://github.com/namquang93) / [corando98](https://github.com/corando98).
 
-Controller emulation and gyro implementation adapted from [Handheld Companion](https://github.com/Valkirie/HandheldCompanion).
+Some Controller emulation and gyro implementation parts adapted from [Handheld Companion](https://github.com/Valkirie/HandheldCompanion).
 
 ## License
 
