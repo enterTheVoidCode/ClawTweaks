@@ -1219,6 +1219,7 @@
                                             StepFrequency="1" TickFrequency="1"
                                             TickPlacement="Outside" SnapsTo="StepValues"
                                             IsEnabled="False"
+                                            IsThumbToolTipEnabled="False"
                                             XYFocusUp="{x:Bind FPSModeToggle}"
                                             XYFocusDown="{x:Bind FPSModeToggle}"
                                             XYFocusRight="{x:Bind FPSModeToggle}"
@@ -1226,7 +1227,11 @@
                                     <Grid x:Name="FPSLimitScaleLabels" Margin="0,2,0,0"/>
                                 </StackPanel>
 
-                                <!-- Row 1, Col 2: mode toggle (middle) — DIRECT Grid child -->
+                                <!-- Row 1, Col 2: mode toggle (middle) — DIRECT Grid child.
+                                     Deliberately a DIFFERENT colour/look from the accent-coloured
+                                     On/Off toggle so the two read as distinct controls: this one is
+                                     a violet "mode" switch (RTSS ↔ Intel). Local resources override
+                                     the shared accent brushes for this instance only. -->
                                 <ToggleSwitch x:Name="FPSModeToggle" Grid.Row="1" Grid.Column="2"
                                               Style="{StaticResource ModernToggleStyle}"
                                               Width="52" VerticalAlignment="Center"
@@ -1236,7 +1241,21 @@
                                               XYFocusUp="{x:Bind FPSStateCycleButton}"
                                               XYFocusDown="{x:Bind FPSStateCycleButton}"
                                               Toggled="FPSModeToggle_Toggled"
-                                              KeyDown="FPSModeToggle_KeyDown"/>
+                                              KeyDown="FPSModeToggle_KeyDown">
+                                    <ToggleSwitch.Resources>
+                                        <!-- ON state: violet (distinct from the accent On/Off toggle) -->
+                                        <SolidColorBrush x:Key="ToggleSwitchFillOn"              Color="#9B6CF0"/>
+                                        <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver"   Color="#AB80F4"/>
+                                        <SolidColorBrush x:Key="ToggleSwitchFillOnPressed"       Color="#8A5BE0"/>
+                                        <SolidColorBrush x:Key="ToggleSwitchStrokeOn"            Color="#9B6CF0"/>
+                                        <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#AB80F4"/>
+                                        <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed"     Color="#8A5BE0"/>
+                                        <!-- OFF state: muted violet-tinted track so it differs even when off -->
+                                        <SolidColorBrush x:Key="ToggleSwitchFillOff"             Color="#3A335A"/>
+                                        <SolidColorBrush x:Key="ToggleSwitchFillOffPointerOver"  Color="#463E6B"/>
+                                        <SolidColorBrush x:Key="ToggleSwitchStrokeOff"           Color="#6B5FA0"/>
+                                    </ToggleSwitch.Resources>
+                                </ToggleSwitch>
 
                                 <!-- Row 1, Col 4: on/off toggle (far right) — DIRECT Grid child.
                                      Spine: Up → Per-Game profile (or nav), Down → TDP slider. -->
