@@ -1,5 +1,12 @@
 # ClawTweaks
 
+<p align="center">
+  <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases/latest"><img src="https://img.shields.io/github/v/release/enterTheVoidCode/ClawTweaks?display_name=tag&label=Latest%20Release&color=7C3AED&logo=github&logoColor=white" alt="Latest Release"></a>
+  <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases"><img src="https://img.shields.io/github/downloads/enterTheVoidCode/ClawTweaks/total?label=Downloads&color=22C55E" alt="Downloads"></a>
+  <a href="https://github.com/enterTheVoidCode/ClawTweaks/wiki"><img src="https://img.shields.io/badge/Wiki%20%26%20FAQ-Read%20the%20docs-2563EB?logo=readthedocs&logoColor=white" alt="Wiki & FAQ"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-F59E0B" alt="License: AGPLv3"></a>
+</p>
+
 > ### ✅ Supported Devices
 > | Device | Status |
 > |--------|--------|
@@ -27,6 +34,11 @@ Customizable dashboard with quick-access tiles for your most-used settings.
 - Custom keyboard shortcut tiles and predefined action tiles (Brightness, Volume, Desktop, etc.)
 - Device-specific tiles appear only when the relevant hardware or software is detected
 
+<p align="center">
+  <img src="Doku/Homepage/1_Overview_Tiles.png" width="320" alt="Overview — Tiles"><br>
+  <em>Overview — Tiles</em>
+</p>
+
 **In-game controller shortcuts:**
 Every tile can be assigned a controller button combo that triggers it directly while in a game — without opening the Game Bar. Examples:
 - `M1 + D-Pad Up/Down` — raise or lower TDP by 1W on the fly
@@ -35,6 +47,11 @@ Every tile can be assigned a controller button combo that triggers it directly w
 - Any combination of 2+ buttons can be assigned to any tile
 
 This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger any custom action mid-game using only the controller — no interruption to gameplay.
+
+<p align="center">
+  <img src="Doku/Homepage/2_Overview_Shortcuts.png" width="380" alt="Overview — Shortcuts"><br>
+  <em>Overview — Shortcuts: assign a controller button combo to any tile</em>
+</p>
 
 ---
 
@@ -53,6 +70,20 @@ This means you can adjust TDP, brightness, FPS cap, overlay level, or trigger an
 - CPU Boost enable/disable
 - OS Power Mode (Efficiency / Balanced / Performance)
 
+<p align="center">
+  <img src="Doku/Homepage/3_Global%20performance%20Profiles.png" width="360" alt="Global performance Profiles"><br>
+  <em>Global performance Profiles — FPS Limit, TDP Power Limit and Overboost (PL2)</em>
+</p>
+
+**Display & Color:**
+- Per-profile **Saturation / Hue / Contrast** applied live to the running game
+- Saved as part of the performance & display profile (global or per game)
+
+<p align="center">
+  <img src="Doku/Homepage/5_Per%20Game%20Color%20and%20Display%20Settings.png" width="300" alt="Per Game Color and Display Settings"><br>
+  <em>Per Game Color and Display Settings</em>
+</p>
+
 ---
 
 ### Controller (MSI Claw)
@@ -61,9 +92,20 @@ ClawTweaks implements software controller emulation: it hides the physical contr
 
 **Button remapping — per game:**
 Every hardware button on the Claw is remappable independently for each game. Profiles switch automatically when a game launches.
-- **M1, M2** (right side back buttons) — remap to any gamepad button, D-pad direction, or stick click
-- **Left front OEM button** — remap to any gamepad action
+- **M1, M2** (right side back buttons) — remap to any gamepad button, D-pad direction, stick click, or keyboard/mouse input
+- **Left front OEM button** — assign a **single-click** action and an optional **double-click** action (with adjustable detection window), e.g. toggle Controller/Mouse mode on single press and cycle through apps on double press
 - All remaps are per-game: M1 can be "Jump" in one game and "Dodge" in another, applied automatically
+
+<p align="center">
+  <img src="Doku/Homepage/2_Front%20MSI%20Button%20Single%20and%20Double%20Click%20Actions.png" width="420" alt="Front MSI Button — Single and Double Click Actions"><br>
+  <em>Front MSI Button — Single and Double Click Actions</em>
+</p>
+
+<p align="center">
+  <img src="Doku/Homepage/4_Global%20Controller%20Profiles.png" width="340" alt="Global Controller Profiles">
+  <img src="Doku/Homepage/4_Per%20Game%20Controller%20Profiles.png" width="340" alt="Per Game Controller Profiles"><br>
+  <em>Global Controller Profiles (left) vs Per Game Controller Profiles (right) — incl. keyboard/mouse remaps</em>
+</p>
 
 **Gyroscope — per game:**
 - Gyro-to-right-stick — works with any game that supports stick-based aim (gyro aim in Steam, or natively)
@@ -94,6 +136,13 @@ Automatically apply your preferred settings the moment a game launches — no ma
 - **Default game profile** — applies a single preset to any unknown game (useful for "always cap FPS + set TDP to X for every game I haven't configured yet")
 - Profile card shown in the widget header while a game is active, with the active profile name
 - Per-game controller button remapping — M1/M2 behave differently in each game without touching global settings
+- **Per power source (AC/DC)** — optionally store separate values for plugged-in (AC) vs battery (DC) within a profile
+
+<p align="center">
+  <img src="Doku/Homepage/3_Global%20vs%20Per%20Game%20Profile%20comparison.png" width="340" alt="Global vs Per Game Profile comparison">
+  <img src="Doku/Homepage/3.5_Per%20Game%20AC%20DC%20Profiles.png" width="340" alt="Per Game AC DC Profiles"><br>
+  <em>Global vs Per Game Profile comparison (left) &nbsp;·&nbsp; Per Game AC / DC Profiles (right)</em>
+</p>
 
 ---
 
@@ -113,6 +162,37 @@ Real-time on-screen display powered by RivaTuner Statistics Server.
 - Launch and manage Lossless Scaling from the widget
 - Configure scaling type, factor, and frame generation mode (LSFG2 / LSFG3)
 - Per-profile configurations
+
+---
+
+### Fan Control (MSI Claw)
+Custom fan curve written directly to the EC (Lunar Lake).
+
+- Drag-to-edit fan curve with presets (Quiet / Default / Aggressive / Custom)
+- **Check applied values** — reads the live EC bytes back and verifies they match the graph
+- Live CPU package temperature indicator on the curve
+- Turn off to hand control back to MSI's firmware *(per-game fan profiles — coming soon; the curve is currently global)*
+
+<p align="center">
+  <img src="Doku/Homepage/6_Fan%20Settings%20with%20EC%20Value%20Check.%20Per%20Game%20Coming%20soon.png" width="360" alt="Fan Settings with EC Value Check (Per Game coming soon)"><br>
+  <em>Fan Settings with EC Value Check · Per Game coming soon</em>
+</p>
+
+---
+
+### Battery Charge Limit (MSI Claw)
+Cap the battery charge level to extend long-term battery lifespan.
+
+- Granular limit slider, written to the EC via ACPI/WMI (firmware-level)
+- Enforced by the EC even while the device is asleep or shut down (as long as it stays plugged in)
+- Re-applied automatically on helper start / reboot, so it survives an EC reset
+- **Verify** button reads the live value back from the EC
+- Quick Settings tile + in-game shortcut once it has been set up in Settings
+
+<p align="center">
+  <img src="Doku/Homepage/9_Charge%20Limitter.png" width="480" alt="Charge Limiter"><br>
+  <em>Charge Limiter</em>
+</p>
 
 ---
 
