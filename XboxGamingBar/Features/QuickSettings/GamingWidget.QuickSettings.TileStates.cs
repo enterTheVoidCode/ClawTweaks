@@ -123,8 +123,8 @@ namespace XboxGamingBar
             {
                 try
                 {
-                    bool shimmerOn = WidgetThemes.TryGetValue(currentThemeName, out var th) && th.ShimmerEnabled;
-                    var vis = shimmerOn ? Visibility.Visible : Visibility.Collapsed;
+                    // Glass look is a global, theme-independent, user toggle (default on).
+                    var vis = IsGlassEffectEnabled() ? Visibility.Visible : Visibility.Collapsed;
                     if (FindDescendantByName(button, "Shimmer")   is FrameworkElement shim)  shim.Visibility  = vis;
                     if (FindDescendantByName(button, "GlassSheen") is FrameworkElement sheen) sheen.Visibility = vis;
                 }
