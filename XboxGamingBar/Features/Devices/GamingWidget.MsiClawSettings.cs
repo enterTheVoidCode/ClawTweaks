@@ -34,7 +34,11 @@ namespace XboxGamingBar
         // ── State ───────────────────────────────────────────────────────────────────
         private bool   _msiLedExpanded       = false;
         private bool   _msiLedLoading        = false;
-        private bool   _msiChargeLimitLoading = false;
+        // Start TRUE so the Slider's XAML-default ValueChanged (Value="80") and the ToggleSwitch's
+        // default Toggled — both raised during page construction, BEFORE RestoreMsiChargeLimitFromSettings
+        // runs — are ignored. Otherwise that spurious 80 clobbered the stored percent and got pushed to
+        // the helper on every startup, resetting a user's 95% back to 80%. Restore clears it when done.
+        private bool   _msiChargeLimitLoading = true;
 
         // Debounce timer so dragging the color wheel doesn't flood the helper
         private Windows.UI.Xaml.DispatcherTimer _msiLedDebounceTimer;
