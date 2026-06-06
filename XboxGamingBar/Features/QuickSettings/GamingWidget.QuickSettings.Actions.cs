@@ -915,8 +915,13 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Toggle fullscreen via F11
-        /// Uses Alt+Tab first to focus the game
+        /// Toggle fullscreen for the foreground app. Sends BOTH of the two common
+        /// fullscreen shortcuts so it works across the widest range of apps on a handheld:
+        ///   • F11      — browsers, file managers, many apps and some games
+        ///   • Alt+Enter — emulators (RetroArch/DOSBox/MAME), terminals and exclusive-fullscreen games
+        /// One of them is a no-op in any given app, so the surviving one toggles fullscreen.
+        /// (Edge case: an app that binds *both* would toggle twice and stay as-is — rare, and
+        /// not a typical handheld foreground.) Alt+Tab first focuses the game away from Game Bar.
         /// </summary>
         private async void ToggleFullscreen()
         {
@@ -929,9 +934,16 @@ namespace XboxGamingBar
                 // Wait for focus switch
                 await Task.Delay(200);
 
-                // F11 is the most universal fullscreen toggle
+                // F11 — the soft/universal fullscreen toggle (browsers, apps, many games)
                 _ = SendKeyboardShortcutViaHelper("F11");
-                Logger.Info("Fullscreen toggled via F11");
+                Logger.Info("Fullscreen: F11 sent");
+
+                // Small gap so the two shortcuts don't collide in the input queue
+                await Task.Delay(120);
+
+                // Alt+Enter — emulators, terminals and exclusive-fullscreen games
+                _ = SendKeyboardShortcutViaHelper("Alt+Enter");
+                Logger.Info("Fullscreen: Alt+Enter sent");
             }
             catch (Exception ex)
             {
