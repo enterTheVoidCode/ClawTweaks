@@ -124,8 +124,9 @@ namespace XboxGamingBar
                 try
                 {
                     bool shimmerOn = WidgetThemes.TryGetValue(currentThemeName, out var th) && th.ShimmerEnabled;
-                    if (FindDescendantByName(button, "Shimmer") is FrameworkElement shim)
-                        shim.Visibility = shimmerOn ? Visibility.Visible : Visibility.Collapsed;
+                    var vis = shimmerOn ? Visibility.Visible : Visibility.Collapsed;
+                    if (FindDescendantByName(button, "Shimmer")   is FrameworkElement shim)  shim.Visibility  = vis;
+                    if (FindDescendantByName(button, "GlassSheen") is FrameworkElement sheen) sheen.Visibility = vis;
                 }
                 catch { }
             };
