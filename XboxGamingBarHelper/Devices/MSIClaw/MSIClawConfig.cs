@@ -73,7 +73,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         // Feature flags
         public override bool SupportsWmiTdp             => false;  // TDP via Intel IGCL, not WMI
         public override bool SupportsControllerRemap    => true;   // XInput controller emulation works
-        public override bool SupportsRgbLighting        => false;  // No on-controller RGB (handled by IGCL separately)
+        public override bool SupportsRgbLighting        => true;   // Controller LED via HID vendor commands (firmware-version-aware)
         public override bool SupportsGyro               => true;   // Built-in IMU present
         public override bool HasTouchpad                => false;  // No touchpad
         public override bool HasScrollWheel             => false;  // No scroll wheel
