@@ -1381,13 +1381,17 @@ namespace XboxGamingBar
             bool isOn    = FPSLimitToggle?.IsOn == true;
             bool isIntel = fpsCapMode?.Value == 1;
 
-            // Label above the toggle (always visible)
+            // Mode label always shows the selected mode (RTSS / Intel) — independent of on/off.
             if (FPSStateCycleText != null)
-                FPSStateCycleText.Text = !isOn ? "Off" : (isIntel ? "Intel" : "RTSS");
+                FPSStateCycleText.Text = isIntel ? "Intel" : "RTSS";
 
-            // Keep ToggleSwitch.IsOn in sync without triggering the Toggled cycle handler
+            // Keep both toggles in sync without triggering their Toggled handlers.
             _fpsCycleToggling = true;
-            try { if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = isOn; }
+            try
+            {
+                if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = isOn;      // On/Off
+                if (FPSModeToggle       != null) FPSModeToggle.IsOn       = isIntel;   // Off=RTSS, On=Intel
+            }
             finally { _fpsCycleToggling = false; }
 
             if (FPSLimitSlider == null) return;
@@ -1444,7 +1448,8 @@ namespace XboxGamingBar
                             FPSLimitSlider.Value     = FpsRtssValues.Length - 1;
                             FPSLimitSlider.IsEnabled = false;
                         }
-                        if (FPSStateCycleText    != null) FPSStateCycleText.Text = "Off";
+                        // Mode label keeps showing the last-selected mode; only the On/Off toggle goes off.
+                        if (FPSStateCycleText   != null) FPSStateCycleText.Text = (fpsCapMode?.Value == 1) ? "Intel" : "RTSS";
                         if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = false;
                         if (FPSLimitValue       != null) FPSLimitValue.Text = "";
                         fpsCapMode?.SetValue(fpsCapMode?.Value ?? 0); // preserve mode for next activation
@@ -1472,6 +1477,7 @@ namespace XboxGamingBar
                             fpsLimit?.SetValue(fps);
                             if (FPSStateCycleText    != null) FPSStateCycleText.Text = "RTSS";
                             if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = true;
+                            if (FPSModeToggle       != null) FPSModeToggle.IsOn = false; // RTSS
                             if (FPSLimitValue       != null) FPSLimitValue.Text = $"{fps} FPS";
                         }
                         break;
@@ -1499,6 +1505,7 @@ namespace XboxGamingBar
                             string fpsTxt = FpsIntelValues[idx] + " FPS";
                             if (FPSStateCycleText    != null) FPSStateCycleText.Text = "Intel";
                             if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = true;
+                            if (FPSModeToggle       != null) FPSModeToggle.IsOn = true; // Intel
                             if (FPSLimitValue       != null) FPSLimitValue.Text = fpsTxt;
                         }
                         break;
@@ -1510,25 +1517,55 @@ namespace XboxGamingBar
                 SaveCurrentSettingsToProfile(currentProfileName);
         }
 
-        // Guard: prevents SyncFpsStateButton / ApplyFpsState from triggering Toggled re-entrantly
-        // when they programmatically update FPSStateCycleButton.IsOn.
+        // Guard: prevents SyncFpsStateButton / ApplyFpsState from triggering the Toggled
+        // handlers re-entrantly when they programmatically update the toggles' IsOn.
         private bool _fpsCycleToggling = false;
 
         /// <summary>
-        /// 3-state cycle toggle: Off → RTSS → Intel → Off → …
-        /// The ToggleSwitch replaces a plain Button because Button controls do not receive
-        /// D-Pad focus in the Xbox Game Bar widget context.
-        /// isApplyingHelperUpdate and _fpsCycleToggling prevent re-entrant cycles when
-        /// ApplyFpsState/SyncFpsStateButton programmatically update IsOn.
+        /// On/Off toggle (far right). Turning ON enables the limiter in the currently selected
+        /// mode (RTSS or Intel, per FPSModeToggle); turning OFF disables it entirely.
         /// </summary>
         private void FPSStateCycleButton_Toggled(object sender, RoutedEventArgs e)
         {
             if (_fpsCycleToggling || isApplyingHelperUpdate || isLoadingProfile) return;
-            int next = GetNextFpsState(GetCurrentFpsState());
-            ApplyFpsState(next, isUserTransition: true);
+
+            bool on = FPSStateCycleButton?.IsOn == true;
+            if (!on)
+            {
+                ApplyFpsState(0, isUserTransition: true);          // Off
+            }
+            else
+            {
+                bool intel = FPSModeToggle?.IsOn == true;
+                ApplyFpsState(intel ? 2 : 1, isUserTransition: true); // enable in current mode
+            }
         }
 
-        // ── end FPS-state cycle button ─────────────────────────────────────────────
+        /// <summary>
+        /// Mode toggle (middle): Off = RTSS, On = Intel. Only changes the active limiter when
+        /// the On/Off toggle is on; otherwise it just records the mode preference (reflected by
+        /// the toggle position and applied next time the limiter is switched on).
+        /// </summary>
+        private void FPSModeToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_fpsCycleToggling || isApplyingHelperUpdate || isLoadingProfile) return;
+
+            bool intel = FPSModeToggle?.IsOn == true;
+
+            if (FPSStateCycleButton?.IsOn == true)
+            {
+                // Limiter is active — switch the live mode.
+                ApplyFpsState(intel ? 2 : 1, isUserTransition: true);
+            }
+            else
+            {
+                // Limiter off — just record preference + update the mode label.
+                fpsCapMode?.SetValue(intel ? 1 : 0);
+                if (FPSStateCycleText != null) FPSStateCycleText.Text = intel ? "Intel" : "RTSS";
+            }
+        }
+
+        // ── end FPS On/Off + Mode toggles ──────────────────────────────────────────
 
         /// <summary>
         /// FPS Limit toggle changed - set FPS limit to slider value or 0 (off)
