@@ -238,7 +238,7 @@ namespace XboxGamingBarHelper.Labs
         private volatile int   _mouseModeThreshold   = 15;
 
         // Mouse mode button/stick mapping — configurable via Set* methods.
-        // Button indices: 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS
+        // Button indices: 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS,9=LT,10=RT
         // Stick indices:  0=Right,1=Left (cursor); 0=Left,1=Right (scroll)
         private volatile int _mouseLeftClickButton  = 6; // default RB
         private volatile int _mouseRightClickButton = 5; // default LB
@@ -366,13 +366,13 @@ namespace XboxGamingBarHelper.Labs
 
         public void SetMouseLeftClickButton(int button)
         {
-            _mouseLeftClickButton = Math.Max(0, Math.Min(8, button));
+            _mouseLeftClickButton = Math.Max(0, Math.Min(10, button)); // 0-10: None…RS,LT,RT
             Logger.Info($"ClawButtonMonitor: MouseMode left-click button → {_mouseLeftClickButton}");
         }
 
         public void SetMouseRightClickButton(int button)
         {
-            _mouseRightClickButton = Math.Max(0, Math.Min(8, button));
+            _mouseRightClickButton = Math.Max(0, Math.Min(10, button)); // 0-10: None…RS,LT,RT
             Logger.Info($"ClawButtonMonitor: MouseMode right-click button → {_mouseRightClickButton}");
         }
 
@@ -1038,20 +1038,25 @@ namespace XboxGamingBarHelper.Labs
         /// MapRange(raw, 0, 65535, -32768, 32767)  or  MapRange(raw, 65535, 0, -32768, 32767).
         /// 1:1 from HC InputUtils.MapRange used in DClawController.Tick().
         /// </summary>
-        // Button index: 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS
+        // Button index: 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS,9=LT,10=RT
+        // LT/RT: ltrig/rtrig are DirectInput RotationX/Y mapped to 0–255 via MapToTrigger().
+        // Threshold 30 matches HC fork's XInput TriggerThreshold constant exactly.
+        private const byte MouseTriggerThreshold = 30;
         private static bool GetMouseModeButton(int buttonIndex, ushort xiBtns, byte ltrig, byte rtrig)
         {
             return buttonIndex switch
             {
-                1 => (xiBtns & XI_A)    != 0,
-                2 => (xiBtns & XI_B)    != 0,
-                3 => (xiBtns & XI_X)    != 0,
-                4 => (xiBtns & XI_Y)    != 0,
-                5 => (xiBtns & XI_LB)   != 0,
-                6 => (xiBtns & XI_RB)   != 0,
-                7 => (xiBtns & XI_LS)   != 0,
-                8 => (xiBtns & XI_RS)   != 0,
-                _ => false,
+                1  => (xiBtns & XI_A)  != 0,
+                2  => (xiBtns & XI_B)  != 0,
+                3  => (xiBtns & XI_X)  != 0,
+                4  => (xiBtns & XI_Y)  != 0,
+                5  => (xiBtns & XI_LB) != 0,
+                6  => (xiBtns & XI_RB) != 0,
+                7  => (xiBtns & XI_LS) != 0,
+                8  => (xiBtns & XI_RS) != 0,
+                9  => ltrig  > MouseTriggerThreshold, // LT — HC TriggerThreshold = 30
+                10 => rtrig  > MouseTriggerThreshold, // RT — HC TriggerThreshold = 30
+                _  => false,
             };
         }
 
