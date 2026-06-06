@@ -1115,6 +1115,90 @@
                         <StackPanel x:Name="FPSLimiterIntelPanel" Visibility="Collapsed"/>
                         <TextBlock  x:Name="FPSLimitCaption" Text="" Style="{StaticResource CardCaptionStyle}" Visibility="Collapsed"/>
 
+                        <!-- ════════════════════════════════════════════════════════════════════
+                             FPS Limiter — first card (spine position 1, after Per-Game profile).
+                             3-part split: [ slider (left) | Mode toggle (middle) | On/Off toggle (right) ].
+                             Both toggles are DIRECT Grid children (the structure that receives D-pad
+                             focus). Vertical spine targets only the On/Off toggle; Mode + slider are
+                             reached via D-pad Left. Spine: PerGameProfile → FPS On/Off → TDPSlider.
+                             ════════════════════════════════════════════════════════════════════ -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Row 0: labels -->
+                                <Grid Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="FPS Limit"
+                                               Style="{StaticResource CardTitleStyle}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="FPSLimitValue" Grid.Column="1"
+                                               Text="" FontSize="14" Foreground="#4CAF50"
+                                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                </Grid>
+                                <TextBlock x:Name="FPSStateCycleText" Grid.Row="0" Grid.Column="2"
+                                           Text="RTSS" FontSize="11" Foreground="#A0A0A0"
+                                           HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Grid.Row="0" Grid.Column="4"
+                                           Text="On / Off" FontSize="11" Foreground="#A0A0A0"
+                                           HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                           Margin="0,0,0,4"/>
+
+                                <!-- Row 1, Col 0: limiter slider (far left) + per-step FPS scale labels -->
+                                <StackPanel Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">
+                                    <Slider x:Name="FPSLimitSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="6"
+                                            StepFrequency="1" TickFrequency="1"
+                                            TickPlacement="Outside" SnapsTo="StepValues"
+                                            IsEnabled="False"
+                                            XYFocusUp="{x:Bind FPSModeToggle}"
+                                            XYFocusDown="{x:Bind FPSModeToggle}"
+                                            XYFocusRight="{x:Bind FPSModeToggle}"
+                                            KeyDown="FPSLimitSlider_KeyDown"/>
+                                    <Grid x:Name="FPSLimitScaleLabels" Margin="0,2,0,0"/>
+                                </StackPanel>
+
+                                <!-- Row 1, Col 2: mode toggle (middle) — DIRECT Grid child -->
+                                <ToggleSwitch x:Name="FPSModeToggle" Grid.Row="1" Grid.Column="2"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              Width="52" VerticalAlignment="Center"
+                                              IsTabStop="True"
+                                              XYFocusLeft="{x:Bind FPSLimitSlider}"
+                                              XYFocusRight="{x:Bind FPSStateCycleButton}"
+                                              XYFocusUp="{x:Bind FPSStateCycleButton}"
+                                              XYFocusDown="{x:Bind FPSStateCycleButton}"
+                                              Toggled="FPSModeToggle_Toggled"
+                                              KeyDown="FPSModeToggle_KeyDown"/>
+
+                                <!-- Row 1, Col 4: on/off toggle (far right) — DIRECT Grid child.
+                                     Spine: Up → Per-Game profile (or nav), Down → TDP slider. -->
+                                <ToggleSwitch x:Name="FPSStateCycleButton" Grid.Row="1" Grid.Column="4"
+                                              Style="{StaticResource ModernToggleStyle}"
+                                              Width="52" VerticalAlignment="Center"
+                                              IsTabStop="True"
+                                              XYFocusUp="{x:Bind PerGameProfileToggle}"
+                                              XYFocusDown="{x:Bind TDPSlider}"
+                                              XYFocusLeft="{x:Bind FPSModeToggle}"
+                                              Toggled="FPSStateCycleButton_Toggled"
+                                              KeyDown="FPSStateCycleButton_KeyDown"/>
+                            </Grid>
+                        </Border>
+
                         <!-- TDP Mode Card (Legion only) — hidden for MSI Claw -->
                         <Border x:Name="TDPModeCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
@@ -1539,8 +1623,8 @@
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
                                         IsEnabled="False" Value="-5"
-                                        XYFocusUp="{x:Bind PerGameProfileToggle}"
-                                        XYFocusDown="{x:Bind FPSStateCycleButton}"
+                                        XYFocusUp="{x:Bind FPSStateCycleButton}"
+                                        XYFocusDown="{x:Bind TDPBoostToggle}"
                                         ValueChanged="TDPSlider_ValueChanged_UpdateDisplay"
                                         KeyDown="TDPSlider_KeyDown"/>
                                 <Grid Margin="0,4,0,0">
@@ -1563,94 +1647,6 @@
                                            TextWrapping="Wrap"
                                            Visibility="Collapsed"/>
                             </StackPanel>
-                        </Border>
-
-                        <!-- ════════════════════════════════════════════════════════════════════
-                             FPS Limiter (NEW) — 3-part split, rebuilt fresh in the proven-working
-                             navigation zone (between TDP and TDP Boost).
-                             Layout:  [ slider (far left) | Mode toggle (middle) | On/Off toggle (far right) ]
-                             BOTH toggles are DIRECT children of the Grid (the only structure that
-                             receives D-Pad focus, proven by TDPBoostToggle). Labels live in a
-                             separate row so they never wrap the toggles.
-                             Vertical nav reaches only the On/Off toggle; Mode + slider via D-Pad Left.
-                             ════════════════════════════════════════════════════════════════════ -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="16"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="16"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="Auto"/>
-                                </Grid.RowDefinitions>
-
-                                <!-- Row 0: labels -->
-                                <Grid Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="FPS Limit"
-                                               Style="{StaticResource CardTitleStyle}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock x:Name="FPSLimitValue" Grid.Column="1"
-                                               Text="" FontSize="14" Foreground="#4CAF50"
-                                               FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                </Grid>
-                                <TextBlock x:Name="FPSStateCycleText" Grid.Row="0" Grid.Column="2"
-                                           Text="RTSS" FontSize="11" Foreground="#A0A0A0"
-                                           HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                                           Margin="0,0,0,4"/>
-                                <TextBlock Grid.Row="0" Grid.Column="4"
-                                           Text="On / Off" FontSize="11" Foreground="#A0A0A0"
-                                           HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                                           Margin="0,0,0,4"/>
-
-                                <!-- Row 1, Col 0: limiter slider (far left) + per-step FPS scale labels -->
-                                <StackPanel Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">
-                                    <Slider x:Name="FPSLimitSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="6"
-                                            StepFrequency="1" TickFrequency="1"
-                                            TickPlacement="Outside" SnapsTo="StepValues"
-                                            IsEnabled="False"
-                                            XYFocusUp="{x:Bind FPSModeToggle}"
-                                            XYFocusDown="{x:Bind FPSModeToggle}"
-                                            XYFocusRight="{x:Bind FPSModeToggle}"
-                                            KeyDown="FPSLimitSlider_KeyDown"/>
-                                    <!-- Per-step FPS values, populated in code (RTSS vs Intel differ). -->
-                                    <Grid x:Name="FPSLimitScaleLabels" Margin="0,2,0,0"/>
-                                </StackPanel>
-
-                                <!-- Row 1, Col 2: mode toggle (middle) — DIRECT Grid child -->
-                                <ToggleSwitch x:Name="FPSModeToggle" Grid.Row="1" Grid.Column="2"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              Width="52" VerticalAlignment="Center"
-                                              IsTabStop="True"
-                                              XYFocusLeft="{x:Bind FPSLimitSlider}"
-                                              XYFocusRight="{x:Bind FPSStateCycleButton}"
-                                              XYFocusUp="{x:Bind FPSStateCycleButton}"
-                                              XYFocusDown="{x:Bind FPSStateCycleButton}"
-                                              Toggled="FPSModeToggle_Toggled"
-                                              KeyDown="FPSModeToggle_KeyDown"/>
-
-                                <!-- Row 1, Col 4: on/off toggle (far right) — DIRECT Grid child,
-                                     identical structure to TDPBoostToggle. This is the ONLY element
-                                     the vertical spine targets. -->
-                                <ToggleSwitch x:Name="FPSStateCycleButton" Grid.Row="1" Grid.Column="4"
-                                              Style="{StaticResource ModernToggleStyle}"
-                                              Width="52" VerticalAlignment="Center"
-                                              IsTabStop="True"
-                                              XYFocusUp="{x:Bind TDPSlider}"
-                                              XYFocusDown="{x:Bind TDPBoostToggle}"
-                                              XYFocusLeft="{x:Bind FPSModeToggle}"
-                                              Toggled="FPSStateCycleButton_Toggled"
-                                              KeyDown="FPSStateCycleButton_KeyDown"/>
-                            </Grid>
                         </Border>
 
                         <!-- TDP Overboost Card (PL2 boost) — 2-column: slider (4*) left | toggle (*) right -->
@@ -1695,7 +1691,7 @@
                                               Style="{StaticResource ModernToggleStyle}"
                                               IsEnabled="True" Width="52"
                                               VerticalAlignment="Center"
-                                              XYFocusUp="{x:Bind FPSStateCycleButton}"
+                                              XYFocusUp="{x:Bind TDPSlider}"
                                               XYFocusDown="{x:Bind OSPowerModeComboBox}"
                                               Toggled="TDPBoostToggle_Toggled"
                                               KeyDown="TDPBoostToggle_KeyDown"/>

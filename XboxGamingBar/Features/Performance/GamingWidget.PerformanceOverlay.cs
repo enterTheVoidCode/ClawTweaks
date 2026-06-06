@@ -46,33 +46,24 @@ namespace XboxGamingBar
 
         // ── Performance tab D-Pad navigation ────────────────────────────────────
         //
-        // PHYSICAL / NAVIGATION SPINE (top→bottom) — FPS limiter relocated below TDP for the
-        // "test in the proven-working zone" layout:
+        // NAVIGATION SPINE (top→bottom) — FPS limiter restored to position 1 (above TDP):
         //   0 PerGameProfileToggle  (only when game running)
-        //   1 TDPSlider
-        //   2 FPSStateCycleButton (On/Off)  ←Left→ FPSModeToggle ←Left→ FPSLimitSlider
+        //   1 FPSStateCycleButton (On/Off)  ←Left→ FPSModeToggle ←Left→ FPSLimitSlider
+        //   2 TDPSlider
         //   3 TDPBoostToggle               ←Left→ TDPBoostFPPTSliderCard
         //   4 OSPowerModeComboBox
         //   5 CPUBoostToggle
         //   6 PerformanceOverlayComboBox → (loop)
         //
-        // Every spine hop is done EXPLICITLY here in KeyDown for BOTH Up and Down so it never
-        // depends on UWP spatial guessing. .Focus(Keyboard) is the controller-correct state.
+        // Every spine hop is done EXPLICITLY via .Focus(Keyboard) — the only mechanism that
+        // navigates reliably on-device (TryMoveFocus does NOT). For SLIDERS, Up/Down is
+        // intercepted in GamingWidget_PreviewKeyDown (tunneling) because sliders swallow the
+        // arrow keys before these bubbling KeyDown handlers can fire.
         // ────────────────────────────────────────────────────────────────────────────────
 
         private void PerGameProfileToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // Up: PreviewKeyDown + spatial nav handle it (nothing above → nav bar).
-            if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
-            {
-                TDPSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                e.Handled = true;
-            }
-        }
-
-        private void TDPSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
-        {
-            // Up owned by PreviewKeyDown (XYFocusUp=PerGameProfileToggle). Down → FPS On/Off toggle.
+            // Up: nothing above → nav bar (handled by PreviewKeyDown fallback). Down → FPS On/Off.
             if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
                 FPSStateCycleButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
@@ -82,20 +73,41 @@ namespace XboxGamingBar
 
         private void FPSStateCycleButton_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // On/Off toggle (far right). Up → TDPSlider, Down → TDPBoostToggle, Left → Mode toggle.
+            // On/Off toggle (far right, spine pos 1). Up → Per-Game profile (or nav bar if it is
+            // disabled), Down → TDPSlider, Left → Mode toggle.
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                TDPSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                if (PerGameProfileToggle?.IsEnabled == true)
+                    PerGameProfileToggle.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                else
+                    FocusActiveTab(); // escape to nav bar
                 e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                TDPBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                TDPSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Left || e.Key == Windows.System.VirtualKey.GamepadDPadLeft)
             {
                 FPSModeToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        private void TDPSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            // Slider swallows arrow keys, so Up/Down are normally handled by PreviewKeyDown.
+            // These remain as a fallback (e.g. focus arrived without the slider grabbing keys).
+            // Up → FPS On/Off toggle (spine pos 1), Down → TDP Boost toggle.
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                FPSStateCycleButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                TDPBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }
@@ -131,10 +143,10 @@ namespace XboxGamingBar
 
         private void TDPBoostToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // Up → FPS On/Off toggle, Down → OSPowerMode, Left → PL2 slider.
+            // Up → TDP slider (spine pos 2), Down → OSPowerMode, Left → PL2 slider.
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                FPSStateCycleButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                TDPSlider?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
