@@ -181,4 +181,15 @@ Controller emulation and gyro implementation adapted from [Handheld Companion](h
 
 ## License
 
-This project is open source. See LICENSE file for details.
+ClawTweaks is licensed under the **GNU Affero General Public License v3 (AGPLv3)** —
+see [`LICENSE`](LICENSE). In short: you are free to use, study, modify and share it,
+but any distributed or network-hosted derivative must also publish its complete
+source under AGPLv3. It cannot be turned into a closed-source product.
+
+Original portions derived from [GoTweaks](https://github.com/corando98/GoTweaks) /
+the Microsoft Game Bar widget sample remain under the MIT License
+([`LICENSE.MIT`](LICENSE.MIT)). See [`LICENSING.md`](LICENSING.md) for the full
+explanation, the trademark note, and contribution terms.
+
+> **No prebuilt binaries.** This repo does not ship ready-to-run signed packages
+> or the full packaging pipeline — building and signing is left to the user.
