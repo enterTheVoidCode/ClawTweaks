@@ -84,7 +84,26 @@ namespace XboxGamingBar
             currentThemeName = themeName;
             Logger.Info($"Applying theme: {themeName}");
 
-            // Mono theme: derive the entire palette from the single accent colour.
+            // "Windows" theme: pull the LIVE Windows system accent colour as the source colour.
+            if (theme.UseWindowsAccent)
+            {
+                try
+                {
+                    var ui = new Windows.UI.ViewManagement.UISettings();
+                    var winAccent = ui.GetColorValue(Windows.UI.ViewManagement.UIColorType.Accent);
+                    // Clone so we don't mutate the shared dictionary entry.
+                    theme = new ThemeColors
+                    {
+                        Name = theme.Name, MonoFromAccent = true, UseWindowsAccent = true,
+                        ShimmerEnabled = theme.ShimmerEnabled,
+                        AccentColor = Windows.UI.Color.FromArgb(255, winAccent.R, winAccent.G, winAccent.B)
+                    };
+                    Logger.Info($"[Theme] Windows accent = #{winAccent.R:X2}{winAccent.G:X2}{winAccent.B:X2}");
+                }
+                catch (Exception ex) { Logger.Warn($"[Theme] Windows accent read failed: {ex.Message}"); }
+            }
+
+            // Mono / Windows theme: derive the entire palette from the single accent colour.
             if (theme.MonoFromAccent)
                 theme = ComputeMonoTheme(theme);
 
@@ -429,6 +448,21 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>Maps theme names saved by older builds to their current keys after the rename.</summary>
+        private static string MigrateThemeName(string name)
+        {
+            switch (name)
+            {
+                case "Next Gen Claw": return "Next Gen Claw (Glas)";
+                case "Claw Blue":     return "Claw Blue (Glas)";
+                case "Box X":         return "Box X (Glas)";
+                case "Nintendon't":   return "Nintendon't (Glas)";
+                case "Chrilleteur":   return "Chrilleteur (Glas)";
+                case "Mono":          return "Windows";
+                default:              return name;
+            }
+        }
+
         private void LoadThemeSetting()
         {
             try
@@ -436,6 +470,7 @@ namespace XboxGamingBar
                 var settings = ApplicationData.Current.LocalSettings;
                 if (settings.Values.TryGetValue("WidgetTheme", out var saved) && saved is string themeName)
                 {
+                    themeName = MigrateThemeName(themeName);  // map renamed themes (e.g. "Mono"→"Windows", glass "(Glas)")
                     currentThemeName = themeName;
                     Logger.Info($"Theme loaded from settings: {themeName}");
 
@@ -444,10 +479,9 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // No saved theme → apply the new default look ("Next Gen Claw") so fresh
-                    // installs get it, then allow saves.
-                    currentThemeName = "Next Gen Claw";
-                    _ = ApplyThemeOnLoadAsync("Next Gen Claw");
+                    // No saved theme → apply the default glass look so fresh installs get it.
+                    currentThemeName = "Next Gen Claw (Glas)";
+                    _ = ApplyThemeOnLoadAsync("Next Gen Claw (Glas)");
                 }
             }
             catch (Exception ex)
