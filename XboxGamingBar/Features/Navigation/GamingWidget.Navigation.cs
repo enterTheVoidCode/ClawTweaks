@@ -435,13 +435,12 @@ namespace XboxGamingBar
 
             if (PerformanceScrollViewer?.Visibility == Visibility.Visible)
             {
-                // Performance tab: pick the topmost enabled spine element so D-pad Down
-                // from the nav bar always lands at a focusable control.
-                // FPSStateCycleButton is always enabled — use it as the guaranteed fallback.
+                // Spine: 0=PerGameProfileToggle (game only) → 1=FPSStateCycleButton → 2=TDPSlider
+                // Always land on the topmost enabled spine element.
                 if (PerGameProfileToggle?.IsEnabled == true)
                     target = PerGameProfileToggle;
                 else if (FPSStateCycleButton != null)
-                    target = FPSStateCycleButton; // always enabled
+                    target = FPSStateCycleButton; // always enabled by design
                 // else: fall through to FindFirstFocusableElement
             }
             else if (SystemScrollViewer?.Visibility == Visibility.Visible)
@@ -457,7 +456,11 @@ namespace XboxGamingBar
 
             if (target != null && target.IsEnabled)
             {
-                target.Focus(FocusState.Programmatic);
+                // FocusState.Keyboard is the correct state for gamepad D-pad navigation.
+                // Programmatic focus can silently fail for Button controls in some UWP layouts;
+                // Keyboard focus always shows the focus rect and is accepted by all interactive controls.
+                if (!target.Focus(FocusState.Keyboard))
+                    target.Focus(FocusState.Programmatic); // belt-and-suspenders fallback
                 return;
             }
 
@@ -465,7 +468,7 @@ namespace XboxGamingBar
             // (Quick, Display, Fan, Profiles, GPD, Scaling fallback)
             var first = FocusManager.FindFirstFocusableElement(viewer) as Control;
             if (first != null)
-                first.Focus(FocusState.Programmatic);
+                first.Focus(FocusState.Keyboard);
             else
                 FocusManager.TryMoveFocus(FocusNavigationDirection.Down);
         }
