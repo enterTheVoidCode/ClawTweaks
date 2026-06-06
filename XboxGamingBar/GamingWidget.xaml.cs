@@ -200,6 +200,54 @@ namespace XboxGamingBar
         public Windows.UI.Color? MetricsBorder { get; set; }
         /// <summary>Optional colour for the tile icons. Null → white (classic look).</summary>
         public Windows.UI.Color? TileIcon { get; set; }
+
+        // ── Accent / effect parameters ──────────────────────────────────────────────
+        /// <summary>
+        /// When true the per-tile shimmer sheen is enabled for this theme (sweeps the whole
+        /// tile on controller focus / pointer-over). Glassy themes set this true; flat themes false.
+        /// </summary>
+        public bool ShimmerEnabled { get; set; } = false;
+
+        /// <summary>
+        /// When true the entire palette is derived from a single accent colour (the "Mono" look).
+        /// EffectiveAccent() returns AccentColor; all other surfaces are computed shades of it.
+        /// </summary>
+        public bool MonoFromAccent { get; set; } = false;
+
+        /// <summary>
+        /// Returns the accent colour to drive controls/highlights. If AccentColor is explicitly
+        /// set (non-transparent) it wins; otherwise the brightest of the theme's core colours is
+        /// used. This replaces the old reliance on the Windows system accent colour.
+        /// </summary>
+        public Windows.UI.Color EffectiveAccent()
+        {
+            if (AccentColor.A != 0 && !(AccentColor.R == 0 && AccentColor.G == 0 && AccentColor.B == 0))
+                return AccentColor;
+            return BrightestOf(PageBackground, CardBorder, ButtonBorder, TileOn,
+                               GlowColor ?? AccentColor, TextPrimary);
+        }
+
+        private static Windows.UI.Color BrightestOf(params Windows.UI.Color[] colors)
+        {
+            Windows.UI.Color best = colors.Length > 0 ? colors[0] : Windows.UI.Color.FromArgb(255, 0, 200, 255);
+            double bestL = -1;
+            foreach (var c in colors)
+            {
+                // Perceived luminance (Rec. 601).
+                double l = 0.299 * c.R + 0.587 * c.G + 0.114 * c.B;
+                if (l > bestL) { bestL = l; best = c; }
+            }
+            return Windows.UI.Color.FromArgb(255, best.R, best.G, best.B);
+        }
+
+        /// <summary>Lighten/darken a colour by factor (-1..+1). Used for the Mono palette + slider gradient.</summary>
+        public static Windows.UI.Color Shade(Windows.UI.Color c, double factor)
+        {
+            double f = factor;
+            byte Adj(byte v) =>
+                (byte)Math.Max(0, Math.Min(255, f >= 0 ? v + (255 - v) * f : v * (1 + f)));
+            return Windows.UI.Color.FromArgb(c.A, Adj(c.R), Adj(c.G), Adj(c.B));
+        }
     }
 
     /// <summary>
@@ -612,6 +660,7 @@ namespace XboxGamingBar
             // (lighter top) over a deep navy, an azure accent and an accent glow on active tiles.
             { "Next Gen Claw", new ThemeColors {
                 Name = "Next Gen Claw",
+                ShimmerEnabled = true,
                 // Vibrant neon diagonal: electric blue → violet
                 PageBackground  = Windows.UI.Color.FromArgb(255, 22, 38, 168),      // #1626A8 (top-left, brighter electric blue)
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 62, 26, 142),      // #3E1A8E (bottom-right, deeper neon violet)
@@ -637,6 +686,7 @@ namespace XboxGamingBar
             // The earlier Next Gen Claw look: solid (non-glass) blue, no violet (pre-glass/shimmer).
             { "Claw Blue", new ThemeColors {
                 Name = "Claw Blue",
+                ShimmerEnabled = true,
                 PageBackground  = Windows.UI.Color.FromArgb(255, 9, 20, 40),       // #091428
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 13, 40, 84),      // #0D2854
                 CardBackground  = Windows.UI.Color.FromArgb(210, 22, 46, 84),
@@ -659,6 +709,7 @@ namespace XboxGamingBar
             // Xbox-inspired: near-black → dark green, Xbox green accent.
             { "Box X", new ThemeColors {
                 Name = "Box X",
+                ShimmerEnabled = true,
                 PageBackground  = Windows.UI.Color.FromArgb(255, 10, 14, 10),       // near-black
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 12, 40, 16),       // dark green
                 CardBackground  = Windows.UI.Color.FromArgb(210, 18, 40, 20),
@@ -681,6 +732,7 @@ namespace XboxGamingBar
             // Nintendo-inspired: red surfaces, white text/icons.
             { "Nintendon't", new ThemeColors {
                 Name = "Nintendon't",
+                ShimmerEnabled = true,
                 PageBackground  = Windows.UI.Color.FromArgb(255, 122, 0, 8),        // deep red
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 176, 0, 14),       // red
                 CardBackground  = Windows.UI.Color.FromArgb(210, 138, 10, 18),
@@ -703,6 +755,7 @@ namespace XboxGamingBar
             // Violet/yellow combo (per reference image).
             { "Chrilleteur", new ThemeColors {
                 Name = "Chrilleteur",
+                ShimmerEnabled = true,
                 PageBackground  = Windows.UI.Color.FromArgb(255, 106, 0, 138),      // violet
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 166, 0, 154),      // magenta
                 CardBackground  = Windows.UI.Color.FromArgb(210, 94, 10, 114),
@@ -799,6 +852,35 @@ namespace XboxGamingBar
                 ButtonBorder = Windows.UI.Color.FromArgb(255, 88, 91, 112),       // #585B70
                 TileOff = Windows.UI.Color.FromArgb(255, 24, 24, 37),             // #181825
                 TileOn = Windows.UI.Color.FromArgb(255, 166, 227, 161)            // #A6E3A1 (green)
+            }},
+            // Mono — the entire palette is derived from ONE accent colour. Dark near-black
+            // surfaces, every highlight/border/active state is a shade of the accent.
+            // Change the single AccentColor below to re-skin the whole theme.
+            { "Mono", new ThemeColors {
+                Name = "Mono",
+                MonoFromAccent = true,
+                ShimmerEnabled = true,
+                // The one source colour (cyan by default). Everything else is computed from this
+                // in ApplyTheme() via ThemeColors.Shade(), so these explicit values are just a
+                // sensible static fallback if the computed palette is ever bypassed.
+                AccentColor    = Windows.UI.Color.FromArgb(255, 0, 200, 255),     // #00C8FF
+                PageBackground = Windows.UI.Color.FromArgb(255, 6, 10, 12),
+                PageBackground2= Windows.UI.Color.FromArgb(255, 4, 14, 18),
+                CardBackground = Windows.UI.Color.FromArgb(210, 10, 20, 24),
+                CardBorder     = Windows.UI.Color.FromArgb(255, 0, 90, 120),
+                TextPrimary    = Windows.UI.Color.FromArgb(255, 235, 250, 255),
+                TextSecondary  = Windows.UI.Color.FromArgb(255, 120, 180, 200),
+                ButtonBackground = Windows.UI.Color.FromArgb(255, 10, 24, 30),
+                ButtonBorder   = Windows.UI.Color.FromArgb(255, 0, 110, 145),
+                TileOff        = Windows.UI.Color.FromArgb(255, 8, 18, 22),
+                TileOff2       = Windows.UI.Color.FromArgb(255, 5, 12, 16),
+                TileOn         = Windows.UI.Color.FromArgb(255, 0, 140, 180),
+                TileOn2        = Windows.UI.Color.FromArgb(255, 0, 90, 120),
+                GlowColor      = Windows.UI.Color.FromArgb(255, 0, 200, 255),
+                TileIcon       = Windows.UI.Color.FromArgb(255, 120, 215, 245),
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 0, 120, 155),
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 0, 80, 105),
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 0, 175, 225)
             }}
         };
 

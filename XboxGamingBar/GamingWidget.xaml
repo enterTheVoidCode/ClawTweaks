@@ -3389,6 +3389,7 @@
                                     <ComboBoxItem Content="Dracula"/>
                                     <ComboBoxItem Content="Nord"/>
                                     <ComboBoxItem Content="Catppuccin"/>
+                                    <ComboBoxItem Content="Mono"/>
                                 </ComboBox>
                             </Grid>
                         </Border>
