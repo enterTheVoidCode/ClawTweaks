@@ -435,17 +435,14 @@ namespace XboxGamingBar
 
             if (PerformanceScrollViewer?.Visibility == Visibility.Visible)
             {
-                // Performance tab: try enabled controls top-to-bottom.
-                // PerGameProfileToggle and FPSLimitToggle can be disabled (depends on
-                // whether RTSS is available and a game profile is active). Always pick
-                // the topmost currently-enabled control so D-pad Down from the nav bar
-                // lands at the correct starting point rather than falling through to
-                // FindFirstFocusableElement which would skip to the TDP slider.
+                // Performance tab: pick the topmost enabled spine element so D-pad Down
+                // from the nav bar always lands at a focusable control.
+                // FPSStateCycleButton is always enabled — use it as the guaranteed fallback.
                 if (PerGameProfileToggle?.IsEnabled == true)
                     target = PerGameProfileToggle;
-                else if (FPSLimitToggle?.IsEnabled == true)
-                    target = FPSLimitToggle;
-                // else: fall through to FindFirstFocusableElement (TDP slider or first enabled)
+                else if (FPSStateCycleButton != null)
+                    target = FPSStateCycleButton; // always enabled
+                // else: fall through to FindFirstFocusableElement
             }
             else if (SystemScrollViewer?.Visibility == Visibility.Visible)
             {

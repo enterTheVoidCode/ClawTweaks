@@ -54,6 +54,10 @@ namespace XboxGamingBar
 
             Logger.Info($"TDP Boost toggled to: {TDPBoostToggle.IsOn}");
 
+            // Slider is only editable when boost is on
+            if (TDPBoostFPPTSliderCard != null)
+                TDPBoostFPPTSliderCard.IsEnabled = TDPBoostToggle.IsOn;
+
             // Send to helper
             tdpBoostEnabled?.SetValue(TDPBoostToggle.IsOn);
 
@@ -133,9 +137,9 @@ namespace XboxGamingBar
                 if (settings.Values.TryGetValue("TDPBoostEnabled", out object enabledObj) && enabledObj is bool enabled)
                 {
                     if (TDPBoostToggle != null)
-                    {
                         TDPBoostToggle.IsOn = enabled;
-                    }
+                    if (TDPBoostFPPTSliderCard != null)
+                        TDPBoostFPPTSliderCard.IsEnabled = enabled;
                     tdpBoostEnabled?.SetValue(enabled);
                     Logger.Info($"TDP Boost enabled state loaded from settings: {enabled}");
                 }
