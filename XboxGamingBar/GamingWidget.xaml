@@ -876,11 +876,15 @@
                                           PlaceholderText="Select action..."/>
 
                                 <Button x:Name="AddCustomShortcutButton"
-                                        Content="Add Tile"
                                         HorizontalAlignment="Stretch"
                                         Margin="0,8,0,0"
                                         Style="{StaticResource StandaloneButtonStyle}"
-                                        Click="AddCustomShortcut_Click"/>
+                                        Click="AddCustomShortcut_Click">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                        <FontIcon Glyph="&#xE710;" FontSize="15" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Add Tile" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
 
                                 <!-- Separator -->
                                 <Border Height="1" Background="#30444444" Margin="0,12,0,12"/>
@@ -3435,18 +3439,18 @@
                                           VerticalAlignment="Center"
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectionChanged="ThemeComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="Next Gen Claw" IsSelected="True"/>
-                                    <ComboBoxItem Content="Claw Blue"/>
-                                    <ComboBoxItem Content="Box X"/>
-                                    <ComboBoxItem Content="Nintendon't"/>
-                                    <ComboBoxItem Content="Chrilleteur"/>
+                                    <ComboBoxItem Content="Windows"/>
+                                    <ComboBoxItem Content="Next Gen Claw (Glas)" IsSelected="True"/>
+                                    <ComboBoxItem Content="Claw Blue (Glas)"/>
+                                    <ComboBoxItem Content="Box X (Glas)"/>
+                                    <ComboBoxItem Content="Nintendon't (Glas)"/>
+                                    <ComboBoxItem Content="Chrilleteur (Glas)"/>
                                     <ComboBoxItem Content="Default"/>
                                     <ComboBoxItem Content="Dark"/>
                                     <ComboBoxItem Content="OLED"/>
                                     <ComboBoxItem Content="Dracula"/>
                                     <ComboBoxItem Content="Nord"/>
                                     <ComboBoxItem Content="Catppuccin"/>
-                                    <ComboBoxItem Content="Mono"/>
                                 </ComboBox>
                             </Grid>
                         </Border>

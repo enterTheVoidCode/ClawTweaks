@@ -215,6 +215,13 @@ namespace XboxGamingBar
         public bool MonoFromAccent { get; set; } = false;
 
         /// <summary>
+        /// When true the accent is taken LIVE from the current Windows system accent colour
+        /// (UISettings) instead of the theme's static AccentColor. Used by the "Windows" theme so
+        /// it mirrors the user's Windows accent. Combine with MonoFromAccent for a full mono palette.
+        /// </summary>
+        public bool UseWindowsAccent { get; set; } = false;
+
+        /// <summary>
         /// Returns the accent colour to drive controls/highlights. If AccentColor is explicitly
         /// set (non-transparent) it wins; otherwise the brightest of the theme's core colours is
         /// used. This replaces the old reliance on the Windows system accent colour.
@@ -658,8 +665,8 @@ namespace XboxGamingBar
         {
             // MSI-inspired blue "glass" look — the new default. Page + tiles use vertical gradients
             // (lighter top) over a deep navy, an azure accent and an accent glow on active tiles.
-            { "Next Gen Claw", new ThemeColors {
-                Name = "Next Gen Claw",
+            { "Next Gen Claw (Glas)", new ThemeColors {
+                Name = "Next Gen Claw (Glas)",
                 ShimmerEnabled = true,
                 // Vibrant neon diagonal: electric blue → violet
                 PageBackground  = Windows.UI.Color.FromArgb(255, 22, 38, 168),      // #1626A8 (top-left, brighter electric blue)
@@ -684,8 +691,8 @@ namespace XboxGamingBar
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 122, 174, 242)  // #7AAEF2
             }},
             // The earlier Next Gen Claw look: solid (non-glass) blue, no violet (pre-glass/shimmer).
-            { "Claw Blue", new ThemeColors {
-                Name = "Claw Blue",
+            { "Claw Blue (Glas)", new ThemeColors {
+                Name = "Claw Blue (Glas)",
                 ShimmerEnabled = true,
                 PageBackground  = Windows.UI.Color.FromArgb(255, 9, 20, 40),       // #091428
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 13, 40, 84),      // #0D2854
@@ -707,8 +714,8 @@ namespace XboxGamingBar
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 96, 162, 236)
             }},
             // Xbox-inspired: near-black → dark green, Xbox green accent.
-            { "Box X", new ThemeColors {
-                Name = "Box X",
+            { "Box X (Glas)", new ThemeColors {
+                Name = "Box X (Glas)",
                 ShimmerEnabled = true,
                 PageBackground  = Windows.UI.Color.FromArgb(255, 10, 14, 10),       // near-black
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 12, 40, 16),       // dark green
@@ -730,8 +737,8 @@ namespace XboxGamingBar
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 90, 200, 90)
             }},
             // Nintendo-inspired: red surfaces, white text/icons.
-            { "Nintendon't", new ThemeColors {
-                Name = "Nintendon't",
+            { "Nintendon't (Glas)", new ThemeColors {
+                Name = "Nintendon't (Glas)",
                 ShimmerEnabled = true,
                 PageBackground  = Windows.UI.Color.FromArgb(255, 122, 0, 8),        // deep red
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 176, 0, 14),       // red
@@ -753,8 +760,8 @@ namespace XboxGamingBar
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 154, 154)
             }},
             // Violet/yellow combo (per reference image).
-            { "Chrilleteur", new ThemeColors {
-                Name = "Chrilleteur",
+            { "Chrilleteur (Glas)", new ThemeColors {
+                Name = "Chrilleteur (Glas)",
                 ShimmerEnabled = true,
                 PageBackground  = Windows.UI.Color.FromArgb(255, 106, 0, 138),      // violet
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 166, 0, 154),      // magenta
@@ -853,16 +860,15 @@ namespace XboxGamingBar
                 TileOff = Windows.UI.Color.FromArgb(255, 24, 24, 37),             // #181825
                 TileOn = Windows.UI.Color.FromArgb(255, 166, 227, 161)            // #A6E3A1 (green)
             }},
-            // Mono — the entire palette is derived from ONE accent colour. Dark near-black
-            // surfaces, every highlight/border/active state is a shade of the accent.
-            // Change the single AccentColor below to re-skin the whole theme.
-            { "Mono", new ThemeColors {
-                Name = "Mono",
+            // Windows — full mono palette derived from the LIVE Windows system accent colour.
+            // Mirrors the user's Windows accent on a dark surface set. UseWindowsAccent makes
+            // ApplyTheme() read UISettings at apply-time; the static values below are only a
+            // fallback if that read fails.
+            { "Windows", new ThemeColors {
+                Name = "Windows",
                 MonoFromAccent = true,
+                UseWindowsAccent = true,
                 ShimmerEnabled = true,
-                // The one source colour (cyan by default). Everything else is computed from this
-                // in ApplyTheme() via ThemeColors.Shade(), so these explicit values are just a
-                // sensible static fallback if the computed palette is ever bypassed.
                 AccentColor    = Windows.UI.Color.FromArgb(255, 0, 200, 255),     // #00C8FF
                 PageBackground = Windows.UI.Color.FromArgb(255, 6, 10, 12),
                 PageBackground2= Windows.UI.Color.FromArgb(255, 4, 14, 18),
@@ -884,7 +890,7 @@ namespace XboxGamingBar
             }}
         };
 
-        private string currentThemeName = "Next Gen Claw";
+        private string currentThemeName = "Next Gen Claw (Glas)";
 
         // Xbox Game Bar logic
         private XboxGameBarWidget widget = null;
