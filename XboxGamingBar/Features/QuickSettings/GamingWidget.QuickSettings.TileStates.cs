@@ -88,6 +88,39 @@ namespace XboxGamingBar
                     colIndex = 0;
                 }
             }
+
+            // Apply the global glass-effect state to the freshly built tiles. The per-button
+            // Loaded handler is unreliable for runtime rebuilds (when the Quick tab is collapsed
+            // the template parts aren't realised yet, so Loaded no-ops and the tiles keep the
+            // template default = glass visible). Re-applying after layout fixes both directions.
+            ApplyGlassEffectToTilesDeferred();
+        }
+
+        /// <summary>
+        /// Sets the Shimmer + GlassSheen visibility on every built tile to match the global glass
+        /// toggle. Walks the realised control template parts, so it must run after layout.
+        /// </summary>
+        internal void ApplyGlassEffectToTiles()
+        {
+            try
+            {
+                var vis = IsGlassEffectEnabled() ? Visibility.Visible : Visibility.Collapsed;
+                foreach (var t in qsTileDefinitions)
+                {
+                    var btn = t?.TileButton;
+                    if (btn == null) continue;
+                    if (FindDescendantByName(btn, "Shimmer")   is FrameworkElement shim)  shim.Visibility  = vis;
+                    if (FindDescendantByName(btn, "GlassSheen") is FrameworkElement sheen) sheen.Visibility = vis;
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"ApplyGlassEffectToTiles: {ex.Message}"); }
+        }
+
+        /// <summary>Re-applies glass visibility after the current layout pass (template parts realised).</summary>
+        internal void ApplyGlassEffectToTilesDeferred()
+        {
+            try { _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, ApplyGlassEffectToTiles); }
+            catch { }
         }
 
         /// <summary>

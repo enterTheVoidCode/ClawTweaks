@@ -151,7 +151,7 @@ namespace XboxGamingBar
 
         // Debounce so dragging the slider doesn't flood the helper with WMI writes.
         private Windows.UI.Xaml.DispatcherTimer _msiChargeDebounceTimer;
-        private int _pendingChargePercent = 80;
+        private int _pendingChargePercent = MsiChargeLimitTileDefault;
 
         private void RestoreMsiChargeLimitFromSettings()
         {
@@ -161,7 +161,7 @@ namespace XboxGamingBar
                 var s = ApplicationData.Current.LocalSettings.Values;
 
                 bool enabled = s.TryGetValue(MsiChargeLimitEnabledKey, out var en) && en is bool b && b;
-                int  pct     = s.TryGetValue(MsiChargeLimitPercentKey,  out var pc) && pc is int  i ? i : 80;
+                int  pct     = s.TryGetValue(MsiChargeLimitPercentKey,  out var pc) && pc is int  i ? i : MsiChargeLimitTileDefault;
                 pct = Math.Max(20, Math.Min(100, pct));
 
                 if (MsiChargeLimitToggle != null)
@@ -191,7 +191,10 @@ namespace XboxGamingBar
             if (MsiChargeLimitPercentPanel != null)
                 MsiChargeLimitPercentPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
 
-            int pct = (int)(MsiChargeLimitSlider?.Value ?? 80);
+            int pct = (int)(MsiChargeLimitSlider?.Value ?? MsiChargeLimitTileDefault);
+            // Persist the percent alongside the enabled flag so the stored value is always
+            // complete (the slider may never have been moved), and the helper can be re-synced.
+            ApplicationData.Current.LocalSettings.Values[MsiChargeLimitPercentKey] = pct;
             _ = SendMsiChargeLimitAsync(on, pct);
             Logger.Info($"[BattMgr] Toggle → enabled={on} pct={pct}");
         }
@@ -305,6 +308,29 @@ namespace XboxGamingBar
 
             // Confirm what actually landed in the EC.
             await QueryMsiChargeLimitStatusAsync();
+        }
+
+        /// <summary>
+        /// Re-pushes the widget's stored (authoritative) charge-limit to the helper. Called on
+        /// pipe (re)connect. Fixes the case where a debounced slider write never reached the
+        /// helper (app/helper killed within the debounce window, or a lost helper-side write):
+        /// the helper would otherwise keep a stale/older value (e.g. the 80% it got from the
+        /// initial toggle-on) and re-apply it on every reboot. The widget LocalSettings value is
+        /// written synchronously on every change, so it is the reliable source of truth.
+        /// </summary>
+        internal void ResendChargeLimitToHelper()
+        {
+            try
+            {
+                if (!IsMsiClawDevice()) return;
+                if (!IsChargeLimiterInitialized()) return;   // never set up → nothing to enforce
+                if (!IsChargeLimiterEnabled()) return;        // disabled → don't fight the helper
+                int pct = ChargeLimiterPercent();
+                if (pct < 20 || pct > 100) pct = MsiChargeLimitTileDefault;
+                _ = SendMsiChargeLimitAsync(true, pct);
+                Logger.Info($"[BattMgr] Re-pushed stored charge limit on connect: On {pct}%");
+            }
+            catch (Exception ex) { Logger.Warn($"[BattMgr] ResendChargeLimitToHelper: {ex.Message}"); }
         }
 
         /// <summary>

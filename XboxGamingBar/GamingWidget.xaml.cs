@@ -4359,6 +4359,12 @@ namespace XboxGamingBar
                     // the user manually edits them.
                     _ = SendTileHotkeysToHelper();
 
+                    // Re-assert the stored battery charge limit. A debounced slider write may
+                    // have been lost if the app/helper was killed within the debounce window,
+                    // leaving the helper on a stale value (re-applied on every reboot). The
+                    // widget's stored value is authoritative — push it so the EC converges.
+                    ResendChargeLimitToHelper();
+
                     // Refresh USBIP prereq status line. PropertyChanged-driven refresh misses
                     // the case where the helper's value matches the widget's default (false),
                     // since GenericProperty.SetValue skips NotifyPropertyChanged on equality

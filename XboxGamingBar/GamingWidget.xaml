@@ -3372,7 +3372,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Glass effect" FontSize="13" Foreground="#FFFFFF"/>
-                                    <TextBlock Text="Glassy sheen + shimmer on tiles (all themes)"
+                                    <TextBlock Text="Glassy sheen + shimmer on tiles (all themes). Applies when you reopen Quick Settings."
                                                FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="GlassEffectToggle"
