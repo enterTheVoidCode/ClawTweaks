@@ -3544,7 +3544,7 @@
                                                 Click="MsiChargeLimitVerifyButton_Click"/>
                                     </Grid>
 
-                                    <TextBlock Text="Note: the charge limit is enforced by the firmware only while the device is powered on. It does not apply when the Claw is fully shut down. Use Verify to re-read the live value (e.g. after sleep / hibernation)."
+                                    <TextBlock Text="Note: the limit is enforced by the controller (EC) itself, so it keeps working while the Claw is asleep or shut down but plugged in. The EC value can be cleared by an EC reset, BIOS update or a full battery drain — use Verify to re-check the live value after sleep / hibernation."
                                                FontSize="11" Foreground="#FF8C00"
                                                TextWrapping="Wrap" Margin="0,8,0,0"/>
                                 </StackPanel>
