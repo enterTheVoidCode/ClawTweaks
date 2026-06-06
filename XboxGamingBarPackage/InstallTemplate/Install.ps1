@@ -734,6 +734,58 @@ Write-Host "  ClawTweaks provides TDP control, performance monitoring," -Foregro
 Write-Host "  and controller customization for the MSI Claw." -ForegroundColor Gray
 Write-Host ""
 
+# ── Device compatibility check ─────────────────────────────────────────────
+# ClawTweaks supports only the Lunar Lake A2VM/A2VMX variants.
+# The Claw A1M (Meteor Lake) has a different processor, EC, and HW controller
+# and is NOT supported. We abort here rather than install a non-functional app.
+Write-Host "  Checking device compatibility..." -ForegroundColor DarkGray
+try {
+    $csProduct     = Get-WmiObject -Class Win32_ComputerSystemProduct -ErrorAction Stop
+    $deviceVendor  = [string]$csProduct.Vendor
+    $deviceModel   = [string]$csProduct.Name
+    $isMsiClaw     = $deviceVendor -match "Micro-Star"
+    $isA2VM        = $deviceModel  -match "A2VM"   # matches A2VM and A2VMX
+
+    if (-not ($isMsiClaw -and $isA2VM)) {
+        Write-Host ""
+        Write-Host "  =============================================" -ForegroundColor Red
+        Write-Host "    UNSUPPORTED DEVICE — INSTALLATION ABORTED " -ForegroundColor Red
+        Write-Host "  =============================================" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  ClawTweaks supports only:" -ForegroundColor Yellow
+        Write-Host "    MSI Claw 8 AI+ A2VM" -ForegroundColor White
+        Write-Host "    MSI Claw 7 AI+ A2VM / A2VMX" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  Detected device:" -ForegroundColor Gray
+        if ($deviceVendor -or $deviceModel) {
+            Write-Host "    $deviceVendor $deviceModel" -ForegroundColor DarkGray
+        } else {
+            Write-Host "    (device info unavailable)" -ForegroundColor DarkGray
+        }
+        Write-Host ""
+        if ($isMsiClaw -and -not $isA2VM) {
+            Write-Host "  The MSI Claw A1M (Meteor Lake) is not supported." -ForegroundColor Gray
+            Write-Host "  It uses a different processor, EC firmware," -ForegroundColor Gray
+            Write-Host "  and hardware controller that ClawTweaks does not support." -ForegroundColor Gray
+        } else {
+            Write-Host "  This does not appear to be a supported MSI Claw device." -ForegroundColor Gray
+        }
+        Write-Host ""
+        Exit-WithPause -ExitCode 1
+    }
+
+    Write-Host "  Device : $deviceModel" -ForegroundColor Gray
+    Write-Host "  Status : Supported" -ForegroundColor Green
+    Write-Host ""
+}
+catch {
+    # WMI query failed — do not block installation; log a warning.
+    Write-Host "  [!] Could not verify device: $_" -ForegroundColor Yellow
+    Write-Host "       Proceeding without compatibility check." -ForegroundColor DarkGray
+    Write-Host ""
+}
+# ── end device check ───────────────────────────────────────────────────────
+
 # Check for existing installation
 $existingPkg = Get-AppxPackage -Name $PackageName -ErrorAction SilentlyContinue
 if ($existingPkg) {
