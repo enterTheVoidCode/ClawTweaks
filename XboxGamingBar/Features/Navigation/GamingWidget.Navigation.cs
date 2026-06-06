@@ -268,8 +268,15 @@ namespace XboxGamingBar
                 e.Handled = true;
                 return;
             }
-            // D-pad / arrow DOWN. Handle BOTH the gamepad key and the plain arrow key — we do not
-            // yet know which one the Claw actually emits, so cover both.
+            // ── DOWN ────────────────────────────────────────────────────────────────
+            // Device confirmed to emit plain arrow keys (VirtualKey.Down), not GamepadDPad*.
+            // CONFIRMED on device: explicit Control.Focus() works; FocusManager.TryMoveFocus()
+            // does NOT navigate reliably in this layout. So: NEVER use TryMoveFocus.
+            //   • Nav bar focused      → enter tab content (explicit Focus in FocusFirstTab...).
+            //   • A Slider focused      → it swallows Up/Down before bubbling KeyDown can fire,
+            //                             so redirect HERE (tunneling) via its XYFocusDown target.
+            //   • Anything else (toggle/combo) → leave it; the per-control KeyDown handler does
+            //                             the explicit Focus and already works for arrow keys.
             else if (e.Key == VirtualKey.GamepadDPadDown || e.Key == VirtualKey.Down)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
@@ -280,49 +287,38 @@ namespace XboxGamingBar
                 }
                 else if (focusedElement is Windows.UI.Xaml.Controls.Slider sliderDown)
                 {
-                    // ROOT CAUSE of "navigation skips the control below a slider":
-                    // A horizontal UWP Slider consumes arrow/D-pad keys internally, so the
-                    // slider's bubbling per-control KeyDown Down branch never fires. PreviewKeyDown
-                    // is the TUNNELING phase (fires BEFORE the slider), so we redirect here.
-                    // Use the slider's explicit XYFocusDown target (deterministic) rather than
-                    // spatial guessing, falling back to TryMoveFocus only if no target is set.
-                    var target = sliderDown.XYFocusDown as Control;
-                    if (target != null)
-                    {
-                        target.Focus(FocusState.Keyboard);
+                    if (FocusXYTarget(sliderDown.XYFocusDown))
                         e.Handled = true;
-                    }
-                    else if (FocusManager.TryMoveFocus(FocusNavigationDirection.Down))
-                    {
-                        e.Handled = true;
-                    }
                 }
+                // else: do NOT handle — let the per-control bubbling KeyDown move focus.
             }
-            // D-pad up from content area → let UWP spatial navigation try first.
-            // If TryMoveFocus(Up) fails — because all elements above the current focus are
-            // disabled (IsEnabled=false) and therefore invisible to XY navigation — fall
-            // back to the active nav tab. This is the ONLY reliable escape from a
-            // "stuck below disabled controls" situation; XYFocusUp bindings on disabled
-            // targets are silently ignored by UWP.
-            // We ALWAYS mark e.Handled here to prevent per-control KeyDown handlers from
-            // double-navigating: PreviewKeyDown (tunneling) fires before KeyDown (bubbling),
-            // so consuming the event here stops the per-control handler from also acting.
+            // ── UP ──────────────────────────────────────────────────────────────────
+            // Same rule. Only intercept for Sliders (they swallow the key). Everything else is
+            // handled by per-control KeyDown (explicit Focus), which is the path that works.
             else if (e.Key == VirtualKey.GamepadDPadUp || e.Key == VirtualKey.Up)
             {
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
-                if (focusedElement != null && !IsInNavigationArea(focusedElement))
+                if (focusedElement is Windows.UI.Xaml.Controls.Slider sliderUp)
                 {
-                    bool moved = FocusManager.TryMoveFocus(FocusNavigationDirection.Up);
-                    if (!moved)
-                    {
-                        // Nothing enabled above — always let the user escape to the nav bar.
-                        FocusActiveTab();
-                    }
-                    // Always consume — prevent per-control KeyDown from double-navigating
-                    // (both TryMoveFocus success and fallback paths need this).
-                    e.Handled = true;
+                    if (FocusXYTarget(sliderUp.XYFocusUp))
+                        e.Handled = true;
+                    else
+                        { FocusActiveTab(); e.Handled = true; } // escape to nav bar if no enabled target
                 }
+                // else: do NOT handle — per-control KeyDown handles it.
             }
+        }
+
+        /// <summary>
+        /// Explicitly focuses an XYFocusUp/Down target (a DependencyObject from a XAML binding).
+        /// Returns true only if a focusable, enabled Control target was actually focused.
+        /// This is the reliable mechanism on-device — TryMoveFocus does not navigate correctly here.
+        /// </summary>
+        private bool FocusXYTarget(DependencyObject xyTarget)
+        {
+            var ctrl = xyTarget as Control;
+            if (ctrl == null || !ctrl.IsEnabled) return false;
+            return ctrl.Focus(FocusState.Keyboard);
         }
 
         private void GamingWidget_PreviewKeyUp(object sender, KeyRoutedEventArgs e)
