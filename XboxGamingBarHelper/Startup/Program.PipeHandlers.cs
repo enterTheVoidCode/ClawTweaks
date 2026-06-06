@@ -272,6 +272,8 @@ namespace XboxGamingBarHelper
 
                         bool ok1 = Devices.MSIClaw.MsiClawBatteryManager.SetPercent(percent);
                         bool ok2 = Devices.MSIClaw.MsiClawBatteryManager.SetEnabled(enabled);
+                        // Persist helper-side so it can be re-applied on reboot / after an EC reset.
+                        PersistMsiChargeLimit(enabled, percent);
                         Logger.Info($"Pipe: MsiChargeLimit enabled={enabled} percent={percent} → ok={ok1&&ok2}");
                         SendPipeAck(pipeMsg.RequestId, ok1 && ok2);
                     }

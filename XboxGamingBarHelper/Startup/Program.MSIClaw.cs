@@ -415,6 +415,46 @@ namespace XboxGamingBarHelper
             return true;
         }
 
+        // ── Battery charge limit persistence (helper-side) ──────────────────────────
+        // The EC charge-limit byte can be cleared by an EC reset / BIOS update / full drain,
+        // and the helper restarts on every reboot (scheduled task). We persist the user's
+        // last setting helper-side and re-apply it on startup so the limit survives.
+        private const string ChargeLimitOnKey  = "MsiChargeLimit_On";
+        private const string ChargeLimitPctKey = "MsiChargeLimit_Pct";
+
+        /// <summary>Persist the charge-limit setting helper-side (called from the pipe handler).</summary>
+        internal static void PersistMsiChargeLimit(bool enabled, int percent)
+        {
+            try
+            {
+                Settings.LocalSettingsHelper.SetValue(ChargeLimitOnKey, enabled);
+                Settings.LocalSettingsHelper.SetValue(ChargeLimitPctKey, percent);
+            }
+            catch (Exception ex) { Logger.Warn($"PersistMsiChargeLimit failed: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Re-apply the saved battery charge limit at startup (EC value can be reset on reboot /
+        /// EC reset). Only acts when the user had the limit enabled.
+        /// </summary>
+        private static void RestoreMsiChargeLimitOnStartup()
+        {
+            try
+            {
+                bool enabled = Settings.LocalSettingsHelper.TryGetValue<bool>(ChargeLimitOnKey, out bool on) && on;
+                if (!enabled) return;
+
+                int percent = Settings.LocalSettingsHelper.TryGetValue<int>(ChargeLimitPctKey, out int p) ? p : 80;
+                Logger.Info($"RestoreMsiChargeLimitOnStartup: re-applying saved charge limit {percent}% (enabled)");
+                Devices.MSIClaw.MsiClawBatteryManager.SetPercent(percent);
+                Devices.MSIClaw.MsiClawBatteryManager.SetEnabled(true);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"RestoreMsiChargeLimitOnStartup failed: {ex.Message}");
+            }
+        }
+
         /// <summary>
         /// Re-apply the last saved MSI fan command at startup (EC resets on reboot).
         /// Only acts when a custom curve was enabled; otherwise leaves firmware control alone.
@@ -529,6 +569,9 @@ namespace XboxGamingBarHelper
 
                 // Re-apply any saved custom fan curve (EC resets across reboots).
                 RestoreMsiFanOnStartup();
+
+                // Re-apply the saved battery charge limit if it was enabled (EC can reset on reboot).
+                RestoreMsiChargeLimitOnStartup();
 
                 // One-shot diagnostic: log which fan/RPM sensors LHM can see on this device.
                 ProbeMsiFanSensors();
