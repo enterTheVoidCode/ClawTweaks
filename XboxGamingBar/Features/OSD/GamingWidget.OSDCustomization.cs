@@ -1105,23 +1105,7 @@ namespace XboxGamingBar
             UpdateSystemControllerEmulationNavigation();
         }
 
-        private void ControllerEmulationInputNotesExpandButton_Click(object sender, RoutedEventArgs e)
-        {
-            isControllerEmulationInputNotesExpanded = !isControllerEmulationInputNotesExpanded;
-
-            if (ControllerEmulationInputNotesContent != null)
-            {
-                ControllerEmulationInputNotesContent.Visibility = isControllerEmulationInputNotesExpanded
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-            }
-
-            if (ControllerEmulationInputNotesExpandIcon != null)
-            {
-                // E70D = ChevronDown, E70E = ChevronUp
-                ControllerEmulationInputNotesExpandIcon.Glyph = isControllerEmulationInputNotesExpanded ? "\uE70E" : "\uE70D";
-            }
-        }
+        // ControllerEmulationInputNotesExpandButton_Click removed \u2014 UI element was removed
 
         private void TDPSettingsExpandButton_Click(object sender, RoutedEventArgs e)
         {

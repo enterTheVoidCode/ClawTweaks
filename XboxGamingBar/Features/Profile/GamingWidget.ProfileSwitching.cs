@@ -595,12 +595,22 @@ namespace XboxGamingBar
                     }
 
                     // Sync toggle + slider UI state — inside isApplyingHelperUpdate so
-                    // FPSLimitToggle_Toggled doesn't fire and overwrite the loaded values
+                    // FPSLimitToggle_Toggled doesn't fire and overwrite the loaded values.
+                    // Slider now uses discrete indices, not raw FPS values.
                     isApplyingHelperUpdate = true;
                     try
                     {
                         FPSLimitToggle.IsOn = profile.FPSLimitEnabled || intelMode;
-                        FPSLimitSlider.Value = profile.FPSLimitValue;
+                        if (intelMode)
+                        {
+                            FPSLimitSlider.Maximum = FpsIntelValues.Length - 1;
+                            FPSLimitSlider.Value   = FpsIntelTierToIndex(profile.IntelFpsTier);
+                        }
+                        else
+                        {
+                            FPSLimitSlider.Maximum = FpsRtssValues.Length - 1;
+                            FPSLimitSlider.Value   = FpsValueToRtssIndex(profile.FPSLimitValue);
+                        }
                     }
                     finally { isApplyingHelperUpdate = false; }
                     // Refresh the whole FPS section so mode radio + panels match
