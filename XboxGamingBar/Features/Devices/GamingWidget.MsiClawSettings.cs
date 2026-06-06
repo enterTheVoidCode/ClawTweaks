@@ -145,6 +145,10 @@ namespace XboxGamingBar
 
         // ── Charge Limit ─────────────────────────────────────────────────────────────
 
+        // Debounce so dragging the slider doesn't flood the helper with WMI writes.
+        private Windows.UI.Xaml.DispatcherTimer _msiChargeDebounceTimer;
+        private int _pendingChargePercent = 80;
+
         private void RestoreMsiChargeLimitFromSettings()
         {
             try
@@ -154,28 +158,22 @@ namespace XboxGamingBar
 
                 bool enabled = s.TryGetValue(MsiChargeLimitEnabledKey, out var en) && en is bool b && b;
                 int  pct     = s.TryGetValue(MsiChargeLimitPercentKey,  out var pc) && pc is int  i ? i : 80;
+                pct = Math.Max(20, Math.Min(100, pct));
 
                 if (MsiChargeLimitToggle != null)
                     MsiChargeLimitToggle.IsOn = enabled;
                 if (MsiChargeLimitPercentPanel != null)
                     MsiChargeLimitPercentPanel.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
-
-                SetChargeLimitRadio(pct);
+                if (MsiChargeLimitSlider != null)
+                    MsiChargeLimitSlider.Value = pct;
+                if (MsiChargeLimitValue != null)
+                    MsiChargeLimitValue.Text = $"{pct}%";
             }
             catch (Exception ex) { Logger.Warn($"[BattMgr] Restore charge limit failed: {ex.Message}"); }
             finally { _msiChargeLimitLoading = false; }
-        }
 
-        private void SetChargeLimitRadio(int pct)
-        {
-            _msiChargeLimitLoading = true;
-            try
-            {
-                if (MsiChargeLimit60  != null) MsiChargeLimit60.IsChecked  = (pct == 60);
-                if (MsiChargeLimit80  != null) MsiChargeLimit80.IsChecked  = (pct == 80);
-                if (MsiChargeLimit100 != null) MsiChargeLimit100.IsChecked = (pct == 100);
-            }
-            finally { _msiChargeLimitLoading = false; }
+            // Read the live EC value so the status line reflects reality on open.
+            _ = QueryMsiChargeLimitStatusAsync();
         }
 
         internal void MsiChargeLimitToggle_Toggled(object sender, RoutedEventArgs e)
@@ -187,26 +185,44 @@ namespace XboxGamingBar
             if (MsiChargeLimitPercentPanel != null)
                 MsiChargeLimitPercentPanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
 
-            int pct = GetSelectedChargePercent();
+            int pct = (int)(MsiChargeLimitSlider?.Value ?? 80);
             _ = SendMsiChargeLimitAsync(on, pct);
             Logger.Info($"[BattMgr] Toggle → enabled={on} pct={pct}");
         }
 
-        internal void MsiChargeLimitPercent_Checked(object sender, RoutedEventArgs e)
+        internal void MsiChargeLimitSlider_ValueChanged(object sender,
+            Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
+            int pct = (int)Math.Round(e.NewValue);
+            if (MsiChargeLimitValue != null) MsiChargeLimitValue.Text = $"{pct}%";
             if (_msiChargeLimitLoading) return;
-            int pct = GetSelectedChargePercent();
+
             ApplicationData.Current.LocalSettings.Values[MsiChargeLimitPercentKey] = pct;
-            bool on = MsiChargeLimitToggle?.IsOn ?? false;
-            _ = SendMsiChargeLimitAsync(on, pct);
-            Logger.Info($"[BattMgr] Percent → {pct}%");
+            _pendingChargePercent = pct;
+
+            // Debounce the helper write (500 ms after the last change).
+            if (_msiChargeDebounceTimer == null)
+            {
+                _msiChargeDebounceTimer = new Windows.UI.Xaml.DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(500)
+                };
+                _msiChargeDebounceTimer.Tick += (s, ev) =>
+                {
+                    _msiChargeDebounceTimer.Stop();
+                    bool on = MsiChargeLimitToggle?.IsOn ?? false;
+                    _ = SendMsiChargeLimitAsync(on, _pendingChargePercent);
+                    Logger.Info($"[BattMgr] Percent (debounced) → {_pendingChargePercent}%");
+                };
+            }
+            _msiChargeDebounceTimer.Stop();
+            _msiChargeDebounceTimer.Start();
         }
 
-        private int GetSelectedChargePercent()
+        /// <summary>Re-reads the live EC charge-limit value (for resume-from-sleep verification).</summary>
+        internal void MsiChargeLimitVerifyButton_Click(object sender, RoutedEventArgs e)
         {
-            if (MsiChargeLimit60?.IsChecked  == true) return 60;
-            if (MsiChargeLimit100?.IsChecked == true) return 100;
-            return 80;
+            _ = QueryMsiChargeLimitStatusAsync();
         }
 
         private async Task SendMsiChargeLimitAsync(bool enabled, int percent)
@@ -222,6 +238,59 @@ namespace XboxGamingBar
                 Logger.Info($"[BattMgr] Sent limit enabled={enabled} percent={percent}");
             }
             catch (Exception ex) { Logger.Warn($"[BattMgr] Send failed: {ex.Message}"); }
+
+            // Confirm what actually landed in the EC.
+            await QueryMsiChargeLimitStatusAsync();
+        }
+
+        /// <summary>
+        /// Asks the helper for the live EC charge-limit value and shows it in the status line.
+        /// Response format: "enabled:percent:readok".
+        /// </summary>
+        private async Task QueryMsiChargeLimitStatusAsync()
+        {
+            try
+            {
+                if (!App.IsConnected)
+                {
+                    SetChargeStatus("Helper not connected — cannot read live value.", warn: true);
+                    return;
+                }
+
+                var msg = new Windows.Foundation.Collections.ValueSet { { "MsiChargeLimitGet", true } };
+                var resp = await App.SendMessageAsync(msg);
+                if (resp == null || !resp.TryGetValue("MsiChargeLimitStatus", out var stObj) || !(stObj is string st))
+                {
+                    SetChargeStatus("Could not read the live value.", warn: true);
+                    return;
+                }
+
+                var parts = st.Split(':');
+                bool enabled = parts.Length > 0 && bool.TryParse(parts[0], out var en) && en;
+                int  pct     = parts.Length > 1 && int.TryParse(parts[1], out var p) ? p : 0;
+                bool readOk  = parts.Length < 3 || (bool.TryParse(parts[2], out var ro) && ro);
+
+                if (!readOk)
+                    SetChargeStatus("Live value: unknown (device not ready / powered off).", warn: true);
+                else if (enabled)
+                    SetChargeStatus($"Live value: active, limit {pct}% ✓ verified.", warn: false);
+                else
+                    SetChargeStatus($"Live value: disabled (charges to 100%). Stored limit {pct}%.", warn: false);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[BattMgr] Query status failed: {ex.Message}");
+                SetChargeStatus("Could not read the live value.", warn: true);
+            }
+        }
+
+        private void SetChargeStatus(string text, bool warn)
+        {
+            if (MsiChargeLimitStatusText == null) return;
+            MsiChargeLimitStatusText.Text = text;
+            MsiChargeLimitStatusText.Foreground = new SolidColorBrush(
+                warn ? Color.FromArgb(255, 0xFF, 0x8C, 0x00)   // orange
+                     : Color.FromArgb(255, 0x4C, 0xAF, 0x50)); // green
         }
     }
 }

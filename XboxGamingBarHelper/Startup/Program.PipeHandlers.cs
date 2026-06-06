@@ -290,11 +290,13 @@ namespace XboxGamingBarHelper
                 {
                     try
                     {
-                        int percent = Devices.MSIClaw.MsiClawBatteryManager.GetConfig(out bool enabled);
-                        Logger.Info($"Pipe: MsiChargeLimitGet → enabled={enabled} percent={percent}");
+                        int percent = Devices.MSIClaw.MsiClawBatteryManager.GetConfig(out bool enabled, out bool readOk);
+                        Logger.Info($"Pipe: MsiChargeLimitGet → enabled={enabled} percent={percent} readOk={readOk}");
+                        // Format: "enabled:percent:readok" — readok=false means the EC read failed
+                        // (device not ready), so the widget shows "unknown" rather than a stale guess.
                         var responseVs = new global::Windows.Foundation.Collections.ValueSet
                         {
-                            { "MsiChargeLimitStatus", $"{enabled}:{percent}" }
+                            { "MsiChargeLimitStatus", $"{enabled}:{percent}:{readOk}" }
                         };
                         if (pipeServer != null && pipeServer.IsConnected)
                         {

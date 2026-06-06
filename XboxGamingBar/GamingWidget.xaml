@@ -3513,24 +3513,40 @@
                                                   Toggled="MsiChargeLimitToggle_Toggled"/>
                                 </Grid>
                                 <!-- Percentage selection — shown when toggle is on -->
-                                <StackPanel x:Name="MsiChargeLimitPercentPanel" Visibility="Collapsed" Margin="0,12,0,0" Spacing="4">
-                                    <TextBlock Text="Charge to at most:" FontSize="12" Foreground="#AAAAAA" Margin="0,0,0,4"/>
-                                    <RadioButton x:Name="MsiChargeLimit60"
-                                                 Content="60% — Best for long-term storage / always-plugged-in"
-                                                 GroupName="MsiChargeLimitGroup"
-                                                 FontSize="12"
-                                                 Checked="MsiChargeLimitPercent_Checked" Tag="60"/>
-                                    <RadioButton x:Name="MsiChargeLimit80"
-                                                 Content="80% — Recommended daily use"
-                                                 GroupName="MsiChargeLimitGroup"
-                                                 FontSize="12"
-                                                 IsChecked="True"
-                                                 Checked="MsiChargeLimitPercent_Checked" Tag="80" Margin="0,4,0,0"/>
-                                    <RadioButton x:Name="MsiChargeLimit100"
-                                                 Content="100% — No limit (default)"
-                                                 GroupName="MsiChargeLimitGroup"
-                                                 FontSize="12"
-                                                 Checked="MsiChargeLimitPercent_Checked" Tag="100" Margin="0,4,0,0"/>
+                                <StackPanel x:Name="MsiChargeLimitPercentPanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <Grid Margin="0,0,0,2">
+                                        <TextBlock Text="Charge to at most" FontSize="12" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="MsiChargeLimitValue" Text="80%"
+                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <Slider x:Name="MsiChargeLimitSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="20" Maximum="100"
+                                            StepFrequency="5" TickFrequency="10"
+                                            TickPlacement="Outside" SnapsTo="StepValues"
+                                            Value="80"
+                                            XYFocusUp="{x:Bind MsiChargeLimitToggle}"
+                                            XYFocusDown="{x:Bind MsiChargeLimitVerifyButton}"
+                                            ValueChanged="MsiChargeLimitSlider_ValueChanged"/>
+
+                                    <!-- Read-back / verification row (reads the actual EC value) -->
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="MsiChargeLimitStatusText" Grid.Column="0"
+                                                   Text="" FontSize="11" Foreground="#888888"
+                                                   TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                        <Button x:Name="MsiChargeLimitVerifyButton" Grid.Column="1"
+                                                Content="Verify" FontSize="12" Padding="12,4"
+                                                Click="MsiChargeLimitVerifyButton_Click"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Note: the charge limit is enforced by the firmware only while the device is powered on. It does not apply when the Claw is fully shut down. Use Verify to re-read the live value (e.g. after sleep / hibernation)."
+                                               FontSize="11" Foreground="#FF8C00"
+                                               TextWrapping="Wrap" Margin="0,8,0,0"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
