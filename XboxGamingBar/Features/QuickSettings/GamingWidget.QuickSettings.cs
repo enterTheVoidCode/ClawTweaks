@@ -194,8 +194,8 @@ namespace XboxGamingBar
                 qsSelectedTileForMove = null;
 
                 // Dark mode colors with sharp contrast for handheld devices
-                // On state: use desaturated system accent color for subtle indication
-                var accentDark3 = (Windows.UI.Color)Application.Current.Resources["SystemAccentColorDark3"];
+                // On state: desaturated THEME accent (not the Windows system accent).
+                var accentDark3 = ThemeColors.Shade(CurrentThemeAccent(), -0.45);
                 // Blend accent with dark gray to reduce saturation (40% accent, 60% dark base)
                 var darkBase = Windows.UI.Color.FromArgb(255, 26, 28, 30); // Same as tile off
                 var desaturatedAccent = Windows.UI.Color.FromArgb(

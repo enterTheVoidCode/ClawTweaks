@@ -416,7 +416,7 @@ namespace XboxGamingBar
                 {
                     Glyph = info.Glyph,
                     FontSize = 14,
-                    Foreground = new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["SystemAccentColorLight2"]),
+                    Foreground = new SolidColorBrush(ThemeColors.Shade(CurrentThemeAccent(), 0.35)),
                     Margin = new Thickness(0, 0, 4, 0),
                     VerticalAlignment = VerticalAlignment.Center
                 };
@@ -505,7 +505,7 @@ namespace XboxGamingBar
                 var indexText = new TextBlock
                 {
                     Text = $"{i + 1}",
-                    Foreground = new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["SystemAccentColorLight2"]),
+                    Foreground = new SolidColorBrush(ThemeColors.Shade(CurrentThemeAccent(), 0.35)),
                     FontSize = 11,
                     FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center

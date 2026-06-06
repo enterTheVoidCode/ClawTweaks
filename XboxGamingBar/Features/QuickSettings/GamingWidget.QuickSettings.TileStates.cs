@@ -480,7 +480,7 @@ namespace XboxGamingBar
 
             try
             {
-                var accentForeground = new SolidColorBrush((Windows.UI.Color)Application.Current.Resources["SystemAccentColorLight2"]);
+                var accentForeground = new SolidColorBrush(ThemeColors.Shade(CurrentThemeAccent(), 0.35));
                 var offForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
 
                 // TDP Mode tile - color-coded backgrounds based on preset or mode
