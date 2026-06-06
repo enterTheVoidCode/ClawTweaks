@@ -2315,131 +2315,7 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- MSI Claw (Lunar Lake) Fan Control Card — shown only on MSI Claw -->
-                        <Border x:Name="MsiFanCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Fan Control" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Custom fan curve (Lunar Lake)"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="MsiFanEnableToggle"
-                                                  Grid.Column="1"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  IsOn="False"
-                                                  VerticalAlignment="Center"
-                                                  Toggled="MsiFanEnableToggle_Toggled"
-                                                  KeyDown="MsiFanEnableToggle_KeyDown"/>
-                                </Grid>
-
-                                <StackPanel x:Name="MsiFanContent" Margin="0,10,0,0" Visibility="Collapsed">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Preset" FontSize="13" Foreground="#E0E0E0" VerticalAlignment="Center"/>
-                                        <ComboBox x:Name="MsiFanPresetComboBox"
-                                                  Grid.Column="1"
-                                                  HorizontalAlignment="Right"
-                                                  Width="160"
-                                                  SelectionChanged="MsiFanPresetComboBox_SelectionChanged"
-                                                  KeyDown="MsiFanPresetComboBox_KeyDown">
-                                            <ComboBoxItem Content="Quiet" Tag="0"/>
-                                            <ComboBoxItem Content="Default" Tag="1" IsSelected="True"/>
-                                            <ComboBoxItem Content="Aggressive" Tag="2"/>
-                                            <ComboBoxItem Content="Custom" Tag="3"/>
-                                        </ComboBox>
-                                    </Grid>
-
-                                    <!-- Drag editor: 11 control points (0,10,…,100 °C → 0–100 %). -->
-                                    <TextBlock Text="Fan %" FontSize="11" Foreground="#999999" Margin="0,12,0,4"/>
-                                    <Grid Height="150">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="30"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Stretch">
-                                            <TextBlock Text="100" FontSize="10" Foreground="#666666"/>
-                                            <TextBlock Text="75" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
-                                            <TextBlock Text="50" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
-                                            <TextBlock Text="25" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
-                                            <TextBlock Text="0" FontSize="10" Foreground="#666666" VerticalAlignment="Bottom"/>
-                                        </StackPanel>
-                                        <!-- Focusable wrapper so the graph is reachable by controller
-                                             (Canvas itself is a Panel and cannot be a tab stop). -->
-                                        <ContentControl x:Name="MsiFanCurveFocus"
-                                                        Grid.Column="1"
-                                                        IsTabStop="True"
-                                                        UseSystemFocusVisuals="True"
-                                                        HorizontalContentAlignment="Stretch"
-                                                        VerticalContentAlignment="Stretch"
-                                                        GotFocus="MsiFanCurveCanvas_GotFocus"
-                                                        LostFocus="MsiFanCurveCanvas_LostFocus"
-                                                        KeyDown="MsiFanCurveCanvas_KeyDown">
-                                            <Canvas x:Name="MsiFanCurveCanvas"
-                                                    Background="#1A1A1A"
-                                                    PointerPressed="MsiFanCurveCanvas_PointerPressed"
-                                                    PointerMoved="MsiFanCurveCanvas_PointerMoved"
-                                                    PointerReleased="MsiFanCurveCanvas_PointerReleased"
-                                                    PointerCaptureLost="MsiFanCurveCanvas_PointerReleased"
-                                                    SizeChanged="MsiFanCurveCanvas_SizeChanged">
-                                                <Polygon x:Name="MsiFanCurveFill" Fill="#3300AAFF" Stroke="Transparent"/>
-                                                <Polyline x:Name="MsiFanCurvePolyline" Stroke="#00AAFF" StrokeThickness="2" StrokeLineJoin="Round"/>
-                                                <!-- Live CPU package temperature indicator -->
-                                                <Line x:Name="MsiFanTempIndicatorLine"
-                                                      Stroke="#FF8800" StrokeThickness="2" StrokeDashArray="4,2"
-                                                      Visibility="Collapsed"/>
-                                            </Canvas>
-                                        </ContentControl>
-                                    </Grid>
-                                    <StackPanel Orientation="Horizontal" Margin="30,4,0,0">
-                                        <TextBlock Text="CPU package: " FontSize="11" Foreground="#999999"/>
-                                        <TextBlock x:Name="MsiFanTempLabel" Text="--&#xB0;C" FontSize="11" Foreground="#FF8800" FontWeight="SemiBold"/>
-                                    </StackPanel>
-
-                                    <!-- Verify the values actually written to the EC against the graph -->
-                                    <StackPanel Margin="0,10,0,0">
-                                        <Button x:Name="MsiFanCheckButton"
-                                                Content="Check applied values"
-                                                HorizontalAlignment="Left"
-                                                Style="{StaticResource StandaloneButtonStyle}"
-                                                Click="MsiFanCheckButton_Click"
-                                                KeyDown="MsiFanCheckButton_KeyDown"/>
-                                        <TextBlock x:Name="MsiFanCheckStatus"
-                                                   Margin="0,6,0,0"
-                                                   FontSize="11" TextWrapping="Wrap"
-                                                   Foreground="#A0A0A0"
-                                                   Text=""/>
-                                    </StackPanel>
-                                    <Grid Margin="30,4,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="0&#xB0;C" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="1" Text="20" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="2" Text="40" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="3" Text="60" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="4" Text="80" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                        <TextBlock Grid.Column="5" Text="100&#xB0;C" FontSize="9" Foreground="#666666" HorizontalAlignment="Right"/>
-                                    </Grid>
-
-                                    <TextBlock Margin="0,8,0,0"
-                                               FontSize="11" Foreground="#A0A0A0" TextWrapping="Wrap"
-                                               Text="Lunar Lake stays near-silent at idle. Drag the points to edit a custom curve; the curve is written to the EC, which drives the fan smoothly. Turn this off to return to MSI's firmware control."/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
+                        <!-- MSI Claw Fan Control card now lives permanently in the Fan tab (FanTabContent). -->
 
                         <!-- Fan Curve Graph Card (Coming Soon) -->
                         <Border x:Name="LegionFanCurveCard" Style="{StaticResource CardStyle}">
@@ -5077,8 +4953,134 @@
                         <TextBlock Text="Per-game fan profiles — coming soon. The fan curve is currently global (applies on every game)."
                                    Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
 
-                        <!-- The Fan Control card (MsiFanCard) is moved here from the Performance tab at runtime. -->
-                        <StackPanel x:Name="FanTabContent"/>
+                        <!-- The MSI Claw Fan Control card lives here permanently (no runtime reparenting). -->
+                        <StackPanel x:Name="FanTabContent">
+                            <!-- MSI Claw (Lunar Lake) Fan Control Card — shown only on MSI Claw -->
+                            <Border x:Name="MsiFanCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Fan Control" Style="{StaticResource CardTitleStyle}"/>
+                                            <TextBlock Text="Custom fan curve (Lunar Lake)"
+                                                       Style="{StaticResource CardCaptionStyle}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="MsiFanEnableToggle"
+                                                      Grid.Column="1"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      IsOn="False"
+                                                      VerticalAlignment="Center"
+                                                      Toggled="MsiFanEnableToggle_Toggled"
+                                                      KeyDown="MsiFanEnableToggle_KeyDown"/>
+                                    </Grid>
+
+                                    <StackPanel x:Name="MsiFanContent" Margin="0,10,0,0" Visibility="Collapsed">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Preset" FontSize="13" Foreground="#E0E0E0" VerticalAlignment="Center"/>
+                                            <ComboBox x:Name="MsiFanPresetComboBox"
+                                                      Grid.Column="1"
+                                                      HorizontalAlignment="Right"
+                                                      Width="160"
+                                                      SelectionChanged="MsiFanPresetComboBox_SelectionChanged"
+                                                      KeyDown="MsiFanPresetComboBox_KeyDown">
+                                                <ComboBoxItem Content="Quiet" Tag="0"/>
+                                                <ComboBoxItem Content="Default" Tag="1" IsSelected="True"/>
+                                                <ComboBoxItem Content="Aggressive" Tag="2"/>
+                                                <ComboBoxItem Content="Custom" Tag="3"/>
+                                            </ComboBox>
+                                        </Grid>
+
+                                        <!-- Drag editor: 11 control points (0,10,…,100 °C → 0–100 %). -->
+                                        <TextBlock Text="Fan %" FontSize="11" Foreground="#999999" Margin="0,12,0,4"/>
+                                        <Grid Height="150">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="30"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Stretch">
+                                                <TextBlock Text="100" FontSize="10" Foreground="#666666"/>
+                                                <TextBlock Text="75" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
+                                                <TextBlock Text="50" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
+                                                <TextBlock Text="25" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
+                                                <TextBlock Text="0" FontSize="10" Foreground="#666666" VerticalAlignment="Bottom"/>
+                                            </StackPanel>
+                                            <!-- Focusable wrapper so the graph is reachable by controller
+                                                 (Canvas itself is a Panel and cannot be a tab stop). -->
+                                            <ContentControl x:Name="MsiFanCurveFocus"
+                                                            Grid.Column="1"
+                                                            IsTabStop="True"
+                                                            UseSystemFocusVisuals="True"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            VerticalContentAlignment="Stretch"
+                                                            GotFocus="MsiFanCurveCanvas_GotFocus"
+                                                            LostFocus="MsiFanCurveCanvas_LostFocus"
+                                                            KeyDown="MsiFanCurveCanvas_KeyDown">
+                                                <Canvas x:Name="MsiFanCurveCanvas"
+                                                        Background="#1A1A1A"
+                                                        PointerPressed="MsiFanCurveCanvas_PointerPressed"
+                                                        PointerMoved="MsiFanCurveCanvas_PointerMoved"
+                                                        PointerReleased="MsiFanCurveCanvas_PointerReleased"
+                                                        PointerCaptureLost="MsiFanCurveCanvas_PointerReleased"
+                                                        SizeChanged="MsiFanCurveCanvas_SizeChanged">
+                                                    <Polygon x:Name="MsiFanCurveFill" Fill="#3300AAFF" Stroke="Transparent"/>
+                                                    <Polyline x:Name="MsiFanCurvePolyline" Stroke="#00AAFF" StrokeThickness="2" StrokeLineJoin="Round"/>
+                                                    <!-- Live CPU package temperature indicator -->
+                                                    <Line x:Name="MsiFanTempIndicatorLine"
+                                                          Stroke="#FF8800" StrokeThickness="2" StrokeDashArray="4,2"
+                                                          Visibility="Collapsed"/>
+                                                </Canvas>
+                                            </ContentControl>
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Margin="30,4,0,0">
+                                            <TextBlock Text="CPU package: " FontSize="11" Foreground="#999999"/>
+                                            <TextBlock x:Name="MsiFanTempLabel" Text="--&#xB0;C" FontSize="11" Foreground="#FF8800" FontWeight="SemiBold"/>
+                                        </StackPanel>
+
+                                        <!-- Verify the values actually written to the EC against the graph -->
+                                        <StackPanel Margin="0,10,0,0">
+                                            <Button x:Name="MsiFanCheckButton"
+                                                    Content="Check applied values"
+                                                    HorizontalAlignment="Left"
+                                                    Style="{StaticResource StandaloneButtonStyle}"
+                                                    Click="MsiFanCheckButton_Click"
+                                                    KeyDown="MsiFanCheckButton_KeyDown"/>
+                                            <TextBlock x:Name="MsiFanCheckStatus"
+                                                       Margin="0,6,0,0"
+                                                       FontSize="11" TextWrapping="Wrap"
+                                                       Foreground="#A0A0A0"
+                                                       Text=""/>
+                                        </StackPanel>
+                                        <Grid Margin="30,4,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="0&#xB0;C" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
+                                            <TextBlock Grid.Column="1" Text="20" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
+                                            <TextBlock Grid.Column="2" Text="40" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
+                                            <TextBlock Grid.Column="3" Text="60" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
+                                            <TextBlock Grid.Column="4" Text="80" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
+                                            <TextBlock Grid.Column="5" Text="100&#xB0;C" FontSize="9" Foreground="#666666" HorizontalAlignment="Right"/>
+                                        </Grid>
+
+                                        <TextBlock Margin="0,8,0,0"
+                                                   FontSize="11" Foreground="#A0A0A0" TextWrapping="Wrap"
+                                                   Text="Lunar Lake stays near-silent at idle. Drag the points to edit a custom curve; the curve is written to the EC, which drives the fan smoothly. Turn this off to return to MSI's firmware control."/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
 

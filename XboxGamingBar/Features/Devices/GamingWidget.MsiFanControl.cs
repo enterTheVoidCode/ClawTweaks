@@ -40,33 +40,6 @@ namespace XboxGamingBar
             => deviceDisplayName?.Value?.IndexOf("Claw", StringComparison.OrdinalIgnoreCase) >= 0;
 
         /// <summary>Show the fan card on MSI Claw and restore the saved state. Idempotent.</summary>
-        private bool _msiFanReparented;
-
-        /// <summary>
-        /// Moves the Fan Control card out of the Performance tab into the dedicated Fan tab,
-        /// once. Called lazily when the Fan tab is first opened — NOT during startup/BatchSync,
-        /// where mutating the live visual tree triggered a delayed XAML crash. Guarded so a
-        /// failure can never take down the widget.
-        /// </summary>
-        private void EnsureFanCardInFanTab()
-        {
-            if (_msiFanReparented || MsiFanCard == null || FanTabContent == null) return;
-            try
-            {
-                if (MsiFanCard.Parent is Panel oldParent)
-                    oldParent.Children.Remove(MsiFanCard);
-                if (MsiFanCard.Parent == null)
-                {
-                    FanTabContent.Children.Add(MsiFanCard);
-                    _msiFanReparented = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"EnsureFanCardInFanTab failed: {ex.Message}");
-            }
-        }
-
         private void InitializeMsiFanCard()
         {
             if (MsiFanCard == null) return;
@@ -677,17 +650,17 @@ namespace XboxGamingBar
                 SendMsiFanCurveToHelper();
         }
 
-        /// <summary>Scroll the Performance tab so the entire fan graph + temp label are visible.</summary>
+        /// <summary>Scroll the Fan tab so the entire fan graph + temp label are visible.</summary>
         private void ScrollMsiFanCardIntoView()
         {
             try
             {
-                if (PerformanceScrollViewer == null) return;
+                if (FanScrollViewer == null) return;
                 // The fan card is the last content — scroll fully to the bottom.
                 _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
                 {
-                    PerformanceScrollViewer.UpdateLayout();
-                    PerformanceScrollViewer.ChangeView(null, PerformanceScrollViewer.ScrollableHeight, null);
+                    FanScrollViewer.UpdateLayout();
+                    FanScrollViewer.ChangeView(null, FanScrollViewer.ScrollableHeight, null);
                 });
             }
             catch (Exception ex) { Logger.Debug($"ScrollMsiFanCardIntoView: {ex.Message}"); }

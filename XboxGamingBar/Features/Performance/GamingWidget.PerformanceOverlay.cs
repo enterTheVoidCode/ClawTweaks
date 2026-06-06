@@ -215,17 +215,10 @@ namespace XboxGamingBar
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                // On MSI Claw the fan card sits below the overlay card — continue into it.
-                if (MsiFanCard != null && MsiFanCard.Visibility == Windows.UI.Xaml.Visibility.Visible && MsiFanEnableToggle != null)
-                {
-                    MsiFanEnableToggle.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                }
-                else
-                {
-                    // Loop back to top of Performance tab
-                    var target = PerGameProfileToggle ?? FPSStateCycleButton ?? (Windows.UI.Xaml.Controls.Control)TDPSlider;
-                    target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                }
+                // The overlay card is the last card on the Performance tab (the fan card now lives
+                // in the dedicated Fan tab) — loop back to the top.
+                var target = PerGameProfileToggle ?? FPSStateCycleButton ?? (Windows.UI.Xaml.Controls.Control)TDPSlider;
+                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }
