@@ -305,7 +305,10 @@ namespace XboxGamingBar
             AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
 
             // Row 3 - Display
-            AddTileDefinition("Resolution", "Resolution", "\uE7F8", order: order++);
+            // Resolution tile removed from the grid (logic kept: CycleResolution + the "Resolution"
+            // click case + state text still exist). Replaced by the two new limiter tiles below.
+            AddTileDefinition("FpsLimiter",    "FPS Limit",    "\uE916", order: order++); // cycles caps in the current mode (RTSS/Intel) incl. Off
+            AddTileDefinition("ChargeLimiter", "Charge Limit", "\uE83F", order: order++); // battery charge-limit on/off (must be set up in System tab first)
             // AddTileDefinition("Rotation", "Rotation", "\uE7AD", order: order++);  // removed: not used on MSI Claw
             // AddTileDefinition("HDR", "HDR", "\uE706", order: order++);  // removed: MSI Claw has no HDR output
             AddTileDefinition("Fullscreen", "Fullscreen", "\uE740", order: order++);

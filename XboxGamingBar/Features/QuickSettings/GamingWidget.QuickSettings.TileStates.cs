@@ -831,6 +831,44 @@ namespace XboxGamingBar
                     boostTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
                 }
 
+                // FPS Limiter tile — shows the current cap in the active mode (RTSS or Intel), or Off.
+                if (qsTileMap.TryGetValue("FpsLimiter", out var fpsTile) && fpsTile.TileButton != null)
+                {
+                    bool isIntel = fpsCapMode?.Value == 1;
+                    int cap;
+                    if (isIntel)
+                    {
+                        int tier = intelFpsTier?.Value ?? 0;   // 0=Off,1=60,2=40,3=30
+                        cap = tier == 1 ? 60 : tier == 2 ? 40 : tier == 3 ? 30 : 0;
+                    }
+                    else
+                    {
+                        cap = fpsLimit?.Value ?? 0;            // 0 = Off
+                    }
+                    bool active = cap > 0;
+                    fpsTile.StateText.Text = active ? $"{cap} FPS" : "Off";
+                    fpsTile.StateText.Foreground = active ? accentForeground : offForeground;
+                    fpsTile.TileButton.Background = active ? tileOnBrush : tileOffBrush;
+                }
+
+                // Charge Limiter tile — on/off; locked until set up in the System tab.
+                if (qsTileMap.TryGetValue("ChargeLimiter", out var chgTile) && chgTile.TileButton != null)
+                {
+                    if (!IsChargeLimiterInitialized())
+                    {
+                        chgTile.StateText.Text = "Setup in Settings";
+                        chgTile.StateText.Foreground = offForeground;
+                        chgTile.TileButton.Background = tileOffBrush;
+                    }
+                    else
+                    {
+                        bool on = IsChargeLimiterEnabled();
+                        chgTile.StateText.Text = on ? $"On {ChargeLimiterPercent()}%" : "Off";
+                        chgTile.StateText.Foreground = on ? accentForeground : offForeground;
+                        chgTile.TileButton.Background = on ? tileOnBrush : tileOffBrush;
+                    }
+                }
+
                 // EPP tile
                 if (qsTileMap.TryGetValue("EPP", out var eppTile) && eppTile.TileButton != null)
                 {

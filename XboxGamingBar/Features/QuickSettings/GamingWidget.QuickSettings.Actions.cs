@@ -118,6 +118,14 @@ namespace XboxGamingBar
                             case "Resolution":
                                 CycleResolution();
                                 break;
+                            case "FpsLimiter":
+                                // Cycle FPS caps in the CURRENT mode (RTSS or Intel), incl. Off.
+                                // Reuses the existing mode-aware cycler — no mode switching here.
+                                CycleFPSForCurrentMode();
+                                break;
+                            case "ChargeLimiter":
+                                ToggleChargeLimiterTile();
+                                break;
                             case "Rotation":
                                 CycleRotation();
                                 break;
