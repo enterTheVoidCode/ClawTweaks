@@ -105,9 +105,7 @@ namespace XboxGamingBar
                         }
                         break;
                     case "Fan":
-                        // Reparent the card into the Fan tab on first open (stable moment;
-                        // other tabs are collapsed). Then show + refresh.
-                        EnsureFanCardInFanTab();
+                        // The Fan Control card lives in this tab's XAML permanently — just show + refresh.
                         if (FanScrollViewer != null)
                         {
                             FanScrollViewer.Visibility = Visibility.Visible;
@@ -469,6 +467,12 @@ namespace XboxGamingBar
                 target = LosslessScalingEnabledToggle?.IsEnabled == true
                     ? (Control)LosslessScalingEnabledToggle
                     : LosslessScalingAutoScaleToggle;
+            }
+            else if (FanScrollViewer?.Visibility == Visibility.Visible)
+            {
+                // Fan tab: the Fan Control card's enable toggle is the first interactive element.
+                if (MsiFanEnableToggle?.IsEnabled == true)
+                    target = MsiFanEnableToggle;
             }
 
             if (target != null && target.IsEnabled)
