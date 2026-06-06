@@ -95,7 +95,6 @@ namespace XboxGamingBar
                     theme = new ThemeColors
                     {
                         Name = theme.Name, MonoFromAccent = true, UseWindowsAccent = true,
-                        ShimmerEnabled = theme.ShimmerEnabled,
                         AccentColor = Windows.UI.Color.FromArgb(255, winAccent.R, winAccent.G, winAccent.B)
                     };
                     Logger.Info($"[Theme] Windows accent = #{winAccent.R:X2}{winAccent.G:X2}{winAccent.B:X2}");
@@ -254,7 +253,6 @@ namespace XboxGamingBar
             {
                 Name = baseTheme.Name,
                 MonoFromAccent = true,
-                ShimmerEnabled = baseTheme.ShimmerEnabled,
                 AccentColor      = a,
                 PageBackground   = S(-0.88),
                 PageBackground2  = S(-0.94),
@@ -425,6 +423,9 @@ namespace XboxGamingBar
 
                 ApplyTheme(themeName);
 
+                // Restore the global glass-effect toggle to match the saved setting.
+                RestoreGlassEffectToggle();
+
                 // Apply to all tabs to prevent flash when switching
                 ApplyThemeToCurrentTab();
             }
@@ -448,19 +449,57 @@ namespace XboxGamingBar
             }
         }
 
-        /// <summary>Maps theme names saved by older builds to their current keys after the rename.</summary>
+        /// <summary>Maps theme names saved by older builds to their current keys.</summary>
         private static string MigrateThemeName(string name)
         {
             switch (name)
             {
-                case "Next Gen Claw": return "Next Gen Claw (Glas)";
-                case "Claw Blue":     return "Claw Blue (Glas)";
-                case "Box X":         return "Box X (Glas)";
-                case "Nintendon't":   return "Nintendon't (Glas)";
-                case "Chrilleteur":   return "Chrilleteur (Glas)";
-                case "Mono":          return "Windows";
-                default:              return name;
+                // The short-lived "(Glas)" suffix has been removed again (glass is now a global toggle).
+                case "Next Gen Claw (Glas)": return "Next Gen Claw";
+                case "Claw Blue (Glas)":     return "Claw Blue";
+                case "Box X (Glas)":         return "Box X";
+                case "Nintendon't (Glas)":   return "Nintendon't";
+                case "Chrilleteur (Glas)":   return "Chrilleteur";
+                case "Mono":                 return "Windows";
+                default:                     return name;
             }
+        }
+
+        // ── Global glass effect toggle (theme-independent, user-controlled) ──────────
+        private const string GlassEffectKey = "GlassEffectEnabled";
+
+        /// <summary>Whether the glass look (static sheen + travelling shimmer) is on. Default: on.</summary>
+        internal bool IsGlassEffectEnabled()
+        {
+            try
+            {
+                var s = ApplicationData.Current.LocalSettings.Values;
+                return !s.TryGetValue(GlassEffectKey, out var v) || !(v is bool b) || b;
+            }
+            catch { return true; }
+        }
+
+        /// <summary>Restores the glass toggle from settings (call during init).</summary>
+        internal void RestoreGlassEffectToggle()
+        {
+            try { if (GlassEffectToggle != null) GlassEffectToggle.IsOn = IsGlassEffectEnabled(); }
+            catch { }
+        }
+
+        internal void GlassEffectToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                bool on = GlassEffectToggle?.IsOn ?? true;
+                ApplicationData.Current.LocalSettings.Values[GlassEffectKey] = on;
+                // Repaint tiles so the sheen/shimmer visibility updates immediately.
+                if (quickSettingsInitialized)
+                {
+                    RebuildQuickSettingsTiles();
+                    UpdateQuickSettingsTileStates();
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"GlassEffectToggle: {ex.Message}"); }
         }
 
         private void LoadThemeSetting()
@@ -479,9 +518,9 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // No saved theme → apply the default glass look so fresh installs get it.
-                    currentThemeName = "Next Gen Claw (Glas)";
-                    _ = ApplyThemeOnLoadAsync("Next Gen Claw (Glas)");
+                    // No saved theme → apply the default look so fresh installs get it.
+                    currentThemeName = "Next Gen Claw";
+                    _ = ApplyThemeOnLoadAsync("Next Gen Claw");
                 }
             }
             catch (Exception ex)

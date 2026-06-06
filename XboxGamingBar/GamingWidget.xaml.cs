@@ -665,9 +665,8 @@ namespace XboxGamingBar
         {
             // MSI-inspired blue "glass" look — the new default. Page + tiles use vertical gradients
             // (lighter top) over a deep navy, an azure accent and an accent glow on active tiles.
-            { "Next Gen Claw (Glas)", new ThemeColors {
-                Name = "Next Gen Claw (Glas)",
-                ShimmerEnabled = true,
+            { "Next Gen Claw", new ThemeColors {
+                Name = "Next Gen Claw",
                 // Vibrant neon diagonal: electric blue → violet
                 PageBackground  = Windows.UI.Color.FromArgb(255, 22, 38, 168),      // #1626A8 (top-left, brighter electric blue)
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 62, 26, 142),      // #3E1A8E (bottom-right, deeper neon violet)
@@ -691,9 +690,8 @@ namespace XboxGamingBar
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 122, 174, 242)  // #7AAEF2
             }},
             // The earlier Next Gen Claw look: solid (non-glass) blue, no violet (pre-glass/shimmer).
-            { "Claw Blue (Glas)", new ThemeColors {
-                Name = "Claw Blue (Glas)",
-                ShimmerEnabled = true,
+            { "Claw Blue", new ThemeColors {
+                Name = "Claw Blue",
                 PageBackground  = Windows.UI.Color.FromArgb(255, 9, 20, 40),       // #091428
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 13, 40, 84),      // #0D2854
                 CardBackground  = Windows.UI.Color.FromArgb(210, 22, 46, 84),
@@ -714,9 +712,8 @@ namespace XboxGamingBar
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 96, 162, 236)
             }},
             // Xbox-inspired: near-black → dark green, Xbox green accent.
-            { "Box X (Glas)", new ThemeColors {
-                Name = "Box X (Glas)",
-                ShimmerEnabled = true,
+            { "Box X", new ThemeColors {
+                Name = "Box X",
                 PageBackground  = Windows.UI.Color.FromArgb(255, 10, 14, 10),       // near-black
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 12, 40, 16),       // dark green
                 CardBackground  = Windows.UI.Color.FromArgb(210, 18, 40, 20),
@@ -737,9 +734,8 @@ namespace XboxGamingBar
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 90, 200, 90)
             }},
             // Nintendo-inspired: red surfaces, white text/icons.
-            { "Nintendon't (Glas)", new ThemeColors {
-                Name = "Nintendon't (Glas)",
-                ShimmerEnabled = true,
+            { "Nintendon't", new ThemeColors {
+                Name = "Nintendon't",
                 PageBackground  = Windows.UI.Color.FromArgb(255, 122, 0, 8),        // deep red
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 176, 0, 14),       // red
                 CardBackground  = Windows.UI.Color.FromArgb(210, 138, 10, 18),
@@ -760,9 +756,8 @@ namespace XboxGamingBar
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 154, 154)
             }},
             // Violet/yellow combo (per reference image).
-            { "Chrilleteur (Glas)", new ThemeColors {
-                Name = "Chrilleteur (Glas)",
-                ShimmerEnabled = true,
+            { "Chrilleteur", new ThemeColors {
+                Name = "Chrilleteur",
                 PageBackground  = Windows.UI.Color.FromArgb(255, 106, 0, 138),      // violet
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 166, 0, 154),      // magenta
                 CardBackground  = Windows.UI.Color.FromArgb(210, 94, 10, 114),
@@ -868,7 +863,6 @@ namespace XboxGamingBar
                 Name = "Windows",
                 MonoFromAccent = true,
                 UseWindowsAccent = true,
-                ShimmerEnabled = true,
                 AccentColor    = Windows.UI.Color.FromArgb(255, 0, 200, 255),     // #00C8FF
                 PageBackground = Windows.UI.Color.FromArgb(255, 6, 10, 12),
                 PageBackground2= Windows.UI.Color.FromArgb(255, 4, 14, 18),
@@ -890,7 +884,7 @@ namespace XboxGamingBar
             }}
         };
 
-        private string currentThemeName = "Next Gen Claw (Glas)";
+        private string currentThemeName = "Next Gen Claw";
 
         // Xbox Game Bar logic
         private XboxGameBarWidget widget = null;
