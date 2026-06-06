@@ -444,7 +444,7 @@ namespace XboxGamingBarHelper
                 bool enabled = Settings.LocalSettingsHelper.TryGetValue<bool>(ChargeLimitOnKey, out bool on) && on;
                 if (!enabled) return;
 
-                int percent = Settings.LocalSettingsHelper.TryGetValue<int>(ChargeLimitPctKey, out int p) ? p : 80;
+                int percent = Settings.LocalSettingsHelper.TryGetValue<int>(ChargeLimitPctKey, out int p) ? p : 90;
                 Logger.Info($"RestoreMsiChargeLimitOnStartup: re-applying saved charge limit {percent}% (enabled)");
                 Devices.MSIClaw.MsiClawBatteryManager.SetPercent(percent);
                 Devices.MSIClaw.MsiClawBatteryManager.SetEnabled(true);

@@ -268,7 +268,7 @@ namespace XboxGamingBarHelper
                     {
                         var parts = chgStr.Split(':');
                         bool enabled = parts.Length > 0 && parts[0].Trim().ToLowerInvariant() == "true";
-                        int  percent = parts.Length > 1 && int.TryParse(parts[1].Trim(), out int p) ? p : 80;
+                        int  percent = parts.Length > 1 && int.TryParse(parts[1].Trim(), out int p) ? p : 90;
 
                         bool ok1 = Devices.MSIClaw.MsiClawBatteryManager.SetPercent(percent);
                         bool ok2 = Devices.MSIClaw.MsiClawBatteryManager.SetEnabled(enabled);
