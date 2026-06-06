@@ -1089,7 +1089,9 @@
                             </Grid>
                         </Border>
 
-                        <!-- FPS Limit Card — 2-column: discrete slider (4*) left | 3-state cycle button (*) right -->
+                        <!-- FPS Limit Card — 2-column: left = title+mode+value+slider | right = toggle
+                             Structure mirrors TDPBoostToggle exactly: toggle is a direct child of
+                             the Grid (no intermediate StackPanel) so D-Pad focus works. -->
                         <Border Style="{StaticResource CardStyle}">
                             <Grid>
                                 <Grid.ColumnDefinitions>
@@ -1098,9 +1100,9 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Left: label + value + discrete slider -->
+                                <!-- Left: title + mode label + fps value + slider -->
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <Grid Margin="0,0,0,8">
+                                    <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -1117,6 +1119,12 @@
                                                    FontWeight="SemiBold"
                                                    VerticalAlignment="Center"/>
                                     </Grid>
+                                    <!-- Mode label: Off / RTSS / Intel — updated by SyncFpsStateButton -->
+                                    <TextBlock x:Name="FPSStateCycleText"
+                                               Text="Off"
+                                               FontSize="11"
+                                               Foreground="#888888"
+                                               Margin="0,2,0,6"/>
                                     <Slider x:Name="FPSLimitSlider"
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="0" Maximum="6"
@@ -1130,29 +1138,18 @@
                                             KeyDown="FPSLimitSlider_KeyDown"/>
                                 </StackPanel>
 
-                                <!-- Right: 3-state cycle toggle (Off → RTSS → Intel → …)
-                                     ToggleSwitch is used instead of Button because Button controls
-                                     do not receive D-Pad focus in the Xbox Game Bar context. -->
-                                <StackPanel Grid.Column="2"
-                                            VerticalAlignment="Center"
-                                            HorizontalAlignment="Center">
-                                    <TextBlock x:Name="FPSStateCycleText"
-                                               Text="Off"
-                                               FontSize="11"
-                                               FontWeight="SemiBold"
-                                               HorizontalAlignment="Center"
-                                               Foreground="#FFFFFF"
-                                               Margin="0,0,0,4"/>
-                                    <ToggleSwitch x:Name="FPSStateCycleButton"
-                                                 Style="{StaticResource ModernToggleStyle}"
-                                                 IsTabStop="True"
-                                                 XYFocusUp="{x:Bind PerGameProfileToggle}"
-                                                 XYFocusDown="{x:Bind TDPSlider}"
-                                                 VerticalAlignment="Center"
-                                                 Width="52"
-                                                 Toggled="FPSStateCycleButton_Toggled"
-                                                 KeyDown="FPSStateCycleButton_KeyDown"/>
-                                </StackPanel>
+                                <!-- Right: On/Off toggle — DIRECT child of Grid, NO wrapper.
+                                     Identical to TDPBoostToggle which D-Pad navigation reaches. -->
+                                <ToggleSwitch x:Name="FPSStateCycleButton"
+                                             Grid.Column="2"
+                                             Style="{StaticResource ModernToggleStyle}"
+                                             IsTabStop="True"
+                                             XYFocusUp="{x:Bind PerGameProfileToggle}"
+                                             XYFocusDown="{x:Bind TDPSlider}"
+                                             VerticalAlignment="Center"
+                                             Width="52"
+                                             Toggled="FPSStateCycleButton_Toggled"
+                                             KeyDown="FPSStateCycleButton_KeyDown"/>
 
                                 <!-- Hidden legacy elements: retained for settings/profile compat; never shown -->
                                 <ToggleSwitch x:Name="FPSLimitToggle"     Grid.Column="0" Visibility="Collapsed"/>
