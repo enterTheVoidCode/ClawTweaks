@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <img src="Doku/ClawTweaks Logo Handheld.PNG" width="420" alt="Logo"><br>
+  <img src="Doku/ClawTweaks Logo Handheld.PNG" width="550" alt="Logo"><br>
 </p>
 
 > ### ✅ Supported Devices
