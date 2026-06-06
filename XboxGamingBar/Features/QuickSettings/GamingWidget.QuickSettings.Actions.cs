@@ -1420,6 +1420,55 @@ namespace XboxGamingBar
                 int idx = Math.Max(0, Math.Min(FpsIntelValues.Length - 1, (int)FPSLimitSlider.Value));
                 if (FPSLimitValue != null) FPSLimitValue.Text = $"{FpsIntelValues[idx]} FPS";
             }
+
+            // Build the per-step FPS scale labels for the active mode (RTSS vs Intel differ).
+            int[] scaleVals = isIntel ? FpsIntelValues : FpsRtssValues;
+            int activeIdx = isOn
+                ? Math.Max(0, Math.Min(scaleVals.Length - 1, (int)FPSLimitSlider.Value))
+                : -1;
+            BuildFpsScaleLabels(scaleVals, activeIdx);
+        }
+
+        /// <summary>
+        /// Rebuilds the row of per-step FPS numbers under the limiter slider. The value set
+        /// differs by mode (RTSS = 24/30/40/60/90/100/120, Intel = 30/40/60), so this is
+        /// regenerated whenever the mode or on/off state changes. The active step is
+        /// highlighted green; inactive steps are dimmed.
+        /// </summary>
+        private void BuildFpsScaleLabels(int[] values, int activeIndex)
+        {
+            if (FPSLimitScaleLabels == null || values == null) return;
+
+            FPSLimitScaleLabels.Children.Clear();
+            FPSLimitScaleLabels.ColumnDefinitions.Clear();
+
+            var green = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x4C, 0xAF, 0x50));
+            var dim   = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x88, 0x88, 0x88));
+
+            for (int i = 0; i < values.Length; i++)
+            {
+                FPSLimitScaleLabels.ColumnDefinitions.Add(new Windows.UI.Xaml.Controls.ColumnDefinition
+                {
+                    Width = new Windows.UI.Xaml.GridLength(1, Windows.UI.Xaml.GridUnitType.Star)
+                });
+
+                var tb = new Windows.UI.Xaml.Controls.TextBlock
+                {
+                    Text = values[i].ToString(),
+                    FontSize = 10,
+                    HorizontalAlignment = (i == 0)
+                        ? Windows.UI.Xaml.HorizontalAlignment.Left
+                        : (i == values.Length - 1)
+                            ? Windows.UI.Xaml.HorizontalAlignment.Right
+                            : Windows.UI.Xaml.HorizontalAlignment.Center,
+                    Foreground = (i == activeIndex) ? green : dim,
+                    FontWeight = (i == activeIndex)
+                        ? Windows.UI.Text.FontWeights.SemiBold
+                        : Windows.UI.Text.FontWeights.Normal
+                };
+                Windows.UI.Xaml.Controls.Grid.SetColumn(tb, i);
+                FPSLimitScaleLabels.Children.Add(tb);
+            }
         }
 
         /// <summary>
@@ -1888,6 +1937,7 @@ namespace XboxGamingBar
                 int idx     = Math.Max(0, Math.Min(FpsRtssValues.Length - 1, (int)e.NewValue));
                 int fps     = FpsRtssValues[idx];
                 if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
+                BuildFpsScaleLabels(FpsRtssValues, idx);
 
                 if (fpsLimit != null && FPSLimitToggle?.IsOn == true)
                 {
@@ -1907,6 +1957,7 @@ namespace XboxGamingBar
                 int idx     = Math.Max(0, Math.Min(FpsIntelValues.Length - 1, (int)e.NewValue));
                 int fps     = FpsIntelValues[idx];
                 if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
+                BuildFpsScaleLabels(FpsIntelValues, idx);
 
                 if (intelFpsTier != null && FPSLimitToggle?.IsOn == true)
                 {
