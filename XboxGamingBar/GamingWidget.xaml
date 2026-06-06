@@ -353,26 +353,22 @@
                                     <VisualState x:Name="Normal"/>
                                     <VisualState x:Name="PointerOver">
                                         <Storyboard>
-                                            <!-- Diagonal light band sweeps top-left → bottom-right on hover.
-                                                 Shimmer.Opacity fade-in + fade-out are a single key-frame
-                                                 animation: two separate DoubleAnimations targeting the same
-                                                 property in one Storyboard is illegal in WinRT and throws. -->
                                             <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity">
                                                 <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
-                                                <LinearDoubleKeyFrame KeyTime="0:0:0.06" Value="1"/>
-                                                <LinearDoubleKeyFrame KeyTime="0:0:0.5" Value="1"/>
-                                                <LinearDoubleKeyFrame KeyTime="0:0:0.65" Value="0"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.05" Value="1"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.55" Value="1"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.7" Value="0"/>
                                             </DoubleAnimationUsingKeyFrames>
-                                            <DoubleAnimation Storyboard.TargetName="ShimGS1" Storyboard.TargetProperty="Offset"
-                                                             From="0.0" To="0.85" Duration="0:0:0.6">
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS1" Storyboard.TargetProperty="Offset" From="-0.40" To="1.00" Duration="0:0:0.7">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="ShimGS2" Storyboard.TargetProperty="Offset"
-                                                             From="0.0" To="0.93" Duration="0:0:0.6">
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS2" Storyboard.TargetProperty="Offset" From="-0.25" To="1.15" Duration="0:0:0.7">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
-                                            <DoubleAnimation Storyboard.TargetName="ShimGS3" Storyboard.TargetProperty="Offset"
-                                                             From="0.15" To="1.0" Duration="0:0:0.6">
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS3" Storyboard.TargetProperty="Offset" From="-0.15" To="1.25" Duration="0:0:0.7">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS4" Storyboard.TargetProperty="Offset" From="0.0" To="1.40" Duration="0:0:0.7">
                                                 <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
                                             </DoubleAnimation>
                                         </Storyboard>
@@ -401,6 +397,26 @@
                                             <ObjectAnimationUsingKeyFrames Storyboard.TargetName="FocusBorder" Storyboard.TargetProperty="Visibility">
                                                 <DiscreteObjectKeyFrame KeyTime="0" Value="Visible"/>
                                             </ObjectAnimationUsingKeyFrames>
+                                            <!-- Controller focus triggers the same full-tile sheen sweep as hover,
+                                                 so moving across tiles with the D-pad/stick plays the shimmer. -->
+                                            <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Shimmer" Storyboard.TargetProperty="Opacity">
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.05" Value="1"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.55" Value="1"/>
+                                                <LinearDoubleKeyFrame KeyTime="0:0:0.7" Value="0"/>
+                                            </DoubleAnimationUsingKeyFrames>
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS1" Storyboard.TargetProperty="Offset" From="-0.40" To="1.00" Duration="0:0:0.7">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS2" Storyboard.TargetProperty="Offset" From="-0.25" To="1.15" Duration="0:0:0.7">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS3" Storyboard.TargetProperty="Offset" From="-0.15" To="1.25" Duration="0:0:0.7">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ShimGS4" Storyboard.TargetProperty="Offset" From="0.0" To="1.40" Duration="0:0:0.7">
+                                                <DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseInOut"/></DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
                                         </Storyboard>
                                     </VisualState>
                                     <VisualState x:Name="Unfocused"/>
@@ -417,12 +433,15 @@
                                     CornerRadius="12">
                                 <Rectangle x:Name="Shimmer" Opacity="0" IsHitTestVisible="False">
                                     <Rectangle.Fill>
-                                        <!-- Diagonal bright band; the stop offsets animate from
-                                             top-left to bottom-right on hover to sweep the sheen. -->
+                                        <!-- Diagonal bright band (4 stops: transparent → bright → bright →
+                                             transparent). All four offsets animate together from off the
+                                             top-left (negative) to off the bottom-right (>1) so the sheen
+                                             sweeps across the WHOLE tile, not just the corner. -->
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                            <GradientStop x:Name="ShimGS1" Color="#00FFFFFF" Offset="0.0"/>
-                                            <GradientStop x:Name="ShimGS2" Color="#A0FFFFFF" Offset="0.0"/>
-                                            <GradientStop x:Name="ShimGS3" Color="#00FFFFFF" Offset="0.15"/>
+                                            <GradientStop x:Name="ShimGS1" Color="#00FFFFFF" Offset="-0.40"/>
+                                            <GradientStop x:Name="ShimGS2" Color="#F2FFFFFF" Offset="-0.25"/>
+                                            <GradientStop x:Name="ShimGS3" Color="#F2FFFFFF" Offset="-0.15"/>
+                                            <GradientStop x:Name="ShimGS4" Color="#00FFFFFF" Offset="0.0"/>
                                         </LinearGradientBrush>
                                     </Rectangle.Fill>
                                 </Rectangle>
