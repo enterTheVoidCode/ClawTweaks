@@ -1381,9 +1381,14 @@ namespace XboxGamingBar
             bool isOn    = FPSLimitToggle?.IsOn == true;
             bool isIntel = fpsCapMode?.Value == 1;
 
-            // Cycle button label
+            // Label above the toggle (always visible)
             if (FPSStateCycleText != null)
                 FPSStateCycleText.Text = !isOn ? "Off" : (isIntel ? "Intel" : "RTSS");
+
+            // Keep ToggleSwitch.IsOn in sync without triggering the Toggled cycle handler
+            _fpsCycleToggling = true;
+            try { if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = isOn; }
+            finally { _fpsCycleToggling = false; }
 
             if (FPSLimitSlider == null) return;
 
@@ -1439,8 +1444,9 @@ namespace XboxGamingBar
                             FPSLimitSlider.Value     = FpsRtssValues.Length - 1;
                             FPSLimitSlider.IsEnabled = false;
                         }
-                        if (FPSStateCycleText != null) FPSStateCycleText.Text = "Off";
-                        if (FPSLimitValue != null)     FPSLimitValue.Text     = "";
+                        if (FPSStateCycleText    != null) FPSStateCycleText.Text = "Off";
+                        if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = false;
+                        if (FPSLimitValue       != null) FPSLimitValue.Text = "";
                         fpsCapMode?.SetValue(fpsCapMode?.Value ?? 0); // preserve mode for next activation
                         break;
 
@@ -1464,8 +1470,9 @@ namespace XboxGamingBar
                                 : FpsRtssValues.Length - 1;
                             int fps = FpsRtssValues[idx];
                             fpsLimit?.SetValue(fps);
-                            if (FPSStateCycleText != null) FPSStateCycleText.Text = "RTSS";
-                            if (FPSLimitValue     != null) FPSLimitValue.Text     = $"{fps} FPS";
+                            if (FPSStateCycleText    != null) FPSStateCycleText.Text = "RTSS";
+                            if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = true;
+                            if (FPSLimitValue       != null) FPSLimitValue.Text = $"{fps} FPS";
                         }
                         break;
 
@@ -1490,8 +1497,9 @@ namespace XboxGamingBar
                             intelFpsTier?.SetValue(tier);
                             if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = tier;
                             string fpsTxt = FpsIntelValues[idx] + " FPS";
-                            if (FPSStateCycleText != null) FPSStateCycleText.Text = "Intel";
-                            if (FPSLimitValue     != null) FPSLimitValue.Text     = fpsTxt;
+                            if (FPSStateCycleText    != null) FPSStateCycleText.Text = "Intel";
+                            if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = true;
+                            if (FPSLimitValue       != null) FPSLimitValue.Text = fpsTxt;
                         }
                         break;
                 }
@@ -1502,11 +1510,20 @@ namespace XboxGamingBar
                 SaveCurrentSettingsToProfile(currentProfileName);
         }
 
+        // Guard: prevents SyncFpsStateButton / ApplyFpsState from triggering Toggled re-entrantly
+        // when they programmatically update FPSStateCycleButton.IsOn.
+        private bool _fpsCycleToggling = false;
+
         /// <summary>
-        /// 3-state cycle button click: Off → RTSS → Intel → Off → …
+        /// 3-state cycle toggle: Off → RTSS → Intel → Off → …
+        /// The ToggleSwitch replaces a plain Button because Button controls do not receive
+        /// D-Pad focus in the Xbox Game Bar widget context.
+        /// isApplyingHelperUpdate and _fpsCycleToggling prevent re-entrant cycles when
+        /// ApplyFpsState/SyncFpsStateButton programmatically update IsOn.
         /// </summary>
-        private void FPSStateCycleButton_Click(object sender, RoutedEventArgs e)
+        private void FPSStateCycleButton_Toggled(object sender, RoutedEventArgs e)
         {
+            if (_fpsCycleToggling || isApplyingHelperUpdate || isLoadingProfile) return;
             int next = GetNextFpsState(GetCurrentFpsState());
             ApplyFpsState(next, isUserTransition: true);
         }
