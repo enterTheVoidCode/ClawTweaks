@@ -467,16 +467,13 @@ namespace XboxGamingBar
 
             if (PerformanceScrollViewer?.Visibility == Visibility.Visible)
             {
-                // Physical spine: 0=PerGameProfileToggle (game only) → 1=TDPSlider
-                //                 → 2=FPSStateCycleButton → 3=TDPBoostToggle → ...
-                // Land on the topmost ENABLED spine element. FPSStateCycleButton is the
-                // always-enabled guaranteed fallback so D-pad Down can never get stuck.
+                // Spine: 0=PerGameProfileToggle (game only) → 1=FPSStateCycleButton → 2=TDPSlider → ...
+                // Land on the topmost ENABLED spine element. FPSStateCycleButton is always enabled,
+                // so D-pad Down from the nav bar reliably lands on the FPS limiter toggle first.
                 if (PerGameProfileToggle?.IsEnabled == true)
                     target = PerGameProfileToggle;
-                else if (TDPSlider?.IsEnabled == true)
-                    target = TDPSlider;
                 else if (FPSStateCycleButton != null)
-                    target = FPSStateCycleButton; // always enabled by design
+                    target = FPSStateCycleButton; // always enabled — first real spine element
                 // else: fall through to FindFirstFocusableElement
             }
             else if (SystemScrollViewer?.Visibility == Visibility.Visible)
