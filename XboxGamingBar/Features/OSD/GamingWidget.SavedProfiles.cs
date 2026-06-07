@@ -72,6 +72,18 @@ namespace XboxGamingBar
             "DU", "DD", "DL", "DR", "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "Sel", "Strt"
         };
 
+        // Short labels for the SOURCE button of a "Re-Map Specific Buttons" swap
+        // (keys are the GamepadButtonNames stored in the GamepadButtonMappings dict).
+        private static readonly Dictionary<string, string> GamepadSwapSourceShortNames = new Dictionary<string, string>
+        {
+            { "LSClick", "LSC" }, { "LSUp", "LSU" }, { "LSDown", "LSD" }, { "LSLeft", "LSL" }, { "LSRight", "LSR" },
+            { "RSClick", "RSC" }, { "RSUp", "RSU" }, { "RSDown", "RSD" }, { "RSLeft", "RSL" }, { "RSRight", "RSR" },
+            { "DPadUp", "DU" }, { "DPadDown", "DD" }, { "DPadLeft", "DL" }, { "DPadRight", "DR" },
+            { "A", "A" }, { "B", "B" }, { "X", "X" }, { "Y", "Y" },
+            { "LB", "LB" }, { "LT", "LT" }, { "RB", "RB" }, { "RT", "RT" },
+            { "Start", "Strt" }, { "Select", "Sel" }
+        };
+
         private void RefreshSavedProfilesList()
         {
             try
@@ -156,6 +168,27 @@ namespace XboxGamingBar
                     if (remapParts.Count > 0)
                     {
                         summaryParts.Add(string.Join(" ", remapParts));
+                    }
+
+                    // Check "Re-Map Specific Buttons" swaps (the 24-button source->target dict).
+                    // Gamepad-mode targets only, mirroring what the emulation backend applies.
+                    if (container.Values.TryGetValue("GamepadButtonMappings", out var swapVal) && swapVal is string swapJson && !string.IsNullOrEmpty(swapJson))
+                    {
+                        var swapParts = new List<string>();
+                        foreach (var kvp in DeserializeGamepadButtonMappings(swapJson))
+                        {
+                            var m = kvp.Value;
+                            if (m == null || m.Type != 0 || m.GamepadAction <= 0 || m.GamepadAction >= GamepadActionShortNames.Length)
+                                continue;
+
+                            string src = GamepadSwapSourceShortNames.TryGetValue(kvp.Key, out var s) ? s : kvp.Key;
+                            string tgt = GamepadActionShortNames[m.GamepadAction];
+                            swapParts.Add($"{src}→{tgt}");
+                        }
+                        if (swapParts.Count > 0)
+                        {
+                            summaryParts.Add(string.Join(" ", swapParts));
+                        }
                     }
 
                     // Check gyro settings
