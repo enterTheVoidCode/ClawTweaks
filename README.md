@@ -23,12 +23,20 @@
 > **The installer will abort with an error message if run on an unsupported device.**
 > **Before installing GTW - MSI Center M must be installed and running on your device**
 >
-> GTW i designed to completely disables Center M (with one click) )but Center M is needed as a base. Mostly for OEM Button and controller virtualization support
 
-
+> **📍 Center M needed as a base** — ClawTweaks is designed to completely disable/hide Center M (with one click). But Center is needed - Mostly for OEM Button and controller virtualization support. If you are coming from 3rd party Center M Replacements make sure to unistall everything and re-install center M properly.
 > **⚠️ Early Software** — ClawTweaks is actively developed. Use at your own risk.
 
 A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [GoTweaks](https://github.com/corando98/GoTweaks) (a Lenovo Legion Go widget), ClawTweaks replaces AMD-specific features with Intel equivalents, adds MSI Claw-specific hardware support, and introduces a wide range of new features alongside a streamlined UI.
+
+> ### Core Features
+> | Feature | Description |
+> |--------|--------|
+> | OSD | Beeatiful Overlay variations without breaking VRR. Nice additions like showing actual FPS Cap or TDP Setting |
+> | TDP | Only 1 Main TDP slider. Second TDP slider is only for power users who need TDP Boost and know what it actualy is. GTW automatically add +1 TDP to PL2 wo make sure TDP is corrrectly applied with one Slider |
+> | Global profiles | Full performance and display setting and button remapping support for your main settings as afondation to most games |
+> | Per-game profiles | When you need special settings for particular games. just run the game and enable Performance & Display Profil or Controller Profile to set individual settings |
+> | Left fron MSI Button | Since center M is gone what can we do with that button?! We added single an double click regognition to this button. You can addd pretty much any action from GTW. Like Open Steam, Playnite,Xbox or Switch from Muse to Desktop Mode, Trigger Keyboard Shortcuts, Launch you own EXE or Powershell files, Launch Browser, particula Website etc. |
 
 ---
 
