@@ -374,6 +374,13 @@ namespace XboxGamingBar
             {
                 UpdateButtonGamepadComboControls(buttonName);
             }
+
+            // Also refresh the generic "Re-Map Specific Buttons" swap summary (the deletable tags
+            // above the 3-dropdown swap row). ApplyControllerProfile updates it on profile load,
+            // but if the Controls tab UI wasn't realized yet at that moment (e.g. a game started
+            // while the user was on another tab), the summary stayed empty. Refresh it here when
+            // the tab becomes active so the active profile's swaps are visible (and deletable).
+            UpdateGamepadMappingSummary();
         }
 
         private void UpdateControllerEmulationStatusText()

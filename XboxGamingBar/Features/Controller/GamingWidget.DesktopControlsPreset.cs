@@ -138,10 +138,31 @@ namespace XboxGamingBar
         {
             var desktopButtons = new[] { "DPadUp", "DPadDown", "DPadLeft", "DPadRight", "LSUp", "LSDown", "LSClick", "A", "B", "LB", "LT" };
 
-            // Set each button to reset state (Type=0, GamepadAction=0) to trigger HID reset
+            // CRITICAL: only reset a button if it CURRENTLY holds the Desktop-Controls preset
+            // mapping. These buttons (esp. A / B / LSClick / D-pad) are also common "Re-Map
+            // Specific Buttons" swap sources. Previously this method zeroed ALL of them
+            // unconditionally, which ran on every profile load (game start has DesktopControls=
+            // false → ClearDesktopControlMappings) and silently clobbered the user's swaps before
+            // they were sent to the helper — the swaps then appeared inactive until manually
+            // re-edited. User swaps (e.g. LSClick→A, a Type=0 gamepad remap) are NOT desktop
+            // mappings, so they are now preserved.
+            var clearedButtons = new System.Collections.Generic.List<string>();
             foreach (var button in desktopButtons)
             {
-                gamepadButtonMappings[button] = new ButtonMapping { Type = 0, GamepadAction = 0 };
+                if (gamepadButtonMappings.TryGetValue(button, out var current) &&
+                    IsDesktopControlMapping(button, current))
+                {
+                    gamepadButtonMappings[button] = new ButtonMapping { Type = 0, GamepadAction = 0 };
+                    clearedButtons.Add(button);
+                }
+            }
+
+            if (clearedButtons.Count == 0)
+            {
+                // Nothing to clear — leave any user swaps on these buttons untouched.
+                UpdateGamepadMappingSummary();
+                Logger.Info("ClearDesktopControlMappings: no active desktop-control mappings to clear (user swaps preserved)");
+                return;
             }
 
             // During profile loading, just update the dictionary - SendButtonMappingsToHelper will send once at the end
@@ -150,7 +171,7 @@ namespace XboxGamingBar
                 SaveAndSendGamepadMappings();
 
                 // Remove from dictionary after sending reset (only when not loading profile)
-                foreach (var button in desktopButtons)
+                foreach (var button in clearedButtons)
                 {
                     gamepadButtonMappings.Remove(button);
                 }
@@ -159,7 +180,33 @@ namespace XboxGamingBar
 
             UpdateGamepadMappingSummary();
 
-            Logger.Info("Cleared desktop control mappings for DPAD, LS, A, B, LB, LT");
+            Logger.Info($"Cleared desktop control mappings for {string.Join(", ", clearedButtons)}");
+        }
+
+        /// <summary>
+        /// True when <paramref name="m"/> is exactly the Desktop-Controls preset mapping for
+        /// <paramref name="button"/> (see ApplyDesktopControlMappings). Used so ClearDesktopControlMappings
+        /// only undoes real desktop-control mappings and never a user's own remap/swap on the same button.
+        /// </summary>
+        private bool IsDesktopControlMapping(string button, ButtonMapping m)
+        {
+            if (m == null) return false;
+            bool KeyIs(int key) => m.Type == 1 && m.KeyboardKeys != null && m.KeyboardKeys.Count == 1 && m.KeyboardKeys[0] == key;
+            switch (button)
+            {
+                case "DPadUp": return KeyIs(0x52);
+                case "DPadDown": return KeyIs(0x51);
+                case "DPadLeft": return KeyIs(0x50);
+                case "DPadRight": return KeyIs(0x4F);
+                case "LSUp": return KeyIs(0x52);
+                case "LSDown": return KeyIs(0x51);
+                case "LSClick": return KeyIs(0xE3);
+                case "A": return KeyIs(0x28);
+                case "B": return KeyIs(0x29);
+                case "LB": return m.Type == 2 && m.MouseButton == 0;
+                case "LT": return m.Type == 2 && m.MouseButton == 1;
+                default: return false;
+            }
         }
 
     }

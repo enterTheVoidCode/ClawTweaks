@@ -543,7 +543,7 @@
                             Spacing="6"
                             XYFocusKeyboardNavigation="Disabled"
                             KeyDown="MainNavPanel_KeyDown">
-                    <!-- Tab order: Main, Performance, Display, Profiles, Controls, Fan, Lossless, System -->
+                    <!-- Tab order: Main, Performance, Display, Controls, Fan, Lossless, Profiles, System -->
                     <!-- Tab icons: Fluent System Icons (MIT, microsoft/fluentui-system-icons, 24px filled)
                          rendered as PathIcon in a 18x18 Viewbox. Fan has no Fluent equivalent, so it
                          uses the Material Design Icons "fan" glyph (also a filled silhouette, so it
@@ -570,14 +570,6 @@
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Profiles (Performance &amp; Display)">
-                        <RadioButton.Content>
-                            <!-- Options (Fluent) — adjustable sliders = saved performance & display presets -->
-                            <Viewbox Width="18" Height="18" VerticalAlignment="Center">
-                                <PathIcon Data="M8.75 14.5C10.2868 14.5 11.5745 15.5666 11.9131 17H21.25C21.6642 17 22 17.3358 22 17.75C22 18.1297 21.7176 18.4435 21.3516 18.4932L21.25 18.5L11.9131 18.501C11.5742 19.9339 10.2865 21 8.75 21C7.21354 21 5.92583 19.9339 5.58691 18.501L2.75 18.5C2.33579 18.5 2 18.1642 2 17.75C2 17.3703 2.28236 17.0565 2.64844 17.0068L2.75 17H5.58691C5.92549 15.5666 7.21321 14.5 8.75 14.5ZM15.25 3C16.7868 3 18.0745 4.06664 18.4131 5.5H21.25C21.6642 5.5 22 5.83579 22 6.25C22 6.6297 21.7176 6.9435 21.3516 6.99316L21.25 7L18.4131 7.00098C18.0742 8.43387 16.7865 9.5 15.25 9.5C13.7135 9.5 12.4258 8.43387 12.0869 7.00098L2.75 7C2.33579 7 2 6.66421 2 6.25C2 5.8703 2.28236 5.5565 2.64844 5.50684L2.75 5.5H12.0869C12.4255 4.06664 13.7132 3 15.25 3Z"/>
-                            </Viewbox>
-                        </RadioButton.Content>
-                    </RadioButton>
                     <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Controls">
                         <RadioButton.Content>
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
@@ -599,6 +591,14 @@
                         <RadioButton.Content>
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
                                 <PathIcon Data="M10.25 3H6.25C4.45507 3 3 4.45507 3 6.25V8.25C3 8.66421 3.33579 9 3.75 9C4.16421 9 4.5 8.66421 4.5 8.25V6.25C4.5 5.2835 5.2835 4.5 6.25 4.5H10.25C10.6642 4.5 11 4.16421 11 3.75C11 3.33579 10.6642 3 10.25 3ZM10.75 21C12.5449 21 14 19.5449 14 17.75V13.25C14 11.4551 12.5449 10 10.75 10H6.25C4.45507 10 3 11.4551 3 13.25V17.75C3 19.5449 4.45507 21 6.25 21H10.75ZM15.75 21C15.3358 21 15 20.6642 15 20.25C15 19.8358 15.3358 19.5 15.75 19.5H17.75C18.7165 19.5 19.5 18.7165 19.5 17.75V13.75C19.5 13.3358 19.8358 13 20.25 13C20.6642 13 21 13.3358 21 13.75V17.75C21 19.5449 19.5449 21 17.75 21H15.75ZM21 10.25V6.25C21 4.45507 19.5449 3 17.75 3H13.75C13.3358 3 13 3.33579 13 3.75C13 4.16421 13.3358 4.5 13.75 4.5H17.75C18.7165 4.5 19.5 5.2835 19.5 6.25V10.25C19.5 10.6642 19.8358 11 20.25 11C20.6642 11 21 10.6642 21 10.25Z"/>
+                            </Viewbox>
+                        </RadioButton.Content>
+                    </RadioButton>
+                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Profiles (Performance &amp; Display)">
+                        <RadioButton.Content>
+                            <!-- Floppy disk (save) — saved performance & display profiles -->
+                            <Viewbox Width="18" Height="18" VerticalAlignment="Center">
+                                <PathIcon Data="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/>
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
@@ -1456,7 +1456,7 @@
                                     </Grid>
                                     <Slider x:Name="TDPBoostFPPTSlider"
                                             Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="37"
+                                            Minimum="10" Maximum="37"
                                             TickFrequency="1"
                                             SnapsTo="Ticks"
                                             ValueChanged="TDPBoostFPPTSlider_ValueChanged"
@@ -1704,7 +1704,7 @@
                                 </Border>
                                 <Slider x:Name="TDPSlider"
                                         Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="4" Maximum="35"
+                                        Minimum="7" Maximum="35"
                                         TickFrequency="1"
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"
@@ -1761,7 +1761,7 @@
                                     </Grid>
                                     <Slider x:Name="TDPBoostFPPTSliderCard"
                                             Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="37"
+                                            Minimum="10" Maximum="37"
                                             TickFrequency="1" SnapsTo="Ticks"
                                             Value="3"
                                             IsEnabled="False"
