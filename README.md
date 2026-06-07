@@ -29,14 +29,39 @@ A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [
 > **📍 Center M needed as a base** — ClawTweaks is designed to completely disable/hide Center M (with one click). But Center is needed - Mostly for OEM Button and controller virtualization support. If you are coming from 3rd party Center M Replacements make sure to unistall everything and re-install center M properly.
 > 
 
-> ### Core Features
-> | Feature | Description |
-> |--------------------------|-------------------|
-> | OSD | Beautiful Overlay Presets without breaking VRR. Nice additions like showing actual FPS Cap or TDP Setting |
-> | TDP | Only 1 Main TDP slider. Second TDP slider is only for power users who need TDP Boost and know what it actualy is. GTW automatically add +1 TDP to PL2 wo make sure TDP is corrrectly applied with one Slider |
-> | Global profiles | Full performance and display setting and button remapping support for your main settings as afondation to most games |
-> | Per-game profiles | When you need special settings for particular games. just run the game and enable Performance & Display Profil or Controller Profile to set individual settings |
-> | Left fron MSI Button | Since center M is gone what can we do with that button?! We added single an double click regognition to this button. You can addd pretty much any action from GTW. Like Open Steam, Playnite,Xbox or Switch from Muse to Desktop Mode, Trigger Keyboard Shortcuts, Launch you own EXE or Powershell files, Launch Browser, particula Website etc. |
+### Core Features
+
+<table>
+  <colgroup>
+    <col style="width: 24%;">
+    <col style="width: 76%;">
+  </colgroup>
+  <thead>
+    <tr><th>Feature</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>OSD</strong></td>
+      <td>Beautiful overlay presets that don't break VRR — with handy extras like showing the active FPS cap or TDP setting.</td>
+    </tr>
+    <tr>
+      <td><strong>TDP</strong></td>
+      <td>Just one main TDP slider. The second slider is reserved for power users who need TDP boost and know what it does. ClawTweaks automatically adds +1&nbsp;W to PL2 so your TDP is applied correctly from a single slider.</td>
+    </tr>
+    <tr>
+      <td><strong>Global profiles</strong></td>
+      <td>Full performance, display and button-remapping settings — your baseline for most games.</td>
+    </tr>
+    <tr>
+      <td><strong>Per-game profiles</strong></td>
+      <td>Need different settings for a specific game? Just launch it and enable a Performance &amp; Display or Controller profile to fine-tune that game individually.</td>
+    </tr>
+    <tr>
+      <td><strong>Left front MSI button</strong></td>
+      <td>With Center M gone, this button gets a second life: single- and double-click detection lets you trigger almost any ClawTweaks action — open Steam, Playnite or Xbox, switch from game to Desktop mode, run keyboard shortcuts, launch your own EXE or PowerShell scripts, open a browser or a specific website, and more.</td>
+    </tr>
+  </tbody>
+</table>
 
 ---
 ## Features
