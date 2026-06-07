@@ -223,11 +223,17 @@ namespace XboxGamingBar
         private void LegionGamepadMapping_Changed(object sender, SelectionChangedEventArgs e)
         {
             if (isLoadingControllerProfile || isSwitchingControllerProfile)
+            {
+                Logger.Info($"[SwapEdit] DROP (isLoading={isLoadingControllerProfile} isSwitching={isSwitchingControllerProfile}) game='{currentGameName}'");
                 return;
+            }
 
             // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
             if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
+            {
+                Logger.Info($"[SwapEdit] DROP (within 2s of profile apply) game='{currentGameName}'");
                 return;
+            }
 
             if (LegionGamepadButtonSelectorComboBox == null || LegionGamepadButtonSelectorComboBox.SelectedIndex < 0)
                 return;
@@ -299,12 +305,19 @@ namespace XboxGamingBar
 
         private void SaveAndSendGamepadMappings()
         {
+            // Diagnostic snapshot of the decision inputs (so per-game vs global swap persistence
+            // is fully traceable in the logs — mirrors the [CtrlSave] line for M1/M2/gyro).
+            int swapCount = gamepadButtonMappings?.Count ?? 0;
+            bool toggleOn = LegionControllerProfileToggle?.IsOn == true;
+            bool validGame = HasValidGame(currentGameName);
+
             // Don't save during profile loading - we're just applying the profile, not modifying it
             // The profile will be fully applied and any saves will happen after isLoadingControllerProfile is cleared
             if (isLoadingControllerProfile)
             {
                 // Skip sending if this is a duplicate call during profile loading
                 // (the main send will happen via SendButtonMappingsToHelper at the end of ApplyControllerProfile)
+                Logger.Info($"[SwapSave] SKIP (isLoadingControllerProfile) — toggleOn={toggleOn} validGame={validGame} game='{currentGameName}' swaps={swapCount}");
                 return;
             }
 
@@ -312,23 +325,25 @@ namespace XboxGamingBar
             // HID commands take ~1.5s to complete, so use 2 second window
             if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
             {
-                Logger.Info("SaveAndSendGamepadMappings skipped - profile was just applied");
+                Logger.Info($"[SwapSave] SKIP (within 2s of profile apply) — toggleOn={toggleOn} validGame={validGame} game='{currentGameName}' swaps={swapCount}");
                 return;
             }
 
             // Get current profile
             ControllerProfile currentProfile;
-            if (LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName))
+            if (toggleOn && validGame)
             {
                 gameControllerProfile = GetCurrentControllerProfileFromUI();
                 SaveControllerProfileToStorage($"Game_{currentGameName}", gameControllerProfile);
                 currentProfile = gameControllerProfile;
+                Logger.Info($"[SwapSave] -> PER-GAME 'Game_{currentGameName}' (toggleOn={toggleOn} validGame={validGame} swaps={swapCount})");
             }
             else
             {
                 globalControllerProfile = GetCurrentControllerProfileFromUI();
                 SaveControllerProfileToStorage("Global", globalControllerProfile);
                 currentProfile = globalControllerProfile;
+                Logger.Info($"[SwapSave] -> GLOBAL (toggleOn={toggleOn} validGame={validGame} game='{currentGameName}' swaps={swapCount})");
             }
 
             // Send to helper

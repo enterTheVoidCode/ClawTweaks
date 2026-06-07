@@ -26,7 +26,7 @@ namespace XboxGamingBarHelper.Labs
     /// Command sending: HidSharp stream.Write() on PID 0x1901 / UsagePage 0xFFA0,
     ///   mirrors MSIClawHidController.TrySwitchToXInput().
     /// </summary>
-    internal class ClawButtonMonitor : IDisposable
+    internal partial class ClawButtonMonitor : IDisposable
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
@@ -876,6 +876,14 @@ namespace XboxGamingBarHelper.Labs
             short  leftYOut  = leftY;
             short  rightXOut = rightX;
             short  rightYOut = rightY;
+
+            // Apply the generic "Re-Map Specific Buttons" swaps (A↔B etc.) to the outgoing
+            // ViGEm state. ControllerEmulationManager (which has its own swap pass) is
+            // suppressed for MSI Claw, so the swap must live here in the active poll loop.
+            // Done BEFORE the M1/M2 overlay so M1/M2-injected actions stack on the swapped
+            // base; uses the Out vars only, so the raw xiBtns fed to hotkeys stays physical.
+            ApplyGamepadSwaps(ref xiBtnsOut, ref ltrigOut, ref rtrigOut,
+                ref leftXOut, ref leftYOut, ref rightXOut, ref rightYOut);
 
             if (m1 && _m1RemapAction != RemapAction.Disabled)
                 ApplyXInputRemapAction(_m1RemapAction,

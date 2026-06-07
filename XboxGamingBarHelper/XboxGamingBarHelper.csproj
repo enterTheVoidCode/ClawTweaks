@@ -436,6 +436,7 @@
     <Compile Include="Labs\ViGEmController.cs" />
     <Compile Include="Labs\LegionButtonMonitor.cs" />
     <Compile Include="Labs\ClawButtonMonitor.cs" />
+    <Compile Include="Labs\ClawButtonMonitor.GamepadSwap.cs" />
     <Compile Include="Labs\ViGEmBusProperties.cs" />
     <Compile Include="Labs\HidHideProperties.cs" />
     <Compile Include="Icons\GameIconHelper.cs" />

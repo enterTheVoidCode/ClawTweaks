@@ -39,6 +39,15 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         /// </summary>
         public Action<int, int, int[]> OnButtonMappingChanged;
 
+        /// <summary>
+        /// Routes the generic "Re-Map Specific Buttons" 24-button mapping JSON (the three-dropdown
+        /// source→target swaps, e.g. A↔B) to ClawButtonMonitor on MSI Claw, where it is applied to
+        /// the outgoing ViGEm state. ApplyGamepadButtonMappings() only talks to physical Legion HID
+        /// hardware (absent on the Claw), so this callback is the active path. Wired by
+        /// Program.MSIClaw.cs; null on other devices.
+        /// </summary>
+        public Action<string> OnGamepadMappingChanged;
+
         // Current settings state (cached)
         private bool touchpadEnabled = true;
         private int lightMode = 1; // Solid

@@ -1350,6 +1350,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionGamepadMapping changed to {Value}");
             Manager?.ApplyGamepadButtonMappings(Value);
+            // MSI Claw: ApplyGamepadButtonMappings() only reaches physical Legion HID hardware
+            // (absent here). Route the same JSON to ClawButtonMonitor so the generic A↔B-style
+            // swaps actually reach the virtual ViGEm controller. Fired on every change incl.
+            // empty/reset so a cleared mapping removes the swaps too.
+            Manager?.OnGamepadMappingChanged?.Invoke(Value);
         }
     }
 

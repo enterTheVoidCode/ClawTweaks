@@ -330,11 +330,16 @@ namespace XboxGamingBarHelper
                     Logger.Info("FactoryReset: global controller profile cleared to defaults and saved");
                 }
 
-                // Clear all per-game profiles from the in-memory cache. The widget-side
-                // factory reset already deleted the profiles/ folder from disk, but the
-                // helper's gameProfiles dictionary still holds stale entries (e.g. gyro=LeftStick).
-                // Without this, the next game start would apply the stale in-memory profile.
+                // Clear all per-game profiles from the in-memory cache. The helper's
+                // gameProfiles dictionary holds stale entries (e.g. gyro=LeftStick); without
+                // this, the next game start would re-apply a stale in-memory profile.
                 profileManager.ClearPerGameProfileCache();
+
+                // Delete the helper's ON-DISK user data. These files live in the helper's OWN
+                // package LocalState (PlayandBuildCustom...), which the widget-side factory reset
+                // cannot reach — so per-game profile XMLs, AutoTDP learning tables and
+                // system-restore data otherwise survive factory reset AND uninstall.
+                profileManager.WipeAllDiskData();
 
                 // Apply gyro OFF live so it takes effect immediately (no reboot required).
                 try { legionManager?.LegionGyroTarget?.SetValue(0); } catch { }

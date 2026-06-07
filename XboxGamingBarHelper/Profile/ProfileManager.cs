@@ -158,6 +158,57 @@ namespace XboxGamingBarHelper.Profile
         }
 
         /// <summary>
+        /// Factory reset: deletes the helper's ON-DISK user data that lives in the helper's
+        /// OWN package LocalState (PlayandBuildCustom...\LocalState) — a DIFFERENT package from
+        /// the widget, which the widget-side factory reset cannot reach. Without this, per-game
+        /// profiles, AutoTDP learning tables and system-restore data survive a factory reset
+        /// (and even an uninstall of the widget).
+        ///
+        /// Deletes:
+        ///   • the entire profiles\ folder (all per-game XMLs)
+        ///   • AutoTDP learning tables (autotdp_qtable.json / autotdp_sarsa_table.json)
+        ///   • system_restore_data.json
+        /// Does NOT delete global.xml — the caller resets it to clean defaults via field-nulling
+        /// + Save() so it stays a valid, live-applied file. The runtime heartbeat is left alone.
+        /// </summary>
+        public void WipeAllDiskData()
+        {
+            // 1. Per-game profile XMLs (the profiles\ folder).
+            try
+            {
+                var profilesFolder = GetGameProfilesFolder();
+                if (Directory.Exists(profilesFolder))
+                {
+                    Directory.Delete(profilesFolder, recursive: true);
+                    Logger.Info($"FactoryReset: deleted helper profiles folder '{profilesFolder}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"FactoryReset: could not delete helper profiles folder: {ex.Message}");
+            }
+
+            // 2. Auxiliary user/learned data files in LocalState root.
+            string[] auxFiles = { "autotdp_qtable.json", "autotdp_sarsa_table.json", "system_restore_data.json" };
+            foreach (var name in auxFiles)
+            {
+                try
+                {
+                    var path = Path.Combine(GetLocalFolderPath(), name);
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                        Logger.Info($"FactoryReset: deleted helper file '{name}'");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"FactoryReset: could not delete helper file '{name}': {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Refreshes the GlobalProfile field from disk first, then from the in-memory
         /// cache. Disk re-read catches edits the widget made to global.xml that the
         /// helper's in-memory copy hasn't seen — without this, helper boots with a

@@ -1130,7 +1130,33 @@ namespace XboxGamingBarHelper
         {
             if (legionManager == null) return;
             legionManager.OnButtonMappingChanged = OnMSIClawButtonMappingChanged;
-            Logger.Info("MSIClaw: LegionManager.OnButtonMappingChanged wired → ClawButtonMonitor.ConfigureXInputRemap");
+            legionManager.OnGamepadMappingChanged = OnMSIClawGamepadMappingChanged;
+            Logger.Info("MSIClaw: LegionManager.OnButtonMappingChanged + OnGamepadMappingChanged wired → ClawButtonMonitor");
+        }
+
+        /// <summary>
+        /// Invoked when the generic "Re-Map Specific Buttons" 24-button mapping changes (live edit,
+        /// profile switch on game start/stop, or profile restore on startup). Routes the same JSON
+        /// the widget persists to ClawButtonMonitor, which applies the gamepad-mode source→target
+        /// swaps (e.g. A↔B) onto the outgoing ViGEm state. Keyboard/Mouse remap modes are ignored
+        /// by ClawButtonMonitor.ConfigureGamepadSwaps().
+        ///
+        /// EnsureClawButtonMonitor() pre-configures the instance so the swaps are ready when the
+        /// monitor Start()s, matching the M1/M2 ConfigureXInputRemap pre-config behaviour.
+        /// </summary>
+        private static void OnMSIClawGamepadMappingChanged(string json)
+        {
+            try
+            {
+                var monitor = EnsureClawButtonMonitor();
+                // Keyboard-target swaps fire their chord through the same injector tiles/actions use.
+                monitor.KeyboardChordCallback = SendKeyboardShortcutViaInputInjector;
+                monitor.ConfigureGamepadSwaps(json);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"MSIClaw: OnMSIClawGamepadMappingChanged threw: {ex.Message}");
+            }
         }
 
         /// <summary>
