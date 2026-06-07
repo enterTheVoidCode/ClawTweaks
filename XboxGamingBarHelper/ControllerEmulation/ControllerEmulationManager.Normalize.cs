@@ -1140,6 +1140,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
                         continue;
                     }
 
+                    // Apply the generic "Re-Map Specific Buttons" swaps (A<->B etc.) to the
+                    // forwarded state before it reaches ViGEm. Mirrors the M1/M2 userspace
+                    // remap path; reads legionManager.LegionGamepadMapping. Gamepad-mode only.
+                    ApplyGamepadButtonSwaps(ref state.Gamepad);
+
                     ushort forwardedButtons = ApplyVirtualAbxyLayout(state.Gamepad.wButtons);
                     byte forwardedLeftTrigger = state.Gamepad.bLeftTrigger;
                     byte forwardedRightTrigger = state.Gamepad.bRightTrigger;
