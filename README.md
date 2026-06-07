@@ -1,4 +1,4 @@
-# ClawTweaks - CTW
+# ClawTweaks - CTW (Intel Only)
 
 <p align="center">
   <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases/latest"><img src="https://img.shields.io/github/v/release/enterTheVoidCode/ClawTweaks?display_name=tag&label=Latest%20Release&color=7C3AED&logo=github&logoColor=white" alt="Latest Release"></a>
@@ -39,8 +39,6 @@ A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [
 > | Left fron MSI Button | Since center M is gone what can we do with that button?! We added single an double click regognition to this button. You can addd pretty much any action from GTW. Like Open Steam, Playnite,Xbox or Switch from Muse to Desktop Mode, Trigger Keyboard Shortcuts, Launch you own EXE or Powershell files, Launch Browser, particula Website etc. |
 
 ---
-> **⚠️ Early Software** — ClawTweaks is actively developed. Use at your own risk.
-
 ## Features
 
 ### Quick Settings
