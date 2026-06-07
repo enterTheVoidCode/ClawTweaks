@@ -21,6 +21,10 @@
 > | Other MSI Claw models | Not tested / not supported |
 >
 > **The installer will abort with an error message if run on an unsupported device.**
+> **Before installing GTW - MSI Center M must be installed and running on your device**
+>
+> GTW i designed to completely disables Center M (with one click) )but Center M is needed as a base. Mostly for OEM Button and controller virtualization support
+
 
 > **⚠️ Early Software** — ClawTweaks is actively developed. Use at your own risk.
 
