@@ -42,11 +42,11 @@ A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [
   <tbody>
     <tr>
       <td><strong>OSD</strong></td>
-      <td>Beautiful overlay presets that don't break VRR — with handy extras like showing the active FPS cap or TDP setting.</td>
+      <td>Overlay presets that don't break VRR — with handy extras like showing the active FPS cap or TDP setting.</td>
     </tr>
     <tr>
       <td><strong>TDP</strong></td>
-      <td>Just one main TDP slider. The second slider is reserved for power users who need TDP boost and know what it does. ClawTweaks automatically adds +1&nbsp;W to PL2 so your TDP is applied correctly from a single slider.</td>
+      <td>Just one main TDP slider. Second slider is reserved for power users who need TDP boost and know what it does. ClawTweaks automatically adds +1&nbsp;W to PL2 so your TDP is applied correctly from a single slider.</td>
     </tr>
     <tr>
       <td><strong>Global profiles</strong></td>
@@ -64,7 +64,7 @@ A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [
 </table>
 
 ---
-## Features
+## Feature Showcase
 
 ### Quick Settings
 Customizable dashboard with quick-access tiles for  most-used settings.
