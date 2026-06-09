@@ -10,12 +10,6 @@ namespace XboxGamingBarHelper.Power
 {
     internal class PowerManager : Manager
     {
-        private IntPtr ryzenAdjHandle;
-        public IntPtr RyzenAdjHandle
-        {
-            get { return ryzenAdjHandle; }
-        }
-
         private readonly CPUBoostProperty cpuBoost;
         public CPUBoostProperty CPUBoost
         {
@@ -78,10 +72,8 @@ namespace XboxGamingBarHelper.Power
         //    get { return gpuClockMax; }
         //}
 
-        public PowerManager(IntPtr ryzenAdjHandle) : base()
+        public PowerManager() : base()
         {
-            this.ryzenAdjHandle = ryzenAdjHandle;
-
             Logger.Info($"Check CPU Boost Mode and EPP.");
             cpuBoost = new CPUBoostProperty(GetCpuBoostMode(false), this);
             cpuEPP = new CPUEPPProperty((int)GetEppValue(false), this);

@@ -111,11 +111,6 @@ namespace XboxGamingBarHelper.Performance
 
         private Computer computer;
         private IVisitor updateVisitor;
-        private IntPtr ryzenAdjHandle;
-        public IntPtr RyzenAdjHandle
-        {
-            get { return ryzenAdjHandle; }
-        }
 
         public CPUUsageSensor CPUUsage { get; }
         public CPUClockSensor CPUClock { get; }
@@ -349,13 +344,8 @@ namespace XboxGamingBarHelper.Performance
         private int intelLastPL1 = -1;
         private int intelLastPL2 = -1;
 
-        // RyzenAdj lazy loading - only load when user disables Manufacturer WMI
-        private bool ryzenAdjInitialized = false;
-        private bool ryzenAdjInitAttempted = false;
-
         // Thread synchronization locks to prevent race conditions
         private readonly object tdpLock = new object();
-        private readonly object ryzenAdjInitLock = new object();
 
         // Properties for TDP method availability
         // private TdpMethodAvailableProperty winRing0AvailableProperty; // WinRing0 removed
@@ -980,17 +970,6 @@ namespace XboxGamingBarHelper.Performance
         {
             base.Update();
 
-            /*if (ryzenAdjHandle != IntPtr.Zero)
-            {
-                Logger.Info($"get_core_clk={RyzenAdj.get_core_clk(ryzenAdjHandle, 0)} get_core_power={RyzenAdj.get_core_power(ryzenAdjHandle, 0)} get_fclk={RyzenAdj.get_fclk(ryzenAdjHandle)} get_gfx_clk={RyzenAdj.get_gfx_clk(ryzenAdjHandle)} get_soc_power={RyzenAdj.get_soc_power(ryzenAdjHandle)} get_socket_power={RyzenAdj.get_socket_power(ryzenAdjHandle)}");
-                var setMaxResult = RyzenAdj.set_max_gfxclk_freq(ryzenAdjHandle, 2000);
-                var setMinResult = RyzenAdj.set_min_gfxclk_freq(ryzenAdjHandle, 1000);
-                //var nan2 = float.NaN;
-                //var setResult = RyzenAdj.set_gfx_clk(ryzenAdjHandle, (uint)nan2);
-
-                Logger.Info($"set_max={setMaxResult} set_min={setMinResult} set={"123"}");
-            }*/
-
             if (computer == null)
                 return;
 
@@ -1111,18 +1090,6 @@ namespace XboxGamingBarHelper.Performance
                     }
                 }
             }
-        }
-
-        public int GetTDP()
-        {
-            if (ryzenAdjHandle == IntPtr.Zero)
-            {
-                Logger.Info("RyzenAdj not initialized");
-                return 10;
-            }
-
-            RyzenAdj.refresh_table(ryzenAdjHandle);
-            return (int)RyzenAdj.get_fast_limit(ryzenAdjHandle);
         }
 
         public void SetTDP(int tdp)
@@ -1876,21 +1843,6 @@ namespace XboxGamingBarHelper.Performance
                     }
                     ryzenSmuService = null;
                     pawnIOAvailable = false;
-                }
-
-                // Clean up RyzenAdj handle
-                if (ryzenAdjHandle != IntPtr.Zero)
-                {
-                    try
-                    {
-                        RyzenAdj.cleanup_ryzenadj(ryzenAdjHandle);
-                        Logger.Info("PerformanceManager: RyzenAdj handle cleaned up");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"PerformanceManager: Error cleaning up RyzenAdj: {ex.Message}");
-                    }
-                    ryzenAdjHandle = IntPtr.Zero;
                 }
 
                 // Dispose LibreHardwareMonitor computer

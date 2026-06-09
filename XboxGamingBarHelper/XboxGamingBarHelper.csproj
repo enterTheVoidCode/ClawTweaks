@@ -198,7 +198,6 @@
     <Compile Include="Performance\PerformanceManager.cs" />
     <Compile Include="Performance\TdpMethodAvailableProperty.cs" />
     <Compile Include="Performance\InstallPawnIOProperty.cs" />
-    <Compile Include="Performance\RyzenAdj.cs" />
     <Compile Include="Performance\Sensors\BatteryChargeRateSensor.cs" />
     <Compile Include="Performance\Sensors\BatteryDischargeRateSensor.cs" />
     <Compile Include="Performance\Sensors\BatteryFullChargeCapacitySensor.cs" />
@@ -465,9 +464,6 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="libryzenadj.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="libviiper.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

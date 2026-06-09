@@ -988,7 +988,7 @@ namespace XboxGamingBarHelper
             {
                 Task.Run(() => { tempRtssMgr = new RTSSManager(performanceManager); }),
                 Task.Run(() => { tempSystemMgr = new SystemManager(profileManager.GameProfiles); }),
-                Task.Run(() => { tempPowerMgr = new PowerManager(performanceManager.RyzenAdjHandle); })
+                Task.Run(() => { tempPowerMgr = new PowerManager(); })
             };
             Task.WaitAll(wave2Tasks);
             LogManager.Flush();
