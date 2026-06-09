@@ -37,7 +37,9 @@ if (-not $Elevated -and ((-not (Test-Admin)) -or ($PSVersionTable.PSEdition -eq 
 }
 
 function Finish($code) {
-    if ($Elevated) { Write-Host ""; Write-Host "Press Enter to close..." -ForegroundColor DarkGray; [void](Read-Host) }
+    # Auto-close after a short delay instead of waiting for a key — a lingering console
+    # window is awkward on a handheld. (No Read-Host: nothing to confirm on a touch device.)
+    if ($Elevated) { Write-Host ""; Write-Host "Closing in 3 seconds..." -ForegroundColor DarkGray; Start-Sleep -Seconds 3 }
     exit $code
 }
 
