@@ -1734,6 +1734,8 @@ namespace XboxGamingBar
         /// </summary>
         private void UpdatePawnIOInstalledUI(bool installed)
         {
+            UpdateOnboardingPawnIO(installed);
+
             // PawnIO option is always visible, but enable/disable based on installation status
             // This prevents WinRing0 from being auto-selected when PawnIO detection is delayed
             if (TdpMethodPawnIOItem != null)
@@ -1895,6 +1897,8 @@ namespace XboxGamingBar
                 ControllerEmulationViGEmBusUninstallButton.IsEnabled = installed;
             }
 
+            UpdateOnboardingViGEm(installed);
+
             Logger.Info($"ViGEmBus install UI updated: installed={installed}");
         }
 
@@ -1985,6 +1989,8 @@ namespace XboxGamingBar
                 ControllerEmulationHidHideUninstallButton.Content = "Uninstall";
                 ControllerEmulationHidHideUninstallButton.IsEnabled = installed;
             }
+
+            UpdateOnboardingHidHide(installed);
 
             Logger.Info($"HidHide install UI updated: installed={installed}");
         }
