@@ -48,10 +48,29 @@ namespace Shared.Utilities
 
         public static bool IsInstalled()
         {
-            using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"Software\WOW6432Node\Unwinder\RTSS"))
+            // The Unwinder\RTSS registry key can linger after an NSIS uninstall, so verify the
+            // actual RTSS.exe is present (matches the installer's prerequisite detection). This
+            // avoids reporting RTSS as installed when only an orphaned registry key remains.
+            string exe = ExecutablePath();
+            if (!string.IsNullOrEmpty(exe) && System.IO.File.Exists(exe))
             {
-                return key != null;
+                return true;
             }
+
+            string[] defaultPaths =
+            {
+                @"C:\Program Files (x86)\RivaTuner Statistics Server\RTSS.exe",
+                @"C:\Program Files\RivaTuner Statistics Server\RTSS.exe",
+            };
+            foreach (string path in defaultPaths)
+            {
+                if (System.IO.File.Exists(path))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public static string InstalledLocation()
