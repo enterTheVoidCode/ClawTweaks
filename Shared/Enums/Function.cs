@@ -467,5 +467,12 @@
 
         // RTSS in-app installation (Setup tab) — mirrors InstallViGEmBus / InstallHidHide
         InstallRTSS,                 // string - trigger to install RTSS via winget (write "install" to trigger)
+
+        // In-app tool uninstall (Setup tab). Write "uninstall" to trigger; helper runs the
+        // uninstaller elevated (it already runs elevated) and pushes the updated *Installed status.
+        UninstallViGEm,              // string - trigger to uninstall ViGEmBus (ARP)
+        UninstallHidHide,            // string - trigger to uninstall HidHide (ARP, else kernel service)
+        UninstallRTSS,               // string - trigger to uninstall RTSS (ARP)
+        UninstallPawnIO,             // string - trigger to uninstall PawnIO (ARP)
     }
 }

@@ -1385,6 +1385,65 @@ namespace XboxGamingBarHelper
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true); // Acknowledge request started
                 }
+                // ViGEm: Uninstall request
+                else if (functionValue == (int)Function.UninstallViGEm)
+                {
+                    if (request.Command != Shared.Enums.Command.Set || request.Content != "uninstall") { return; }
+                    Logger.Info("Pipe: ViGEmBus uninstall requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        XboxGamingBarHelper.Labs.ToolUninstaller.UninstallViaArp("ViGEm Bus Driver");
+                        bool installed = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
+                        SendPipeMessage(new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Set, Function = Function.ViGEmBusInstalled, Content = installed.ToString() });
+                        Logger.Info($"Pipe: ViGEmBus uninstall complete, sent updated status: {installed}");
+                    });
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true);
+                }
+                // HidHide: Uninstall request
+                else if (functionValue == (int)Function.UninstallHidHide)
+                {
+                    if (request.Command != Shared.Enums.Command.Set || request.Content != "uninstall") { return; }
+                    Logger.Info("Pipe: HidHide uninstall requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        XboxGamingBarHelper.Labs.ToolUninstaller.UninstallHidHide();
+                        bool installed = XboxGamingBarHelper.Labs.HidHideHelper.IsInstalled();
+                        SendPipeMessage(new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Set, Function = Function.HidHideInstalled, Content = installed.ToString() });
+                        Logger.Info($"Pipe: HidHide uninstall complete, sent updated status: {installed}");
+                    });
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true);
+                }
+                // RTSS: Uninstall request
+                else if (functionValue == (int)Function.UninstallRTSS)
+                {
+                    if (request.Command != Shared.Enums.Command.Set || request.Content != "uninstall") { return; }
+                    Logger.Info("Pipe: RTSS uninstall requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        XboxGamingBarHelper.Labs.ToolUninstaller.UninstallViaArp("RivaTuner Statistics Server");
+                        bool installed = XboxGamingBarHelper.Labs.RtssInstallHelper.IsInstalled();
+                        SendPipeMessage(new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Set, Function = Function.RTSSInstalled, Content = installed.ToString() });
+                        Logger.Info($"Pipe: RTSS uninstall complete, sent updated status: {installed}");
+                    });
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true);
+                }
+                // PawnIO: Uninstall request
+                else if (functionValue == (int)Function.UninstallPawnIO)
+                {
+                    if (request.Command != Shared.Enums.Command.Set || request.Content != "uninstall") { return; }
+                    Logger.Info("Pipe: PawnIO uninstall requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        XboxGamingBarHelper.Labs.ToolUninstaller.UninstallViaArp("PawnIO");
+                        performanceManager?.RefreshPawnIOInstalledStatus();
+                        Logger.Info("Pipe: PawnIO uninstall complete, refreshed installed status");
+                    });
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true);
+                }
                 // Debug: Export Default Game Profiles
                 else if (functionValue == (int)Function.Debug_ExportDGPs)
                 {

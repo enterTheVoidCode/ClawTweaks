@@ -438,6 +438,7 @@
     <Compile Include="Labs\ViGEmBusProperties.cs" />
     <Compile Include="Labs\HidHideProperties.cs" />
     <Compile Include="Labs\RtssInstallHelper.cs" />
+    <Compile Include="Labs\ToolUninstaller.cs" />
     <Compile Include="Icons\GameIconHelper.cs" />
   </ItemGroup>
   <ItemGroup>
