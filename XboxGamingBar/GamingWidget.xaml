@@ -4344,14 +4344,21 @@
                                                            FontSize="11"
                                                            Foreground="#888888"
                                                            VerticalAlignment="Center"/>
-                                                <Button x:Name="ControllerEmulationViGEmBusInstallButton"
-                                                        Grid.Column="1"
-                                                        Content="Install ViGEmBus"
-                                                        Style="{StaticResource ModernButtonStyle}"
-                                                        FontSize="11"
-                                                        Padding="10,4"
-                                                        Margin="12,0,0,0"
-                                                        Click="ViGEmBusInstallButton_Click"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                    <Button x:Name="ControllerEmulationViGEmBusInstallButton"
+                                                            Content="Install ViGEmBus"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="ViGEmBusInstallButton_Click"/>
+                                                    <Button x:Name="ControllerEmulationViGEmBusUninstallButton"
+                                                            Content="Uninstall"
+                                                            IsEnabled="False"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="ViGEmBusUninstallButton_Click"/>
+                                                </StackPanel>
                                             </Grid>
 
                                             <Grid Margin="0,8,0,0">
@@ -4364,14 +4371,21 @@
                                                            FontSize="11"
                                                            Foreground="#888888"
                                                            VerticalAlignment="Center"/>
-                                                <Button x:Name="ControllerEmulationHidHideInstallButton"
-                                                        Grid.Column="1"
-                                                        Content="Install HidHide"
-                                                        Style="{StaticResource ModernButtonStyle}"
-                                                        FontSize="11"
-                                                        Padding="10,4"
-                                                        Margin="12,0,0,0"
-                                                        Click="HidHideInstallButton_Click"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                    <Button x:Name="ControllerEmulationHidHideInstallButton"
+                                                            Content="Install HidHide"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="HidHideInstallButton_Click"/>
+                                                    <Button x:Name="ControllerEmulationHidHideUninstallButton"
+                                                            Content="Uninstall"
+                                                            IsEnabled="False"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="HidHideUninstallButton_Click"/>
+                                                </StackPanel>
                                             </Grid>
                                         </StackPanel>
                                     </Border>

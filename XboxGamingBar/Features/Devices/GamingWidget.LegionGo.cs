@@ -1889,6 +1889,12 @@ namespace XboxGamingBar
                 ControllerEmulationViGEmBusInstallButton.IsEnabled = !installed;
             }
 
+            if (ControllerEmulationViGEmBusUninstallButton != null)
+            {
+                ControllerEmulationViGEmBusUninstallButton.Content = "Uninstall";
+                ControllerEmulationViGEmBusUninstallButton.IsEnabled = installed;
+            }
+
             Logger.Info($"ViGEmBus install UI updated: installed={installed}");
         }
 
@@ -1974,6 +1980,12 @@ namespace XboxGamingBar
                 ControllerEmulationHidHideInstallButton.IsEnabled = !installed;
             }
 
+            if (ControllerEmulationHidHideUninstallButton != null)
+            {
+                ControllerEmulationHidHideUninstallButton.Content = "Uninstall";
+                ControllerEmulationHidHideUninstallButton.IsEnabled = installed;
+            }
+
             Logger.Info($"HidHide install UI updated: installed={installed}");
         }
 
@@ -2013,6 +2025,58 @@ namespace XboxGamingBar
                 {
                     ControllerEmulationHidHideStatusText.Text = "HidHide: Error";
                 }
+            }
+        }
+
+        /// <summary>
+        /// Handles the ViGEmBus uninstall button click.
+        /// </summary>
+        private void ViGEmBusUninstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("ViGEmBusUninstallButton clicked - triggering ViGEmBus uninstall");
+                if (ControllerEmulationViGEmBusUninstallButton != null)
+                {
+                    ControllerEmulationViGEmBusUninstallButton.Content = "Uninstalling...";
+                    ControllerEmulationViGEmBusUninstallButton.IsEnabled = false;
+                }
+                if (ControllerEmulationViGEmBusStatusText != null)
+                {
+                    ControllerEmulationViGEmBusStatusText.Text = "ViGEmBus: Uninstalling...";
+                }
+                uninstallViGEm?.Trigger("uninstall");
+                Logger.Info("ViGEmBus uninstall triggered, waiting for helper response...");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error during ViGEmBus uninstall: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles the HidHide uninstall button click.
+        /// </summary>
+        private void HidHideUninstallButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("HidHideUninstallButton clicked - triggering HidHide uninstall");
+                if (ControllerEmulationHidHideUninstallButton != null)
+                {
+                    ControllerEmulationHidHideUninstallButton.Content = "Uninstalling...";
+                    ControllerEmulationHidHideUninstallButton.IsEnabled = false;
+                }
+                if (ControllerEmulationHidHideStatusText != null)
+                {
+                    ControllerEmulationHidHideStatusText.Text = "HidHide: Uninstalling... (reboot may be required)";
+                }
+                uninstallHidHide?.Trigger("uninstall");
+                Logger.Info("HidHide uninstall triggered, waiting for helper response...");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error during HidHide uninstall: {ex.Message}");
             }
         }
 
