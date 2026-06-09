@@ -25,6 +25,10 @@ namespace XboxGamingBar
         // not briefly locked; RecomputeDependencyGate() re-evaluates from the live property values.
         private bool _dependencyGateOpen = true;
 
+        // Tracks the last-applied onboarding tab layout (null = not yet applied) so the nav item
+        // is only re-ordered on an actual complete/incomplete transition, not on every recompute.
+        private bool? _onbLayoutComplete = null;
+
         // Called when the Onboarding tab becomes visible and after any onboarding action,
         // so the whole flow reflects current state without per-property subscriptions.
         private void RefreshOnboardingTab()
@@ -143,6 +147,10 @@ namespace XboxGamingBar
                          && emuOn;
                 _dependencyGateOpen = open;
 
+                // Hide the other tabs until onboarding is complete; move the Onboarding tab to the
+                // far right once it is.
+                ApplyOnboardingTabLayout(open);
+
                 // Lock/unlock all Quick Settings tiles at once. StackPanel is a Panel (not a Control)
                 // so it has no IsEnabled — gate interactivity via hit-testing and dim it so the
                 // locked state is visible.
@@ -178,6 +186,57 @@ namespace XboxGamingBar
             catch (Exception ex)
             {
                 Logger.Warn($"RecomputeDependencyGate failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// While onboarding is incomplete, only Main (Quick tiles) and the Onboarding tab are shown
+        /// and Onboarding sits right after Main. Once complete, all tabs are shown and the Onboarding
+        /// tab moves to the far right, after Settings (System).
+        /// </summary>
+        private void ApplyOnboardingTabLayout(bool complete)
+        {
+            try
+            {
+                // Tabs hidden during onboarding, shown once complete. (Display/Fan stay as-is —
+                // they are device-gated elsewhere.)
+                Windows.UI.Xaml.Visibility v = complete ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+                if (PerformanceNavItem != null) PerformanceNavItem.Visibility = v;
+                if (LegionNavItem != null) LegionNavItem.Visibility = v;
+                if (ScalingNavItem != null) ScalingNavItem.Visibility = v;
+                if (ProfilesNavItem != null) ProfilesNavItem.Visibility = v;
+                if (SystemNavItem != null) SystemNavItem.Visibility = v;
+
+                // Only reorder on an actual complete/incomplete transition.
+                if (_onbLayoutComplete == complete) return;
+                _onbLayoutComplete = complete;
+
+                if (MainNavPanel == null || OnboardingNavItem == null
+                    || !MainNavPanel.Children.Contains(OnboardingNavItem))
+                {
+                    return;
+                }
+
+                MainNavPanel.Children.Remove(OnboardingNavItem);
+                int insertAt;
+                if (complete && SystemNavItem != null && MainNavPanel.Children.Contains(SystemNavItem))
+                {
+                    insertAt = MainNavPanel.Children.IndexOf(SystemNavItem) + 1; // right after Settings
+                }
+                else if (QuickNavItem != null && MainNavPanel.Children.Contains(QuickNavItem))
+                {
+                    insertAt = MainNavPanel.Children.IndexOf(QuickNavItem) + 1;  // right after Main
+                }
+                else
+                {
+                    insertAt = MainNavPanel.Children.Count;
+                }
+                if (insertAt < 0 || insertAt > MainNavPanel.Children.Count) insertAt = MainNavPanel.Children.Count;
+                MainNavPanel.Children.Insert(insertAt, OnboardingNavItem);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ApplyOnboardingTabLayout failed: {ex.Message}");
             }
         }
 
