@@ -833,27 +833,6 @@ namespace XboxGamingBarHelper
                     {
                         SetDllDirectory(exeDir);
                         Logger.Info($"SetDllDirectory to: {exeDir}");
-
-                        // Preload ADLXCSharpBind.dll with full path to ensure it's found
-                        // This bypasses DLL search path issues when running from deployed location
-                        var adlxDllPath = Path.Combine(exeDir, "ADLXCSharpBind.dll");
-                        if (File.Exists(adlxDllPath))
-                        {
-                            var handle = LoadLibrary(adlxDllPath);
-                            if (handle == IntPtr.Zero)
-                            {
-                                var error = Marshal.GetLastWin32Error();
-                                Logger.Error($"Failed to preload ADLXCSharpBind.dll: Win32 error {error} (0x{error:X})");
-                            }
-                            else
-                            {
-                                Logger.Info($"Preloaded ADLXCSharpBind.dll from: {adlxDllPath}");
-                            }
-                        }
-                        else
-                        {
-                            Logger.Warn($"ADLXCSharpBind.dll not found at: {adlxDllPath}");
-                        }
                     }
                 }
             }
