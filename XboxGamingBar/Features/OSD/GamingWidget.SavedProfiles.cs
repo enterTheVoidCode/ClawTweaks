@@ -202,14 +202,20 @@ namespace XboxGamingBar
                             summaryParts.Add($"Gyro:{gyroTargets[targetIdx]}");
                     }
 
-                    // Check deadzones
+                    // Vibration intensity (controller-profile setting; default 100%)
+                    if (container.Values.TryGetValue("VibrationIntensity", out var vibInt) && (int)vibInt != 100)
+                    {
+                        summaryParts.Add($"Vibr:{vibInt}%");
+                    }
+
+                    // Check deadzones (default 4%)
                     if (container.Values.TryGetValue("LeftStickDeadzone", out var lsDz) && (int)lsDz != 4)
                     {
-                        summaryParts.Add($"LDZ:{lsDz}%");
+                        summaryParts.Add($"dzL:{lsDz}%");
                     }
                     if (container.Values.TryGetValue("RightStickDeadzone", out var rsDz) && (int)rsDz != 4)
                     {
-                        summaryParts.Add($"RDZ:{rsDz}%");
+                        summaryParts.Add($"dzR:{rsDz}%");
                     }
 
                     // Check joystick as mouse
