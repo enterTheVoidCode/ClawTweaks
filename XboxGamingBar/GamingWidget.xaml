@@ -1704,7 +1704,7 @@
                                 </Border>
                                 <Slider x:Name="TDPSlider"
                                         Style="{StaticResource ModernSliderStyle}"
-                                        Minimum="7" Maximum="35"
+                                        Minimum="7" Maximum="30"
                                         TickFrequency="1"
                                         SnapsTo="Ticks"
                                         TickPlacement="BottomRight"

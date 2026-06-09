@@ -1428,17 +1428,22 @@ namespace XboxGamingBar
 
         private void UpdateTDPSliderBounds()
         {
-            // Update Performance tab TDP slider
+            // Update Performance tab TDP slider.
+            // UI-only guardrails: the manual TDP slider must never go below 7W or above 30W,
+            // regardless of the device-reported range (deviceTDPMin/Max). Tighter device limits
+            // still win (Math.Max/Min), this only caps the user-selectable range.
             if (TDPSlider != null)
             {
-                TDPSlider.Minimum = deviceTDPMin;
-                TDPSlider.Maximum = deviceTDPMax;
+                double tdpSliderMin = Math.Max(deviceTDPMin, 7);
+                double tdpSliderMax = Math.Min(deviceTDPMax, 30);
+                TDPSlider.Minimum = tdpSliderMin;
+                TDPSlider.Maximum = tdpSliderMax;
 
                 // Clamp current value if out of bounds
-                if (TDPSlider.Value < deviceTDPMin)
-                    TDPSlider.Value = deviceTDPMin;
-                else if (TDPSlider.Value > deviceTDPMax)
-                    TDPSlider.Value = deviceTDPMax;
+                if (TDPSlider.Value < tdpSliderMin)
+                    TDPSlider.Value = tdpSliderMin;
+                else if (TDPSlider.Value > tdpSliderMax)
+                    TDPSlider.Value = tdpSliderMax;
             }
 
             // Update AutoTDP Min slider bounds
