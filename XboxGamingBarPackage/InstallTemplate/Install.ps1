@@ -91,6 +91,28 @@ try {
         Add-AppxPackage -Path $pkg.FullName -ForceApplicationShutdown
     }
 
+    # 5. Refresh the elevated helper. It runs from a deployed copy under the package LocalCache
+    #    (launched by the scheduled task "ClawTweaks\ClawTweaksHelper"), NOT from the MSIX itself.
+    #    An in-place update leaves the OLD helper PROCESS running, so new pipe commands the widget
+    #    sends (e.g. the in-app tool setup) silently do nothing until the next reboot/logon. End the
+    #    task, kill the running helper and delete the deployed copy — the widget redeploys the NEW
+    #    version automatically on next launch (no reboot needed).
+    try {
+        $appPkg = Get-AppxPackage | Where-Object { $_.Name -like '*ClawTweaks*' } | Select-Object -First 1
+        & schtasks.exe /End /TN "ClawTweaks\ClawTweaksHelper" 2>$null | Out-Null
+        Get-Process -Name "XboxGamingBarHelper" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 600
+        if ($appPkg) {
+            $helperDir = Join-Path $env:LOCALAPPDATA "Packages\$($appPkg.PackageFamilyName)\LocalCache\ClawTweaks\Helper"
+            if (Test-Path $helperDir) { Remove-Item -Path $helperDir -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+        Write-Host "Refreshed helper (new version deploys on next launch)." -ForegroundColor Green
+    }
+    catch {
+        Write-Host "Note: could not refresh the running helper; reboot once if new features don't appear." -ForegroundColor DarkYellow
+    }
+
     Write-Host ""
     Write-Host "ClawTweaks installed successfully." -ForegroundColor Green
     Write-Host "Open it via the Xbox Game Bar (Win+G), then complete setup in the Setup tab." -ForegroundColor Gray
