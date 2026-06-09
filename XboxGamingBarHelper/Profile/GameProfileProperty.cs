@@ -541,6 +541,18 @@ namespace XboxGamingBarHelper.Profile
             }
         }
 
+        public int? LegionVibrationIntensity
+        {
+            get { return value.LegionVibrationIntensity; }
+            set
+            {
+                if (this.value.LegionVibrationIntensity != value)
+                {
+                    this.value.LegionVibrationIntensity = value;
+                }
+            }
+        }
+
         public int? LegionPerformanceMode
         {
             get { return value.LegionPerformanceMode; }

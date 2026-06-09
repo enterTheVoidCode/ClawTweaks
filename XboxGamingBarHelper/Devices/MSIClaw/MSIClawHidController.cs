@@ -23,8 +23,19 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         // Physical MSI Claw controller HID identifiers (HC fork ClawA1M.cs)
         private const int VendorId  = 0x0DB0;
         private const int ProductId = 0x1901; // XInput mode PID
-        private const int TargetUsagePage = 0xFFA0;
-        private const int TargetUsage     = 0x0001;
+
+        // Vendor command interface — present in EVERY firmware mode, but on a DIFFERENT
+        // usage page depending on the mode (1:1 from HC ClawA1M hidFilters):
+        //   XInput mode  (PID_1901): UsagePage 0xFFA0, Usage 0x0001
+        //   DInput mode  (PID_1902): UsagePage 0xFFF0, Usage 0x0040
+        // ClawTweaks normally runs the Claw in DInput mode (ClawButtonMonitor switches to
+        // PID_1902), so searching ONLY 0xFFA0 made FindClawHidDevice return null in normal
+        // operation → LED / vendor writes were a silent no-op. Search BOTH pages, exactly like
+        // ClawButtonMonitor.FindCommandDevice does.
+        private const int CmdUsagePageXInput = 0xFFA0;
+        private const int CmdUsageXInput     = 0x0001;
+        private const int CmdUsagePageDInput = 0xFFF0;
+        private const int CmdUsageDInput     = 0x0040;
 
         // HC ClawA1M.cs: SwitchMode byte commands (padded to 64 bytes before send)
         // { 0x0F, 0x00, 0x00, 0x3C, CommandType.SwitchMode(0x24), GamepadMode.<X>, MKeysFunction.Macro(0x00) }
@@ -124,7 +135,11 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
                             {
                                 int page  = (int)((encodedUsage >> 16) & 0xFFFF);
                                 int usage = (int)(encodedUsage & 0xFFFF);
-                                if (page == TargetUsagePage && usage == TargetUsage)
+                                // Accept the vendor command interface in EITHER firmware mode:
+                                //   XInput (PID_1901): 0xFFA0 / 0x0001
+                                //   DInput (PID_1902): 0xFFF0 / 0x0040
+                                if ((page == CmdUsagePageXInput && usage == CmdUsageXInput) ||
+                                    (page == CmdUsagePageDInput && usage == CmdUsageDInput))
                                     return device;
                             }
                         }

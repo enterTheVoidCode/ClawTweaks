@@ -170,11 +170,13 @@ namespace XboxGamingBarHelper
             {
                 Logger.Info($"Saving LegionLeftStickDeadzone to profile {profileName}");
                 profileManager.CurrentProfile.LegionLeftStickDeadzone = legionManager.LegionLeftStickDeadzone.Value;
+                clawButtonMonitor?.SetLeftStickDeadzone(legionManager.LegionLeftStickDeadzone.Value);
             }
             else if (sender == legionManager?.LegionRightStickDeadzone)
             {
                 Logger.Info($"Saving LegionRightStickDeadzone to profile {profileName}");
                 profileManager.CurrentProfile.LegionRightStickDeadzone = legionManager.LegionRightStickDeadzone.Value;
+                clawButtonMonitor?.SetRightStickDeadzone(legionManager.LegionRightStickDeadzone.Value);
             }
             // Trigger travel
             else if (sender == legionManager?.LegionLeftTriggerStart)
@@ -239,6 +241,15 @@ namespace XboxGamingBarHelper
                 RouteProfileSave(ProfileSaveFlagsState.Vibration, "LegionVibrationMode",
                     cur => cur.LegionVibrationMode = legionManager.LegionVibrationMode.Value,
                     glo => glo.LegionVibrationMode = legionManager.LegionVibrationMode.Value);
+            }
+            else if (sender == legionManager?.LegionVibrationIntensity)
+            {
+                // Persist (per-game or global, routed by ProfileSaveFlags) AND apply live to the
+                // MSI Claw rumble passthrough. Mirrors the gyro live-apply path.
+                RouteProfileSave(ProfileSaveFlagsState.Vibration, "LegionVibrationIntensity",
+                    cur => cur.LegionVibrationIntensity = legionManager.LegionVibrationIntensity.Value,
+                    glo => glo.LegionVibrationIntensity = legionManager.LegionVibrationIntensity.Value);
+                clawButtonMonitor?.SetVibrationIntensity(legionManager.LegionVibrationIntensity.Value);
             }
             else if (sender == legionManager?.LegionControllerProfileEnabled)
             {
@@ -325,6 +336,7 @@ namespace XboxGamingBarHelper
                     // Misc controller settings
                     g.LegionGamepadMapping = null; g.LegionNintendoLayout = null;
                     g.LegionVibration = null; g.LegionVibrationMode = null;
+                    g.LegionVibrationIntensity = null;
                     g.LegionControllerProfileEnabled = null;
                     g.Save();
                     Logger.Info("FactoryReset: global controller profile cleared to defaults and saved");
@@ -344,6 +356,16 @@ namespace XboxGamingBarHelper
                 // Apply gyro OFF live so it takes effect immediately (no reboot required).
                 try { legionManager?.LegionGyroTarget?.SetValue(0); } catch { }
                 try { clawButtonMonitor?.SetGyroTarget(0); } catch { }
+
+                // Reset vibration intensity to full (100 %) live.
+                try { legionManager?.LegionVibrationIntensity?.SetValue(100); } catch { }
+                try { clawButtonMonitor?.SetVibrationIntensity(100); } catch { }
+
+                // Reset stick deadzones to default (4 %) live.
+                try { legionManager?.LegionLeftStickDeadzone?.SetValue(4); } catch { }
+                try { legionManager?.LegionRightStickDeadzone?.SetValue(4); } catch { }
+                try { clawButtonMonitor?.SetLeftStickDeadzone(4); } catch { }
+                try { clawButtonMonitor?.SetRightStickDeadzone(4); } catch { }
 
                 // Clear hardware/software button remappings live.
                 // SetValue("") → ButtonMappingParser.Parse("") → type=0, action=0

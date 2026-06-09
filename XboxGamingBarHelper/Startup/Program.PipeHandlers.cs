@@ -1385,6 +1385,53 @@ namespace XboxGamingBarHelper
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true); // Acknowledge request started
                 }
+                // Onboarding: run the proven prerequisite check/installer (embedded Setup-Tools.ps1)
+                // which detects + installs all four required tools in one pass, then push each
+                // *Installed status so the onboarding rows + badge refresh.
+                else if (functionValue == (int)Function.RunToolSetup)
+                {
+                    if (request.Command != Shared.Enums.Command.Set || request.Content != "install") { return; }
+                    Logger.Info("Pipe: tool setup (Setup-Tools.ps1) requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            int code = XboxGamingBarHelper.Setup.ToolSetupRunner.Run();
+                            Logger.Info($"Pipe: tool setup finished (exit={code}); pushing tool statuses");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Pipe: tool setup run failed: {ex.Message}");
+                        }
+
+                        // Re-detect + push each tool's status (best-effort).
+                        try
+                        {
+                            bool vigem = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
+                            SendPipeMessage(new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Set, Function = Function.ViGEmBusInstalled, Content = vigem.ToString() });
+                        }
+                        catch (Exception ex) { Logger.Warn($"Pipe: ViGEm status push failed: {ex.Message}"); }
+                        try
+                        {
+                            bool hid = XboxGamingBarHelper.Labs.HidHideHelper.IsInstalled();
+                            SendPipeMessage(new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Set, Function = Function.HidHideInstalled, Content = hid.ToString() });
+                        }
+                        catch (Exception ex) { Logger.Warn($"Pipe: HidHide status push failed: {ex.Message}"); }
+                        try
+                        {
+                            bool rtss = XboxGamingBarHelper.Labs.RtssInstallHelper.IsInstalled();
+                            SendPipeMessage(new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Set, Function = Function.RTSSInstalled, Content = rtss.ToString() });
+                        }
+                        catch (Exception ex) { Logger.Warn($"Pipe: RTSS status push failed: {ex.Message}"); }
+                        try
+                        {
+                            performanceManager?.RefreshPawnIOInstalledStatus();
+                        }
+                        catch (Exception ex) { Logger.Warn($"Pipe: PawnIO status refresh failed: {ex.Message}"); }
+                    });
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true); // Acknowledge request started
+                }
                 // ViGEm: Uninstall request
                 else if (functionValue == (int)Function.UninstallViGEm)
                 {

@@ -146,6 +146,25 @@ namespace XboxGamingBarHelper.Labs
         private ViGEmController _vigem;
         private bool _ownsVigem;
 
+        // ── Vibration (rumble passthrough) ────────────────────────────────────────
+        // The game drives the virtual ViGEm controller's force-feedback; ViGEm raises
+        // RumbleReceived(large, small) which we forward to the PHYSICAL Claw via a direct
+        // HID report on the vendor command interface (_cmdDevice) — 1:1 from HC
+        // DClawController.WriteVibration: report {0x05,0x01,0x00,0x00, small, large, 0…}.
+        // Scaled by the user's stepless intensity (0.0–1.0). Written on the ViGEm callback
+        // thread, so guarded by _rumbleLock against the monitor thread's _cmdDevice use.
+        private volatile float _vibrationIntensity = 1.0f;   // 0.0–1.0 (UI: 0–100 %)
+        private readonly object _rumbleLock = new object();
+        private byte _prevRumbleLarge = 0;
+        private byte _prevRumbleSmall = 0;
+        private const byte RUMBLE_REPORT_ID = 0x05;          // HC DClawController rumble report ID
+
+        // ── Stick deadzones (radial inner deadzone, percent of full deflection) ───
+        // Applied to the outgoing ViGEm stick values in ProcessDirectInputState. 0 = off.
+        // Written from the UI/profile thread; read from the poll thread (volatile).
+        private volatile int _leftStickDeadzone  = 0;        // 0–50 %
+        private volatile int _rightStickDeadzone = 0;        // 0–50 %
+
         // M1 / M2 configuration (M1 ≈ Legion L, M2 ≈ Legion R)
         private bool _m1Enabled, _m2Enabled;
         private LegionButtonAction _m1Action, _m2Action;
@@ -421,6 +440,69 @@ namespace XboxGamingBarHelper.Labs
         public void SetGyroDeadzone(int val) => _gyroDeadzone = val;
 
         /// <summary>
+        /// Set the controller vibration intensity (0–100 %). Scales every rumble report sent
+        /// to the physical Claw. 0 = no vibration, 100 = full. Thread-safe (volatile).
+        /// Mirrors HC IController.SetVibrationStrength (value/100.0) used in DClawController.WriteVibration.
+        /// </summary>
+        public void SetVibrationIntensity(int percent)
+        {
+            int clamped = Math.Max(0, Math.Min(100, percent));
+            _vibrationIntensity = clamped / 100.0f;
+            Logger.Info($"ClawButtonMonitor: VibrationIntensity → {clamped}%");
+        }
+
+        /// <summary>Left stick radial inner deadzone (0–50 %). Thread-safe (volatile).</summary>
+        public void SetLeftStickDeadzone(int percent)
+        {
+            _leftStickDeadzone = Math.Max(0, Math.Min(50, percent));
+            Logger.Info($"ClawButtonMonitor: LeftStickDeadzone → {_leftStickDeadzone}%");
+        }
+
+        /// <summary>Right stick radial inner deadzone (0–50 %). Thread-safe (volatile).</summary>
+        public void SetRightStickDeadzone(int percent)
+        {
+            _rightStickDeadzone = Math.Max(0, Math.Min(50, percent));
+            Logger.Info($"ClawButtonMonitor: RightStickDeadzone → {_rightStickDeadzone}%");
+        }
+
+        /// <summary>
+        /// Applies a radial inner deadzone to a stick: if the vector magnitude is below the
+        /// deadzone fraction it is zeroed; otherwise the remaining range is rescaled to full
+        /// 0..1 so the stick still reaches full deflection (standard radial deadzone, like HC).
+        /// </summary>
+        private static void ApplyStickDeadzone(ref short x, ref short y, int deadzonePercent)
+        {
+            if (deadzonePercent <= 0) return;
+
+            const float MaxAxis = 32767f;
+            float fx = x / MaxAxis;
+            float fy = y / MaxAxis;
+            float mag = (float)Math.Sqrt(fx * fx + fy * fy);
+            float dz = deadzonePercent / 100.0f;
+
+            if (mag <= dz)
+            {
+                x = 0;
+                y = 0;
+                return;
+            }
+
+            // Rescale magnitude from (dz..1) to (0..1) along the same direction.
+            float scaled = (mag - dz) / (1.0f - dz);
+            if (scaled > 1.0f) scaled = 1.0f;
+            float factor = scaled / mag;
+            x = ClampAxis(fx * factor * MaxAxis);
+            y = ClampAxis(fy * factor * MaxAxis);
+        }
+
+        private static short ClampAxis(float v)
+        {
+            if (v >  32767f) return  32767;
+            if (v < -32767f) return -32767;
+            return (short)v;
+        }
+
+        /// <summary>
         /// Start monitoring. Returns false only if ViGEmBus is unavailable.
         ///
         /// ClawButtonMonitor is the primary emulation path for MSI Claw — it always starts
@@ -507,6 +589,31 @@ namespace XboxGamingBarHelper.Labs
                 Logger.Warn($"ClawButtonMonitor: Stop() — SwitchMode(XInput) failed after {waited}ms; firmware may stay in DInput mode");
 
             StopGyroAdapter();
+
+            // Stop any active rumble on the physical Claw before tearing down (zero both motors).
+            // Done while _cmdDevice is still valid and _running is briefly forced true so the
+            // dedupe guard does not skip the zero-write.
+            try
+            {
+                lock (_rumbleLock)
+                {
+                    var dev = _cmdDevice;
+                    if (dev != null && (_prevRumbleLarge != 0 || _prevRumbleSmall != 0))
+                    {
+                        byte[] stopReport = new byte[64];
+                        stopReport[0] = RUMBLE_REPORT_ID;
+                        stopReport[1] = 0x01;
+                        try { using (var s = dev.Open()) s.Write(stopReport); } catch { }
+                    }
+                    _prevRumbleLarge = 0;
+                    _prevRumbleSmall = 0;
+                }
+            }
+            catch { }
+
+            if (_vigem != null)
+                _vigem.RumbleReceived -= OnRumbleReceived;
+
             CleanupHandles();
 
             if (_vigem != null && _ownsVigem)
@@ -885,6 +992,11 @@ namespace XboxGamingBarHelper.Labs
             ApplyGamepadSwaps(ref xiBtnsOut, ref ltrigOut, ref rtrigOut,
                 ref leftXOut, ref leftYOut, ref rightXOut, ref rightYOut);
 
+            // Stick deadzones — radial inner deadzone on the physical stick values before the
+            // M1/M2 remap overlay and gyro merge, so gyro/mouse build on the deadzoned base.
+            ApplyStickDeadzone(ref leftXOut,  ref leftYOut,  _leftStickDeadzone);
+            ApplyStickDeadzone(ref rightXOut, ref rightYOut, _rightStickDeadzone);
+
             if (m1 && _m1RemapAction != RemapAction.Disabled)
                 ApplyXInputRemapAction(_m1RemapAction,
                     ref xiBtnsOut, ref ltrigOut, ref rtrigOut,
@@ -1195,8 +1307,74 @@ namespace XboxGamingBarHelper.Labs
                 _vigem.Dispose(); _vigem = null; _ownsVigem = false;
                 return false;
             }
-            Logger.Info("ClawButtonMonitor: ViGEm Xbox360 controller plugged in");
+            // Forward game force-feedback to the physical Claw (the "missing link":
+            // previously the virtual controller was created but RumbleReceived was never wired,
+            // so the Claw never vibrated).
+            _vigem.RumbleReceived += OnRumbleReceived;
+            Logger.Info("ClawButtonMonitor: ViGEm Xbox360 controller plugged in (rumble forwarding enabled)");
             return true;
+        }
+
+        // ── Vibration: ViGEm feedback → physical Claw HID ─────────────────────────
+
+        /// <summary>
+        /// ViGEm rumble feedback callback. Forwards the motor magnitudes to the physical Claw
+        /// via a direct HID report (1:1 from HC DClawController). Fires on a ViGEm callback
+        /// thread. Dedupes unchanged values (HC prevLarge/prevSmall pattern).
+        /// </summary>
+        private void OnRumbleReceived(byte largeMotor, byte smallMotor)
+        {
+            try
+            {
+                WriteRumble(largeMotor, smallMotor);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"ClawButtonMonitor: OnRumbleReceived failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Writes the scaled rumble report to the physical Claw's vendor command interface.
+        /// Report layout 1:1 from HC DClawController.WriteVibration:
+        ///   { 0x05, 0x01, 0x00, 0x00, small*intensity, large*intensity, 0… }
+        /// (small motor at index 4, large motor at index 5). Sent over the SAME _cmdDevice
+        /// used for SwitchMode / M1-M2 / LED (the vendor interface, present in DInput mode at
+        /// 0xFFF0). Guarded by _rumbleLock because the monitor thread also uses _cmdDevice.
+        /// </summary>
+        private void WriteRumble(byte large, byte small)
+        {
+            lock (_rumbleLock)
+            {
+                if (!_running) return;
+                if (large == _prevRumbleLarge && small == _prevRumbleSmall) return; // dedupe
+
+                _prevRumbleLarge = large;
+                _prevRumbleSmall = small;
+
+                var dev = _cmdDevice;
+                if (dev == null) return;
+
+                float intensity = _vibrationIntensity;
+                byte scaledSmall = (byte)(small * intensity);
+                byte scaledLarge = (byte)(large * intensity);
+
+                byte[] report = new byte[64];
+                report[0] = RUMBLE_REPORT_ID; // 0x05
+                report[1] = 0x01;
+                report[4] = scaledSmall;
+                report[5] = scaledLarge;
+
+                try
+                {
+                    using (var stream = dev.Open())
+                        stream.Write(report);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"ClawButtonMonitor: WriteRumble failed: {ex.Message}");
+                }
+            }
         }
 
         // ── Gyro adapter lifecycle ────────────────────────────────────────────────

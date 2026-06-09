@@ -978,6 +978,25 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         }
     }
 
+    // Stepless controller vibration intensity (0-100 %). MSI Claw only: there is no Legion Go
+    // hardware action here — the value is routed to ClawButtonMonitor.SetVibrationIntensity by
+    // Program.LegionControllerSetting_PropertyChanged. base.NotifyPropertyChanged sends the pipe
+    // echo + raises PropertyChanged so the dispatch handler runs.
+    internal class LegionVibrationIntensityProperty : HelperProperty<int, LegionManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public LegionVibrationIntensityProperty(int initialValue, LegionManager inManager) : base(initialValue, null, Function.LegionVibrationIntensity, inManager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"LegionVibrationIntensity changed to {Value}");
+        }
+    }
+
     // Controller profile enabled (per-game toggle) - notification only, storage in widget
     internal class LegionControllerProfileEnabledProperty : HelperProperty<bool, LegionManager>
     {

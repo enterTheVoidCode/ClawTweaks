@@ -7,12 +7,15 @@ using Windows.UI.Xaml.Media;
 namespace XboxGamingBar
 {
     /// <summary>
-    /// Onboarding tab: a guided setup flow.
-    ///   1. Install the four required tools (ViGEm, HidHide, RTSS, PawnIO).
-    ///   2. If MSI Center M is running, disable it (it blocks controller emulation).
-    ///   3. Enable controller emulation.
-    /// Reuses the existing install/uninstall trigger properties and the
-    /// MsiCenterActive / ControllerEmulationEnabled properties.
+    /// Onboarding tab: a single button runs the proven prerequisite check/installer
+    /// (the embedded Setup-Tools.ps1, via the elevated helper) that detects + installs
+    /// all four required tools (ViGEm, HidHide, RTSS, PawnIO) in one pass. Read-only
+    /// status rows reflect the result; optional MSI Center M / controller-emulation hints
+    /// follow.
+    ///
+    /// The Quick Settings tiles are NOT locked. While not all four tools are installed the
+    /// Onboarding nav item shows a badge; once all four are present the tab moves to the far
+    /// right (after Settings). No other tab is hidden.
     /// </summary>
     public sealed partial class GamingWidget
     {
@@ -20,23 +23,30 @@ namespace XboxGamingBar
         private static readonly SolidColorBrush OnbGrayBrush = new SolidColorBrush(Color.FromArgb(255, 136, 136, 136));
         private static readonly SolidColorBrush OnbAmberBrush = new SolidColorBrush(Color.FromArgb(255, 255, 165, 0));
 
-        // Dependency gate: the Quick Settings tiles are locked until all four required tools are
-        // installed AND controller emulation is enabled. Default open so already-set-up users are
-        // not briefly locked; RecomputeDependencyGate() re-evaluates from the live property values.
-        private bool _dependencyGateOpen = true;
-
-        // Tracks the last-applied onboarding tab layout (null = not yet applied) so the nav item
-        // is only re-ordered on an actual complete/incomplete transition, not on every recompute.
+        // Tracks the last-applied onboarding tab position (null = not yet applied) so the nav
+        // item is only re-ordered on an actual complete/incomplete transition.
         private bool? _onbLayoutComplete = null;
 
-        // Called when the Onboarding tab becomes visible and after any onboarding action,
-        // so the whole flow reflects current state without per-property subscriptions.
+        // All four tools present. ViGEm/HidHide come from the cached install states (their property
+        // Value is unreliable — status arrives via a Command.Get response). RTSS/PawnIO use .Value,
+        // which IS set via the property push/sync path.
+        private bool OnbAllToolsInstalled =>
+            _gateVigemInstalled
+            && _gateHidHideInstalled
+            && (rtssInstalled?.Value == true)
+            && (pawnIOInstalled?.Value == true);
+
+        // Cached ViGEm / HidHide install states (set by Update*InstalledUI). See OnbAllToolsInstalled.
+        private bool _gateVigemInstalled;
+        private bool _gateHidHideInstalled;
+
+        // Called when the Onboarding tab becomes visible: render all rows from current state.
         private void RefreshOnboardingTab()
         {
             try
             {
-                UpdateOnboardingViGEm(vigemBusInstalled?.Value == true);
-                UpdateOnboardingHidHide(hidHideInstalled?.Value == true);
+                UpdateOnboardingViGEm(_gateVigemInstalled);
+                UpdateOnboardingHidHide(_gateHidHideInstalled);
                 UpdateOnboardingRtss(rtssInstalled?.Value == true);
                 UpdateOnboardingPawnIO(pawnIOInstalled?.Value == true);
                 UpdateOnboardingSteps();
@@ -47,59 +57,49 @@ namespace XboxGamingBar
             }
         }
 
-        private static void SetOnbToolRow(TextBlock status, Button installBtn, Button uninstallBtn, string toolName, bool installed)
+        private static void SetOnbStatus(TextBlock status, string toolName, bool installed)
         {
-            if (status != null)
-            {
-                status.Text = installed ? $"{toolName}: Installed" : $"{toolName}: Not installed";
-                status.Foreground = installed ? OnbGreenBrush : OnbGrayBrush;
-            }
-            if (installBtn != null)
-            {
-                installBtn.Content = installed ? "Installed" : "Install";
-                installBtn.IsEnabled = !installed;
-            }
-            if (uninstallBtn != null)
-            {
-                uninstallBtn.Content = "Uninstall";
-                uninstallBtn.IsEnabled = installed;
-            }
+            if (status == null) return;
+            status.Text = installed ? $"{toolName}: Installed" : $"{toolName}: Not installed";
+            status.Foreground = installed ? OnbGreenBrush : OnbGrayBrush;
         }
 
         private void UpdateOnboardingViGEm(bool installed)
         {
-            SetOnbToolRow(OnbViGEmStatus, OnbViGEmInstallBtn, OnbViGEmUninstallBtn, "ViGEmBus", installed);
-            RecomputeDependencyGate();
+            SetOnbStatus(OnbViGEmStatus, "ViGEmBus", installed);
+            RefreshOnboardingState();
         }
 
         private void UpdateOnboardingHidHide(bool installed)
         {
-            SetOnbToolRow(OnbHidHideStatus, OnbHidHideInstallBtn, OnbHidHideUninstallBtn, "HidHide", installed);
-            RecomputeDependencyGate();
+            SetOnbStatus(OnbHidHideStatus, "HidHide", installed);
+            RefreshOnboardingState();
         }
 
         private void UpdateOnboardingRtss(bool installed)
         {
-            SetOnbToolRow(OnbRtssStatus, OnbRtssInstallBtn, OnbRtssUninstallBtn, "RTSS", installed);
-            RecomputeDependencyGate();
+            SetOnbStatus(OnbRtssStatus, "RTSS", installed);
+            SetDebugToolRow(DebugRtssStatusText, DebugRtssInstallButton, DebugRtssUninstallButton, "RTSS", "Install RTSS", installed);
+            RefreshOnboardingState();
         }
 
         private void UpdateOnboardingPawnIO(bool installed)
         {
-            SetOnbToolRow(OnbPawnIOStatus, OnbPawnIOInstallBtn, OnbPawnIOUninstallBtn, "PawnIO", installed);
-            RecomputeDependencyGate();
+            SetOnbStatus(OnbPawnIOStatus, "PawnIO", installed);
+            SetDebugToolRow(DebugPawnIOStatusText, DebugPawnIOInstallButton, DebugPawnIOUninstallButton, "PawnIO", "Install PawnIO", installed);
+            RefreshOnboardingState();
         }
 
         // RTSS installed-status callback (replaces the direct UpdateFPSLimitControls wiring):
-        // keeps the FPS-limit controls in sync AND updates the onboarding RTSS row.
+        // keeps the FPS-limit controls in sync AND updates the onboarding + Debug RTSS rows.
         private void OnRtssInstalledChanged(bool installed)
         {
             UpdateFPSLimitControls(installed);
             UpdateOnboardingRtss(installed);
         }
 
-        // Steps 2 + 3 depend on each other: controller emulation can only be enabled
-        // once MSI Center M is off (matches the existing MsiCenterGating behaviour).
+        // Optional guidance steps (MSI Center M off + controller emulation). These do NOT gate
+        // anything — they are hints. Completion (the badge / tab move) depends only on the tools.
         private void UpdateOnboardingSteps()
         {
             bool msiActive = msiCenterActive?.Value == true;
@@ -131,91 +131,35 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Dependency gate: lock the Quick Settings tiles until all four required tools are
-        /// installed AND controller emulation is enabled. Shows a warning banner on the Quick tab
-        /// and a badge on the Setup nav item while setup is incomplete. Cheap; safe to call often.
+        /// Refresh the onboarding nav badge and tab position from current tool state. No tile
+        /// locking, no banner, no hiding of other tabs. Cheap; safe to call often.
         /// </summary>
-        internal void RecomputeDependencyGate()
+        internal void RefreshOnboardingState()
         {
             try
             {
-                bool emuOn = controllerEmulationEnabled?.Value == true;
-                bool open = (vigemBusInstalled?.Value == true)
-                         && (hidHideInstalled?.Value == true)
-                         && (rtssInstalled?.Value == true)
-                         && (pawnIOInstalled?.Value == true)
-                         && emuOn;
-                _dependencyGateOpen = open;
+                bool complete = OnbAllToolsInstalled;
+                ApplyOnboardingTabLayout(complete);
 
-                // Hide the other tabs until onboarding is complete; move the Onboarding tab to the
-                // far right once it is.
-                ApplyOnboardingTabLayout(open);
-
-                // Lock/unlock all Quick Settings tiles at once. StackPanel is a Panel (not a Control)
-                // so it has no IsEnabled — gate interactivity via hit-testing and dim it so the
-                // locked state is visible.
-                if (QuickSettingsTilesContainer != null)
-                {
-                    QuickSettingsTilesContainer.IsHitTestVisible = open;
-                    QuickSettingsTilesContainer.Opacity = open ? 1.0 : 0.4;
-                }
-
-                // Warning banner on the Quick tab.
-                if (MissingAddonsWarning != null)
-                {
-                    MissingAddonsWarning.IsOpen = !open;
-                    if (!open)
-                    {
-                        var missing = new System.Collections.Generic.List<string>();
-                        if (vigemBusInstalled?.Value != true) missing.Add("ViGEmBus");
-                        if (hidHideInstalled?.Value != true) missing.Add("HidHide");
-                        if (rtssInstalled?.Value != true) missing.Add("RTSS");
-                        if (pawnIOInstalled?.Value != true) missing.Add("PawnIO");
-                        if (!emuOn) missing.Add("controller emulation");
-                        MissingAddonsWarning.Message =
-                            "Finish setup to use ClawTweaks — still required: " + string.Join(", ", missing) + ".";
-                    }
-                }
-
-                // Warning badge on the Setup nav item.
                 if (OnboardingNavBadge != null)
                 {
-                    OnboardingNavBadge.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+                    OnboardingNavBadge.Visibility = complete ? Visibility.Collapsed : Visibility.Visible;
                 }
             }
             catch (Exception ex)
             {
-                Logger.Warn($"RecomputeDependencyGate failed: {ex.Message}");
+                Logger.Warn($"RefreshOnboardingState failed: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// While onboarding is incomplete, only Main (Quick tiles) and the Onboarding tab are shown
-        /// and Onboarding sits right after Main. Once complete, all tabs are shown and the Onboarding
-        /// tab moves to the far right, after Settings (System).
+        /// Move only the Onboarding nav item: right after Main while setup is incomplete, and to the
+        /// far right (after Settings/System) once all tools are installed. Other tabs are untouched.
         /// </summary>
         private void ApplyOnboardingTabLayout(bool complete)
         {
             try
             {
-                // Tabs hidden during onboarding, shown once complete. (Display/Fan stay as-is —
-                // they are device-gated elsewhere.)
-                Windows.UI.Xaml.Visibility v = complete ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
-                if (PerformanceNavItem != null) PerformanceNavItem.Visibility = v;
-                if (LegionNavItem != null) LegionNavItem.Visibility = v;
-                if (ScalingNavItem != null) ScalingNavItem.Visibility = v;
-                if (ProfilesNavItem != null) ProfilesNavItem.Visibility = v;
-                if (SystemNavItem != null) SystemNavItem.Visibility = v;
-
-                // Fan + Display are device-gated (shown only on the MSI Claw). Hide them during
-                // onboarding too; on completion restore them to their device-appropriate visibility.
-                Windows.UI.Xaml.Visibility deviceVis = IsMsiClawDevice()
-                    ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
-                Windows.UI.Xaml.Visibility fanDisplayVis = complete ? deviceVis : Windows.UI.Xaml.Visibility.Collapsed;
-                if (FanNavItem != null) FanNavItem.Visibility = fanDisplayVis;
-                if (DisplayNavItem != null) DisplayNavItem.Visibility = fanDisplayVis;
-
-                // Only reorder on an actual complete/incomplete transition.
                 if (_onbLayoutComplete == complete) return;
                 _onbLayoutComplete = complete;
 
@@ -248,69 +192,53 @@ namespace XboxGamingBar
             }
         }
 
-        // InfoBar action button on the Quick tab: jump to the Setup/Onboarding tab.
-        private void MissingAddonsGoToSetup_Click(object sender, RoutedEventArgs e)
+        // --- Step 1: run the proven tool check/installer for all four tools ---
+        private void OnbRunSetup_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                if (OnboardingNavItem != null)
+                Logger.Info("Onboarding: running tool setup (Setup-Tools.ps1)");
+                if (OnbRunSetupBtn != null)
                 {
-                    OnboardingNavItem.IsChecked = true; // fires NavRadioButton_Checked
+                    OnbRunSetupBtn.Content = "Checking & installing...";
+                    OnbRunSetupBtn.IsEnabled = false;
                 }
+                if (OnbSetupProgress != null)
+                {
+                    OnbSetupProgress.Visibility = Visibility.Visible;
+                    OnbSetupProgress.Text = "Checking for missing tools and installing them. This can take a few minutes — downloads run in the background. The status lines below update when it finishes.";
+                }
+                runToolSetup?.Trigger("install");
+                // Re-enable the button after a delay so the user can re-run if needed (statuses
+                // arrive asynchronously via the helper's *Installed pushes).
+                _ = ReEnableSetupButtonAsync();
             }
             catch (Exception ex)
             {
-                Logger.Warn($"MissingAddonsGoToSetup failed: {ex.Message}");
+                Logger.Warn($"Onboarding tool setup failed: {ex.Message}");
+                if (OnbRunSetupBtn != null) { OnbRunSetupBtn.Content = "Check & install tools"; OnbRunSetupBtn.IsEnabled = true; }
             }
         }
 
-        // --- Tool install/uninstall buttons (reuse the shared trigger properties) ---
-
-        private void OnbViGEmInstall_Click(object sender, RoutedEventArgs e)
+        private async System.Threading.Tasks.Task ReEnableSetupButtonAsync()
         {
-            if (OnbViGEmInstallBtn != null) { OnbViGEmInstallBtn.Content = "Installing..."; OnbViGEmInstallBtn.IsEnabled = false; }
-            installViGEmBus?.TriggerInstall();
-        }
-        private void OnbViGEmUninstall_Click(object sender, RoutedEventArgs e)
-        {
-            if (OnbViGEmUninstallBtn != null) { OnbViGEmUninstallBtn.Content = "Uninstalling..."; OnbViGEmUninstallBtn.IsEnabled = false; }
-            uninstallViGEm?.Trigger("uninstall");
-        }
-
-        private void OnbHidHideInstall_Click(object sender, RoutedEventArgs e)
-        {
-            if (OnbHidHideInstallBtn != null) { OnbHidHideInstallBtn.Content = "Installing..."; OnbHidHideInstallBtn.IsEnabled = false; }
-            installHidHide?.TriggerInstall();
-        }
-        private void OnbHidHideUninstall_Click(object sender, RoutedEventArgs e)
-        {
-            if (OnbHidHideUninstallBtn != null) { OnbHidHideUninstallBtn.Content = "Uninstalling..."; OnbHidHideUninstallBtn.IsEnabled = false; }
-            uninstallHidHide?.Trigger("uninstall");
+            try
+            {
+                await System.Threading.Tasks.Task.Delay(20000);
+                if (OnbRunSetupBtn != null)
+                {
+                    OnbRunSetupBtn.Content = OnbAllToolsInstalled ? "Re-check tools" : "Check & install tools";
+                    OnbRunSetupBtn.IsEnabled = true;
+                }
+                if (OnbSetupProgress != null && OnbAllToolsInstalled)
+                {
+                    OnbSetupProgress.Text = "All required tools are installed.";
+                }
+            }
+            catch { }
         }
 
-        private void OnbRtssInstall_Click(object sender, RoutedEventArgs e)
-        {
-            if (OnbRtssInstallBtn != null) { OnbRtssInstallBtn.Content = "Installing..."; OnbRtssInstallBtn.IsEnabled = false; }
-            installRTSS?.Trigger("install");
-        }
-        private void OnbRtssUninstall_Click(object sender, RoutedEventArgs e)
-        {
-            if (OnbRtssUninstallBtn != null) { OnbRtssUninstallBtn.Content = "Uninstalling..."; OnbRtssUninstallBtn.IsEnabled = false; }
-            uninstallRTSS?.Trigger("uninstall");
-        }
-
-        private void OnbPawnIOInstall_Click(object sender, RoutedEventArgs e)
-        {
-            if (OnbPawnIOInstallBtn != null) { OnbPawnIOInstallBtn.Content = "Installing..."; OnbPawnIOInstallBtn.IsEnabled = false; }
-            installPawnIO?.TriggerInstall();
-        }
-        private void OnbPawnIOUninstall_Click(object sender, RoutedEventArgs e)
-        {
-            if (OnbPawnIOUninstallBtn != null) { OnbPawnIOUninstallBtn.Content = "Uninstalling..."; OnbPawnIOUninstallBtn.IsEnabled = false; }
-            uninstallPawnIO?.Trigger("uninstall");
-        }
-
-        // --- Step 2: disable MSI Center M ---
+        // --- Step 2: disable MSI Center M (optional hint) ---
         private void OnbMsiCenterDisable_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -322,7 +250,7 @@ namespace XboxGamingBar
             UpdateOnboardingSteps();
         }
 
-        // --- Step 3: enable controller emulation ---
+        // --- Step 3: enable controller emulation (optional hint) ---
         private void OnbEmulationEnable_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -339,6 +267,49 @@ namespace XboxGamingBar
             }
             catch (Exception ex) { Logger.Warn($"Onboarding enable emulation failed: {ex.Message}"); }
             UpdateOnboardingSteps();
+        }
+
+        // --- System > Debug: per-tool install/uninstall (RTSS + PawnIO; ViGEm/HidHide handled in LegionGo.cs) ---
+
+        private static void SetDebugToolRow(TextBlock status, Button installBtn, Button uninstallBtn, string toolName, string installLabel, bool installed)
+        {
+            if (status != null)
+            {
+                status.Text = installed ? $"{toolName}: Installed" : $"{toolName}: Not Installed";
+                status.Foreground = installed ? OnbGreenBrush : OnbGrayBrush;
+            }
+            if (installBtn != null)
+            {
+                installBtn.Content = installed ? "Installed" : installLabel;
+                installBtn.IsEnabled = !installed;
+            }
+            if (uninstallBtn != null)
+            {
+                uninstallBtn.Content = "Uninstall";
+                uninstallBtn.IsEnabled = installed;
+            }
+        }
+
+        private void DebugRtssInstall_Click(object sender, RoutedEventArgs e)
+        {
+            if (DebugRtssInstallButton != null) { DebugRtssInstallButton.Content = "Installing..."; DebugRtssInstallButton.IsEnabled = false; }
+            installRTSS?.Trigger("install");
+        }
+        private void DebugRtssUninstall_Click(object sender, RoutedEventArgs e)
+        {
+            if (DebugRtssUninstallButton != null) { DebugRtssUninstallButton.Content = "Uninstalling..."; DebugRtssUninstallButton.IsEnabled = false; }
+            uninstallRTSS?.Trigger("uninstall");
+        }
+
+        private void DebugPawnIOInstall_Click(object sender, RoutedEventArgs e)
+        {
+            if (DebugPawnIOInstallButton != null) { DebugPawnIOInstallButton.Content = "Installing..."; DebugPawnIOInstallButton.IsEnabled = false; }
+            installPawnIO?.TriggerInstall();
+        }
+        private void DebugPawnIOUninstall_Click(object sender, RoutedEventArgs e)
+        {
+            if (DebugPawnIOUninstallButton != null) { DebugPawnIOUninstallButton.Content = "Uninstalling..."; DebugPawnIOUninstallButton.IsEnabled = false; }
+            uninstallPawnIO?.Trigger("uninstall");
         }
     }
 }

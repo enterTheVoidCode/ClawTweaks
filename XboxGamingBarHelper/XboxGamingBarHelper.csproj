@@ -182,6 +182,12 @@
     <Reference Include="PresentationCore" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Setup\ToolSetupRunner.cs" />
+    <EmbeddedResource Include="Setup\Setup-Tools.ps1">
+      <LogicalName>XboxGamingBarHelper.Setup.Setup-Tools.ps1</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="LosslessScaling\LosslessScalingManager.cs" />
     <Compile Include="LosslessScaling\Properties\LosslessScalingProperties.cs" />
     <Compile Include="Core\HelperProperties.cs" />

@@ -71,6 +71,7 @@ namespace XboxGamingBar
             container.Values["NintendoLayout"] = profile.NintendoLayout;
             container.Values["VibrationLevel"] = profile.VibrationLevel;
             container.Values["VibrationMode"] = profile.VibrationMode;
+            container.Values["VibrationIntensity"] = profile.VibrationIntensity;
 
             // Gyro settings
             container.Values["GyroTarget"] = profile.GyroTarget;
@@ -181,6 +182,7 @@ namespace XboxGamingBar
                 profile.NintendoLayout = container.Values.ContainsKey("NintendoLayout") ? (bool)container.Values["NintendoLayout"] : false;
                 profile.VibrationLevel = container.Values.ContainsKey("VibrationLevel") ? (int)container.Values["VibrationLevel"] : 2;
                 profile.VibrationMode = container.Values.ContainsKey("VibrationMode") ? (int)container.Values["VibrationMode"] : 1;
+                profile.VibrationIntensity = container.Values.ContainsKey("VibrationIntensity") ? (int)container.Values["VibrationIntensity"] : 100;
 
                 // Gyro settings
                 profile.GyroTarget = container.Values.ContainsKey("GyroTarget") ? (int)container.Values["GyroTarget"] : 0;
@@ -1354,6 +1356,14 @@ namespace XboxGamingBar
                 XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount++;
                 try
                 {
+                // Vibration intensity (stepless slider). Gated like the gyro sliders so loading the
+                // profile does not push to the helper — the value is sent once via SendControllerSettingsToHelper.
+                if (VibrationIntensitySlider != null)
+                {
+                    VibrationIntensitySlider.Value = profile.VibrationIntensity;
+                    if (VibrationIntensityValue != null)
+                        VibrationIntensityValue.Text = $"{profile.VibrationIntensity}%";
+                }
                 if (LegionGyroTargetComboBox != null)
                     LegionGyroTargetComboBox.SelectedIndex = profile.GyroTarget;
                 if (LegionGyroSensitivityXSlider != null)
@@ -1621,6 +1631,7 @@ namespace XboxGamingBar
                 NintendoLayout = LegionNintendoLayoutToggle?.IsOn ?? false,
                 VibrationLevel = LegionVibrationComboBox?.SelectedIndex ?? 2,
                 VibrationMode = (LegionVibrationModeComboBox?.SelectedIndex ?? 0) + 1, // Index is 0-based, mode is 1-based
+                VibrationIntensity = (int)(VibrationIntensitySlider?.Value ?? 100),
                 // Gyro settings
                 GyroTarget = LegionGyroTargetComboBox?.SelectedIndex ?? 0,
                 GyroSensitivityX = (int)(LegionGyroSensitivityXSlider?.Value ?? 50),
@@ -2023,6 +2034,9 @@ namespace XboxGamingBar
                 // Vibration settings
                 legionVibration?.SetValue(profile.VibrationLevel);
                 legionVibrationMode?.SetValue(profile.VibrationMode);
+                // Stepless vibration intensity (MSI Claw rumble scaling). Pushed on every profile
+                // apply (global + per-game) so the helper applies the right value on game start/end.
+                legionVibrationIntensity?.SetValue(profile.VibrationIntensity);
 
                 // Gyro settings
                 legionGyroTarget?.SetValue(profile.GyroTarget);
@@ -2086,6 +2100,9 @@ namespace XboxGamingBar
                 // Joystick as mouse sensitivity slider
                 else if (sender == LegionJoystickMouseSensSlider && LegionJoystickMouseSensValue != null)
                     LegionJoystickMouseSensValue.Text = ((int)LegionJoystickMouseSensSlider.Value).ToString();
+                // Vibration intensity slider
+                else if (sender == VibrationIntensitySlider && VibrationIntensityValue != null)
+                    VibrationIntensityValue.Text = $"{(int)VibrationIntensitySlider.Value}%";
             }
             catch (Exception ex)
             {

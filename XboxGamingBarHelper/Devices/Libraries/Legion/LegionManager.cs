@@ -216,6 +216,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         public readonly LegionButtonPageProperty LegionButtonPage;
         public readonly LegionNintendoLayoutProperty LegionNintendoLayout;
         public readonly LegionVibrationModeProperty LegionVibrationMode;
+        public readonly LegionVibrationIntensityProperty LegionVibrationIntensity;
         public readonly LegionControllerProfileEnabledProperty LegionControllerProfileEnabled;
 
         // Gyro settings properties (per-game profile)
@@ -495,6 +496,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             LegionButtonPage = new LegionButtonPageProperty("", this);
             LegionNintendoLayout = new LegionNintendoLayoutProperty(nintendoLayoutEnabled, this);
             LegionVibrationMode = new LegionVibrationModeProperty(vibrationMode, this);
+            LegionVibrationIntensity = new LegionVibrationIntensityProperty(100, this);
             LegionControllerProfileEnabled = new LegionControllerProfileEnabledProperty(false, this);
 
             // Initialize gyro settings properties

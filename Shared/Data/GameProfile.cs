@@ -1208,6 +1208,25 @@ namespace Shared.Data
         }
 
         /// <summary>
+        /// Stepless controller vibration intensity (0-100 %, default 100). MSI Claw: scales the
+        /// rumble report sent to the physical controller. null = use global / built-in default.
+        /// </summary>
+        [XmlElement("LegionVibrationIntensity")]
+        private int? legionVibrationIntensity;
+        public int? LegionVibrationIntensity
+        {
+            get { return legionVibrationIntensity; }
+            set
+            {
+                if (legionVibrationIntensity != value)
+                {
+                    legionVibrationIntensity = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
         /// Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
         /// null = use current system mode (don't change on profile switch)
         /// </summary>
@@ -1424,6 +1443,7 @@ namespace Shared.Data
             legionNintendoLayout = null;
             legionVibration = null;
             legionVibrationMode = null;
+            legionVibrationIntensity = null;
             legionPerformanceMode = null;
             // Lighting settings
             legionLightMode = null;

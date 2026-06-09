@@ -474,5 +474,15 @@
         UninstallHidHide,            // string - trigger to uninstall HidHide (ARP, else kernel service)
         UninstallRTSS,               // string - trigger to uninstall RTSS (ARP)
         UninstallPawnIO,             // string - trigger to uninstall PawnIO (ARP)
+
+        // MSI Claw — stepless controller vibration intensity (Controller tab; global + per-game).
+        // Scales the rumble report sent to the physical Claw by ClawButtonMonitor (0 = off, 100 = full).
+        // Appended at the end to preserve all existing enum ordinal values.
+        LegionVibrationIntensity,    // int - 0-100 (percent), default 100
+
+        // Onboarding: run the proven prerequisite check/installer (embedded Setup-Tools.ps1) that
+        // detects + installs all four required tools (PawnIO, ViGEmBus, HidHide, RTSS) in one pass.
+        // Write "install" to trigger; the helper runs it elevated and pushes each *Installed status.
+        RunToolSetup,                // string - trigger to run the tool setup script (write "install")
     }
 }

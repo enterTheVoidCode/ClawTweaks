@@ -526,6 +526,7 @@ namespace XboxGamingBar
         public bool NintendoLayout { get; set; } = false;
         public int VibrationLevel { get; set; } = 2;  // Medium
         public int VibrationMode { get; set; } = 1;   // FPS
+        public int VibrationIntensity { get; set; } = 100;  // stepless 0-100 %, MSI Claw rumble scaling
 
         // Gyro settings (per-game profile)
         public int GyroTarget { get; set; } = 0;           // Disabled
@@ -586,6 +587,7 @@ namespace XboxGamingBar
                 NintendoLayout = this.NintendoLayout,
                 VibrationLevel = this.VibrationLevel,
                 VibrationMode = this.VibrationMode,
+                VibrationIntensity = this.VibrationIntensity,
                 // Gyro settings
                 GyroTarget = this.GyroTarget,
                 GyroSensitivityX = this.GyroSensitivityX,
@@ -1154,6 +1156,7 @@ namespace XboxGamingBar
         private readonly LegionButtonPageProperty legionButtonPage;
         private readonly LegionNintendoLayoutProperty legionNintendoLayout;
         private readonly LegionVibrationModeProperty legionVibrationMode;
+        private readonly LegionVibrationIntensityProperty legionVibrationIntensity;
         private readonly LegionControllerProfileProperty legionControllerProfile;
 
         // Gyro properties
@@ -1324,6 +1327,7 @@ namespace XboxGamingBar
         private readonly ToolTriggerProperty uninstallHidHide;
         private readonly ToolTriggerProperty uninstallRTSS;
         private readonly ToolTriggerProperty uninstallPawnIO;
+        private readonly ToolTriggerProperty runToolSetup;
         private readonly AutoHibernateEnabledProperty autoHibernateEnabled;
         private readonly AutoHibernateIdleMinutesProperty autoHibernateIdleMinutes;
 
@@ -1899,6 +1903,7 @@ namespace XboxGamingBar
             legionButtonPage = new LegionButtonPageProperty(LegionButtonPageComboBox, this);
             legionNintendoLayout = new LegionNintendoLayoutProperty(LegionNintendoLayoutToggle, this);
             legionVibrationMode = new LegionVibrationModeProperty(LegionVibrationModeComboBox, this);
+            legionVibrationIntensity = new LegionVibrationIntensityProperty(VibrationIntensitySlider, this);
             legionControllerProfile = new LegionControllerProfileProperty(LegionControllerProfileToggle, this);
 
             // Gyro properties
@@ -2090,6 +2095,7 @@ namespace XboxGamingBar
             uninstallHidHide = new ToolTriggerProperty(this, Function.UninstallHidHide);
             uninstallRTSS = new ToolTriggerProperty(this, Function.UninstallRTSS);
             uninstallPawnIO = new ToolTriggerProperty(this, Function.UninstallPawnIO);
+            runToolSetup = new ToolTriggerProperty(this, Function.RunToolSetup);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);
             autoHibernateIdleMinutes = new AutoHibernateIdleMinutesProperty(15, AutoHibernateTimeoutSlider, this);
 
@@ -2302,6 +2308,7 @@ namespace XboxGamingBar
                 legionGyroEnabled,
                 legionVibration,
                 legionVibrationMode,
+                legionVibrationIntensity,
                 legionPowerLight,
                 legionChargeLimit,
                 legionTouchpadVibration,
@@ -2360,6 +2367,7 @@ namespace XboxGamingBar
                 uninstallHidHide,
                 uninstallRTSS,
                 uninstallPawnIO,
+                runToolSetup,
                 autoHibernateEnabled,
                 autoHibernateIdleMinutes,
                 autoTDPEnabled,
@@ -2709,6 +2717,10 @@ namespace XboxGamingBar
             }
             if (msiClawControllerMode != null)
                 msiClawControllerMode.PropertyChanged += QuickSettingsProperty_Changed;
+            // Controller emulation enable/disable is a dependency-gate input — recompute the gate
+            // when the helper confirms the state (async), not just on the local toggle handler.
+            if (controllerEmulationEnabled != null)
+                controllerEmulationEnabled.PropertyChanged += QuickSettingsProperty_Changed;
             // DeviceDisplayName drives isMsiClaw detection in ShouldSkipTile — re-evaluate tiles when it arrives.
             if (deviceDisplayName != null)
             {
@@ -2819,6 +2831,8 @@ namespace XboxGamingBar
             _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
                 UpdateQuickSettingsTileStates();
+                // Refresh the onboarding badge / tab position (cheap; safe to call often).
+                RefreshOnboardingState();
             });
         }
 

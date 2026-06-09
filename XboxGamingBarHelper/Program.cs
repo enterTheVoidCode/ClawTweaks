@@ -1357,6 +1357,7 @@ namespace XboxGamingBarHelper
                 legionManager.LegionButtonPage,
                 legionManager.LegionNintendoLayout,
                 legionManager.LegionVibrationMode,
+                legionManager.LegionVibrationIntensity,
                 legionManager.LegionControllerProfileEnabled,
                 // Gyro properties
                 legionManager.LegionGyroTarget,
@@ -1512,6 +1513,7 @@ namespace XboxGamingBarHelper
                 legionManager.LegionNintendoLayout.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionVibration.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionVibrationMode.PropertyChanged += LegionControllerSetting_PropertyChanged;
+                legionManager.LegionVibrationIntensity.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 legionManager.LegionControllerProfileEnabled.PropertyChanged += LegionControllerSetting_PropertyChanged;
                 // Performance mode (for per-game TDP mode)
                 legionManager.LegionPerformanceMode.PropertyChanged += LegionControllerSetting_PropertyChanged;

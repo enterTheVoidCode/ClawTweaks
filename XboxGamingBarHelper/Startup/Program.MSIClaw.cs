@@ -976,6 +976,10 @@ namespace XboxGamingBarHelper
                         monitor.SetGyroDeadzone(legionManager.LegionGyroDeadzone.Value);
                         monitor.SetGyroInvertX(legionManager.LegionGyroInvertX.Value);
                         monitor.SetGyroInvertY(legionManager.LegionGyroInvertY.Value);
+                        // Vibration intensity + stick deadzones (same pre-Start apply rationale as gyro)
+                        monitor.SetVibrationIntensity(legionManager.LegionVibrationIntensity.Value);
+                        monitor.SetLeftStickDeadzone(legionManager.LegionLeftStickDeadzone.Value);
+                        monitor.SetRightStickDeadzone(legionManager.LegionRightStickDeadzone.Value);
                         Logger.Info($"MSIClaw: Gyro settings applied before Start() — target={legionManager.LegionGyroTarget.Value}, activationButton={legionManager.LegionGyroActivationButton.Value}, activationMode={legionManager.LegionGyroActivationMode.Value}");
                     }
 

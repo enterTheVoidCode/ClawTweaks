@@ -54,9 +54,13 @@ namespace XboxGamingBar
         {
             if (!IsMsiClawDevice()) return;
 
-            // Show the two MSI-Claw-only cards
+            // Show the MSI-Claw-only cards
             if (MsiLedColorCard    != null) MsiLedColorCard.Visibility    = Visibility.Visible;
             if (MsiChargeLimitCard != null) MsiChargeLimitCard.Visibility = Visibility.Visible;
+            // Vibration & Deadzone card (Controller tab). Gated on the device name like the LED /
+            // charge-limit cards — NOT on controllerEmulationAvailable, which can arrive after the
+            // gyro callback (its only other visibility owner) and used to leave the card hidden.
+            if (ControllerFeedbackCard != null) ControllerFeedbackCard.Visibility = Visibility.Visible;
 
             RestoreMsiLedColorFromSettings();
             RestoreMsiChargeLimitFromSettings();

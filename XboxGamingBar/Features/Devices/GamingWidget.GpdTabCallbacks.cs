@@ -419,7 +419,6 @@ namespace XboxGamingBar
             // and any helper-driven changes (e.g. ControllerEmulationAvailable arrives
             // late and needs to flip the tile from "N/A" to its actual state).
             UpdateQuickSettingsTileStates();
-            RecomputeDependencyGate(); // emulation on/off is part of the dependency gate
         }
 
         private void ControllerEmulationImprovedInputToggle_Toggled(object sender, RoutedEventArgs e)

@@ -94,7 +94,6 @@ namespace XboxGamingBar
             // the template parts aren't realised yet, so Loaded no-ops and the tiles keep the
             // template default = glass visible). Re-applying after layout fixes both directions.
             ApplyGlassEffectToTilesDeferred();
-            RecomputeDependencyGate(); // re-apply the tile lock to freshly built tiles
         }
 
         /// <summary>
