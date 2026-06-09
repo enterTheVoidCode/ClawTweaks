@@ -573,6 +573,10 @@ namespace XboxGamingBarHelper.RTSS
                 {
                     Logger.Warn($"ResetRTSSConnection: Error disposing RTSS OSD: {ex.Message}");
                 }
+                // If Dispose() threw (RTSS shared memory gone), the OSD finalizer (!OSD())
+                // would re-open shared memory on the GC thread and throw a FATAL unhandled
+                // exception that kills the helper. Suppress it.
+                try { GC.SuppressFinalize(rtssOSD); } catch { }
                 rtssOSD = null;
             }
 
@@ -610,6 +614,8 @@ namespace XboxGamingBarHelper.RTSS
                     {
                         Logger.Debug($"Error clearing OSD: {ex.Message}");
                     }
+                    // Prevent the throwing OSD finalizer from killing the helper (see ResetRTSSConnection).
+                    try { GC.SuppressFinalize(rtssOSD); } catch { }
                     rtssOSD = null;
                 }
 
@@ -1075,13 +1081,15 @@ namespace XboxGamingBarHelper.RTSS
                     {
                         rtssOSD.Update(string.Empty);
                         rtssOSD.Dispose();
-                        rtssOSD = null;
                         Logger.Info("RTSSManager: RTSS OSD disposed");
                     }
                     catch (Exception ex)
                     {
                         Logger.Warn($"RTSSManager: Error disposing RTSS OSD: {ex.Message}");
                     }
+                    // Prevent the throwing OSD finalizer from killing the helper (see ResetRTSSConnection).
+                    try { GC.SuppressFinalize(rtssOSD); } catch { }
+                    rtssOSD = null;
                 }
             }
             base.Dispose(disposing);
