@@ -1318,6 +1318,9 @@ namespace XboxGamingBar
         private readonly InstallViGEmBusProperty installViGEmBus;
         private readonly HidHideInstalledProperty hidHideInstalled;
         private readonly InstallHidHideProperty installHidHide;
+        // Setup/Dependencies uninstall triggers (helper runs uninstall elevated, pushes status back)
+        private readonly ToolTriggerProperty uninstallViGEm;
+        private readonly ToolTriggerProperty uninstallHidHide;
         private readonly AutoHibernateEnabledProperty autoHibernateEnabled;
         private readonly AutoHibernateIdleMinutesProperty autoHibernateIdleMinutes;
 
@@ -2079,6 +2082,8 @@ namespace XboxGamingBar
             installViGEmBus = new InstallViGEmBusProperty(this);
             hidHideInstalled = new HidHideInstalledProperty(this);
             installHidHide = new InstallHidHideProperty(this);
+            uninstallViGEm = new ToolTriggerProperty(this, Function.UninstallViGEm);
+            uninstallHidHide = new ToolTriggerProperty(this, Function.UninstallHidHide);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);
             autoHibernateIdleMinutes = new AutoHibernateIdleMinutesProperty(15, AutoHibernateTimeoutSlider, this);
 
@@ -2344,6 +2349,8 @@ namespace XboxGamingBar
                 installViGEmBus,
                 hidHideInstalled,
                 installHidHide,
+                uninstallViGEm,
+                uninstallHidHide,
                 autoHibernateEnabled,
                 autoHibernateIdleMinutes,
                 autoTDPEnabled,
