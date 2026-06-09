@@ -56,8 +56,10 @@ try {
         Write-Host "No .cer certificate found next to this script. Did you extract the whole ZIP?" -ForegroundColor Red
         Finish 1
     }
+    # TrustedPeople is the designated store for sideloaded app signing certs (same as
+    # Add-AppDevPackage). We deliberately do NOT add it to the Root CA store — adding a root
+    # CA is an antivirus/EDR red flag and is unnecessary for sideload.
     Import-Certificate -FilePath $cer.FullName -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
-    Import-Certificate -FilePath $cer.FullName -CertStoreLocation 'Cert:\LocalMachine\Root'         | Out-Null
     Write-Host "Trusted signing certificate: $($cer.Name)" -ForegroundColor Green
 
     # 2. Locate the app package.
