@@ -1688,47 +1688,6 @@ namespace XboxGamingBarHelper
                         response.Add("Content", $"Error: {ex.Message}");
                     }
                 }
-                // PawnIO Debug: Get CPU Info
-                else if (functionValue == (int)Function.PawnIOGetCpuInfo)
-                {
-                    Logger.Info("Pipe: PawnIOGetCpuInfo request received");
-                    response = new global::Windows.Foundation.Collections.ValueSet();
-                    try
-                    {
-                        string cpuInfo = performanceManager?.GetPawnIOCpuInfo() ?? "PerformanceManager not initialized";
-                        response.Add("Content", cpuInfo);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Pipe: PawnIOGetCpuInfo failed: {ex.Message}");
-                        response.Add("Content", $"Error: {ex.Message}");
-                    }
-                }
-                // PawnIO Debug: Apply Settings
-                else if (functionValue == (int)Function.PawnIOApplySettings)
-                {
-                    Logger.Info("Pipe: PawnIOApplySettings request received");
-                    response = new global::Windows.Foundation.Collections.ValueSet();
-                    try
-                    {
-                        int coAll = 0, coGfx = 0, gfxClk = 0, tctlTemp = 0;
-                        var valueSet = request.ToValueSet();
-                        if (valueSet.TryGetValue("CoAll", out object coAllObj)) coAll = Convert.ToInt32(coAllObj);
-                        if (valueSet.TryGetValue("CoGfx", out object coGfxObj)) coGfx = Convert.ToInt32(coGfxObj);
-                        if (valueSet.TryGetValue("GfxClk", out object gfxClkObj)) gfxClk = Convert.ToInt32(gfxClkObj);
-                        if (valueSet.TryGetValue("TctlTemp", out object tctlObj)) tctlTemp = Convert.ToInt32(tctlObj);
-
-                        Logger.Info($"PawnIO Apply: CoAll={coAll}, CoGfx={coGfx}, GfxClk={gfxClk}, Tctl={tctlTemp}");
-                        string result = performanceManager?.ApplyPawnIODebugSettings(coAll, coGfx, gfxClk, tctlTemp)
-                            ?? "PerformanceManager not initialized";
-                        response.Add("Content", result);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Pipe: PawnIOApplySettings failed: {ex.Message}");
-                        response.Add("Content", $"Error: {ex.Message}");
-                    }
-                }
                 else
                 {
                     // Convert to ValueSet and use the existing property handling

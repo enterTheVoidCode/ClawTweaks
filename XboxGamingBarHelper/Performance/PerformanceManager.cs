@@ -327,8 +327,7 @@ namespace XboxGamingBarHelper.Performance
         // Legion Go support for manufacturer WMI TDP
         private LegionManager legionManager;
 
-        // PawnIO/RyzenSMU support for anti-cheat compatible TDP control
-        private RyzenSmuService ryzenSmuService;
+        // PawnIO availability (RyzenSMU TDP control removed — AMD-only)
         private bool pawnIOAvailable;
 
         // WinRing0 removed - deprecated TDP method, no longer bundled
@@ -389,89 +388,6 @@ namespace XboxGamingBarHelper.Performance
         /// </summary>
         public InstallPawnIOProperty InstallPawnIOProperty => installPawnIOProperty;
 
-        #region PawnIO Debug Tools
-
-        /// <summary>
-        /// Gets CPU info string for PawnIO debug display.
-        /// </summary>
-        public string GetPawnIOCpuInfo()
-        {
-            if (ryzenSmuService == null || !ryzenSmuService.IsInitialized)
-            {
-                return "PawnIO not initialized";
-            }
-
-            var cpuName = ryzenSmuService.CpuCodeName.ToString();
-            var smuVer = $"0x{ryzenSmuService.SmuVersion:X8}";
-            var capabilities = new System.Collections.Generic.List<string>();
-
-            if (ryzenSmuService.CanSetCurveOptimizerAll()) capabilities.Add("CO");
-            if (ryzenSmuService.CanSetCurveOptimizerGfx()) capabilities.Add("CO-GFX");
-            if (ryzenSmuService.CanSetGfxClock()) capabilities.Add("GfxClk");
-            if (ryzenSmuService.CanSetTctlTemp()) capabilities.Add("Tctl");
-            if (ryzenSmuService.CanSetStapmTime()) capabilities.Add("StapmTime");
-
-            return $"{cpuName} (SMU: {smuVer}) | {string.Join(", ", capabilities)}";
-        }
-
-        /// <summary>
-        /// Applies PawnIO debug settings (Curve Optimizer, GfxClk, Tctl).
-        /// </summary>
-        public string ApplyPawnIODebugSettings(int coAll, int coGfx, int gfxClk, int tctlTemp)
-        {
-            if (ryzenSmuService == null || !ryzenSmuService.IsInitialized)
-            {
-                return "Error: PawnIO not initialized";
-            }
-
-            var results = new System.Collections.Generic.List<string>();
-
-            try
-            {
-                // Apply Curve Optimizer All
-                if (coAll != 0 && ryzenSmuService.CanSetCurveOptimizerAll())
-                {
-                    bool success = ryzenSmuService.SetCurveOptimizerAll(coAll);
-                    results.Add($"CO All ({coAll}): {(success ? "OK" : "FAIL")}");
-                }
-
-                // Apply Curve Optimizer iGPU
-                if (coGfx != 0 && ryzenSmuService.CanSetCurveOptimizerGfx())
-                {
-                    bool success = ryzenSmuService.SetCurveOptimizerGfx(coGfx);
-                    results.Add($"CO GFX ({coGfx}): {(success ? "OK" : "FAIL")}");
-                }
-
-                // Apply iGPU Clock
-                if (gfxClk > 0 && ryzenSmuService.CanSetGfxClock())
-                {
-                    bool success = ryzenSmuService.SetGfxClock((uint)gfxClk);
-                    results.Add($"GfxClk ({gfxClk} MHz): {(success ? "OK" : "FAIL")}");
-                }
-
-                // Apply Tctl Temperature
-                if (tctlTemp > 0 && ryzenSmuService.CanSetTctlTemp())
-                {
-                    bool success = ryzenSmuService.SetTctlTemp((uint)tctlTemp);
-                    results.Add($"Tctl ({tctlTemp}°C): {(success ? "OK" : "FAIL")}");
-                }
-
-                if (results.Count == 0)
-                {
-                    return "No settings applied (all values at default or unsupported)";
-                }
-
-                return string.Join(" | ", results);
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"PawnIO debug apply failed: {ex.Message}");
-                return $"Error: {ex.Message}";
-            }
-        }
-
-        #endregion
-
         /// <summary>
         /// Sets the Legion Manager reference for WMI TDP support.
         /// Must be called after LegionManager is initialized.
@@ -488,35 +404,11 @@ namespace XboxGamingBarHelper.Performance
         /// </summary>
         public void InitializePawnIO()
         {
-            try
-            {
-                Logger.Info("Attempting to initialize PawnIO/RyzenSMU...");
-                ryzenSmuService = new RyzenSmuService();
-
-                if (ryzenSmuService.Initialize())
-                {
-                    pawnIOAvailable = true;
-                    Logger.Info($"PawnIO/RyzenSMU initialized successfully. CPU: {ryzenSmuService.CpuCodeName}, SMU: 0x{ryzenSmuService.SmuVersion:X8}");
-                }
-                else
-                {
-                    pawnIOAvailable = false;
-                    Logger.Warn("PawnIO/RyzenSMU initialization failed. PawnIO driver may not be installed.");
-                    ryzenSmuService?.Dispose();
-                    ryzenSmuService = null;
-                }
-            }
-            catch (Exception ex)
-            {
-                pawnIOAvailable = false;
-                Logger.Error($"Exception initializing PawnIO: {ex.Message}");
-                ryzenSmuService?.Dispose();
-                ryzenSmuService = null;
-            }
-
-            // Update the availability property if already initialized
-            pawnIOAvailableProperty?.SetAvailable(pawnIOAvailable);
-            Logger.Info($"PawnIO availability updated: {pawnIOAvailable}");
+            // PawnIO/RyzenSMU TDP control was AMD-only and has been removed.
+            // Intel devices use MSI ACPI WMI / kx.exe for TDP instead.
+            pawnIOAvailable = false;
+            pawnIOAvailableProperty?.SetAvailable(false);
+            Logger.Info("PawnIO/RyzenSMU TDP control removed (AMD-only); using WMI/kx.exe on Intel.");
         }
         /// <summary>
         /// Initializes the Intel KX.exe TDP service for Lunar Lake (Core Ultra 200V) devices.
@@ -1221,32 +1113,8 @@ namespace XboxGamingBarHelper.Performance
                         goto case TdpMethod.PawnIO;
 
                     case TdpMethod.PawnIO:
-                        if (pawnIOAvailable && ryzenSmuService != null && ryzenSmuService.IsInitialized)
-                        {
-                            Logger.Info($"Using PawnIO/RyzenSMU to set TDP (SPL={spl}W, SPPT={sppt}W, FPPT={fppt}W)");
-                            if (ryzenSmuService.SetAllLimits(spl, sppt, fppt))
-                            {
-                                Logger.Info($"PawnIO: TDP set successfully");
-                                // Update current limits for OSD display (PawnIO can't read back values)
-                                CurrentSPL = spl;
-                                CurrentSPPT = sppt;
-                                CurrentFPPT = fppt;
-                                // Update the currentTdp property for widget display
-                                var newTdpString = $"SPL:{spl}W SPPT:{sppt}W FPPT:{fppt}W";
-                                if (newTdpString != lastTdpString)
-                                {
-                                    currentTdp.SetValue(newTdpString);
-                                    lastTdpString = newTdpString;
-                                }
-                                return;
-                            }
-                            Logger.Warn("PawnIO: Failed to set TDP");
-                        }
-                        else
-                        {
-                            Logger.Warn("PawnIO not available — trying Intel KX.exe fallback");
-                        }
-                        // PawnIO unavailable (e.g. Intel CPU) — fall through to KX.exe
+                        // PawnIO/RyzenSMU was the AMD TDP path (removed). Fall through to Intel KX.exe.
+                        Logger.Warn("PawnIO/RyzenSMU removed (AMD) — using Intel KX.exe");
                         goto case TdpMethod.IntelKxExe;
 
                     case TdpMethod.IntelKxExe:
@@ -1827,22 +1695,6 @@ namespace XboxGamingBarHelper.Performance
                     currentTdpTimer.Dispose();
                     currentTdpTimer = null;
                     Logger.Info("PerformanceManager: Timer disposed");
-                }
-
-                // Clean up PawnIO/RyzenSMU
-                if (ryzenSmuService != null)
-                {
-                    try
-                    {
-                        ryzenSmuService.Dispose();
-                        Logger.Info("PerformanceManager: PawnIO/RyzenSMU disposed");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"PerformanceManager: Error disposing PawnIO: {ex.Message}");
-                    }
-                    ryzenSmuService = null;
-                    pawnIOAvailable = false;
                 }
 
                 // Dispose LibreHardwareMonitor computer

@@ -349,7 +349,6 @@
     <Compile Include="Settings\SettingsManager.cs" />
     <Compile Include="Systems\ForegroundAppProperty.cs" />
     <Compile Include="PawnIO\PawnIOWrapper.cs" />
-    <Compile Include="PawnIO\RyzenSmuService.cs" />
     <Compile Include="AutoTDP\AutoTDPManager.cs" />
     <Compile Include="AutoTDP\AutoTDPProperties.cs" />
     <Compile Include="AutoTDP\QLearningController.cs" />
@@ -502,8 +501,6 @@
   <ItemGroup>
   </ItemGroup>
   <ItemGroup>
-    <!-- PawnIO modules embedded as resources (like ZenStates-Core) -->
-    <EmbeddedResource Include="Resources\PawnIO\RyzenSMU.bin" />
     <!-- Signed LpcIO module from namazso/PawnIO.Modules 0.2.5. Exposes Super-IO
          port indexed access (0x2e/0x2f or 0x4e/0x4f) — used to drive the Legion
          Go 2 EC mailbox protocol for direct fan RPM override (Rodpad-style). -->
