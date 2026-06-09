@@ -676,6 +676,20 @@
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
 
+                        <!-- Dependency gate warning — shown until all four required tools are
+                             installed and controller emulation is enabled (RecomputeDependencyGate). -->
+                        <muxc:InfoBar x:Name="MissingAddonsWarning"
+                                      Severity="Warning"
+                                      IsOpen="False"
+                                      IsClosable="False"
+                                      Title="Setup required"
+                                      Message="Finish setup to use ClawTweaks."
+                                      Margin="0,0,0,8">
+                            <muxc:InfoBar.ActionButton>
+                                <Button Content="Open setup" Click="MissingAddonsGoToSetup_Click"/>
+                            </muxc:InfoBar.ActionButton>
+                        </muxc:InfoBar>
+
                         <!-- Driver updates tile (Legion devices only, visible only when count > 0).
                              Helper pushes DriverUpdatesAvailable after its startup probe; the
                              click handler jumps to the Legion tab's Driver Updates section. -->
