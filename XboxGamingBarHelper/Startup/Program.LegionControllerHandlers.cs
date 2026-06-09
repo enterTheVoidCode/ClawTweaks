@@ -165,17 +165,15 @@ namespace XboxGamingBarHelper
                 profileManager.CurrentProfile.LegionGyroDeadzone = legionManager.LegionGyroDeadzone.Value;
                 clawButtonMonitor?.SetGyroDeadzone(legionManager.LegionGyroDeadzone.Value);
             }
-            // Stick deadzones
+            // Stick deadzones — CONTROLLER-profile settings (persisted in the widget's controller
+            // profile, NOT the performance GameProfile). Apply live only; the widget is the source
+            // of truth and re-pushes on profile switch / reconnect.
             else if (sender == legionManager?.LegionLeftStickDeadzone)
             {
-                Logger.Info($"Saving LegionLeftStickDeadzone to profile {profileName}");
-                profileManager.CurrentProfile.LegionLeftStickDeadzone = legionManager.LegionLeftStickDeadzone.Value;
                 clawButtonMonitor?.SetLeftStickDeadzone(legionManager.LegionLeftStickDeadzone.Value);
             }
             else if (sender == legionManager?.LegionRightStickDeadzone)
             {
-                Logger.Info($"Saving LegionRightStickDeadzone to profile {profileName}");
-                profileManager.CurrentProfile.LegionRightStickDeadzone = legionManager.LegionRightStickDeadzone.Value;
                 clawButtonMonitor?.SetRightStickDeadzone(legionManager.LegionRightStickDeadzone.Value);
             }
             // Trigger travel
@@ -244,11 +242,11 @@ namespace XboxGamingBarHelper
             }
             else if (sender == legionManager?.LegionVibrationIntensity)
             {
-                // Persist (per-game or global, routed by ProfileSaveFlags) AND apply live to the
-                // MSI Claw rumble passthrough. Mirrors the gyro live-apply path.
-                RouteProfileSave(ProfileSaveFlagsState.Vibration, "LegionVibrationIntensity",
-                    cur => cur.LegionVibrationIntensity = legionManager.LegionVibrationIntensity.Value,
-                    glo => glo.LegionVibrationIntensity = legionManager.LegionVibrationIntensity.Value);
+                // Vibration intensity is a CONTROLLER-profile setting — persisted only in the widget's
+                // controller profile (global / per-game), NOT in the performance GameProfile. Here we
+                // only apply it live to the MSI Claw rumble passthrough; the widget is the source of
+                // truth and re-pushes it on profile switch / reconnect. (Performance & controller
+                // profiles are separate; persisting it here was a mistake.)
                 clawButtonMonitor?.SetVibrationIntensity(legionManager.LegionVibrationIntensity.Value);
             }
             else if (sender == legionManager?.LegionControllerProfileEnabled)

@@ -252,17 +252,10 @@ namespace XboxGamingBarHelper
             // after isApplyingProfile clears and is processed immediately (no cooldown).
             Logger.Debug("[CtrlApply] Gyro: skipped — widget sends correct value on game-start and always 0 on game-end");
 
-            // Stick deadzones
-            if (profile.LegionLeftStickDeadzone.HasValue)
-            {
-                Logger.Debug($"Applying LegionLeftStickDeadzone: {profile.LegionLeftStickDeadzone.Value}");
-                legionManager.LegionLeftStickDeadzone.SetValue(profile.LegionLeftStickDeadzone.Value);
-            }
-            if (profile.LegionRightStickDeadzone.HasValue)
-            {
-                Logger.Debug($"Applying LegionRightStickDeadzone: {profile.LegionRightStickDeadzone.Value}");
-                legionManager.LegionRightStickDeadzone.SetValue(profile.LegionRightStickDeadzone.Value);
-            }
+            // Stick deadzones + vibration are CONTROLLER-profile settings — the widget pushes them
+            // from the active controller profile (global / per-game) on game-start and reconnect, the
+            // same way gyro is handled above. Do NOT apply them from the performance GameProfile here
+            // (performance & controller profiles are separate).
 
             // Trigger travel
             if (profile.LegionLeftTriggerStart.HasValue)
