@@ -101,6 +101,9 @@ namespace XboxGamingBar
                 LegionVibrationComboBox.SelectionChanged += ControllerSettingChanged;
             if (LegionVibrationModeComboBox != null)
                 LegionVibrationModeComboBox.SelectionChanged += ControllerSettingChanged;
+            // Stepless vibration intensity (MSI Claw rumble scaling, per-game profile)
+            if (VibrationIntensitySlider != null)
+                VibrationIntensitySlider.ValueChanged += ControllerSettingChanged;
 
             // Gyro settings (per-game profile)
             if (LegionGyroTargetComboBox != null)

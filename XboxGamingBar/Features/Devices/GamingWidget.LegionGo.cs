@@ -203,6 +203,16 @@ namespace XboxGamingBar
             {
                 LegionCalibrateGyroStatus.Text = "Hardware calibration is not available for MSI Claw (Legion Go firmware only).";
             }
+
+            // Controller Feedback card (stepless Vibration Intensity + stick deadzones) is wired to
+            // the MSI Claw ViGEm rumble passthrough / DInput deadzone in ClawButtonMonitor. Gate it on
+            // the device name (same as the LED / charge-limit cards), NOT on controllerEmulationAvailable
+            // — that value can arrive after this callback and would leave the card hidden. The primary
+            // owner of this card's visibility is InitializeMsiClawSettings(); this keeps the two in sync.
+            if (ControllerFeedbackCard != null)
+            {
+                ControllerFeedbackCard.Visibility = IsMsiClawDevice() ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
 
         /// <summary>
@@ -1863,6 +1873,7 @@ namespace XboxGamingBar
         /// </summary>
         private void UpdateViGEmBusInstalledUI(bool installed)
         {
+            _gateVigemInstalled = installed; // cache for the dependency gate (property Value is unreliable here)
             if (ViGEmBusStatusText != null)
             {
                 ViGEmBusStatusText.Text = installed ? "Status: Installed" : "Status: Not Installed";
@@ -1970,6 +1981,7 @@ namespace XboxGamingBar
         /// </summary>
         private void UpdateHidHideInstalledUI(bool installed)
         {
+            _gateHidHideInstalled = installed; // cache for the dependency gate (property Value is unreliable here)
             if (ControllerEmulationHidHideStatusText != null)
             {
                 ControllerEmulationHidHideStatusText.Text = installed ? "HidHide: Installed" : "HidHide: Not Installed";

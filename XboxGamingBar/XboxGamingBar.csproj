@@ -206,6 +206,7 @@
     <Compile Include="Data\Legion\LegionFanCurveProperty.cs" />
     <Compile Include="Data\Legion\LegionGyroEnabledProperty.cs" />
     <Compile Include="Data\Legion\LegionVibrationProperty.cs" />
+    <Compile Include="Data\Legion\LegionVibrationIntensityProperty.cs" />
     <Compile Include="Data\Legion\LegionPowerLightProperty.cs" />
     <Compile Include="Data\Legion\LegionChargeLimitProperty.cs" />
     <Compile Include="Data\Legion\LegionButtonY1Property.cs" />

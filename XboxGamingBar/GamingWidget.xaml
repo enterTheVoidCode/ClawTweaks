@@ -94,7 +94,7 @@
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="MinWidth" Value="0"/>
             <Setter Property="MinHeight" Value="0"/>
-            <Setter Property="Padding" Value="11,7,11,7"/>
+            <Setter Property="Padding" Value="8,7,8,7"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="UseSystemFocusVisuals" Value="False"/>
@@ -540,7 +540,7 @@
                             Orientation="Horizontal"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
-                            Spacing="6"
+                            Spacing="2"
                             XYFocusKeyboardNavigation="Disabled"
                             KeyDown="MainNavPanel_KeyDown">
                     <!-- Tab order: Main, Performance, Display, Controls, Fan, Lossless, Profiles, System -->
@@ -675,20 +675,6 @@
                 <ScrollViewer x:Name="QuickSettingsScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Visible"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
-
-                        <!-- Dependency gate warning — shown until all four required tools are
-                             installed and controller emulation is enabled (RecomputeDependencyGate). -->
-                        <muxc:InfoBar x:Name="MissingAddonsWarning"
-                                      Severity="Warning"
-                                      IsOpen="False"
-                                      IsClosable="False"
-                                      Title="Setup required"
-                                      Message="Finish setup to use ClawTweaks."
-                                      Margin="0,0,0,8">
-                            <muxc:InfoBar.ActionButton>
-                                <Button Content="Open setup" Click="MissingAddonsGoToSetup_Click"/>
-                            </muxc:InfoBar.ActionButton>
-                        </muxc:InfoBar>
 
                         <!-- Driver updates tile (Legion devices only, visible only when count > 0).
                              Helper pushes DriverUpdatesAvailable after its startup probe; the
@@ -3358,55 +3344,31 @@
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
                         <TextBlock Text="Setup &amp; Onboarding" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,4,0,2"/>
-                        <TextBlock Text="Complete these steps so ClawTweaks can control the device. The Quick Settings tiles unlock once setup is complete."
+                        <TextBlock Text="ClawTweaks needs four small tools. One click checks what's present and installs anything missing."
                                    FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                        <!-- Step 1: Required tools -->
+                        <!-- Step 1: Required tools — one button runs the proven check/installer for all four -->
                         <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,4,0,0">
                             <StackPanel>
                                 <TextBlock Text="1. Install required tools" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
                                 <TextBlock Text="ViGEmBus + HidHide power controller emulation; RTSS drives the on-screen overlay; PawnIO exposes hardware sensors."
-                                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,4"/>
+                                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
 
-                                <Grid Margin="0,6,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="OnbViGEmStatus" Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                        <Button x:Name="OnbViGEmInstallBtn" Content="Install" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbViGEmInstall_Click"/>
-                                        <Button x:Name="OnbViGEmUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbViGEmUninstall_Click"/>
-                                    </StackPanel>
-                                </Grid>
+                                <Button x:Name="OnbRunSetupBtn" Content="Check &amp; install tools"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Style="{StaticResource ModernButtonStyle}" FontSize="13" Padding="10,8"
+                                        Click="OnbRunSetup_Click"/>
+                                <TextBlock x:Name="OnbSetupProgress" Text="" FontSize="11" Foreground="#AAAAAA"
+                                           TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
 
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                        <Button x:Name="OnbHidHideInstallBtn" Content="Install" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbHidHideInstall_Click"/>
-                                        <Button x:Name="OnbHidHideUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbHidHideUninstall_Click"/>
-                                    </StackPanel>
-                                </Grid>
+                                <!-- Read-only per-tool status (refreshed after the run) -->
+                                <TextBlock x:Name="OnbViGEmStatus"  Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
+                                <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..."  FontSize="11" Foreground="#888888" Margin="0,3,0,0"/>
+                                <TextBlock x:Name="OnbRtssStatus"    Text="RTSS: Checking..."     FontSize="11" Foreground="#888888" Margin="0,3,0,0"/>
+                                <TextBlock x:Name="OnbPawnIOStatus"  Text="PawnIO: Checking..."   FontSize="11" Foreground="#888888" Margin="0,3,0,0"/>
 
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="OnbRtssStatus" Text="RTSS: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                        <Button x:Name="OnbRtssInstallBtn" Content="Install" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbRtssInstall_Click"/>
-                                        <Button x:Name="OnbRtssUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbRtssUninstall_Click"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="OnbPawnIOStatus" Text="PawnIO: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                        <Button x:Name="OnbPawnIOInstallBtn" Content="Install" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbPawnIOInstall_Click"/>
-                                        <Button x:Name="OnbPawnIOUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbPawnIOUninstall_Click"/>
-                                    </StackPanel>
-                                </Grid>
-
-                                <HyperlinkButton Content="RTSS won't install? Download it manually (Guru3D)"
-                                                 NavigateUri="https://www.guru3d.com/files-details/rtss-rivatuner-statistics-server-download.html"
-                                                 FontSize="11" Margin="0,8,0,0" Padding="0"/>
+                                <TextBlock Text="Individual install / download buttons live under System → Debug → Driver dependencies."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -4495,6 +4457,66 @@
                                                             Click="HidHideUninstallButton_Click"/>
                                                 </StackPanel>
                                             </Grid>
+
+                                            <!-- RTSS (FPS limiter + overlay) -->
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="DebugRtssStatusText"
+                                                           Text="RTSS: Checking..."
+                                                           FontSize="11"
+                                                           Foreground="#888888"
+                                                           VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                    <Button x:Name="DebugRtssInstallButton"
+                                                            Content="Install RTSS"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="DebugRtssInstall_Click"/>
+                                                    <Button x:Name="DebugRtssUninstallButton"
+                                                            Content="Uninstall"
+                                                            IsEnabled="False"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="DebugRtssUninstall_Click"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- PawnIO (hardware sensors) -->
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="DebugPawnIOStatusText"
+                                                           Text="PawnIO: Checking..."
+                                                           FontSize="11"
+                                                           Foreground="#888888"
+                                                           VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                    <Button x:Name="DebugPawnIOInstallButton"
+                                                            Content="Install PawnIO"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="DebugPawnIOInstall_Click"/>
+                                                    <Button x:Name="DebugPawnIOUninstallButton"
+                                                            Content="Uninstall"
+                                                            IsEnabled="False"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="DebugPawnIOUninstall_Click"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <HyperlinkButton Content="RTSS won't install? Download it manually (Guru3D)"
+                                                             NavigateUri="https://www.guru3d.com/files-details/rtss-rivatuner-statistics-server-download.html"
+                                                             FontSize="11" Margin="0,8,0,0" Padding="0"/>
                                         </StackPanel>
                                     </Border>
 
@@ -7791,6 +7813,60 @@
                         </StackPanel>
                         <!-- End Gyro Section -->
 
+                        <!-- Controller Feedback Card (MSI Claw): stepless vibration intensity + stick deadzones.
+                             Visibility gated to MSI Claw in SetGyroSectionVisibility(). Wired to ClawButtonMonitor
+                             rumble passthrough / DInput deadzone. Saved global + per-game like the gyro sliders. -->
+                        <Border x:Name="ControllerFeedbackCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <TextBlock Text="Vibration &amp; Deadzone" Style="{StaticResource CardTitleStyle}"/>
+                                <StackPanel Spacing="12" Margin="0,12,0,0">
+                                    <!-- Vibration Intensity -->
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="Vibration Intensity" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="VibrationIntensityValue"
+                                                       Text="100%"
+                                                       Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="VibrationIntensitySlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="0" Maximum="100"
+                                                Value="100"
+                                                StepFrequency="1"/>
+                                    </StackPanel>
+
+                                    <!-- Stick Deadzones -->
+                                    <TextBlock Text="Stick Deadzones" FontSize="12" Foreground="#888888" Margin="0,4,0,0"/>
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="LegionLeftStickDeadzoneValue"
+                                                       Text="4%"
+                                                       Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="LegionLeftStickDeadzoneSlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="0" Maximum="50"
+                                                Value="4"
+                                                StepFrequency="1"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="Right Stick" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="LegionRightStickDeadzoneValue"
+                                                       Text="4%"
+                                                       Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="LegionRightStickDeadzoneSlider"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="0" Maximum="50"
+                                                Value="4"
+                                                StepFrequency="1"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Button Remapping Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -8234,38 +8310,9 @@
                                     </ToggleButton>
                                 </Grid>
                                 <StackPanel x:Name="StickDeadzonesContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
-                                    <!-- Stick Deadzones Section -->
-                                    <TextBlock Text="Stick Deadzones" FontSize="12" Foreground="#888888" Margin="0,0,0,4"/>
-
-                                    <!-- Left Stick Deadzone -->
-                                    <StackPanel>
-                                        <Grid>
-                                            <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
-                                            <TextBlock x:Name="LegionLeftStickDeadzoneValue"
-                                                       Text="4%"
-                                                       Style="{StaticResource CardValueStyle}"/>
-                                        </Grid>
-                                        <Slider x:Name="LegionLeftStickDeadzoneSlider"
-                                                Style="{StaticResource ModernSliderStyle}"
-                                                Minimum="0" Maximum="50"
-                                                Value="4"
-                                                StepFrequency="1"/>
-                                    </StackPanel>
-
-                                    <!-- Right Stick Deadzone -->
-                                    <StackPanel>
-                                        <Grid>
-                                            <TextBlock Text="Right Stick" FontSize="13" Foreground="#AAAAAA"/>
-                                            <TextBlock x:Name="LegionRightStickDeadzoneValue"
-                                                       Text="4%"
-                                                       Style="{StaticResource CardValueStyle}"/>
-                                        </Grid>
-                                        <Slider x:Name="LegionRightStickDeadzoneSlider"
-                                                Style="{StaticResource ModernSliderStyle}"
-                                                Minimum="0" Maximum="50"
-                                                Value="4"
-                                                StepFrequency="1"/>
-                                    </StackPanel>
+                                    <!-- Stick deadzone sliders moved to the MSI-Claw "Vibration & Deadzone"
+                                         (ControllerFeedbackCard) above. This legacy card keeps only Trigger Travel
+                                         and stays collapsed (not wired on MSI Claw). -->
 
                                     <!-- Trigger Travel Section -->
                                     <TextBlock Text="Trigger Travel" FontSize="12" Foreground="#888888" Margin="0,16,0,4"/>
