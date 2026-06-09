@@ -93,6 +93,18 @@ namespace XboxGamingBar
             finally { _msiLedLoading = false; }
         }
 
+        // Vibration & Deadzone card expander (matches Button Remapping; collapsed by default).
+        private bool _controllerFeedbackExpanded;
+        internal void ControllerFeedbackExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            _controllerFeedbackExpanded = !_controllerFeedbackExpanded;
+            if (ControllerFeedbackContent != null)
+                ControllerFeedbackContent.Visibility = _controllerFeedbackExpanded ? Visibility.Visible : Visibility.Collapsed;
+            // E70D = ChevronDown (collapsed), E70E = ChevronUp (expanded)
+            if (ControllerFeedbackExpandIcon != null)
+                ControllerFeedbackExpandIcon.Glyph = _controllerFeedbackExpanded ? "" : "";
+        }
+
         internal void MsiLedExpandButton_Click(object sender, RoutedEventArgs e)
         {
             _msiLedExpanded = !_msiLedExpanded;

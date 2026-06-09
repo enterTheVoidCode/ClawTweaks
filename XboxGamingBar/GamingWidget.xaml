@@ -4800,7 +4800,7 @@
                                                   BorderThickness="0"
                                                   Padding="8,4"
                                                   Click="MsiLedExpandButton_Click">
-                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE72E;" FontSize="12" Foreground="#888888"/>
+                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12" Foreground="#888888"/>
                                     </ToggleButton>
                                 </Grid>
                                 <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0">
@@ -4813,13 +4813,6 @@
                                                       IsMoreButtonVisible="False"
                                                       HorizontalAlignment="Left"
                                                       ColorChanged="MsiLedColorPicker_ColorChanged"/>
-                                    <Button x:Name="MsiLedApplyButton"
-                                            Content="Apply LED Color"
-                                            IsEnabled="True"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            HorizontalAlignment="Left"
-                                            Margin="0,8,0,0"
-                                            Click="MsiLedApplyButton_Click"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -7816,57 +7809,6 @@
                         <!-- Controller Feedback Card (MSI Claw): stepless vibration intensity + stick deadzones.
                              Visibility gated to MSI Claw in SetGyroSectionVisibility(). Wired to ClawButtonMonitor
                              rumble passthrough / DInput deadzone. Saved global + per-game like the gyro sliders. -->
-                        <Border x:Name="ControllerFeedbackCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
-                            <StackPanel>
-                                <TextBlock Text="Vibration &amp; Deadzone" Style="{StaticResource CardTitleStyle}"/>
-                                <StackPanel Spacing="12" Margin="0,12,0,0">
-                                    <!-- Vibration Intensity -->
-                                    <StackPanel>
-                                        <Grid>
-                                            <TextBlock Text="Vibration Intensity" FontSize="13" Foreground="#AAAAAA"/>
-                                            <TextBlock x:Name="VibrationIntensityValue"
-                                                       Text="100%"
-                                                       Style="{StaticResource CardValueStyle}"/>
-                                        </Grid>
-                                        <Slider x:Name="VibrationIntensitySlider"
-                                                Style="{StaticResource ModernSliderStyle}"
-                                                Minimum="0" Maximum="100"
-                                                Value="100"
-                                                StepFrequency="1"/>
-                                    </StackPanel>
-
-                                    <!-- Stick Deadzones -->
-                                    <TextBlock Text="Stick Deadzones" FontSize="12" Foreground="#888888" Margin="0,4,0,0"/>
-                                    <StackPanel>
-                                        <Grid>
-                                            <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
-                                            <TextBlock x:Name="LegionLeftStickDeadzoneValue"
-                                                       Text="4%"
-                                                       Style="{StaticResource CardValueStyle}"/>
-                                        </Grid>
-                                        <Slider x:Name="LegionLeftStickDeadzoneSlider"
-                                                Style="{StaticResource ModernSliderStyle}"
-                                                Minimum="0" Maximum="50"
-                                                Value="4"
-                                                StepFrequency="1"/>
-                                    </StackPanel>
-                                    <StackPanel>
-                                        <Grid>
-                                            <TextBlock Text="Right Stick" FontSize="13" Foreground="#AAAAAA"/>
-                                            <TextBlock x:Name="LegionRightStickDeadzoneValue"
-                                                       Text="4%"
-                                                       Style="{StaticResource CardValueStyle}"/>
-                                        </Grid>
-                                        <Slider x:Name="LegionRightStickDeadzoneSlider"
-                                                Style="{StaticResource ModernSliderStyle}"
-                                                Minimum="0" Maximum="50"
-                                                Value="4"
-                                                StepFrequency="1"/>
-                                    </StackPanel>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Button Remapping Card -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -8205,6 +8147,60 @@
                                         </ComboBox>
                                     </StackPanel>
                                 </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Vibration & Deadzone Card (collapsible; placed below Button Remapping
+                             for a clean vertical controller flow). Shown on MSI Claw via
+                             InitializeMsiClawSettings; content collapsed by default like the others. -->
+                        <Border x:Name="ControllerFeedbackCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Vibration &amp; Deadzone" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Rumble strength + stick deadzones" Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ControllerFeedbackExpandToggle"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ControllerFeedbackExpandToggle_Click">
+                                        <FontIcon x:Name="ControllerFeedbackExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="ControllerFeedbackContent" Spacing="12" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- Vibration Intensity -->
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="Vibration Intensity" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="VibrationIntensityValue" Text="100%" Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="VibrationIntensitySlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="100" Value="100" StepFrequency="1"/>
+                                    </StackPanel>
+                                    <!-- Stick Deadzones -->
+                                    <TextBlock Text="Stick Deadzones" FontSize="12" Foreground="#888888" Margin="0,4,0,0"/>
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="LegionLeftStickDeadzoneValue" Text="4%" Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="LegionLeftStickDeadzoneSlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="50" Value="4" StepFrequency="1"/>
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <Grid>
+                                            <TextBlock Text="Right Stick" FontSize="13" Foreground="#AAAAAA"/>
+                                            <TextBlock x:Name="LegionRightStickDeadzoneValue" Text="4%" Style="{StaticResource CardValueStyle}"/>
+                                        </Grid>
+                                        <Slider x:Name="LegionRightStickDeadzoneSlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="50" Value="4" StepFrequency="1"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
