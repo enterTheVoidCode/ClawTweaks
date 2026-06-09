@@ -22,6 +22,10 @@ namespace XboxGamingBarHelper.RTSS
         private const string OSDBackground = "<P=0,0><L0><C=80000000><B=0,0>\b<C>";
         private const string OSDAppName = "GoTweaks OSD";
 
+        // Set true while an in-app RTSS uninstall runs, so this manager's Update loop does not
+        // relaunch RTSS — otherwise the NSIS uninstaller aborts because the app is still running.
+        internal static volatile bool SuppressAutoStart = false;
+
         private OSD rtssOSD;
         private readonly OSDItem[] osdItems;
         private readonly OSDItemFan osdItemFan;
@@ -624,7 +628,7 @@ namespace XboxGamingBarHelper.RTSS
 
             if (!RTSSHelper.IsRunning())
             {
-                if (SettingsManager.GetInstance().AutoStartRTSS)
+                if (SettingsManager.GetInstance().AutoStartRTSS && !SuppressAutoStart)
                 {
                     if (rtssState == RivatunerStatisticsServerState.Starting)
                     {

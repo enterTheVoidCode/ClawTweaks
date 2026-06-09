@@ -141,5 +141,66 @@ namespace XboxGamingBarHelper.Labs
 
             return any;
         }
+
+        /// <summary>
+        /// RTSS uninstall: RTSS keeps running (our own RTSSManager relaunches it via AutoStartRTSS)
+        /// and its NSIS uninstaller aborts while the app is running. Suppress the relaunch, kill
+        /// RTSS + its EncoderServer, then run the uninstaller silently (NSIS /S).
+        /// </summary>
+        public static bool UninstallRtss()
+        {
+            XboxGamingBarHelper.RTSS.RTSSManager.SuppressAutoStart = true;
+            try
+            {
+                KillByName("RTSS");
+                KillByName("EncoderServer");
+                System.Threading.Thread.Sleep(400);
+
+                (string display, string cmd) = FindArpUninstall("RivaTuner Statistics Server");
+                if (string.IsNullOrEmpty(cmd))
+                {
+                    Logger.Warn("RTSS uninstall: no ARP entry found");
+                    return false;
+                }
+
+                // RTSS uninstall.exe is an NSIS installer: /S = silent.
+                string silent = cmd.Trim() + " /S";
+                Logger.Info($"RTSS uninstall (silent): {silent}");
+                bool ran = RunCommand(silent);
+
+                System.Threading.Thread.Sleep(600);
+                KillByName("RTSS");
+                KillByName("EncoderServer");
+                return ran;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"RTSS uninstall failed: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                // After a successful uninstall RTSSHelper.IsInstalled() is false, so the loop
+                // won't relaunch anyway; if it failed, restore normal auto-start behaviour.
+                XboxGamingBarHelper.RTSS.RTSSManager.SuppressAutoStart = false;
+            }
+        }
+
+        private static void KillByName(string processName)
+        {
+            try
+            {
+                foreach (Process p in Process.GetProcessesByName(processName))
+                {
+                    try { p.Kill(); p.WaitForExit(3000); }
+                    catch { }
+                    finally { p.Dispose(); }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"Kill {processName} failed: {ex.Message}");
+            }
+        }
     }
 }

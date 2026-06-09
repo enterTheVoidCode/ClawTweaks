@@ -1422,7 +1422,7 @@ namespace XboxGamingBarHelper
                     Logger.Info("Pipe: RTSS uninstall requested from widget");
                     _ = Task.Run(() =>
                     {
-                        XboxGamingBarHelper.Labs.ToolUninstaller.UninstallViaArp("RivaTuner Statistics Server");
+                        XboxGamingBarHelper.Labs.ToolUninstaller.UninstallRtss();
                         bool installed = XboxGamingBarHelper.Labs.RtssInstallHelper.IsInstalled();
                         SendPipeMessage(new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Set, Function = Function.RTSSInstalled, Content = installed.ToString() });
                         Logger.Info($"Pipe: RTSS uninstall complete, sent updated status: {installed}");
