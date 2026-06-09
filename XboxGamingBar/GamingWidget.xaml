@@ -3403,6 +3403,10 @@
                                         <Button x:Name="OnbPawnIOUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbPawnIOUninstall_Click"/>
                                     </StackPanel>
                                 </Grid>
+
+                                <HyperlinkButton Content="RTSS won't install? Download it manually (Guru3D)"
+                                                 NavigateUri="https://www.guru3d.com/files-details/rtss-rivatuner-statistics-server-download.html"
+                                                 FontSize="11" Margin="0,8,0,0" Padding="0"/>
                             </StackPanel>
                         </Border>
 
