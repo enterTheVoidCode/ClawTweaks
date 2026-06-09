@@ -1356,6 +1356,35 @@ namespace XboxGamingBarHelper
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true); // Acknowledge request started
                 }
+                // RTSS: Install request - only install when explicitly requested with Set command and "install" content
+                else if (functionValue == (int)Function.InstallRTSS)
+                {
+                    bool shouldInstall = request.Command == Shared.Enums.Command.Set && request.Content == "install";
+
+                    if (!shouldInstall)
+                    {
+                        Logger.Debug("Pipe: InstallRTSS - Ignoring non-install request (Get or empty content)");
+                        return;
+                    }
+
+                    Logger.Info("Pipe: RTSS installation requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        bool success = XboxGamingBarHelper.Labs.RtssInstallHelper.Install();
+                        bool installed = XboxGamingBarHelper.Labs.RtssInstallHelper.IsInstalled();
+                        var updateMsg = new Shared.IPC.PipeMessage
+                        {
+                            Command = Shared.Enums.Command.Set,
+                            Function = Function.RTSSInstalled,
+                            Content = installed.ToString()
+                        };
+                        SendPipeMessage(updateMsg);
+                        Logger.Info($"Pipe: RTSS installation complete (success={success}), sent updated status: {installed}");
+                    });
+
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true); // Acknowledge request started
+                }
                 // Debug: Export Default Game Profiles
                 else if (functionValue == (int)Function.Debug_ExportDGPs)
                 {

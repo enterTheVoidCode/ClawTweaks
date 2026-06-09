@@ -464,5 +464,8 @@
         IntelDisplayContrast,        // int - contrast 0..100, 50 = neutral
         IntelDisplayBrightness,      // int - brightness 0..100, 50 = neutral
         IntelDisplayGamma,           // int - gamma ×100 (30..280), 100 = 1.0 neutral
+
+        // RTSS in-app installation (Setup tab) — mirrors InstallViGEmBus / InstallHidHide
+        InstallRTSS,                 // string - trigger to install RTSS via winget (write "install" to trigger)
     }
 }
