@@ -1318,9 +1318,12 @@ namespace XboxGamingBar
         private readonly InstallViGEmBusProperty installViGEmBus;
         private readonly HidHideInstalledProperty hidHideInstalled;
         private readonly InstallHidHideProperty installHidHide;
-        // Setup/Dependencies uninstall triggers (helper runs uninstall elevated, pushes status back)
+        // Setup/Dependencies tool action triggers (helper runs install/uninstall elevated, pushes status back)
+        private readonly ToolTriggerProperty installRTSS;
         private readonly ToolTriggerProperty uninstallViGEm;
         private readonly ToolTriggerProperty uninstallHidHide;
+        private readonly ToolTriggerProperty uninstallRTSS;
+        private readonly ToolTriggerProperty uninstallPawnIO;
         private readonly AutoHibernateEnabledProperty autoHibernateEnabled;
         private readonly AutoHibernateIdleMinutesProperty autoHibernateIdleMinutes;
 
@@ -1772,7 +1775,7 @@ namespace XboxGamingBar
             sdrWhiteLevelSyncMode = new SdrWhiteLevelSyncModeProperty(SdrWhiteLevelSyncModeComboBox, this);
             trackedGame = new TrackedGameProperty(new TrackedGame());
             rtssInstalled = new RTSSInstalledProperty(PerformanceOverlaySlider, this);
-            rtssInstalled.SetAdditionalCallback(UpdateFPSLimitControls);
+            rtssInstalled.SetAdditionalCallback(OnRtssInstalledChanged);
             isForeground = new IsForegroundProperty();
             amdRadeonSuperResolutionEnabled = new AMDRadeonSuperResolutionEnabledProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSupported = new AMDRadeonSuperResolutionSupportedProperty(AMDRadeonSuperResolutionToggle, this);
@@ -2082,8 +2085,11 @@ namespace XboxGamingBar
             installViGEmBus = new InstallViGEmBusProperty(this);
             hidHideInstalled = new HidHideInstalledProperty(this);
             installHidHide = new InstallHidHideProperty(this);
+            installRTSS = new ToolTriggerProperty(this, Function.InstallRTSS);
             uninstallViGEm = new ToolTriggerProperty(this, Function.UninstallViGEm);
             uninstallHidHide = new ToolTriggerProperty(this, Function.UninstallHidHide);
+            uninstallRTSS = new ToolTriggerProperty(this, Function.UninstallRTSS);
+            uninstallPawnIO = new ToolTriggerProperty(this, Function.UninstallPawnIO);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);
             autoHibernateIdleMinutes = new AutoHibernateIdleMinutesProperty(15, AutoHibernateTimeoutSlider, this);
 
@@ -2349,8 +2355,11 @@ namespace XboxGamingBar
                 installViGEmBus,
                 hidHideInstalled,
                 installHidHide,
+                installRTSS,
                 uninstallViGEm,
                 uninstallHidHide,
+                uninstallRTSS,
+                uninstallPawnIO,
                 autoHibernateEnabled,
                 autoHibernateIdleMinutes,
                 autoTDPEnabled,

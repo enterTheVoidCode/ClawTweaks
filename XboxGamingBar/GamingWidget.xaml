@@ -555,6 +555,17 @@
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
+                    <RadioButton x:Name="OnboardingNavItem" Tag="Onboarding" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Setup">
+                        <RadioButton.Content>
+                            <Grid>
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEC61;" FontSize="17" VerticalAlignment="Center"/>
+                                <!-- Warning badge shown while required setup is incomplete (toggled from code-behind) -->
+                                <FontIcon x:Name="OnboardingNavBadge" FontFamily="Segoe MDL2 Assets" Glyph="&#xEB90;" FontSize="9"
+                                          Foreground="#FFA500" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                          Margin="0,-2,-2,0" Visibility="Collapsed"/>
+                            </Grid>
+                        </RadioButton.Content>
+                    </RadioButton>
                     <RadioButton x:Name="PerformanceNavItem" Tag="Performance" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Performance">
                         <RadioButton.Content>
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
@@ -3325,6 +3336,85 @@
                             </StackPanel>
                         </Border>
 
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ONBOARDING / SETUP TAB -->
+                <ScrollViewer x:Name="OnboardingScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+                        <TextBlock Text="Setup &amp; Onboarding" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,4,0,2"/>
+                        <TextBlock Text="Complete these steps so ClawTweaks can control the device. The Quick Settings tiles unlock once setup is complete."
+                                   FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                        <!-- Step 1: Required tools -->
+                        <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,4,0,0">
+                            <StackPanel>
+                                <TextBlock Text="1. Install required tools" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                <TextBlock Text="ViGEmBus + HidHide power controller emulation; RTSS drives the on-screen overlay; PawnIO exposes hardware sensors."
+                                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,4"/>
+
+                                <Grid Margin="0,6,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OnbViGEmStatus" Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                        <Button x:Name="OnbViGEmInstallBtn" Content="Install" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbViGEmInstall_Click"/>
+                                        <Button x:Name="OnbViGEmUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbViGEmUninstall_Click"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                        <Button x:Name="OnbHidHideInstallBtn" Content="Install" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbHidHideInstall_Click"/>
+                                        <Button x:Name="OnbHidHideUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbHidHideUninstall_Click"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OnbRtssStatus" Text="RTSS: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                        <Button x:Name="OnbRtssInstallBtn" Content="Install" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbRtssInstall_Click"/>
+                                        <Button x:Name="OnbRtssUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbRtssUninstall_Click"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OnbPawnIOStatus" Text="PawnIO: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                        <Button x:Name="OnbPawnIOInstallBtn" Content="Install" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbPawnIOInstall_Click"/>
+                                        <Button x:Name="OnbPawnIOUninstallBtn" Content="Uninstall" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbPawnIOUninstall_Click"/>
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Step 2: MSI Center M -->
+                        <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="2. Disable MSI Center M" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                <Grid Margin="0,6,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OnbMsiCenterStatus" Text="Checking MSI Center M..." FontSize="11" Foreground="#888888" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Button x:Name="OnbMsiCenterBtn" Grid.Column="1" Content="Disable" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbMsiCenterDisable_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Step 3: Controller emulation -->
+                        <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,8,0,16">
+                            <StackPanel>
+                                <TextBlock Text="3. Enable controller emulation" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                <Grid Margin="0,6,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OnbEmulationStatus" Text="Controller emulation: off" FontSize="11" Foreground="#888888" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <Button x:Name="OnbEmulationBtn" Grid.Column="1" Content="Enable" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbEmulationEnable_Click"/>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 

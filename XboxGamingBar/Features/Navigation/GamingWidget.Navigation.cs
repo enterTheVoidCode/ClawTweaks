@@ -65,6 +65,7 @@ namespace XboxGamingBar
                 LegionScrollViewer.Visibility = Visibility.Collapsed;
                 GPDScrollViewer.Visibility = Visibility.Collapsed;
                 SystemScrollViewer.Visibility = Visibility.Collapsed;
+                if (OnboardingScrollViewer != null) OnboardingScrollViewer.Visibility = Visibility.Collapsed;
                 // TriggerScrollViewer.Visibility = Visibility.Collapsed;  // Hotkeys tab hidden
 
                 // Stop fan curve updates when leaving Legion tab (will be re-enabled if Legion is selected)
@@ -149,6 +150,15 @@ namespace XboxGamingBar
                         SystemScrollViewer.Visibility = Visibility.Visible;
                         SystemScrollViewer.ChangeView(null, 0, null, true);
                         RequestControllerEmulationDriverStatus();
+                        break;
+                    case "Onboarding":
+                        if (OnboardingScrollViewer != null)
+                        {
+                            OnboardingScrollViewer.Visibility = Visibility.Visible;
+                            OnboardingScrollViewer.ChangeView(null, 0, null, true);
+                        }
+                        RequestControllerEmulationDriverStatus(); // refresh ViGEm/HidHide status
+                        RefreshOnboardingTab();
                         break;
                 }
 

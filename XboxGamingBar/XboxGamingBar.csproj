@@ -357,6 +357,9 @@
     <Compile Include="Features\Navigation\GamingWidget.Navigation.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Setup\GamingWidget.Onboarding.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\LosslessScaling\GamingWidget.LosslessScaling.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
