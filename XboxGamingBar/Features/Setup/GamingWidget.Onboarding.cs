@@ -20,6 +20,11 @@ namespace XboxGamingBar
         private static readonly SolidColorBrush OnbGrayBrush = new SolidColorBrush(Color.FromArgb(255, 136, 136, 136));
         private static readonly SolidColorBrush OnbAmberBrush = new SolidColorBrush(Color.FromArgb(255, 255, 165, 0));
 
+        // Dependency gate: the Quick Settings tiles are locked until all four required tools are
+        // installed AND controller emulation is enabled. Default open so already-set-up users are
+        // not briefly locked; RecomputeDependencyGate() re-evaluates from the live property values.
+        private bool _dependencyGateOpen = true;
+
         // Called when the Onboarding tab becomes visible and after any onboarding action,
         // so the whole flow reflects current state without per-property subscriptions.
         private void RefreshOnboardingTab()
@@ -58,16 +63,28 @@ namespace XboxGamingBar
         }
 
         private void UpdateOnboardingViGEm(bool installed)
-            => SetOnbToolRow(OnbViGEmStatus, OnbViGEmInstallBtn, OnbViGEmUninstallBtn, "ViGEmBus", installed);
+        {
+            SetOnbToolRow(OnbViGEmStatus, OnbViGEmInstallBtn, OnbViGEmUninstallBtn, "ViGEmBus", installed);
+            RecomputeDependencyGate();
+        }
 
         private void UpdateOnboardingHidHide(bool installed)
-            => SetOnbToolRow(OnbHidHideStatus, OnbHidHideInstallBtn, OnbHidHideUninstallBtn, "HidHide", installed);
+        {
+            SetOnbToolRow(OnbHidHideStatus, OnbHidHideInstallBtn, OnbHidHideUninstallBtn, "HidHide", installed);
+            RecomputeDependencyGate();
+        }
 
         private void UpdateOnboardingRtss(bool installed)
-            => SetOnbToolRow(OnbRtssStatus, OnbRtssInstallBtn, OnbRtssUninstallBtn, "RTSS", installed);
+        {
+            SetOnbToolRow(OnbRtssStatus, OnbRtssInstallBtn, OnbRtssUninstallBtn, "RTSS", installed);
+            RecomputeDependencyGate();
+        }
 
         private void UpdateOnboardingPawnIO(bool installed)
-            => SetOnbToolRow(OnbPawnIOStatus, OnbPawnIOInstallBtn, OnbPawnIOUninstallBtn, "PawnIO", installed);
+        {
+            SetOnbToolRow(OnbPawnIOStatus, OnbPawnIOInstallBtn, OnbPawnIOUninstallBtn, "PawnIO", installed);
+            RecomputeDependencyGate();
+        }
 
         // RTSS installed-status callback (replaces the direct UpdateFPSLimitControls wiring):
         // keeps the FPS-limit controls in sync AND updates the onboarding RTSS row.
@@ -106,6 +123,77 @@ namespace XboxGamingBar
             if (OnbEmulationBtn != null)
             {
                 OnbEmulationBtn.IsEnabled = !emuOn && !msiActive;
+            }
+        }
+
+        /// <summary>
+        /// Dependency gate: lock the Quick Settings tiles until all four required tools are
+        /// installed AND controller emulation is enabled. Shows a warning banner on the Quick tab
+        /// and a badge on the Setup nav item while setup is incomplete. Cheap; safe to call often.
+        /// </summary>
+        internal void RecomputeDependencyGate()
+        {
+            try
+            {
+                bool emuOn = controllerEmulationEnabled?.Value == true;
+                bool open = (vigemBusInstalled?.Value == true)
+                         && (hidHideInstalled?.Value == true)
+                         && (rtssInstalled?.Value == true)
+                         && (pawnIOInstalled?.Value == true)
+                         && emuOn;
+                _dependencyGateOpen = open;
+
+                // Lock/unlock all Quick Settings tiles at once. StackPanel is a Panel (not a Control)
+                // so it has no IsEnabled — gate interactivity via hit-testing and dim it so the
+                // locked state is visible.
+                if (QuickSettingsTilesContainer != null)
+                {
+                    QuickSettingsTilesContainer.IsHitTestVisible = open;
+                    QuickSettingsTilesContainer.Opacity = open ? 1.0 : 0.4;
+                }
+
+                // Warning banner on the Quick tab.
+                if (MissingAddonsWarning != null)
+                {
+                    MissingAddonsWarning.IsOpen = !open;
+                    if (!open)
+                    {
+                        var missing = new System.Collections.Generic.List<string>();
+                        if (vigemBusInstalled?.Value != true) missing.Add("ViGEmBus");
+                        if (hidHideInstalled?.Value != true) missing.Add("HidHide");
+                        if (rtssInstalled?.Value != true) missing.Add("RTSS");
+                        if (pawnIOInstalled?.Value != true) missing.Add("PawnIO");
+                        if (!emuOn) missing.Add("controller emulation");
+                        MissingAddonsWarning.Message =
+                            "Finish setup to use ClawTweaks — still required: " + string.Join(", ", missing) + ".";
+                    }
+                }
+
+                // Warning badge on the Setup nav item.
+                if (OnboardingNavBadge != null)
+                {
+                    OnboardingNavBadge.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"RecomputeDependencyGate failed: {ex.Message}");
+            }
+        }
+
+        // InfoBar action button on the Quick tab: jump to the Setup/Onboarding tab.
+        private void MissingAddonsGoToSetup_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (OnboardingNavItem != null)
+                {
+                    OnboardingNavItem.IsChecked = true; // fires NavRadioButton_Checked
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"MissingAddonsGoToSetup failed: {ex.Message}");
             }
         }
 

@@ -84,6 +84,7 @@ namespace XboxGamingBar
                         // Re-assert glass visibility now that the tiles are actually rendered —
                         // a rebuild while this tab was collapsed couldn't realise the template parts.
                         ApplyGlassEffectToTilesDeferred();
+                        RecomputeDependencyGate(); // lock tiles + show banner if setup incomplete
                         break;
                     case "Performance":
                         PerformanceScrollViewer.Visibility = Visibility.Visible;
