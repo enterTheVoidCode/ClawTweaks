@@ -893,6 +893,19 @@ namespace XboxGamingBar
                     UpdateTDPSliderEnabledState();
                 }
 
+                // MSI Claw: the GoTweaks performance-mode presets (Max/Standard/Balanced/...) are
+                // obsolete here — TDP is driven purely by the slider/profile value. The Legion-mode
+                // branch above only force-sends the TDP when the stored mode is Custom (255); a profile
+                // saved with a legacy preset mode (e.g. Balanced=2) would otherwise never push the slider
+                // value, leaving the Claw stuck on a preset wattage (the reported "drops to 15W"). Always
+                // apply the profile's slider TDP on the Claw — for a game without its own profile this is
+                // the global profile's value (no per-game/default fallback).
+                if (SaveTDP && tdp != null && defaultGameProfileEnabled?.Value != true && !isInitialSync && IsMsiClawDevice())
+                {
+                    tdp.ForceSetValue((int)profile.TDP);
+                    Logger.Info($"[MSIClaw] Forced profile TDP to {profile.TDP}W (slider-only; ignoring legacy preset mode) for {profileName}");
+                }
+
                 // HDR
                 if (SaveHDR)
                 {

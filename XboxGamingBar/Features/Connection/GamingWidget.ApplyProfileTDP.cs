@@ -66,14 +66,20 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // MSI Claw has no performance-mode presets — the GoTweaks preset system (Max/Standard/
+                // Balanced/...) is obsolete here; TDP is driven purely by the slider/profile value.
+                // legionGoDetected is intentionally TRUE on the Claw (to surface the Legion-style tabs),
+                // so we must gate the Legion preset-mode path by the REAL device type instead.
+                bool isMsiClaw = IsMsiClawDevice();
+
                 // Run on UI thread since we're touching UI controls (including SaveTDP which accesses checkbox)
                 bool needsDelayForModeChange = false;
                 await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
                     if (!SaveTDP) return;
 
-                    // Apply Legion TDP Mode first (for Legion devices)
-                    if (legionGoDetected?.Value == true && legionPerformanceMode != null)
+                    // Apply Legion TDP Mode first (real Legion devices only — never on the MSI Claw)
+                    if (!isMsiClaw && legionGoDetected?.Value == true && legionPerformanceMode != null)
                     {
                         int profileMode = profile.LegionPerformanceMode;
                         int modeIndex = GetProfileTDPModeIndex(profile);
@@ -127,9 +133,10 @@ namespace XboxGamingBar
                 {
                     if (!SaveTDP) return;
 
-                    // Apply TDP value ONLY in Custom mode (255)
-                    // Quiet/Balanced/Performance modes use hardware presets and don't accept TDP values
-                    bool isCustomMode = legionGoDetected?.Value != true || profile.LegionPerformanceMode == 255;
+                    // Apply TDP value ONLY in Custom mode (255).
+                    // Quiet/Balanced/Performance modes use hardware presets and don't accept TDP values.
+                    // The MSI Claw is ALWAYS slider/custom (no presets) — always apply the profile TDP.
+                    bool isCustomMode = isMsiClaw || legionGoDetected?.Value != true || profile.LegionPerformanceMode == 255;
 
                     if (tdp != null && isCustomMode)
                     {
