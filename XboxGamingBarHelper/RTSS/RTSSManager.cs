@@ -640,7 +640,19 @@ namespace XboxGamingBarHelper.RTSS
                         try
                         {
                             Logger.Info("Start Rivatuner Statistics Server.");
-                            Process.Start(RTSSHelper.ExecutablePath());
+                            string rtssExe = RTSSHelper.ExecutablePath();
+                            string rtssDir = RTSSHelper.InstalledLocation();
+                            if (string.IsNullOrEmpty(rtssDir))
+                                rtssDir = System.IO.Path.GetDirectoryName(rtssExe);
+                            // Launch from the RTSS install folder (and via ShellExecute) so RTSS
+                            // resolves its Skins\default.usf — otherwise it shows
+                            // "Failed to load default.usf skin!" when started with the wrong CWD.
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = rtssExe,
+                                WorkingDirectory = rtssDir,
+                                UseShellExecute = true,
+                            });
                         }
                         catch (Exception ex)
                         {
