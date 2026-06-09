@@ -207,6 +207,14 @@ namespace XboxGamingBar
                 if (ProfilesNavItem != null) ProfilesNavItem.Visibility = v;
                 if (SystemNavItem != null) SystemNavItem.Visibility = v;
 
+                // Fan + Display are device-gated (shown only on the MSI Claw). Hide them during
+                // onboarding too; on completion restore them to their device-appropriate visibility.
+                Windows.UI.Xaml.Visibility deviceVis = IsMsiClawDevice()
+                    ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+                Windows.UI.Xaml.Visibility fanDisplayVis = complete ? deviceVis : Windows.UI.Xaml.Visibility.Collapsed;
+                if (FanNavItem != null) FanNavItem.Visibility = fanDisplayVis;
+                if (DisplayNavItem != null) DisplayNavItem.Visibility = fanDisplayVis;
+
                 // Only reorder on an actual complete/incomplete transition.
                 if (_onbLayoutComplete == complete) return;
                 _onbLayoutComplete = complete;
