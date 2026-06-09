@@ -100,7 +100,10 @@ namespace XboxGamingBarHelper.Setup
             {
                 string content = reader.ReadToEnd();
                 string outPath = Path.Combine(Path.GetTempPath(), "ClawTweaks_SetupTools.ps1");
-                File.WriteAllText(outPath, content, new UTF8Encoding(false));
+                // Write WITH a UTF-8 BOM: Windows PowerShell 5.1 reads a BOM-less file as the system
+                // ANSI codepage, which mangles any non-ASCII byte and breaks parsing. The BOM makes it
+                // read as UTF-8. (The script itself is kept ASCII-only as a belt-and-braces measure.)
+                File.WriteAllText(outPath, content, new UTF8Encoding(true));
                 return outPath;
             }
         }

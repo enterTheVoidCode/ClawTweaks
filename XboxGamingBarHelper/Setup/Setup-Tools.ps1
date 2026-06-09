@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Detects and (if missing) installs the four required tools:
-      - PawnIO           (kernel driver for CPU/GPU power sensors — required by LHM 0.9.6+)
+      - PawnIO           (kernel driver for CPU/GPU power sensors - required by LHM 0.9.6+)
       - ViGEmBus driver  (virtual controller emulation)
       - HidHide          (hides the physical controller during emulation)
       - RTSS             (FPS limiter + on-screen overlay)
@@ -12,7 +12,7 @@
     This is the same detection/install logic that shipped in the original ClawTweaks
     installer (Install.ps1), extracted into a standalone, NON-INTERACTIVE script that
     the app triggers via its (already-elevated) helper. It downloads from the official
-    vendor/GitHub sources only and never prompts — every missing tool is installed.
+    vendor/GitHub sources only and never prompts - every missing tool is installed.
 
     Run elevated. Exit code 0 = all tools present afterwards, 1 = at least one missing.
 #>
@@ -29,7 +29,7 @@ function Write-Err     { param([string]$Message) Write-Host "  [X] $Message" -Fo
 #region Detection
 function Test-PawnIOWorking {
     # The only reliable test: try to open the \\.\PawnIO device.
-    # Service status is unreliable — the service can show "Running" while the
+    # Service status is unreliable - the service can show "Running" while the
     # driver binary is missing (deinstalled), causing error code 2 (FILE_NOT_FOUND).
     try {
         $result = & powershell -NonInteractive -Command {
@@ -157,7 +157,7 @@ function Install-ViGEmBus {
     $ok = Install-ViaWinget -PackageId "Nefarius.ViGEmBus" -DisplayName "ViGEmBus"
     if ($ok) { return $true }
 
-    Write-Info "winget unavailable or failed — trying direct download..."
+    Write-Info "winget unavailable or failed - trying direct download..."
     try {
         $apiUrl   = "https://api.github.com/repos/nefarius/ViGEmBus/releases/latest"
         $headers  = @{ "User-Agent" = "ClawTweaks-Installer/1.0" }
@@ -182,7 +182,7 @@ function Install-HidHide {
     $ok = Install-ViaWinget -PackageId "Nefarius.HidHide" -DisplayName "HidHide"
     if ($ok) { return $true }
 
-    Write-Info "winget unavailable or failed — trying direct download..."
+    Write-Info "winget unavailable or failed - trying direct download..."
     try {
         $apiUrl  = "https://api.github.com/repos/nefarius/HidHide/releases/latest"
         $headers = @{ "User-Agent" = "ClawTweaks-Installer/1.0" }
@@ -213,7 +213,7 @@ function Install-RTSS {
 
 # --- Main: check each tool, install if missing (non-interactive) ---
 Write-Host ""
-Write-Host "ClawTweaks — checking required tools..." -ForegroundColor Cyan
+Write-Host "ClawTweaks - checking required tools..." -ForegroundColor Cyan
 $allOk = $true
 
 # PawnIO
@@ -222,9 +222,9 @@ Write-Host "       Checking PawnIO (hardware sensor kernel driver)..." -Foregrou
 if (Test-PawnIOWorking) {
     Write-Success "PawnIO: working"
 } else {
-    Write-Warn "PawnIO: NOT installed — installing..."
-    if (Install-PawnIO) { Write-Success "PawnIO installed — a reboot may be required for the driver to activate" }
-    else { Write-Err "PawnIO install failed — power sensors may show 0W"; $allOk = $false }
+    Write-Warn "PawnIO: NOT installed - installing..."
+    if (Install-PawnIO) { Write-Success "PawnIO installed - a reboot may be required for the driver to activate" }
+    else { Write-Err "PawnIO install failed - power sensors may show 0W"; $allOk = $false }
 }
 
 # ViGEmBus
@@ -233,9 +233,9 @@ Write-Host "       Checking ViGEmBus (virtual controller driver)..." -Foreground
 if (Test-ViGEmInstalled) {
     Write-Success "ViGEmBus: installed"
 } else {
-    Write-Warn "ViGEmBus: NOT installed — installing..."
+    Write-Warn "ViGEmBus: NOT installed - installing..."
     if (Install-ViGEmBus) { Write-Success "ViGEmBus installed successfully" }
-    else { Write-Err "ViGEmBus install failed — controller emulation will not work"; $allOk = $false }
+    else { Write-Err "ViGEmBus install failed - controller emulation will not work"; $allOk = $false }
 }
 
 # HidHide
@@ -244,8 +244,8 @@ Write-Host "       Checking HidHide (controller hiding driver)..." -ForegroundCo
 if (Test-HidHideInstalled) {
     Write-Success "HidHide: installed"
 } else {
-    Write-Warn "HidHide: NOT installed — installing..."
-    if (Install-HidHide) { Write-Success "HidHide installed successfully — a reboot may be required" }
+    Write-Warn "HidHide: NOT installed - installing..."
+    if (Install-HidHide) { Write-Success "HidHide installed successfully - a reboot may be required" }
     else { Write-Err "HidHide install failed"; $allOk = $false }
 }
 
@@ -255,11 +255,11 @@ Write-Host "       Checking RTSS (RivaTuner Statistics Server)..." -ForegroundCo
 if (Test-RTSSInstalled) {
     Write-Success "RTSS: installed"
 } else {
-    Write-Warn "RTSS: NOT installed — installing..."
+    Write-Warn "RTSS: NOT installed - installing..."
     if (Install-RTSS) { Write-Success "RTSS installed successfully" }
-    else { Write-Err "RTSS install failed — FPS limiter/overlay will not work"; $allOk = $false }
+    else { Write-Err "RTSS install failed - FPS limiter/overlay will not work"; $allOk = $false }
 }
 
 Write-Host ""
 if ($allOk) { Write-Host "All required tools are present." -ForegroundColor Green; exit 0 }
-else { Write-Host "Some tools are still missing — see messages above." -ForegroundColor Yellow; exit 1 }
+else { Write-Host "Some tools are still missing - see messages above." -ForegroundColor Yellow; exit 1 }
