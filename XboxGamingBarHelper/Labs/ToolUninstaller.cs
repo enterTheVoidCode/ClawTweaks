@@ -171,6 +171,7 @@ namespace XboxGamingBarHelper.Labs
                 System.Threading.Thread.Sleep(600);
                 KillByName("RTSS");
                 KillByName("EncoderServer");
+                CleanRtssLeftovers();
                 return ran;
             }
             catch (Exception ex)
@@ -200,6 +201,42 @@ namespace XboxGamingBarHelper.Labs
             catch (Exception ex)
             {
                 Logger.Debug($"Kill {processName} failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Removes the leftover Unwinder\RTSS registry key (which lingers after the NSIS uninstall
+        /// and can confuse detection) and the now-empty install directory. Best-effort.
+        /// </summary>
+        private static void CleanRtssLeftovers()
+        {
+            try
+            {
+                string dir = null;
+                using (RegistryKey k = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Unwinder\RTSS"))
+                {
+                    dir = k?.GetValue("InstallDir") as string;
+                }
+
+                try { Registry.LocalMachine.DeleteSubKeyTree(@"SOFTWARE\WOW6432Node\Unwinder\RTSS", false); } catch { }
+                try { Registry.LocalMachine.DeleteSubKeyTree(@"SOFTWARE\Unwinder\RTSS", false); } catch { }
+
+                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                {
+                    try
+                    {
+                        if (Directory.GetFileSystemEntries(dir).Length == 0)
+                        {
+                            Directory.Delete(dir, false);
+                            Logger.Info($"RTSS: removed empty leftover folder {dir}");
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"RTSS leftover cleanup skipped: {ex.Message}");
             }
         }
     }

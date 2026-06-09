@@ -41,6 +41,14 @@ namespace XboxGamingBarHelper.Labs
             Logger.Info($"Starting RTSS installation via winget: {winget}");
             bool ran = RunWingetInstall(winget);
             bool installed = IsInstalled();
+            if (ran && !installed)
+            {
+                // winget returned success but RTSS.exe is not present — typically a winget download/
+                // certificate failure (e.g. 0x8A15005E), often caused by an incorrect system clock.
+                Logger.Warn("RTSS: winget reported success but RTSS.exe was not found. This is usually a "
+                    + "winget download/certificate failure (error 0x8A15005E) — check the device date/time, "
+                    + "or install RTSS manually from guru3d.com.");
+            }
             Logger.Info($"RTSS installation finished. ran={ran}, installed={installed}");
             return installed;
         }
