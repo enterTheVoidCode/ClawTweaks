@@ -93,14 +93,22 @@ try {
         Add-AppxPackage -Path $pkg.FullName -ForceApplicationShutdown
     }
 
-    # 5. Refresh the elevated helper. It runs from a deployed copy under the package LocalCache
-    #    (launched by the scheduled task "ClawTweaks\ClawTweaksHelper"), NOT from the MSIX itself.
-    #    An in-place update leaves the OLD helper PROCESS running, so new pipe commands the widget
-    #    sends (e.g. the in-app tool setup) silently do nothing until the next reboot/logon. End the
-    #    task, kill the running helper and delete the deployed copy — the widget redeploys the NEW
-    #    version automatically on next launch (no reboot needed).
+    # 5. Cleanly terminate the OLD running processes so new features/fixes take effect immediately,
+    #    without a reboot:
+    #    - The WIDGET (XboxGamingBar.exe) is hosted by the Game Bar and is normally cached; kill it so
+    #      the Game Bar reloads the freshly-installed version on the next Win+G.
+    #    - The HELPER runs from a deployed copy under the package LocalCache (launched by the scheduled
+    #      task "ClawTweaks\ClawTweaksHelper"), NOT from the MSIX. An in-place update leaves the OLD
+    #      helper PROCESS running, so new pipe commands silently do nothing. End the task, kill the
+    #      helper and delete the deployed copy — the widget redeploys the NEW helper on next launch.
     try {
         $appPkg = Get-AppxPackage | Where-Object { $_.Name -like '*ClawTweaks*' } | Select-Object -First 1
+
+        # Widget process (forces the Game Bar to reload the new XAML/code on next open)
+        Get-Process -Name "XboxGamingBar" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+
+        # Helper: end the scheduled task, kill the process, drop the deployed copy
         & schtasks.exe /End /TN "ClawTweaks\ClawTweaksHelper" 2>$null | Out-Null
         Get-Process -Name "XboxGamingBarHelper" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
@@ -109,10 +117,10 @@ try {
             $helperDir = Join-Path $env:LOCALAPPDATA "Packages\$($appPkg.PackageFamilyName)\LocalCache\ClawTweaks\Helper"
             if (Test-Path $helperDir) { Remove-Item -Path $helperDir -Recurse -Force -ErrorAction SilentlyContinue }
         }
-        Write-Host "Refreshed helper (new version deploys on next launch)." -ForegroundColor Green
+        Write-Host "Stopped old widget + helper (new versions load on next open)." -ForegroundColor Green
     }
     catch {
-        Write-Host "Note: could not refresh the running helper; reboot once if new features don't appear." -ForegroundColor DarkYellow
+        Write-Host "Note: could not stop old processes; reboot once if new features don't appear." -ForegroundColor DarkYellow
     }
 
     Write-Host ""
