@@ -530,8 +530,8 @@ namespace XboxGamingBar
 
         // Gyro settings (per-game profile)
         public int GyroTarget { get; set; } = 0;           // Disabled
-        public int GyroSensitivityX { get; set; } = 50;
-        public int GyroSensitivityY { get; set; } = 50;
+        public int GyroSensitivityX { get; set; } = 100;
+        public int GyroSensitivityY { get; set; } = 100;
         public bool GyroInvertX { get; set; } = false;
         public bool GyroInvertY { get; set; } = false;
         public int GyroMappingType { get; set; } = 0;      // Instant

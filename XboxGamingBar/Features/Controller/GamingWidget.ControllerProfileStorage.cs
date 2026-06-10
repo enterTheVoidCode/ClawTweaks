@@ -186,8 +186,8 @@ namespace XboxGamingBar
 
                 // Gyro settings
                 profile.GyroTarget = container.Values.ContainsKey("GyroTarget") ? (int)container.Values["GyroTarget"] : 0;
-                profile.GyroSensitivityX = container.Values.ContainsKey("GyroSensitivityX") ? (int)container.Values["GyroSensitivityX"] : 50;
-                profile.GyroSensitivityY = container.Values.ContainsKey("GyroSensitivityY") ? (int)container.Values["GyroSensitivityY"] : 50;
+                profile.GyroSensitivityX = container.Values.ContainsKey("GyroSensitivityX") ? (int)container.Values["GyroSensitivityX"] : 100;
+                profile.GyroSensitivityY = container.Values.ContainsKey("GyroSensitivityY") ? (int)container.Values["GyroSensitivityY"] : 100;
                 profile.GyroInvertX = container.Values.ContainsKey("GyroInvertX") ? (bool)container.Values["GyroInvertX"] : false;
                 profile.GyroInvertY = container.Values.ContainsKey("GyroInvertY") ? (bool)container.Values["GyroInvertY"] : false;
                 profile.GyroMappingType = container.Values.ContainsKey("GyroMappingType") ? (int)container.Values["GyroMappingType"] : 0;
@@ -1829,8 +1829,8 @@ namespace XboxGamingBar
                 // as stale data. This keeps profiles clean and predictable.
                 if (gameControllerProfile.GyroTarget == 0)
                 {
-                    gameControllerProfile.GyroSensitivityX = 50;
-                    gameControllerProfile.GyroSensitivityY = 50;
+                    gameControllerProfile.GyroSensitivityX = 100;
+                    gameControllerProfile.GyroSensitivityY = 100;
                     gameControllerProfile.GyroDeadzone = 1;
                     gameControllerProfile.GyroInvertX = false;
                     gameControllerProfile.GyroInvertY = false;
@@ -1851,8 +1851,8 @@ namespace XboxGamingBar
                 // STEP 5: same gyro reset for global profile
                 if (globalControllerProfile.GyroTarget == 0)
                 {
-                    globalControllerProfile.GyroSensitivityX = 50;
-                    globalControllerProfile.GyroSensitivityY = 50;
+                    globalControllerProfile.GyroSensitivityX = 100;
+                    globalControllerProfile.GyroSensitivityY = 100;
                     globalControllerProfile.GyroDeadzone = 1;
                     globalControllerProfile.GyroInvertX = false;
                     globalControllerProfile.GyroInvertY = false;
