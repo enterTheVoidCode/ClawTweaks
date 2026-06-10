@@ -1854,7 +1854,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="CPU" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Boost, scheduling &amp; core frequency"
+                                        <TextBlock Text="Boost"
                                                    Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="CPUBoostToggle"
@@ -1863,9 +1863,12 @@
                                                   Margin="0,0,8,0"
                                                   IsEnabled="False"
                                                   KeyDown="CPUBoostToggle_KeyDown"/>
+                                    <!-- LOCKED: advanced CPU section (boost mode / scheduling / P-E max freq) hidden;
+                                         only the simple CPU boost on/off above remains, like GoTweaks. -->
                                     <ToggleButton x:Name="CpuSectionExpandButton"
                                                   Grid.Column="2"
                                                   IsChecked="False"
+                                                  Visibility="Collapsed"
                                                   VerticalAlignment="Center"
                                                   Background="Transparent"
                                                   BorderThickness="0"
