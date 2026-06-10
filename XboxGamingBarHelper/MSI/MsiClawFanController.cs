@@ -143,8 +143,12 @@ namespace XboxGamingBarHelper.MSI
         /// <summary>Return fan control to the firmware (used on shutdown / revert).</summary>
         public static void RestoreFirmwareControl()
         {
+            // Clear the full-speed override first so handing back to firmware leaves NO leftover
+            // override engaged — otherwise a latched full-speed bit keeps the fan high even though
+            // the firmware curve has resumed (the "got quieter but never reached idle" symptom).
+            SetFanFullSpeed(false);
             SetFanControl(false);
-            Logger.Info("MsiClawFanController: fan control returned to firmware");
+            Logger.Info("MsiClawFanController: fan control returned to firmware (full-speed cleared)");
         }
 
         // ── Low-level WMI operations (ported 1:1 from ClawA1M) ─────────────────────
