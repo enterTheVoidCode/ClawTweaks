@@ -4464,6 +4464,11 @@ namespace XboxGamingBar
                     // widget's stored value is authoritative — push it so the EC converges.
                     ResendChargeLimitToHelper();
 
+                    // Seed the helper's own LED-color store from the widget's stored value, so the
+                    // helper can drive its startup LED indicator (red → green-on-ready → saved color)
+                    // on the next boot without the widget being open. No-op if no custom color saved.
+                    ResendMsiLedColorToHelper();
+
                     // Refresh USBIP prereq status line. PropertyChanged-driven refresh misses
                     // the case where the helper's value matches the widget's default (false),
                     // since GenericProperty.SetValue skips NotifyPropertyChanged on equality
