@@ -1322,6 +1322,30 @@ namespace XboxGamingBarHelper.Labs
         /// via a direct HID report (1:1 from HC DClawController). Fires on a ViGEm callback
         /// thread. Dedupes unchanged values (HC prevLarge/prevSmall pattern).
         /// </summary>
+        /// <summary>
+        /// Fires a short test rumble pulse at the current intensity, independent of any game FFB,
+        /// so the user can verify vibration + intensity without launching a game. Also a diagnostic:
+        /// if this pulse is felt, the HID write path works and the issue is the game's FFB not
+        /// reaching the virtual controller; if not, the write path itself is the problem (see log).
+        /// </summary>
+        public void TestVibration()
+        {
+            try
+            {
+                Logger.Info($"ClawButtonMonitor: test vibration pulse (running={_running}, intensity={(int)(_vibrationIntensity * 100)}%)");
+                WriteRumble(200, 200);
+                System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try { await System.Threading.Tasks.Task.Delay(350); } catch { }
+                    WriteRumble(0, 0);
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ClawButtonMonitor: TestVibration failed: {ex.Message}");
+            }
+        }
+
         private bool _rumbleEverReceived;
         private void OnRumbleReceived(byte largeMotor, byte smallMotor)
         {

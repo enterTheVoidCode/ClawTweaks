@@ -105,6 +105,12 @@ namespace XboxGamingBar
                 ControllerFeedbackExpandIcon.Glyph = _controllerFeedbackExpanded ? "" : "";
         }
 
+        // Fires a short test rumble pulse at the current intensity (no game needed).
+        private void TestVibrationButton_Click(object sender, RoutedEventArgs e)
+        {
+            testControllerVibration?.Trigger("test");
+        }
+
         internal void MsiLedExpandButton_Click(object sender, RoutedEventArgs e)
         {
             _msiLedExpanded = !_msiLedExpanded;

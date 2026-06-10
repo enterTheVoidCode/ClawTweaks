@@ -1385,6 +1385,15 @@ namespace XboxGamingBarHelper
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true); // Acknowledge request started
                 }
+                // Controller: fire a short test rumble pulse on the physical Claw (no game needed).
+                else if (functionValue == (int)Function.TestControllerVibration)
+                {
+                    if (request.Command != Shared.Enums.Command.Set) { return; }
+                    Logger.Info("Pipe: test controller vibration requested from widget");
+                    clawButtonMonitor?.TestVibration();
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true);
+                }
                 // Onboarding: run the proven prerequisite check/installer (embedded Setup-Tools.ps1)
                 // which detects + installs all four required tools in one pass, then push each
                 // *Installed status so the onboarding rows + badge refresh.
