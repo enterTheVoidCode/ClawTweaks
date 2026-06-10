@@ -1367,8 +1367,21 @@ namespace XboxGamingBarHelper.Performance
                 else if (pl1 <= 20)       { shiftValue = 0xC1; label = "GreenMode"; }     // BetterPerformance
                 else                      { shiftValue = 0xC4; label = "SportMode"; }     // BestPerformance / custom high TDP
 
+                // Only write when the scenario actually changes. Re-writing block 210 on every TDP
+                // apply (which happens often) makes the EC re-grab the fan with the scenario's own
+                // aggressive curve, fighting our software fan table. HC writes the shift once per
+                // profile change, not per TDP tick — match that.
+                if (shiftValue == lastMsiShiftValue) return;
+
                 bool ok = SetMsiCpuPowerLimit(scope, path, 210, shiftValue);
                 Logger.Info($"[MSIClaw] PowerShift set to {label} (0x{shiftValue:X2}, pl1={pl1}W) — ok={ok}, like HC PowerProfileManager_Applied");
+                if (!ok) return;
+                lastMsiShiftValue = shiftValue;
+
+                // Activating a shift scenario makes the EC re-assert its own fan profile, overriding
+                // our software fan table. HC always (re)applies the fan table + control together with
+                // the shift; do the same here so our curve wins. No-op in firmware fan mode.
+                XboxGamingBarHelper.Program.ReassertMsiFanAfterShift();
             }
             catch (Exception ex)
             {
@@ -1395,6 +1408,9 @@ namespace XboxGamingBarHelper.Performance
         }
 
         private bool msiClawUnlockDone;
+        // Last MSI power-shift value written to EC block 210. -1 = none yet. Used to avoid re-writing
+        // the shift (and thereby re-triggering the EC's scenario fan) on every TDP apply.
+        private int lastMsiShiftValue = -1;
 
         /// <summary>
         /// Replicates HC ClawA1M/A2VM.Open()'s runtime TDP unlock (once per helper run; the EC clears

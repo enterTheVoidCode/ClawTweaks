@@ -327,6 +327,25 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Re-asserts the user's persisted software fan curve. Called right after the MSI power-shift
+        /// scenario changes (e.g. → Sport): activating a scenario makes the EC re-grab the fan with its
+        /// own aggressive profile, overriding our software table. HC always applies the fan table +
+        /// control together with the shift; this keeps our curve the last word. No-op in firmware fan
+        /// mode (value &lt; 0), where the user deliberately let the firmware run the fan.
+        /// </summary>
+        internal static void ReassertMsiFanAfterShift()
+        {
+            try
+            {
+                int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
+                if (value < 0) return; // firmware fan mode — don't fight it
+                ApplyMsiFan(value);
+                Logger.Info($"[MSIClaw] Fan re-asserted after power-shift change (value={value})");
+            }
+            catch (Exception ex) { Logger.Debug($"ReassertMsiFanAfterShift failed: {ex.Message}"); }
+        }
+
+        /// <summary>
         /// Read the current EC fan table + control bit and push it back to the widget as
         /// "MsiFanStatus":"b0,..,b7|controlBit|readOk" so the widget can verify against the graph.
         /// </summary>
