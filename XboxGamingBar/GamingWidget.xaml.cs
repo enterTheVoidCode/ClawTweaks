@@ -1328,6 +1328,7 @@ namespace XboxGamingBar
         private readonly ToolTriggerProperty uninstallRTSS;
         private readonly ToolTriggerProperty uninstallPawnIO;
         private readonly ToolTriggerProperty runToolSetup;
+        private readonly ToolTriggerProperty testControllerVibration;
         private readonly AutoHibernateEnabledProperty autoHibernateEnabled;
         private readonly AutoHibernateIdleMinutesProperty autoHibernateIdleMinutes;
 
@@ -2096,6 +2097,7 @@ namespace XboxGamingBar
             uninstallRTSS = new ToolTriggerProperty(this, Function.UninstallRTSS);
             uninstallPawnIO = new ToolTriggerProperty(this, Function.UninstallPawnIO);
             runToolSetup = new ToolTriggerProperty(this, Function.RunToolSetup);
+            testControllerVibration = new ToolTriggerProperty(this, Function.TestControllerVibration);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);
             autoHibernateIdleMinutes = new AutoHibernateIdleMinutesProperty(15, AutoHibernateTimeoutSlider, this);
 
@@ -2368,6 +2370,7 @@ namespace XboxGamingBar
                 uninstallRTSS,
                 uninstallPawnIO,
                 runToolSetup,
+                testControllerVibration,
                 autoHibernateEnabled,
                 autoHibernateIdleMinutes,
                 autoTDPEnabled,

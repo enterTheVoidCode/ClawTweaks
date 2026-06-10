@@ -484,5 +484,9 @@
         // detects + installs all four required tools (PawnIO, ViGEmBus, HidHide, RTSS) in one pass.
         // Write "install" to trigger; the helper runs it elevated and pushes each *Installed status.
         RunToolSetup,                // string - trigger to run the tool setup script (write "install")
+
+        // Controller: fire a short test rumble pulse on the physical MSI Claw at the current
+        // vibration intensity (lets the user feel the setting without launching a game).
+        TestControllerVibration,     // string - trigger (write "test")
     }
 }

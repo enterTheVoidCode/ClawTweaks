@@ -8201,6 +8201,14 @@
                                         </Grid>
                                         <Slider x:Name="LegionRightStickDeadzoneSlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="50" Value="4" StepFrequency="1"/>
                                     </StackPanel>
+
+                                    <!-- Test pulse: feel the current vibration intensity without a game -->
+                                    <Button x:Name="TestVibrationButton"
+                                            Content="Test Vibration"
+                                            Style="{StaticResource StandaloneButtonStyle}"
+                                            HorizontalAlignment="Left"
+                                            Margin="0,4,0,0"
+                                            Click="TestVibrationButton_Click"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
