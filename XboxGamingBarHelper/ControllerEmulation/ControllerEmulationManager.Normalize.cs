@@ -834,6 +834,11 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return false;
             }
 
+            // Virtual controller is now mounted/ready. On MSI Claw this drives the LED startup
+            // indicator: green → the user's saved color (once per run, and only if the user saved a
+            // custom color; otherwise MSI's color is left untouched).
+            Devices.MSIClaw.MsiLedBoot.SignalControllerReady();
+
             if (targetType == ViGEmController.VirtualGamepadType.Xbox360)
             {
                 UpdateVirtualXboxBridgeDeviceIds(xboxBridgeIdsBeforeVirtualConnect);

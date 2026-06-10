@@ -1039,6 +1039,11 @@ namespace XboxGamingBarHelper
             // Runs independently of emulation state — always active on MSI Claw.
             StartClawButtonWmiListener();
 
+            // MSI Claw: LED startup indicator. Show red now (helper starting); the green→saved-color
+            // step fires when the virtual controller finishes mounting. No-ops unless the user saved a
+            // custom LED color — otherwise MSI's color is left untouched.
+            Devices.MSIClaw.MsiLedBoot.SignalHelperStarting();
+
             // MSI Claw: dedicated ViGEm forwarder (bypasses legacy ControllerEmulationManager).
             // Suppresses the legacy backend, subscribes to the emulation toggle, and starts
             // the XInput→ViGEm poll loop. No-op on non-MSI-Claw devices.

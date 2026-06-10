@@ -392,6 +392,8 @@
     <Compile Include="Devices\MSIClaw\MSIClawConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawHidController.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawLedController.cs" />
+    <Compile Include="Devices\MSIClaw\MsiLedColorStore.cs" />
+    <Compile Include="Devices\MSIClaw\MsiLedBoot.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawBatteryManager.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawDesktopModeForwarder.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawViGEmForwarder.cs" />

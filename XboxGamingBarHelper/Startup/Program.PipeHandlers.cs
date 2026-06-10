@@ -243,6 +243,10 @@ namespace XboxGamingBarHelper
                             && byte.TryParse(parts[2].Trim(), out byte lb))
                         {
                             bool ok = Devices.MSIClaw.MsiClawLedController.TrySetLedColor(lr, lg, lb);
+                            // Persist as the user's chosen color so the helper can re-apply it on its
+                            // own at the next startup (red → green-on-ready → this color). Its presence
+                            // is also what authorises the helper to drive the LED at all.
+                            Devices.MSIClaw.MsiLedColorStore.Save(lr, lg, lb);
                             Logger.Info($"Pipe: MsiLedColor R={lr} G={lg} B={lb} → ok={ok}");
                             SendPipeAck(pipeMsg.RequestId, ok);
                         }

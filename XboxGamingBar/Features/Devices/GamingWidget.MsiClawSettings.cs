@@ -161,6 +161,34 @@ namespace XboxGamingBar
             _ = SendMsiLedColorAsync(c.R, c.G, c.B);
         }
 
+        /// <summary>
+        /// Re-pushes the stored LED color to the helper on pipe (re)connect — but only if the user
+        /// actually saved a custom color. This seeds the helper's own color store (msi_led_color.txt),
+        /// which the helper uses to drive its startup LED indicator (red → green-on-ready → this color)
+        /// on the next boot, even before the widget is open. When no color was ever saved, nothing is
+        /// sent and MSI's own LED color is left untouched.
+        /// </summary>
+        internal void ResendMsiLedColorToHelper()
+        {
+            try
+            {
+                if (!IsMsiClawDevice()) return;
+                var s = ApplicationData.Current.LocalSettings.Values;
+                if (!(s.TryGetValue(MsiLedColorKey, out var colorObj) && colorObj is string colorStr)) return;
+
+                var parts = colorStr.Split(',');
+                if (parts.Length == 3
+                    && byte.TryParse(parts[0], out byte r)
+                    && byte.TryParse(parts[1], out byte g)
+                    && byte.TryParse(parts[2], out byte b))
+                {
+                    _ = SendMsiLedColorAsync(r, g, b);
+                    Logger.Info($"[MsiLed] Re-pushed stored color on connect R={r} G={g} B={b}");
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"[MsiLed] ResendMsiLedColorToHelper: {ex.Message}"); }
+        }
+
         private async Task SendMsiLedColorAsync(byte r, byte g, byte b)
         {
             try
