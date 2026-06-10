@@ -1322,10 +1322,18 @@ namespace XboxGamingBarHelper.Labs
         /// via a direct HID report (1:1 from HC DClawController). Fires on a ViGEm callback
         /// thread. Dedupes unchanged values (HC prevLarge/prevSmall pattern).
         /// </summary>
+        private bool _rumbleEverReceived;
         private void OnRumbleReceived(byte largeMotor, byte smallMotor)
         {
             try
             {
+                // Confirm (once) that the virtual controller's force-feedback actually reaches us —
+                // if this never logs, the game's rumble isn't arriving at this ViGEm controller.
+                if (!_rumbleEverReceived)
+                {
+                    _rumbleEverReceived = true;
+                    Logger.Info($"ClawButtonMonitor: first rumble feedback received (large={largeMotor}, small={smallMotor})");
+                }
                 WriteRumble(largeMotor, smallMotor);
             }
             catch (Exception ex)
@@ -1346,14 +1354,14 @@ namespace XboxGamingBarHelper.Labs
         {
             lock (_rumbleLock)
             {
-                if (!_running) return;
+                if (!_running) { Logger.Info("ClawButtonMonitor: WriteRumble skipped — monitor not running"); return; }
                 if (large == _prevRumbleLarge && small == _prevRumbleSmall) return; // dedupe
 
                 _prevRumbleLarge = large;
                 _prevRumbleSmall = small;
 
                 var dev = _cmdDevice;
-                if (dev == null) return;
+                if (dev == null) { Logger.Info("ClawButtonMonitor: WriteRumble skipped — _cmdDevice null (vendor HID interface not open)"); return; }
 
                 float intensity = _vibrationIntensity;
                 byte scaledSmall = (byte)(small * intensity);
@@ -1369,10 +1377,11 @@ namespace XboxGamingBarHelper.Labs
                 {
                     using (var stream = dev.Open())
                         stream.Write(report);
+                    Logger.Info($"ClawButtonMonitor: rumble written large={large}->{scaledLarge} small={small}->{scaledSmall} (intensity={(int)(intensity * 100)}%)");
                 }
                 catch (Exception ex)
                 {
-                    Logger.Debug($"ClawButtonMonitor: WriteRumble failed: {ex.Message}");
+                    Logger.Warn($"ClawButtonMonitor: WriteRumble failed: {ex.Message}");
                 }
             }
         }
