@@ -51,9 +51,20 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
-        /// Checks if ViGEmBus is installed by looking for the device interface.
+        /// Checks if ViGEmBus is installed. Accepts EITHER the live device interface (present once the
+        /// bus driver has loaded) OR the installed "ViGEmBus" service / driver registry key. The
+        /// service check matters right after a fresh winget install: the driver is installed and the
+        /// service registered, but its device interface often doesn't enumerate until a reboot — so a
+        /// device-interface-only check would report "not installed" even though the install succeeded.
         /// </summary>
         public static bool IsInstalled()
+        {
+            if (HasDeviceInterface()) return true;
+            if (IsServicePresent()) return true;
+            return false;
+        }
+
+        private static bool HasDeviceInterface()
         {
             Guid vigemGuid = VIGEM_GUID;
 
@@ -83,6 +94,33 @@ namespace XboxGamingBarHelper.Labs
             {
                 SetupDiDestroyDeviceInfoList(deviceInfoSet);
             }
+        }
+
+        /// <summary>True when the ViGEmBus service/driver is registered (installed but maybe not yet
+        /// loaded — e.g. before a reboot). Mirrors the PowerShell Test-ViGEmInstalled service check.</summary>
+        private static bool IsServicePresent()
+        {
+            try
+            {
+                using (var sc = new System.ServiceProcess.ServiceController("ViGEmBus"))
+                {
+                    _ = sc.Status; // throws InvalidOperationException if the service does not exist
+                    return true;
+                }
+            }
+            catch { }
+
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SYSTEM\CurrentControlSet\Services\ViGEmBus"))
+                {
+                    return key != null;
+                }
+            }
+            catch { }
+
+            return false;
         }
 
         /// <summary>
