@@ -1390,35 +1390,126 @@ namespace XboxGamingBarHelper.Labs
                 _prevRumbleLarge = large;
                 _prevRumbleSmall = small;
 
-                // Resolve (and cache) the openable vendor HID interface — same as the LED path.
+                // Resolve (and cache) the GAMEPAD HID interface (Generic Desktop / Joystick|Gamepad).
+                // HC writes the 0x05 rumble report to the controller HID, NOT the vendor/LED interface
+                // (which rejects 0x05 with "Incorrect function").
                 var dev = _rumbleDevice;
                 if (dev == null)
                 {
-                    dev = _rumbleDevice = XboxGamingBarHelper.Devices.MSIClaw.MSIClawHidController.FindClawHidDeviceInternal();
+                    dev = _rumbleDevice = FindGamepadHidDevice();
                 }
-                if (dev == null) { Logger.Info("ClawButtonMonitor: WriteRumble skipped — vendor HID interface not found"); return; }
+                if (dev == null) { Logger.Info("ClawButtonMonitor: WriteRumble skipped — gamepad HID interface not found"); return; }
 
                 float intensity = _vibrationIntensity;
                 byte scaledSmall = (byte)(small * intensity);
                 byte scaledLarge = (byte)(large * intensity);
 
-                byte[] report = new byte[64];
+                // Size the report to the device's output report length (HC/hidapi pad to this).
+                int outLen = 0;
+                try { outLen = dev.GetMaxOutputReportLength(); } catch { }
+                if (outLen <= 0) outLen = 64;
+
+                byte[] report = new byte[outLen];
                 report[0] = RUMBLE_REPORT_ID; // 0x05
                 report[1] = 0x01;
                 report[4] = scaledSmall;
                 report[5] = scaledLarge;
 
-                try
+                // hidapi-faithful: open the gamepad HID with SHARED read/write (HidSharp's exclusive
+                // Open() fails with "Unable to open" on this interface) and WriteFile the report.
+                bool ok = SharedHidWrite(dev.DevicePath, report);
+                if (ok)
                 {
-                    using (var stream = dev.Open())
-                        stream.Write(report);
-                    Logger.Info($"ClawButtonMonitor: rumble written large={large}->{scaledLarge} small={small}->{scaledSmall} (intensity={(int)(intensity * 100)}%)");
+                    Logger.Info($"ClawButtonMonitor: rumble written large={large}->{scaledLarge} small={small}->{scaledSmall} (intensity={(int)(intensity * 100)}%, len={outLen})");
                 }
-                catch (Exception ex)
+                else
                 {
-                    Logger.Warn($"ClawButtonMonitor: WriteRumble failed: {ex.Message}");
-                    _rumbleDevice = null; // force re-find next time (device may have re-enumerated)
+                    Logger.Warn($"ClawButtonMonitor: WriteRumble shared write failed (path={dev.DevicePath}, err={Marshal.GetLastWin32Error()})");
+                    _rumbleDevice = null; // re-find next time (device may have re-enumerated)
                 }
+            }
+        }
+
+        // ── Rumble HID plumbing (hidapi-faithful shared write) ────────────────────
+
+        /// <summary>
+        /// Finds the MSI Claw GAMEPAD HID interface (Generic Desktop usage page 0x01,
+        /// usage 0x04 Joystick or 0x05 Game Pad) — the interface that accepts the 0x05
+        /// rumble report (mirrors HC's controller HID, not the vendor/LED interface).
+        /// </summary>
+        private static HidDevice FindGamepadHidDevice()
+        {
+            try
+            {
+                foreach (var d in DeviceList.Local.GetHidDevices())
+                {
+                    if (d.VendorID != CLAW_VID) continue;
+                    try
+                    {
+                        var desc = d.GetReportDescriptor();
+                        if (desc == null) continue;
+                        foreach (var item in desc.DeviceItems)
+                            foreach (uint enc in item.Usages.GetAllValues())
+                            {
+                                int page  = (int)((enc >> 16) & 0xFFFF);
+                                int usage = (int)(enc & 0xFFFF);
+                                if (page == 0x01 && (usage == 0x04 || usage == 0x05))
+                                    return d;
+                            }
+                    }
+                    catch { /* restricted interface — skip */ }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ClawButtonMonitor: FindGamepadHidDevice failed: {ex.Message}");
+            }
+            return null;
+        }
+
+        // Win32 HID open/write — hidapi opens with GENERIC_READ|GENERIC_WRITE + FILE_SHARE_READ|WRITE,
+        // which lets it write to the gamepad HID even while the system holds it (HidSharp's exclusive
+        // Open() fails with "Unable to open HID class device"). Replicate that here.
+        private const uint GENERIC_READ  = 0x80000000;
+        private const uint GENERIC_WRITE = 0x40000000;
+        private const uint FILE_SHARE_READ  = 0x00000001;
+        private const uint FILE_SHARE_WRITE = 0x00000002;
+        private const uint OPEN_EXISTING = 3;
+        private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern IntPtr CreateFileW(string lpFileName, uint dwDesiredAccess, uint dwShareMode,
+            IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool WriteFile(IntPtr hFile, byte[] lpBuffer, uint nNumberOfBytesToWrite,
+            out uint lpNumberOfBytesWritten, IntPtr lpOverlapped);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        /// <summary>Opens a HID path with shared read/write (hidapi-style) and writes one report.</summary>
+        private static bool SharedHidWrite(string devicePath, byte[] data)
+        {
+            if (string.IsNullOrEmpty(devicePath)) return false;
+            IntPtr h = CreateFileW(devicePath, GENERIC_READ | GENERIC_WRITE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
+            if (h == INVALID_HANDLE_VALUE)
+            {
+                // Retry write-only — some interfaces deny read access.
+                h = CreateFileW(devicePath, GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE, IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
+                if (h == INVALID_HANDLE_VALUE) return false;
+            }
+            try
+            {
+                return WriteFile(h, data, (uint)data.Length, out _, IntPtr.Zero);
+            }
+            finally
+            {
+                CloseHandle(h);
             }
         }
 
