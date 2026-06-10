@@ -3361,8 +3361,13 @@
                                         HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
                                         Style="{StaticResource ModernButtonStyle}" FontSize="13" Padding="10,8"
                                         Click="OnbRunSetup_Click"/>
-                                <TextBlock x:Name="OnbSetupProgress" Text="" FontSize="11" Foreground="#AAAAAA"
-                                           TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
+                                <!-- Live progress: spinner + text while the (winget) setup runs in the background -->
+                                <StackPanel x:Name="OnbSetupProgressPanel" Orientation="Horizontal" Margin="0,6,0,0" Visibility="Collapsed">
+                                    <ProgressRing x:Name="OnbSetupSpinner" IsActive="False" Width="16" Height="16"
+                                                  Foreground="#5B8DEF" VerticalAlignment="Top" Margin="0,1,8,0"/>
+                                    <TextBlock x:Name="OnbSetupProgress" Text="" FontSize="11" Foreground="#AAAAAA"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
 
                                 <!-- Read-only per-tool status (refreshed after the run) + what each tool does -->
                                 <TextBlock x:Name="OnbViGEmStatus"  Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888" Margin="0,10,0,0"/>

@@ -96,6 +96,7 @@ namespace XboxGamingBar
         {
             UpdateFPSLimitControls(installed);
             UpdateOnboardingRtss(installed);
+            MaybeFinishOnbSetup();
         }
 
         // Optional guidance steps (MSI Center M off + controller emulation). These do NOT gate
@@ -192,47 +193,86 @@ namespace XboxGamingBar
             }
         }
 
+        // True between clicking the setup button and the helper reporting back. Gates the spinner and
+        // the completion handler so a tab refresh doesn't prematurely stop the spinner.
+        private bool _onbSetupRunning;
+        private int _onbSetupRunSeq;
+
         // --- Step 1: run the proven tool check/installer for all four tools ---
         private void OnbRunSetup_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 Logger.Info("Onboarding: running tool setup (Setup-Tools.ps1)");
+                _onbSetupRunning = true;
+                int seq = ++_onbSetupRunSeq;
+
                 if (OnbRunSetupBtn != null)
                 {
-                    OnbRunSetupBtn.Content = "Checking & installing...";
+                    OnbRunSetupBtn.Content = "Installing…";
                     OnbRunSetupBtn.IsEnabled = false;
                 }
+                if (OnbSetupProgressPanel != null) OnbSetupProgressPanel.Visibility = Visibility.Visible;
+                if (OnbSetupSpinner != null) { OnbSetupSpinner.Visibility = Visibility.Visible; OnbSetupSpinner.IsActive = true; }
                 if (OnbSetupProgress != null)
                 {
-                    OnbSetupProgress.Visibility = Visibility.Visible;
-                    OnbSetupProgress.Text = "Checking for missing tools and installing them. This can take a few minutes — downloads run in the background. The status lines below update when it finishes.";
+                    OnbSetupProgress.Text = "Checking and installing missing tools via winget — this can take a few minutes. The status lines below update when it's done.";
                 }
                 runToolSetup?.Trigger("install");
-                // Re-enable the button after a delay so the user can re-run if needed (statuses
-                // arrive asynchronously via the helper's *Installed pushes).
-                _ = ReEnableSetupButtonAsync();
+
+                // Fallback: if the helper never reports back (e.g. it died), stop the spinner after a
+                // generous timeout. Normal completion is driven by the *Installed pushes that arrive
+                // when the script finishes (see MaybeFinishOnbSetup).
+                _ = OnbSetupFallbackAsync(seq);
             }
             catch (Exception ex)
             {
                 Logger.Warn($"Onboarding tool setup failed: {ex.Message}");
+                _onbSetupRunning = false;
+                if (OnbSetupSpinner != null) { OnbSetupSpinner.IsActive = false; OnbSetupSpinner.Visibility = Visibility.Collapsed; }
                 if (OnbRunSetupBtn != null) { OnbRunSetupBtn.Content = "Check & install tools"; OnbRunSetupBtn.IsEnabled = true; }
             }
         }
 
-        private async System.Threading.Tasks.Task ReEnableSetupButtonAsync()
+        // Called from the *Installed push handlers (UpdateViGEm/HidHide/PawnIOInstalledUI + RTSS),
+        // which only fire when the helper actually reports a status — i.e. after the setup script
+        // finished. Stops the spinner and shows the result (incl. a reboot hint for drivers).
+        private void MaybeFinishOnbSetup()
+        {
+            if (!_onbSetupRunning) return;
+            _onbSetupRunning = false;
+
+            if (OnbSetupSpinner != null) { OnbSetupSpinner.IsActive = false; OnbSetupSpinner.Visibility = Visibility.Collapsed; }
+            if (OnbRunSetupBtn != null)
+            {
+                OnbRunSetupBtn.Content = OnbAllToolsInstalled ? "Re-check tools" : "Check & install tools";
+                OnbRunSetupBtn.IsEnabled = true;
+            }
+            if (OnbSetupProgress != null)
+            {
+                OnbSetupProgress.Text = OnbAllToolsInstalled
+                    ? "All required tools are installed. ✓"
+                    : "Setup finished. If a tool still shows „Not installed“, reboot once so its driver can activate, then tap „Re-check tools“.";
+            }
+        }
+
+        private async System.Threading.Tasks.Task OnbSetupFallbackAsync(int seq)
         {
             try
             {
-                await System.Threading.Tasks.Task.Delay(20000);
+                // The helper's own script timeout is 15 min; give it a little more before we give up.
+                await System.Threading.Tasks.Task.Delay(16 * 60 * 1000);
+                if (!_onbSetupRunning || seq != _onbSetupRunSeq) return; // already finished / re-run
+                _onbSetupRunning = false;
+                if (OnbSetupSpinner != null) { OnbSetupSpinner.IsActive = false; OnbSetupSpinner.Visibility = Visibility.Collapsed; }
                 if (OnbRunSetupBtn != null)
                 {
                     OnbRunSetupBtn.Content = OnbAllToolsInstalled ? "Re-check tools" : "Check & install tools";
                     OnbRunSetupBtn.IsEnabled = true;
                 }
-                if (OnbSetupProgress != null && OnbAllToolsInstalled)
+                if (OnbSetupProgress != null && !OnbAllToolsInstalled)
                 {
-                    OnbSetupProgress.Text = "All required tools are installed.";
+                    OnbSetupProgress.Text = "Still working or no response — check the status lines, or tap „Re-check tools“.";
                 }
             }
             catch { }
