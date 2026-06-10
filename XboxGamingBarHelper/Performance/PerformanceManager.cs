@@ -438,13 +438,6 @@ namespace XboxGamingBarHelper.Performance
         // TDP debouncing to prevent queue buildup from rapid changes
         private System.Threading.Timer tdpDebounceTimer;
 
-        // MSI Claw only: the EC/firmware silently reverts the sustained power limit (PL1) back to a
-        // low default (~15W) a couple of minutes into a sustained load, so a one-shot SetTDP doesn't
-        // hold. Re-assert the last applied PL1/PL2 on a timer to keep the user's TDP pinned (this is
-        // what HC and other tools do). Only writes when we have a value and nothing else is mid-apply.
-        private System.Threading.Timer msiTdpReassertTimer;
-        private readonly object msiReassertLock = new object();
-        private const int MsiTdpReassertIntervalMs = 20000; // 20s
         private int pendingTDP = -1; // -1 means no pending TDP
         private readonly object debounceLock = new object();
 
@@ -1094,7 +1087,6 @@ namespace XboxGamingBarHelper.Performance
                             currentTdp.SetValue(newTdpString);
                             lastTdpString = newTdpString;
                         }
-                        EnsureMsiTdpReassertTimer(); // keep PL1 pinned against firmware revert
                     }
                     ScheduleVerificationRead();
                     return;
@@ -1320,21 +1312,6 @@ namespace XboxGamingBarHelper.Performance
         // }
 
         /// <summary>
-        /// Starts the MSI Claw TDP re-assert timer once (idempotent). See msiTdpReassertTimer.
-        /// </summary>
-        private void EnsureMsiTdpReassertTimer()
-        {
-            if (msiTdpReassertTimer != null) return;
-            lock (msiReassertLock)
-            {
-                if (msiTdpReassertTimer != null) return;
-                msiTdpReassertTimer = new System.Threading.Timer(
-                    _ => ReassertMsiTdp(), null, MsiTdpReassertIntervalMs, MsiTdpReassertIntervalMs);
-                Logger.Info($"[MSIClaw] TDP re-assert timer started ({MsiTdpReassertIntervalMs / 1000}s) to hold PL1 against firmware revert");
-            }
-        }
-
-        /// <summary>
         /// Applies PL1/PL2 on the MSI Claw. Prefers the Intel MCHBAR path (KX) — exactly what HC
         /// does by default, because the MSI EC's WMI silently clamps the sustained limit (PL1) back
         /// to ~15W on Lunar Lake. Falls back to the MSI ACPI WMI only when KX is unavailable.
@@ -1451,27 +1428,6 @@ namespace XboxGamingBarHelper.Performance
             catch (Exception ex)
             {
                 Logger.Warn($"[MSIClaw] TDP unlock failed: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Re-writes the last applied PL1/PL2 so the EC/firmware can't quietly drop the sustained
-        /// limit back to its default mid-load. Holds tdpLock to serialize with user-driven SetTDP.
-        /// </summary>
-        private void ReassertMsiTdp()
-        {
-            try
-            {
-                lock (tdpLock)
-                {
-                    int pl1 = intelLastPL1, pl2 = intelLastPL2;
-                    if (pl1 <= 0 || pl2 <= 0) return;
-                    ApplyMsiClawTdp(pl1, pl2);
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Debug($"[MSIClaw] TDP re-assert failed: {ex.Message}");
             }
         }
 
