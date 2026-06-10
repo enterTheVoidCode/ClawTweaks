@@ -132,6 +132,12 @@ namespace XboxGamingBarHelper.Labs
         // Command interface (PID 0x1901, UsagePage 0xFFA0): HidSharp device for mode-switch commands.
         // Commands sent via HidSharp stream.Write() — same path as MSIClawHidController.TrySwitchToXInput().
         private HidDevice _cmdDevice;
+        // Rumble is written to the SAME vendor HID interface the LED controller uses
+        // (MSIClawHidController.FindClawHidDeviceInternal — matched by usage page AND usage), which
+        // is openable+writable. The old path used _cmdDevice (FindCommandDevice matches the usage
+        // page only) and resolved to an interface (…&mi_01) that HidSharp could not open at all
+        // ("Unable to open HID class device"), so rumble never reached the Claw.
+        private HidDevice _rumbleDevice;
 
         // DInput joystick (PID 0x1902): SharpDX.DirectInput, 1:1 from HC DInputController.
         // DirectInput is disposed via using-block in FindAndAcquireJoystick();
@@ -1384,8 +1390,13 @@ namespace XboxGamingBarHelper.Labs
                 _prevRumbleLarge = large;
                 _prevRumbleSmall = small;
 
-                var dev = _cmdDevice;
-                if (dev == null) { Logger.Info("ClawButtonMonitor: WriteRumble skipped — _cmdDevice null (vendor HID interface not open)"); return; }
+                // Resolve (and cache) the openable vendor HID interface — same as the LED path.
+                var dev = _rumbleDevice;
+                if (dev == null)
+                {
+                    dev = _rumbleDevice = XboxGamingBarHelper.Devices.MSIClaw.MSIClawHidController.FindClawHidDeviceInternal();
+                }
+                if (dev == null) { Logger.Info("ClawButtonMonitor: WriteRumble skipped — vendor HID interface not found"); return; }
 
                 float intensity = _vibrationIntensity;
                 byte scaledSmall = (byte)(small * intensity);
@@ -1406,6 +1417,7 @@ namespace XboxGamingBarHelper.Labs
                 catch (Exception ex)
                 {
                     Logger.Warn($"ClawButtonMonitor: WriteRumble failed: {ex.Message}");
+                    _rumbleDevice = null; // force re-find next time (device may have re-enumerated)
                 }
             }
         }
