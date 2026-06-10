@@ -15,9 +15,15 @@
     vendor/GitHub sources only and never prompts - every missing tool is installed.
 
     Run elevated. Exit code 0 = all tools present afterwards, 1 = at least one missing.
+
+    -Only <pawnio|vigem|hidhide|rtss> limits the run to a single tool (used by the per-tool
+    install buttons); empty/omitted checks and installs all four.
 #>
+param([string]$Only = '')
 
 $ErrorActionPreference = 'Continue'
+
+function Test-ShouldRun { param([string]$Id) return ([string]::IsNullOrEmpty($Only) -or $Only -ieq $Id) }
 
 #region Logging helpers
 function Write-Info    { param([string]$Message) Write-Host "       $Message" -ForegroundColor Gray }
@@ -217,6 +223,7 @@ Write-Host "ClawTweaks - checking required tools..." -ForegroundColor Cyan
 $allOk = $true
 
 # PawnIO
+if (Test-ShouldRun 'pawnio') {
 Write-Host ""
 Write-Host "       Checking PawnIO (hardware sensor kernel driver)..." -ForegroundColor Gray
 if (Test-PawnIOWorking) {
@@ -226,8 +233,10 @@ if (Test-PawnIOWorking) {
     if (Install-PawnIO) { Write-Success "PawnIO installed - a reboot may be required for the driver to activate" }
     else { Write-Err "PawnIO install failed - power sensors may show 0W"; $allOk = $false }
 }
+}
 
 # ViGEmBus
+if (Test-ShouldRun 'vigem') {
 Write-Host ""
 Write-Host "       Checking ViGEmBus (virtual controller driver)..." -ForegroundColor Gray
 if (Test-ViGEmInstalled) {
@@ -237,8 +246,10 @@ if (Test-ViGEmInstalled) {
     if (Install-ViGEmBus) { Write-Success "ViGEmBus installed successfully" }
     else { Write-Err "ViGEmBus install failed - controller emulation will not work"; $allOk = $false }
 }
+}
 
 # HidHide
+if (Test-ShouldRun 'hidhide') {
 Write-Host ""
 Write-Host "       Checking HidHide (controller hiding driver)..." -ForegroundColor Gray
 if (Test-HidHideInstalled) {
@@ -248,8 +259,10 @@ if (Test-HidHideInstalled) {
     if (Install-HidHide) { Write-Success "HidHide installed successfully - a reboot may be required" }
     else { Write-Err "HidHide install failed"; $allOk = $false }
 }
+}
 
 # RTSS
+if (Test-ShouldRun 'rtss') {
 Write-Host ""
 Write-Host "       Checking RTSS (RivaTuner Statistics Server)..." -ForegroundColor Gray
 if (Test-RTSSInstalled) {
@@ -258,6 +271,7 @@ if (Test-RTSSInstalled) {
     Write-Warn "RTSS: NOT installed - installing..."
     if (Install-RTSS) { Write-Success "RTSS installed successfully" }
     else { Write-Err "RTSS install failed - FPS limiter/overlay will not work"; $allOk = $false }
+}
 }
 
 Write-Host ""

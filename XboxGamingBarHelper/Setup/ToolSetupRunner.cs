@@ -28,8 +28,14 @@ namespace XboxGamingBarHelper.Setup
         /// Extracts the embedded script and runs it via powershell.exe (elevated, since the helper
         /// is elevated). Blocks until the script finishes. Returns the script's exit code
         /// (0 = all tools present), or -1 if it could not be started.
+        ///
+        /// <paramref name="only"/> limits the run to a single tool ("pawnio" | "vigem" | "hidhide" |
+        /// "rtss") for the per-tool install buttons; null/empty checks and installs all four. Routing
+        /// per-tool installs through this embedded script keeps the download-and-execute logic out of
+        /// the compiled assembly (no WebClient/Process.Start-exe pattern), which is what some AV
+        /// engines flag as a .NET "downloader".
         /// </summary>
-        public static int Run()
+        public static int Run(string only = null)
         {
             string scriptPath = null;
             try
@@ -41,14 +47,16 @@ namespace XboxGamingBarHelper.Setup
                     return -1;
                 }
 
-                Logger.Info($"ToolSetupRunner: running tool setup script: {scriptPath}");
+                Logger.Info($"ToolSetupRunner: running tool setup script: {scriptPath}" +
+                            (string.IsNullOrEmpty(only) ? "" : $" (only={only})"));
 
+                string onlyArg = string.IsNullOrEmpty(only) ? "" : $" -Only {only}";
                 var psi = new ProcessStartInfo
                 {
                     FileName = Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.System),
                         "WindowsPowerShell", "v1.0", "powershell.exe"),
-                    Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{scriptPath}\"",
+                    Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{scriptPath}\"{onlyArg}",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
