@@ -1341,23 +1341,49 @@ namespace XboxGamingBarHelper.Performance
         /// </summary>
         private bool ApplyMsiClawTdp(int pl1, int pl2)
         {
-            // HC-faithful: the Claw's real power limits are written to the Intel MCHBAR via KX
-            // (set_long_limit/set_short_limit). Do NOT gate on the return value and do NOT fall back
-            // to the MSI ACPI WMI — the WMI clamps the sustained limit to ~15W and would re-clamp
-            // right after the MCHBAR write. KX calls are bounded by a timeout (see set_limit), so a
-            // hung kx.exe can't block. The WMI is used only when KX is genuinely unavailable.
-            if (kx != null && kx.IsAvailable)
-            {
-                kx.set_long_limit(pl1);   // MCHBAR + 0x59A0 (PL1/SPL, sustained)
-                kx.set_short_limit(pl2);  // MCHBAR + 0x59A4 (PL2/sPPT, burst)
-                Logger.Info($"[MSIClaw] SetTDP via KX MCHBAR: PL1={pl1}W PL2={pl2}W");
-                return true;
-            }
+            // The Claw is controlled via the MSI ACPI WMI (exactly like HC's WMI/OEM mode, which the
+            // user confirmed holds high TDP without dropping). The one-time MsiClawTdpUnlock() below
+            // does what HC does at device Open — deactivate MSI's auto power-shift and raise the EC
+            // ceiling — which is what lets the WMI hold > ~15W (that unlock is cleared on reboot, so
+            // HC re-does it every launch; we never did, which is why high TDP dropped).
+            EnsureMsiClawTdpUnlock();
 
-            Logger.Info($"[MSIClaw] SetTDP via MSI ACPI WMI (KX unavailable): PL1/SPL={pl1}W, PL2/sPPT={pl2}W");
             bool wmiOk = SetMsiAcpiTDP(pl1, pl2);
             if (!wmiOk) Logger.Warn("[MSIClaw] MSI ACPI WMI: Failed to set TDP — ensure MSI Center M is stopped");
+            else Logger.Info($"[MSIClaw] SetTDP via MSI ACPI WMI: PL1/SPL={pl1}W, PL2/sPPT={pl2}W");
             return wmiOk;
+        }
+
+        private bool msiClawUnlockDone;
+
+        /// <summary>
+        /// Replicates HC ClawA1M/A2VM.Open()'s runtime TDP unlock (once per helper run; the EC clears
+        /// it on reboot so it must be re-applied each launch):
+        ///   1. SetShiftMode(Deactive) — disable MSI's auto power-shift so manual limits are honoured.
+        ///      HC: v = (GetShiftValue() &amp; 195) | 128 &amp; 191; SetShiftValue(v) → dataBlock 210.
+        ///      For the "deactive" case this resolves to 0x80 for the normal shift states, so we write
+        ///      0x80 directly (no fragile Get_Data round-trip).
+        ///   2. set_long_limit(35) + set_short_limit(37) — raise the EC's power-limit ceiling
+        ///      ("unlock TDP for Lunar Lake" in HC). The user's actual value is applied right after.
+        /// </summary>
+        private void EnsureMsiClawTdpUnlock()
+        {
+            if (msiClawUnlockDone) return;
+            msiClawUnlockDone = true;
+            try
+            {
+                const string scope = "root\\WMI";
+                const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
+                // 1. Deactivate auto power-shift (dataBlock 210 = shift value; 0x80 = deactive).
+                bool shiftOk = SetMsiCpuPowerLimit(scope, path, 210, 0x80);
+                // 2. Raise the ceiling (PL1=35, PL2=37 — HC's A2VM "unlock TDP for Lunar Lake").
+                bool unlockOk = SetMsiAcpiTDP(35, 37);
+                Logger.Info($"[MSIClaw] TDP unlock applied (shiftDeactive={shiftOk}, ceiling35/37={unlockOk}) — like HC Open()");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[MSIClaw] TDP unlock failed: {ex.Message}");
+            }
         }
 
         /// <summary>
