@@ -651,12 +651,16 @@ namespace XboxGamingBarHelper
                     }
                     catch
                     {
-                        // Fallback for elevated mode (no package identity)
-                        // Use hardcoded package family name (same as LocalSettingsHelper)
+                        // Fallback for elevated mode (no package identity). MUST be the ClawTweaks
+                        // package family — the widget reads the heartbeat from its OWN LocalState
+                        // (MSIClaw.ClawTweaks_7eszav2039cvc). The old value here was the upstream
+                        // GoTweaks family (PlayandBuildCustom...), so the elevated helper wrote the
+                        // heartbeat to the wrong folder and the widget never saw it — which broke the
+                        // version-mismatch auto-restart, so a stale helper kept running after updates.
                         localStateFolder = Path.Combine(
                             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                             "Packages",
-                            "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg",
+                            "MSIClaw.ClawTweaks_7eszav2039cvc",
                             "LocalState"
                         );
                     }
