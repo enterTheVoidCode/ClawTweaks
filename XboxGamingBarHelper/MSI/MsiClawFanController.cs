@@ -26,10 +26,14 @@ namespace XboxGamingBarHelper.MSI
         private static readonly byte[] LLFanTable_BestPerformance   = { 10, 0, 10, 26, 46, 78, 113, 150 };
 
         // ── A2VM Lunar Lake software fan curves (11 points: 0,10,…,100 °C → 0–100 %) ──
-        // Strictly ascending, starting at 0 so the fan is silent until the CPU is warm.
-        public static readonly double[] Curve_Quiet      = { 0, 0, 0,  0,  0, 12, 22, 38, 58,  80, 100 };
-        public static readonly double[] Curve_Default    = { 0, 0, 0,  0,  5, 20, 40, 62, 82, 100, 100 };
-        public static readonly double[] Curve_Aggressive = { 0, 0, 0,  5, 15, 35, 55, 75, 90, 100, 100 };
+        // Non-decreasing, starting at 0 so the fan is silent until the CPU is warm. Softened across
+        // the 50-90 °C band (vs. the original HC-derived values) so enabling software fan control is
+        // not LOUDER than MSI's own quiet factory (firmware) curve on Lunar Lake — that was the whole
+        // problem with software mode. They still ramp hard toward 100 °C so thermals stay safe.
+        //                                                 0  10  20  30  40  50  60  70  80  90  100 °C
+        public static readonly double[] Curve_Quiet      = { 0, 0, 0,  0,  0,  0, 10, 20, 35, 55,  75 };
+        public static readonly double[] Curve_Default    = { 0, 0, 0,  0,  0,  8, 18, 30, 48, 70,  90 };
+        public static readonly double[] Curve_Aggressive = { 0, 0, 0,  0,  5, 15, 28, 45, 65, 85, 100 };
 
         /// <summary>
         /// A2VM fan scale: HC's 0–100 % UI is mapped onto MSI 0–100 (instead of 0–150),
