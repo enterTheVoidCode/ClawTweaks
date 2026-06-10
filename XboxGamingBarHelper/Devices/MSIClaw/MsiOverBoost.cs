@@ -43,7 +43,11 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern bool LookupPrivilegeValue(string host, string name, out long luid);
 
-        [StructLayout(LayoutKind.Sequential)]
+        // Pack=4 is essential: the Win32 TOKEN_PRIVILEGES is { DWORD Count; LUID Luid; DWORD Attributes }
+        // with the LUID (8 bytes) immediately after Count at offset 4. With default packing the
+        // 8-byte `long Luid` would be 8-aligned (offset 8), so AdjustTokenPrivileges would read a
+        // bogus LUID and silently fail to enable the privilege (read then returns err=1314).
+        [StructLayout(LayoutKind.Sequential, Pack = 4)]
         private struct TOKEN_PRIVILEGES { public uint Count; public long Luid; public uint Attributes; }
 
         [DllImport("advapi32.dll", SetLastError = true)]
@@ -58,19 +62,36 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         private const uint SE_PRIVILEGE_ENABLED = 0x0002;
         private const string SE_SYSTEM_ENVIRONMENT_NAME = "SeSystemEnvironmentPrivilege";
 
+        private const int ERROR_NOT_ALL_ASSIGNED = 1300;
+
         private static bool EnablePrivilege()
         {
             IntPtr token = IntPtr.Zero;
             try
             {
                 if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, out token))
+                {
+                    Logger.Warn($"[MSIClaw] OverBoost: OpenProcessToken failed (err={Marshal.GetLastWin32Error()})");
                     return false;
+                }
                 if (!LookupPrivilegeValue(null, SE_SYSTEM_ENVIRONMENT_NAME, out long luid))
+                {
+                    Logger.Warn($"[MSIClaw] OverBoost: LookupPrivilegeValue failed (err={Marshal.GetLastWin32Error()})");
                     return false;
+                }
                 var tp = new TOKEN_PRIVILEGES { Count = 1, Luid = luid, Attributes = SE_PRIVILEGE_ENABLED };
-                return AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
+                bool ok = AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero);
+                int err = Marshal.GetLastWin32Error();
+                // AdjustTokenPrivileges returns true even when the privilege is absent from the token;
+                // ERROR_NOT_ALL_ASSIGNED is the real "didn't take" signal.
+                if (!ok || err == ERROR_NOT_ALL_ASSIGNED)
+                {
+                    Logger.Warn($"[MSIClaw] OverBoost: AdjustTokenPrivileges did not enable SeSystemEnvironment (ok={ok}, err={err})");
+                    return false;
+                }
+                return true;
             }
-            catch { return false; }
+            catch (Exception ex) { Logger.Warn($"[MSIClaw] OverBoost: EnablePrivilege threw: {ex.Message}"); return false; }
             finally { if (token != IntPtr.Zero) CloseHandle(token); }
         }
 
@@ -82,14 +103,14 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         {
             try
             {
-                EnablePrivilege();
+                bool priv = EnablePrivilege();
 
                 var box = new byte[4096];
                 uint attrs;
                 uint len = GetFirmwareEnvironmentVariableExW(VarName, VarGuid, box, (uint)box.Length, out attrs);
                 if (len == 0)
                 {
-                    Logger.Warn($"[MSIClaw] OverBoost: could not read {VarName} (err={Marshal.GetLastWin32Error()}) — skipping");
+                    Logger.Warn($"[MSIClaw] OverBoost: could not read {VarName} (err={Marshal.GetLastWin32Error()}, privEnabled={priv}) — skipping");
                     return false;
                 }
 
