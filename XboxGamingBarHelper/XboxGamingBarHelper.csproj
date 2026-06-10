@@ -476,13 +476,10 @@
     <None Include="IGCL_Wrapper.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <!-- Intel kx.exe — MCHBAR physical memory access for Lunar Lake TDP (PL1/PL2).
-         Obtain from HandheldCompanion (github.com/Valkirie/HandheldCompanion) redistributables.
-         Optional: Intel TDP control silently unavailable when this file is absent.
-         Condition prevents build error when kx.exe has not yet been placed here. -->
-    <None Include="kx.exe" Condition="Exists('kx.exe')">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    <!-- Intel kx.exe (MCHBAR ring0 MMIO/MSR tool) is intentionally NOT bundled: it is a known
+         vulnerable-driver tool (AV flags it as Tool.VulnDriver), and the MSI Claw holds its TDP via
+         the ACPI WMI + power-shift path — not KX. The KX code path stays but is inert without the
+         binary (kx.IsAvailable == false → WMI is used). Do not re-add kx.exe to the package. -->
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8">
