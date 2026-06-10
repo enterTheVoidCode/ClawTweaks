@@ -14,8 +14,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
     internal partial class LegionManager
     {
         private int gyroTarget = 0;
-        private int gyroSensitivityX = 50;
-        private int gyroSensitivityY = 50;
+        private int gyroSensitivityX = 100;
+        private int gyroSensitivityY = 100;
         private bool gyroInvertX = false;
         private bool gyroInvertY = false;
         private int gyroMappingType = 0;

@@ -197,8 +197,8 @@ namespace XboxGamingBarHelper.Labs
         private volatile int  _gyroTarget;              // 0=Disabled,1=LeftStick,2=RightStick,3=Mouse
         private volatile int  _gyroActivationMode;      // 0=Hold, 1=Toggle
         private volatile int  _gyroActivationButton;    // 0=None,1=LB,2=LT,3=RB,4=RT
-        private volatile int  _gyroSensitivityX = 50;   // 0-100 (from LegionGyroSensitivityX)
-        private volatile int  _gyroSensitivityY = 50;   // 0-100 (from LegionGyroSensitivityY)
+        private volatile int  _gyroSensitivityX = 100;   // 0-100 (from LegionGyroSensitivityX); default 100 (was 50)
+        private volatile int  _gyroSensitivityY = 100;   // 0-100 (from LegionGyroSensitivityY); default 100 (was 50)
         private volatile int  _gyroDeadzone = 5;        // degrees/sec (from LegionGyroDeadzone)
         private volatile bool _gyroInvertX;
         private volatile bool _gyroInvertY;
@@ -1693,10 +1693,11 @@ namespace XboxGamingBarHelper.Labs
                 v = GyroOneEuro(v, ref _gyroFiltV, ref _gyroDerivV, dt);
             }
 
-            // HC sensitivity scaling: factor = sensitivityX * 10
-            // (HC: output *= MotionSensivityX * 1000; our 0-100 scale: 100 * 10 = 1000 equivalent)
-            float scaleX = Math.Max(0.1f, _gyroSensitivityX * 10.0f);
-            float scaleY = Math.Max(0.1f, _gyroSensitivityY * 10.0f);
+            // Sensitivity scaling, doubled vs. the original HC port so the slider range is twice as
+            // strong: new 50 == old 100 (factor 1000), new 100 == old 200 (factor 2000). Lets the
+            // user reach much higher gyro gain; the default also moves to 100.
+            float scaleX = Math.Max(0.1f, _gyroSensitivityX * 20.0f);
+            float scaleY = Math.Max(0.1f, _gyroSensitivityY * 20.0f);
 
             // Sign convention:
             //   h = sample.GyroZDegPerSecond = -physical.GyroY  (negated once in ClawGyroSourceAdapter)
@@ -1764,10 +1765,11 @@ namespace XboxGamingBarHelper.Labs
                 v = GyroOneEuro(v, ref _gyroFiltV, ref _gyroDerivV, dt);
             }
 
-            // Sensitivity and gain (HC: sensitivityScale × gainXScale × MousePixelsPerDegree)
-            // LegionGyroSensitivityX/Y (0-100) used directly as per-axis gain.
-            float sensX = Math.Max(0.05f, _gyroSensitivityX / 100.0f);
-            float sensY = Math.Max(0.05f, _gyroSensitivityY / 100.0f);
+            // Sensitivity and gain (HC: sensitivityScale × gainXScale × MousePixelsPerDegree).
+            // Doubled vs. the original /100 so the slider range is twice as strong: new 50 == old 100
+            // (gain 1.0), new 100 == old 200 (gain 2.0). Matches the gyro→stick rescale + new default 100.
+            float sensX = Math.Max(0.05f, _gyroSensitivityX / 50.0f);
+            float sensY = Math.Max(0.05f, _gyroSensitivityY / 50.0f);
             float scaleX = (float)Math.Pow(sensX, GyroMouseSensPower);
             float scaleY = (float)Math.Pow(sensY, GyroMouseSensPower);
 

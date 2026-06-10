@@ -7729,13 +7729,13 @@
                                     <Grid>
                                         <TextBlock Text="Sensitivity X" FontSize="13" Foreground="#AAAAAA"/>
                                         <TextBlock x:Name="LegionGyroSensitivityXValue"
-                                                   Text="50"
+                                                   Text="100"
                                                    Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                     <Slider x:Name="LegionGyroSensitivityXSlider"
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
-                                            Value="50"
+                                            Value="100"
                                             StepFrequency="1"/>
                                 </StackPanel>
 
@@ -7744,13 +7744,13 @@
                                     <Grid>
                                         <TextBlock Text="Sensitivity Y" FontSize="13" Foreground="#AAAAAA"/>
                                         <TextBlock x:Name="LegionGyroSensitivityYValue"
-                                                   Text="50"
+                                                   Text="100"
                                                    Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                     <Slider x:Name="LegionGyroSensitivityYSlider"
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
-                                            Value="50"
+                                            Value="100"
                                             StepFrequency="1"/>
                                 </StackPanel>
 
