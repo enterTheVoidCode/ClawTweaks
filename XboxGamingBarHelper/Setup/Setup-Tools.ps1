@@ -34,21 +34,16 @@ function Write-Err     { param([string]$Message) Write-Host "  [X] $Message" -Fo
 
 #region Detection
 function Test-PawnIOWorking {
-    # The only reliable test: try to open the \\.\PawnIO device.
-    # Service status is unreliable - the service can show "Running" while the
-    # driver binary is missing (deinstalled), causing error code 2 (FILE_NOT_FOUND).
+    # The only reliable test: try to open the \\.\PawnIO device directly (in-process — no nested
+    # powershell child, which Defender's script ML treats as suspicious). Service status is
+    # unreliable: the service can show "Running" while the driver binary is missing.
     try {
-        $result = & powershell -NonInteractive -Command {
-            try {
-                $handle = [System.IO.File]::Open('\\.\PawnIO',
-                    [System.IO.FileMode]::Open,
-                    [System.IO.FileAccess]::ReadWrite,
-                    [System.IO.FileShare]::ReadWrite)
-                $handle.Close()
-                exit 0
-            } catch { exit 1 }
-        }
-        return ($LASTEXITCODE -eq 0)
+        $handle = [System.IO.File]::Open('\\.\PawnIO',
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::ReadWrite,
+            [System.IO.FileShare]::ReadWrite)
+        $handle.Close()
+        return $true
     }
     catch { return $false }
 }
@@ -128,25 +123,11 @@ function Install-ViaWinget {
     return $false
 }
 
-function Install-ViaDirectDownload {
-    param([string]$Url, [string]$InstallerName, [string]$SilentArgs, [string]$DisplayName)
-    $tmpPath = Join-Path $env:TEMP $InstallerName
-    try {
-        Write-Info "Downloading $DisplayName..."
-        $wc = New-Object System.Net.WebClient
-        $wc.Headers.Add("User-Agent", "ClawTweaks-Installer/1.0")
-        $wc.DownloadFile($Url, $tmpPath)
-        Write-Info "Installing $DisplayName..."
-        $proc = Start-Process -FilePath $tmpPath -ArgumentList $SilentArgs -Wait -PassThru
-        Remove-Item $tmpPath -Force -ErrorAction SilentlyContinue
-        return ($proc.ExitCode -eq 0 -or $proc.ExitCode -eq 1641 -or $proc.ExitCode -eq 3010)
-    }
-    catch {
-        Write-Warn "Direct download/install failed: $_"
-        if (Test-Path $tmpPath) { Remove-Item $tmpPath -Force -ErrorAction SilentlyContinue }
-        return $false
-    }
-}
+# NOTE: all four tools are installed exclusively via winget (Microsoft's package manager). There is
+# deliberately no in-script fetch-then-launch fallback: that pattern makes Microsoft Defender's
+# script ML flag this file (Program:Script/Wacapew.A!ml). winget itself retrieves the signed vendor
+# package, so this script never fetches or launches a binary of its own. If winget is missing/fails,
+# we simply point the user to the vendor page.
 #endregion
 
 #region Installers
@@ -162,24 +143,7 @@ function Install-ViGEmBus {
     Write-Info "Attempting install via winget (Nefarius.ViGEmBus)..."
     $ok = Install-ViaWinget -PackageId "Nefarius.ViGEmBus" -DisplayName "ViGEmBus"
     if ($ok) { return $true }
-
-    Write-Info "winget unavailable or failed - trying direct download..."
-    try {
-        $apiUrl   = "https://api.github.com/repos/nefarius/ViGEmBus/releases/latest"
-        $headers  = @{ "User-Agent" = "ClawTweaks-Installer/1.0" }
-        $release  = Invoke-RestMethod -Uri $apiUrl -Headers $headers -ErrorAction Stop
-        $asset    = $release.assets | Where-Object { $_.name -like "*.exe" -and $_.name -notlike "*symbols*" } | Select-Object -First 1
-        if ($asset) {
-            $ok = Install-ViaDirectDownload `
-                -Url           $asset.browser_download_url `
-                -InstallerName "ViGEmBus_Setup.exe" `
-                -SilentArgs    "/passive /norestart" `
-                -DisplayName   "ViGEmBus"
-            if ($ok) { return $true }
-        }
-    }
-    catch { Write-Warn "GitHub API fetch failed: $_" }
-    Write-Warn "Automatic ViGEmBus install failed. Get it from: https://github.com/nefarius/ViGEmBus/releases"
+    Write-Warn "Automatic ViGEmBus install failed (winget). Get it from: https://github.com/nefarius/ViGEmBus/releases"
     return $false
 }
 
@@ -187,24 +151,7 @@ function Install-HidHide {
     Write-Info "Attempting install via winget (Nefarius.HidHide)..."
     $ok = Install-ViaWinget -PackageId "Nefarius.HidHide" -DisplayName "HidHide"
     if ($ok) { return $true }
-
-    Write-Info "winget unavailable or failed - trying direct download..."
-    try {
-        $apiUrl  = "https://api.github.com/repos/nefarius/HidHide/releases/latest"
-        $headers = @{ "User-Agent" = "ClawTweaks-Installer/1.0" }
-        $release = Invoke-RestMethod -Uri $apiUrl -Headers $headers -ErrorAction Stop
-        $asset   = $release.assets | Where-Object { $_.name -like "*.exe" -and $_.name -notlike "*symbols*" } | Select-Object -First 1
-        if ($asset) {
-            $ok = Install-ViaDirectDownload `
-                -Url           $asset.browser_download_url `
-                -InstallerName "HidHide_Setup.exe" `
-                -SilentArgs    "/passive /norestart" `
-                -DisplayName   "HidHide"
-            if ($ok) { return $true }
-        }
-    }
-    catch { Write-Warn "GitHub API fetch failed: $_" }
-    Write-Warn "Automatic HidHide install failed. Get it from: https://github.com/nefarius/HidHide/releases"
+    Write-Warn "Automatic HidHide install failed (winget). Get it from: https://github.com/nefarius/HidHide/releases"
     return $false
 }
 
