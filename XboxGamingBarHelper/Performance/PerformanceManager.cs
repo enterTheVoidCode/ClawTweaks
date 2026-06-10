@@ -1341,16 +1341,20 @@ namespace XboxGamingBarHelper.Performance
         /// </summary>
         private bool ApplyMsiClawTdp(int pl1, int pl2)
         {
+            // HC-faithful: the Claw's real power limits are written to the Intel MCHBAR via KX
+            // (set_long_limit/set_short_limit). Do NOT gate on the return value and do NOT fall back
+            // to the MSI ACPI WMI — the WMI clamps the sustained limit to ~15W and would re-clamp
+            // right after the MCHBAR write. KX calls are bounded by a timeout (see set_limit), so a
+            // hung kx.exe can't block. The WMI is used only when KX is genuinely unavailable.
             if (kx != null && kx.IsAvailable)
             {
-                int r1 = kx.set_long_limit(pl1);   // MCHBAR + 0x59A0 (PL1/SPL, sustained)
-                int r2 = kx.set_short_limit(pl2);  // MCHBAR + 0x59A4 (PL2/sPPT, burst)
-                Logger.Info($"[MSIClaw] SetTDP via KX MCHBAR: PL1={pl1}W PL2={pl2}W (r1={r1}, r2={r2})");
-                if (r1 == 0 && r2 == 0) return true;
-                Logger.Warn($"[MSIClaw] KX MCHBAR write failed (r1={r1}, r2={r2}); falling back to MSI ACPI WMI");
+                kx.set_long_limit(pl1);   // MCHBAR + 0x59A0 (PL1/SPL, sustained)
+                kx.set_short_limit(pl2);  // MCHBAR + 0x59A4 (PL2/sPPT, burst)
+                Logger.Info($"[MSIClaw] SetTDP via KX MCHBAR: PL1={pl1}W PL2={pl2}W");
+                return true;
             }
 
-            Logger.Info($"[MSIClaw] SetTDP via MSI ACPI WMI: PL1/SPL={pl1}W, PL2/sPPT={pl2}W");
+            Logger.Info($"[MSIClaw] SetTDP via MSI ACPI WMI (KX unavailable): PL1/SPL={pl1}W, PL2/sPPT={pl2}W");
             bool wmiOk = SetMsiAcpiTDP(pl1, pl2);
             if (!wmiOk) Logger.Warn("[MSIClaw] MSI ACPI WMI: Failed to set TDP — ensure MSI Center M is stopped");
             return wmiOk;

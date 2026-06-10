@@ -246,17 +246,32 @@ namespace XboxGamingBarHelper.Intel
 
             // register command — bit 15 (0x8) = power limit enable
             startInfo.Arguments = $"/wrmem16 {mchbar}{pointer1} 0x8{hex.Substring(0, 1)}{hex.Substring(1)}";
-            using (Process ProcessOutput = Process.Start(startInfo))
+            try
             {
-                if (ProcessOutput is null)
-                    return -1;
+                using (Process p = Process.Start(startInfo))
+                {
+                    if (p is null)
+                        return -1;
 
-                string line = ProcessOutput.StandardOutput.ReadLine();
-                if (string.IsNullOrEmpty(line))
-                    return 0; // success: kx.exe outputs nothing on a successful write
+                    // Bound the call: a hung kx.exe must never block the caller (it holds tdpLock,
+                    // and a stall there stalls the widget's TDP sync). Don't gate success on stdout
+                    // content — kx.exe prints a banner on a *successful* write, so the old
+                    // empty-line check reported -1 even when the MCHBAR write went through (HC
+                    // likewise ignores the return). Exiting in time = write issued.
+                    if (!p.WaitForExit(1500))
+                    {
+                        try { p.Kill(); } catch { }
+                        Logger.Warn("[KX] set_limit timed out — killed kx.exe");
+                        return -1;
+                    }
+                    return 0;
+                }
             }
-
-            return -1;
+            catch (Exception ex)
+            {
+                Logger.Debug($"[KX] set_limit failed: {ex.Message}");
+                return -1;
+            }
         }
 
         internal int set_msr_limits(int PL1, int PL2)
