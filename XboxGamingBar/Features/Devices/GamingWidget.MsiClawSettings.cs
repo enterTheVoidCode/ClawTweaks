@@ -106,9 +106,12 @@ namespace XboxGamingBar
         }
 
         // Fires a short test rumble pulse at the current intensity (no game needed).
+        // Send a UNIQUE value each press — the trigger property dedupes equal values, so a constant
+        // "test" would only fire once. The helper ignores the content (it just checks for a Set).
+        private int _testVibrationSeq;
         private void TestVibrationButton_Click(object sender, RoutedEventArgs e)
         {
-            testControllerVibration?.Trigger("test");
+            testControllerVibration?.Trigger("test" + (++_testVibrationSeq));
         }
 
         internal void MsiLedExpandButton_Click(object sender, RoutedEventArgs e)
