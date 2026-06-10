@@ -140,8 +140,10 @@ function Install-PawnIO {
 }
 
 function Install-ViGEmBus {
-    Write-Info "Attempting install via winget (Nefarius.ViGEmBus)..."
-    $ok = Install-ViaWinget -PackageId "Nefarius.ViGEmBus" -DisplayName "ViGEmBus"
+    # winget package id is "ViGEm.ViGEmBus" (NOT "Nefarius.ViGEmBus", which does not exist and returns
+    # "No package found"). HidHide is published under Nefarius.*, ViGEmBus under ViGEm.*.
+    Write-Info "Attempting install via winget (ViGEm.ViGEmBus)..."
+    $ok = Install-ViaWinget -PackageId "ViGEm.ViGEmBus" -DisplayName "ViGEmBus"
     if ($ok) { return $true }
     Write-Warn "Automatic ViGEmBus install failed (winget). Get it from: https://github.com/nefarius/ViGEmBus/releases"
     return $false
