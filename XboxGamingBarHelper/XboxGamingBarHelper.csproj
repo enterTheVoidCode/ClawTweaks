@@ -183,6 +183,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Setup\ToolSetupRunner.cs" />
+    <Compile Include="Devices\MSIClaw\MsiOverBoost.cs" />
     <EmbeddedResource Include="Setup\Setup-Tools.ps1">
       <LogicalName>XboxGamingBarHelper.Setup.Setup-Tools.ps1</LogicalName>
     </EmbeddedResource>

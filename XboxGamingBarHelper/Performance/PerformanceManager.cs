@@ -1372,6 +1372,11 @@ namespace XboxGamingBarHelper.Performance
             msiClawUnlockDone = true;
             try
             {
+                // 0. Enable the MSI OverBoost support flag (UEFI MsiDCVarData box[1]=1), like HC's
+                //    InitOverBoost(true) at Open(). Persistent firmware NV — without it the EC clamps
+                //    sustained power to ~15W no matter what PL1/PL2 we push.
+                Devices.MSIClaw.MsiOverBoost.EnsureOverBoostEnabled();
+
                 const string scope = "root\\WMI";
                 const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
                 // 1. Deactivate auto power-shift (dataBlock 210 = shift value; 0x80 = deactive).
