@@ -1359,13 +1359,16 @@ namespace XboxGamingBarHelper.Performance
                 const string scope = "root\\WMI";
                 const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
 
-                bool onBattery = IsOnBattery();
-                int shiftValue;
-                string label;
-                if (onBattery)            { shiftValue = 0xC0; label = "None (DC)"; }     // HC: ShiftType.None on battery
-                else if (pl1 <= 12)       { shiftValue = 0xC2; label = "ECO"; }           // BetterBattery
-                else if (pl1 <= 20)       { shiftValue = 0xC1; label = "GreenMode"; }     // BetterPerformance
-                else                      { shiftValue = 0xC4; label = "SportMode"; }     // BestPerformance / custom high TDP
+                // Use the *base active* scenario (0xC0 = HC ShiftType.None / Comfort) for every case.
+                // What actually holds the sustained TDP is the "active" bit (0x40), NOT the specific
+                // scenario — confirmed on battery, where 0xC0 held 23-24W rock-solid. The mode bits only
+                // pick how aggressive the scenario is, and crucially the EC's *fan* profile rides along:
+                // Sport (0xC4) makes the EC run its own aggressive fan curve that overrides our software
+                // fan table entirely (re-applying our table does nothing while Sport is active). Comfort
+                // (0xC0) is the calmest active scenario, so the fan can follow our table while the TDP
+                // still holds. Single value → the shift no longer changes on AC/DC or per watts.
+                int shiftValue = 0xC0;
+                string label = "Comfort/None (active)";
 
                 // Only write when the scenario actually changes. Re-writing block 210 on every TDP
                 // apply (which happens often) makes the EC re-grab the fan with the scenario's own
