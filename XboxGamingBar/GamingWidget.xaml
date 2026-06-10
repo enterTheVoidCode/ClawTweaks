@@ -3354,7 +3354,7 @@
                         <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,4,0,0">
                             <StackPanel>
                                 <TextBlock Text="1. Install required tools" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                                <TextBlock Text="ViGEmBus + HidHide power controller emulation; RTSS drives the on-screen overlay; PawnIO exposes hardware sensors."
+                                <TextBlock Text="These four tools power ClawTweaks' core features. The button checks what's already present and installs only what's missing (via winget)."
                                            FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
 
                                 <Button x:Name="OnbRunSetupBtn" Content="Check &amp; install tools"
@@ -3364,14 +3364,25 @@
                                 <TextBlock x:Name="OnbSetupProgress" Text="" FontSize="11" Foreground="#AAAAAA"
                                            TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
 
-                                <!-- Read-only per-tool status (refreshed after the run) -->
-                                <TextBlock x:Name="OnbViGEmStatus"  Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
-                                <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..."  FontSize="11" Foreground="#888888" Margin="0,3,0,0"/>
-                                <TextBlock x:Name="OnbRtssStatus"    Text="RTSS: Checking..."     FontSize="11" Foreground="#888888" Margin="0,3,0,0"/>
-                                <TextBlock x:Name="OnbPawnIOStatus"  Text="PawnIO: Checking..."   FontSize="11" Foreground="#888888" Margin="0,3,0,0"/>
+                                <!-- Read-only per-tool status (refreshed after the run) + what each tool does -->
+                                <TextBlock x:Name="OnbViGEmStatus"  Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888" Margin="0,10,0,0"/>
+                                <TextBlock Text="Virtual Xbox controller driver. Required for the whole controller emulation: button remapping (M1/M2, MSI buttons), gyro-as-stick and Mouse Mode."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
 
-                                <TextBlock Text="Individual install / download buttons live under System → Debug → Driver dependencies."
-                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..."  FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
+                                <TextBlock Text="Hides the Claw's built-in controller while emulation runs, so games see only the virtual pad — prevents double input."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
+
+                                <TextBlock x:Name="OnbRtssStatus"    Text="RTSS: Checking..."     FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
+                                <TextBlock Text="RivaTuner Statistics Server. Draws the on-screen overlay (FPS, TDP, temps) and enforces the FPS limiter."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
+
+                                <TextBlock x:Name="OnbPawnIOStatus"  Text="PawnIO: Checking..."   FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
+                                <TextBlock Text="Kernel sensor driver. Exposes CPU/GPU power and temperature to the overlay — without it the power readout stays at 0 W."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
+
+                                <TextBlock Text="All are official, signed third-party drivers/tools, installed from their vendors via winget. Individual install / download buttons live under System → Debug → Driver dependencies."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,10,0,0"/>
                             </StackPanel>
                         </Border>
 
