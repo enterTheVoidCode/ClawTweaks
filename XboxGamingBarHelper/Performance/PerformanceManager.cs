@@ -1080,9 +1080,8 @@ namespace XboxGamingBarHelper.Performance
                     // When PL2-Boost is active, fppt = spl + boost, capped at 37W.
                     const int MSI_CLAW_MAX_PL2 = 37;
                     int msiPl2 = Math.Min(Math.Max(fppt, spl + 1), MSI_CLAW_MAX_PL2);
-                    Logger.Info($"[MSIClaw] SetTDP via MSI ACPI WMI: PL1/SPL={spl}W, PL2/sPPT={msiPl2}W");
-                    bool wmiOk = SetMsiAcpiTDP(spl, msiPl2);
-                    if (wmiOk)
+                    bool ok = ApplyMsiClawTdp(spl, msiPl2);
+                    if (ok)
                     {
                         intelLastPL1 = spl;
                         intelLastPL2 = msiPl2;
@@ -1096,10 +1095,6 @@ namespace XboxGamingBarHelper.Performance
                             lastTdpString = newTdpString;
                         }
                         EnsureMsiTdpReassertTimer(); // keep PL1 pinned against firmware revert
-                    }
-                    else
-                    {
-                        Logger.Warn("[MSIClaw] MSI ACPI WMI: Failed to set TDP — ensure MSI Center M is stopped");
                     }
                     ScheduleVerificationRead();
                     return;
@@ -1340,6 +1335,28 @@ namespace XboxGamingBarHelper.Performance
         }
 
         /// <summary>
+        /// Applies PL1/PL2 on the MSI Claw. Prefers the Intel MCHBAR path (KX) — exactly what HC
+        /// does by default, because the MSI EC's WMI silently clamps the sustained limit (PL1) back
+        /// to ~15W on Lunar Lake. Falls back to the MSI ACPI WMI only when KX is unavailable.
+        /// </summary>
+        private bool ApplyMsiClawTdp(int pl1, int pl2)
+        {
+            if (kx != null && kx.IsAvailable)
+            {
+                int r1 = kx.set_long_limit(pl1);   // MCHBAR + 0x59A0 (PL1/SPL, sustained)
+                int r2 = kx.set_short_limit(pl2);  // MCHBAR + 0x59A4 (PL2/sPPT, burst)
+                Logger.Info($"[MSIClaw] SetTDP via KX MCHBAR: PL1={pl1}W PL2={pl2}W (r1={r1}, r2={r2})");
+                if (r1 == 0 && r2 == 0) return true;
+                Logger.Warn($"[MSIClaw] KX MCHBAR write failed (r1={r1}, r2={r2}); falling back to MSI ACPI WMI");
+            }
+
+            Logger.Info($"[MSIClaw] SetTDP via MSI ACPI WMI: PL1/SPL={pl1}W, PL2/sPPT={pl2}W");
+            bool wmiOk = SetMsiAcpiTDP(pl1, pl2);
+            if (!wmiOk) Logger.Warn("[MSIClaw] MSI ACPI WMI: Failed to set TDP — ensure MSI Center M is stopped");
+            return wmiOk;
+        }
+
+        /// <summary>
         /// Re-writes the last applied PL1/PL2 so the EC/firmware can't quietly drop the sustained
         /// limit back to its default mid-load. Holds tdpLock to serialize with user-driven SetTDP.
         /// </summary>
@@ -1351,8 +1368,7 @@ namespace XboxGamingBarHelper.Performance
                 {
                     int pl1 = intelLastPL1, pl2 = intelLastPL2;
                     if (pl1 <= 0 || pl2 <= 0) return;
-                    bool ok = SetMsiAcpiTDP(pl1, pl2);
-                    Logger.Debug($"[MSIClaw] TDP re-assert PL1={pl1}W PL2={pl2}W ok={ok}");
+                    ApplyMsiClawTdp(pl1, pl2);
                 }
             }
             catch (Exception ex)
