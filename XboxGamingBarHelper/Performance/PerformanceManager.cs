@@ -1351,7 +1351,70 @@ namespace XboxGamingBarHelper.Performance
             bool wmiOk = SetMsiAcpiTDP(pl1, pl2);
             if (!wmiOk) Logger.Warn("[MSIClaw] MSI ACPI WMI: Failed to set TDP — ensure MSI Center M is stopped");
             else Logger.Info($"[MSIClaw] SetTDP via MSI ACPI WMI: PL1/SPL={pl1}W, PL2/sPPT={pl2}W");
+
+            // Mirror HC's PowerProfileManager_Applied: after writing PL1/PL2, set the MSI power-shift
+            // to the performance scenario the EC should sustain. HC uses Deactive only transiently at
+            // Open(); during actual use it sets a *concrete* shift type per profile, and for any custom
+            // / high-perf profile that is SportMode. Without this the EC reverts the sustained limit to
+            // its conservative default (~15W) once the turbo window (Tau) elapses — exactly our drop.
+            // On battery HC uses ShiftType.None. We re-assert this on every apply (incl. the 20s timer).
+            SetMsiPowerShiftForTdp(pl1);
+
             return wmiOk;
+        }
+
+        /// <summary>
+        /// Sets the MSI power-shift scenario (EC dataBlock 210) to match HC's
+        /// PowerProfileManager_Applied. HC maps profile→shift: BestPerformance/custom→SportMode,
+        /// BetterPerformance→GreenMode, BetterBattery→ECO, and ShiftType.None on battery (DC).
+        ///
+        /// HC's SetShiftMode(ChangeToCurrentShiftType, type) resolves deterministically to a fixed
+        /// EC value: ((cur &amp; 195) | 192) &amp; 252 == 0xC0 base, then + the per-type offset
+        /// (Sport+4, Comfort+0, Green+1, ECO+2, User+3). So:
+        ///   Sport=0xC4(196) Comfort=0xC0(192) Green=0xC1(193) ECO=0xC2(194) None=0xC0(192).
+        /// We write the value directly (the base bits are forced regardless of the current value, so
+        /// no Get_Data round-trip is needed — the same reason our Deactive write worked).
+        /// </summary>
+        private void SetMsiPowerShiftForTdp(int pl1)
+        {
+            try
+            {
+                const string scope = "root\\WMI";
+                const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
+
+                bool onBattery = IsOnBattery();
+                int shiftValue;
+                string label;
+                if (onBattery)            { shiftValue = 0xC0; label = "None (DC)"; }     // HC: ShiftType.None on battery
+                else if (pl1 <= 12)       { shiftValue = 0xC2; label = "ECO"; }           // BetterBattery
+                else if (pl1 <= 20)       { shiftValue = 0xC1; label = "GreenMode"; }     // BetterPerformance
+                else                      { shiftValue = 0xC4; label = "SportMode"; }     // BestPerformance / custom high TDP
+
+                bool ok = SetMsiCpuPowerLimit(scope, path, 210, shiftValue);
+                Logger.Info($"[MSIClaw] PowerShift set to {label} (0x{shiftValue:X2}, pl1={pl1}W) — ok={ok}, like HC PowerProfileManager_Applied");
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[MSIClaw] SetMsiPowerShiftForTdp failed: {ex.Message}");
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SYSTEM_POWER_STATUS { public byte ACLineStatus; public byte BatteryFlag; public byte BatteryLifePercent; public byte SystemStatusFlag; public uint BatteryLifeTime; public uint BatteryFullLifeTime; }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS sps);
+
+        /// <summary>True when running on battery (DC). Defaults to false (AC) if the status is unknown.</summary>
+        private static bool IsOnBattery()
+        {
+            try
+            {
+                if (GetSystemPowerStatus(out SYSTEM_POWER_STATUS sps))
+                    return sps.ACLineStatus == 0; // 0 = offline/battery, 1 = online/AC, 255 = unknown
+            }
+            catch { }
+            return false;
         }
 
         private bool msiClawUnlockDone;
@@ -1377,13 +1440,13 @@ namespace XboxGamingBarHelper.Performance
                 //    sustained power to ~15W no matter what PL1/PL2 we push.
                 Devices.MSIClaw.MsiOverBoost.EnsureOverBoostEnabled();
 
-                const string scope = "root\\WMI";
-                const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
-                // 1. Deactivate auto power-shift (dataBlock 210 = shift value; 0x80 = deactive).
-                bool shiftOk = SetMsiCpuPowerLimit(scope, path, 210, 0x80);
-                // 2. Raise the ceiling (PL1=35, PL2=37 — HC's A2VM "unlock TDP for Lunar Lake").
+                // 1. Raise the ceiling (PL1=35, PL2=37 — HC's A2VM "unlock TDP for Lunar Lake").
+                //    The concrete power-shift (Sport/Green/ECO) is set per-apply in SetMsiPowerShiftForTdp,
+                //    mirroring HC: HC only uses Deactive transiently at Open() and immediately overwrites
+                //    it with a real shift type on the first profile apply. Forcing Deactive permanently
+                //    was our bug — it lets the EC fall back to ~15W sustained after Tau.
                 bool unlockOk = SetMsiAcpiTDP(35, 37);
-                Logger.Info($"[MSIClaw] TDP unlock applied (shiftDeactive={shiftOk}, ceiling35/37={unlockOk}) — like HC Open()");
+                Logger.Info($"[MSIClaw] TDP unlock applied (ceiling35/37={unlockOk}) — like HC Open()");
             }
             catch (Exception ex)
             {
