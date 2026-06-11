@@ -161,20 +161,35 @@ namespace XboxGamingBarHelper.Services
                         continue;
 
                     string tag = GetStr(rel, "tag_name");
+                    // Pick the installable asset. Releases ship a "..._Installer.zip" that contains the
+                    // signed .msix; some may attach a bare .msixbundle/.msix instead. Prefer a direct
+                    // package, fall back to the installer zip (helper extracts the .msix from it).
                     string downloadUrl = null, assetName = null;
+                    string zipUrl = null, zipName = null;
                     if (rel.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var asset in assets.EnumerateArray())
                         {
                             if (asset.ValueKind != JsonValueKind.Object) continue;
                             var aname = GetStr(asset, "name");
-                            if (aname.EndsWith(".msixbundle", StringComparison.OrdinalIgnoreCase))
+                            if (aname.EndsWith(".msixbundle", StringComparison.OrdinalIgnoreCase) ||
+                                aname.EndsWith(".msix", StringComparison.OrdinalIgnoreCase))
                             {
                                 assetName = aname;
                                 downloadUrl = GetStr(asset, "browser_download_url");
-                                break;
+                                break; // direct package wins
+                            }
+                            if (zipUrl == null && aname.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                            {
+                                zipName = aname;
+                                zipUrl = GetStr(asset, "browser_download_url");
                             }
                         }
+                    }
+                    if (downloadUrl == null && zipUrl != null)
+                    {
+                        downloadUrl = zipUrl;
+                        assetName = zipName;
                     }
 
                     list.Add(new ReleaseInfo
@@ -263,6 +278,33 @@ namespace XboxGamingBarHelper.Services
                 return "{\"success\":false,\"message\":\"Download failed: " + ex.Message.Replace("\"", "'") + "\"}";
             }
 
+            // If we downloaded the installer .zip, extract it and locate the signed package inside
+            // (.msixbundle preferred, else .msix). Extraction is plain ZipFile — still AV-clean
+            // (no Process.Start / PowerShell / runas).
+            string installPath = target;
+            if (target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    string extractDir = System.IO.Path.Combine(dir, "extracted");
+                    try { if (System.IO.Directory.Exists(extractDir)) System.IO.Directory.Delete(extractDir, true); } catch { }
+                    System.IO.Directory.CreateDirectory(extractDir);
+                    System.IO.Compression.ZipFile.ExtractToDirectory(target, extractDir);
+
+                    var pkg = System.IO.Directory.GetFiles(extractDir, "*.msixbundle", System.IO.SearchOption.AllDirectories).FirstOrDefault()
+                              ?? System.IO.Directory.GetFiles(extractDir, "*.msix", System.IO.SearchOption.AllDirectories).FirstOrDefault();
+                    if (string.IsNullOrEmpty(pkg))
+                        return "{\"success\":false,\"message\":\"No .msix/.msixbundle found inside the installer zip.\"}";
+                    installPath = pkg;
+                    Logger.Info($"GoTweaksUpdateService: extracted package {installPath} from {target}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"GoTweaks zip extract failed: {ex.Message}");
+                    return "{\"success\":false,\"message\":\"Unpack failed: " + ex.Message.Replace("\"", "'") + "\"}";
+                }
+            }
+
             // Install via the OS-native WinRT PackageManager. AddPackageAsync
             // verifies the signature against the already-trusted cert and
             // re-registers the package for the current user — no elevation, no
@@ -271,16 +313,19 @@ namespace XboxGamingBarHelper.Services
             // its deployed copy outside the package) survives to finish the job.
             try
             {
-                Logger.Info($"GoTweaksUpdateService: installing {target} via PackageManager.AddPackageAsync");
+                Logger.Info($"GoTweaksUpdateService: installing {installPath} via PackageManager.AddPackageAsync");
                 var pm = new PackageManager();
-                var pkgUri = new Uri(target);
-                var op = pm.AddPackageAsync(pkgUri, null, DeploymentOptions.ForceApplicationShutdown);
+                var pkgUri = new Uri(installPath);
+                // ForceUpdateFromAnyVersion lets the user roll BACK to the previous release
+                // (a plain AddPackage refuses to install a lower version over a higher one).
+                var op = pm.AddPackageAsync(pkgUri, null,
+                    DeploymentOptions.ForceApplicationShutdown | DeploymentOptions.ForceUpdateFromAnyVersion);
                 var result = await op.AsTask();
 
                 if (op.Status == global::Windows.Foundation.AsyncStatus.Completed &&
                     (result == null || result.ExtendedErrorCode == null))
                 {
-                    Logger.Info($"GoTweaks update installed successfully from {target}");
+                    Logger.Info($"GoTweaks update installed successfully from {installPath}");
                     return "{\"success\":true,\"message\":\"Update installed — the widget will reload.\"}";
                 }
 
