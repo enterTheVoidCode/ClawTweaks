@@ -1331,6 +1331,9 @@ namespace XboxGamingBar
         private readonly ToolTriggerProperty uninstallRTSS;
         private readonly ToolTriggerProperty uninstallPawnIO;
         private readonly ToolTriggerProperty runToolSetup;
+        // In-app update (Onboarding): query the latest releases (Get) + install a chosen one (Set).
+        private readonly WidgetProperty<string> appReleases;
+        private readonly ToolTriggerProperty installAppRelease;
         private readonly ToolTriggerProperty testControllerVibration;
         // "Xbox Button" app action → momentary Guide tap on the virtual ViGEm controller (helper-side)
         private readonly ToolTriggerProperty emulateXboxGuide;
@@ -2104,6 +2107,8 @@ namespace XboxGamingBar
             uninstallRTSS = new ToolTriggerProperty(this, Function.UninstallRTSS);
             uninstallPawnIO = new ToolTriggerProperty(this, Function.UninstallPawnIO);
             runToolSetup = new ToolTriggerProperty(this, Function.RunToolSetup);
+            appReleases = new WidgetProperty<string>("", null, Function.ListAppReleases);
+            installAppRelease = new ToolTriggerProperty(this, Function.InstallAppRelease);
             testControllerVibration = new ToolTriggerProperty(this, Function.TestControllerVibration);
             emulateXboxGuide = new ToolTriggerProperty(this, Function.EmulateXboxGuide);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);

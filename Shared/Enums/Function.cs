@@ -337,6 +337,12 @@
         CheckLocalUpdate,               // Trigger: check for local AppPackages update (Debug)
         InstallUpdate,                  // Trigger: download and install update (Content = URL or local path)
 
+        // In-app update (Onboarding tab): list recent GitHub releases + install a chosen one.
+        // AV-clean: helper downloads the signed .msixbundle via HttpClient and installs it with the
+        // WinRT PackageManager (no PowerShell, no Process.Start, no runas) — per-user, no UAC.
+        ListAppReleases,                // Query (Get): returns Content = JSON array of the latest releases
+        InstallAppRelease,              // Set: Content = msixbundle browser_download_url to download + install
+
         // System Restore (for clean uninstall)
         PrepareForUninstall,            // Trigger: restore original system values and remove scheduled task
         SystemRestoreStatus,            // string - status of saved original values (read-only)

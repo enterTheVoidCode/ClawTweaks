@@ -3346,6 +3346,40 @@
                 <ScrollViewer x:Name="OnboardingScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
+                        <!-- App version & updates — collapsible, at the very top. Lists the latest and
+                             previous release so the user can jump forward or roll back. -->
+                        <muxc:Expander x:Name="AppUpdateExpander" Margin="0,0,0,10"
+                                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                       IsExpanded="False" Expanding="AppUpdateExpander_Expanding">
+                            <muxc:Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <FontIcon Glyph="&#xE895;" FontSize="14" Foreground="#5B8DEF" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="App version &amp; updates" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </muxc:Expander.Header>
+                            <StackPanel>
+                                <TextBlock x:Name="AppUpdateCurrentVersionText" Text="Installed version: …"
+                                           FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,2"/>
+                                <TextBlock Text="Pick a version to install. The download is verified and installed by the signed helper — no extra prompts."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                                <Button x:Name="AppUpdateRefreshBtn" Content="Reload releases"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Style="{StaticResource ModernButtonStyle}" FontSize="12" Padding="10,6"
+                                        Click="AppUpdateRefresh_Click"/>
+
+                                <!-- Spinner while the helper fetches the GitHub releases feed -->
+                                <StackPanel x:Name="AppUpdateProgressPanel" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
+                                    <ProgressRing x:Name="AppUpdateSpinner" IsActive="False" Width="16" Height="16"
+                                                  Foreground="#5B8DEF" VerticalAlignment="Top" Margin="0,1,8,0"/>
+                                    <TextBlock x:Name="AppUpdateStatusText" Text="" FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap"/>
+                                </StackPanel>
+
+                                <!-- Release cards are built in code-behind (GamingWidget.AppUpdate.cs) -->
+                                <StackPanel x:Name="AppReleasesContainer" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </muxc:Expander>
+
                         <TextBlock Text="Setup &amp; Onboarding" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,4,0,2"/>
                         <TextBlock Text="ClawTweaks needs four small tools. One click checks what's present and installs anything missing."
                                    FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
