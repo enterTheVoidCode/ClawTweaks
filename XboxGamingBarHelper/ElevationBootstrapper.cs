@@ -364,6 +364,10 @@ namespace XboxGamingBarHelper
                 try { Thread.Sleep(1000); } catch { }
                 Logger.Info($"KillOtherHelperInstances ({reason}): {killed} stale instance(s) terminated");
             }
+            else
+            {
+                Logger.Info($"KillOtherHelperInstances ({reason}): no other helper instances found");
+            }
         }
 
         /// <summary>
