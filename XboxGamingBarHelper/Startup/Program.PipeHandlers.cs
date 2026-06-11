@@ -1839,6 +1839,14 @@ namespace XboxGamingBarHelper
                     response.Add("Content", json);
                     response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
                 }
+                // In-app update (Onboarding): poll the in-flight install progress (download %, phase).
+                else if (functionValue == (int)Function.AppInstallStatus)
+                {
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add(nameof(Function), functionValue);
+                    response.Add("Content", Services.GoTweaksUpdateService.GetInstallStatusJson());
+                    response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                }
                 // In-app update (Onboarding): install a chosen release by download URL.
                 // AV-clean path — GoTweaksUpdateService downloads via HttpClient and installs
                 // via the WinRT PackageManager (no PowerShell / Process.Start / runas).

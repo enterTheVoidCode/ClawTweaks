@@ -33,6 +33,26 @@ namespace XboxGamingBarHelper.Services
         private static GoTweaksUpdateResult _lastResult;
         public static GoTweaksUpdateResult LastResult => _lastResult;
 
+        // In-app install progress, polled by the widget via Function.AppInstallStatus so the
+        // Onboarding update card can show "Downloading 45%…" instead of a static "Installing…".
+        public static volatile int InstallPercent = -1;        // 0..100 while downloading; -1 = idle/unknown
+        private static volatile string _installPhase = "idle"; // idle | downloading | installing | done | failed
+        private static string _installMessage = "";
+
+        public static string GetInstallStatusJson()
+        {
+            string phase = _installPhase ?? "idle";
+            string msg = (_installMessage ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+            return $"{{\"phase\":\"{phase}\",\"percent\":{InstallPercent},\"message\":\"{msg}\"}}";
+        }
+
+        private static void SetInstallStatus(string phase, int percent, string message = "")
+        {
+            _installPhase = phase;
+            InstallPercent = percent;
+            _installMessage = message ?? "";
+        }
+
         private static HttpClient CreateHttpClient()
         {
             try
@@ -263,24 +283,64 @@ namespace XboxGamingBarHelper.Services
 
             string target = System.IO.Path.Combine(dir, fileName);
             Logger.Info($"GoTweaksUpdateService: downloading {downloadUrl} -> {target}");
+            SetInstallStatus("downloading", 0);
             try
             {
                 using var response = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
                 if (!response.IsSuccessStatusCode)
+                {
+                    SetInstallStatus("failed", -1, $"HTTP {(int)response.StatusCode} from GitHub.");
                     return "{\"success\":false,\"message\":\"HTTP " + (int)response.StatusCode + " from GitHub.\"}";
+                }
+
+                long total = response.Content.Headers.ContentLength ?? -1;
+                // Manual streamed copy: log progress and bound stalls. The shared _http.Timeout only
+                // covers the header phase (ResponseHeadersRead); a dead connection during the body
+                // read would otherwise hang forever, so each ReadAsync gets its own 90s watchdog.
                 using (var src = await response.Content.ReadAsStreamAsync())
                 using (var dst = System.IO.File.Create(target))
-                    await src.CopyToAsync(dst);
+                {
+                    var buffer = new byte[81920];
+                    long read = 0, lastLogged = 0;
+                    while (true)
+                    {
+                        int n;
+                        using (var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(90)))
+                        {
+                            n = await src.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                        }
+                        if (n <= 0) break;
+                        await dst.WriteAsync(buffer, 0, n);
+                        read += n;
+                        if (total > 0) InstallPercent = (int)(read * 100 / total);
+                        if (read - lastLogged >= 8_000_000)
+                        {
+                            lastLogged = read;
+                            Logger.Info(total > 0
+                                ? $"GoTweaks download progress: {read * 100 / total}% ({read / 1048576}/{total / 1048576} MB)"
+                                : $"GoTweaks download progress: {read / 1048576} MB");
+                        }
+                    }
+                    Logger.Info($"GoTweaks download complete: {read / 1048576} MB -> {target}");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Logger.Warn("GoTweaks download stalled (no data for 90s) — aborting.");
+                SetInstallStatus("failed", -1, "Download stalled — check your connection.");
+                return "{\"success\":false,\"message\":\"Download stalled — check your connection and try again.\"}";
             }
             catch (Exception ex)
             {
                 Logger.Warn($"GoTweaks download failed: {ex.Message}");
+                SetInstallStatus("failed", -1, "Download failed.");
                 return "{\"success\":false,\"message\":\"Download failed: " + ex.Message.Replace("\"", "'") + "\"}";
             }
 
             // If we downloaded the installer .zip, extract it and locate the signed package inside
             // (.msixbundle preferred, else .msix). Extraction is plain ZipFile — still AV-clean
             // (no Process.Start / PowerShell / runas).
+            SetInstallStatus("installing", 100);
             string installPath = target;
             if (target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
@@ -294,13 +354,17 @@ namespace XboxGamingBarHelper.Services
                     var pkg = System.IO.Directory.GetFiles(extractDir, "*.msixbundle", System.IO.SearchOption.AllDirectories).FirstOrDefault()
                               ?? System.IO.Directory.GetFiles(extractDir, "*.msix", System.IO.SearchOption.AllDirectories).FirstOrDefault();
                     if (string.IsNullOrEmpty(pkg))
+                    {
+                        SetInstallStatus("failed", -1, "No package inside the installer zip.");
                         return "{\"success\":false,\"message\":\"No .msix/.msixbundle found inside the installer zip.\"}";
+                    }
                     installPath = pkg;
                     Logger.Info($"GoTweaksUpdateService: extracted package {installPath} from {target}");
                 }
                 catch (Exception ex)
                 {
                     Logger.Warn($"GoTweaks zip extract failed: {ex.Message}");
+                    SetInstallStatus("failed", -1, "Unpack failed.");
                     return "{\"success\":false,\"message\":\"Unpack failed: " + ex.Message.Replace("\"", "'") + "\"}";
                 }
             }
@@ -326,6 +390,7 @@ namespace XboxGamingBarHelper.Services
                     (result == null || result.ExtendedErrorCode == null))
                 {
                     Logger.Info($"GoTweaks update installed successfully from {installPath}");
+                    SetInstallStatus("done", 100, "Update installed — reloading.");
                     return "{\"success\":true,\"message\":\"Update installed — the widget will reload.\"}";
                 }
 
@@ -334,11 +399,13 @@ namespace XboxGamingBarHelper.Services
                     err = result.ExtendedErrorCode.Message;
                 if (string.IsNullOrWhiteSpace(err)) err = "Install did not complete.";
                 Logger.Warn($"GoTweaks AddPackageAsync failed: {err}");
+                SetInstallStatus("failed", -1, "Install failed.");
                 return "{\"success\":false,\"message\":\"Install failed: " + err.Replace("\"", "'") + "\"}";
             }
             catch (Exception ex)
             {
                 Logger.Warn($"GoTweaks install failed: {ex.Message}");
+                SetInstallStatus("failed", -1, "Install failed.");
                 return "{\"success\":false,\"message\":\"Install failed: " + ex.Message.Replace("\"", "'") + "\"}";
             }
         }
