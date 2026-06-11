@@ -577,7 +577,8 @@ namespace XboxGamingBar
             string[] names = { "Disabled", "LS Click", "LS Up", "LS Down", "LS Left", "LS Right",
                               "RS Click", "RS Up", "RS Down", "RS Left", "RS Right",
                               "D-Pad Up", "D-Pad Down", "D-Pad Left", "D-Pad Right",
-                              "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "Select", "Start" };
+                              "A", "B", "X", "Y", "LB", "LT", "RB", "RT", "Select", "Start",
+                              "Xbox Button" };
             return action >= 0 && action < names.Length ? names[action] : $"Action{action}";
         }
 

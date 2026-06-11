@@ -788,6 +788,28 @@ namespace XboxGamingBarHelper
             RouteProfileSave(ProfileSaveFlagsState.TDP, "TDP",
                 cur => cur.TDP = performanceManager.TDP,
                 glo => glo.TDP = performanceManager.TDP);
+
+            // Persist the user's GLOBAL TDP so the helper can re-apply it on its OWN startup
+            // (PerformanceManager.ApplyPersistedStartupTdp), independent of the widget — fixes the
+            // post-reboot revert to 25W. We store the ACTUAL value just set (not GlobalProfile.TDP,
+            // which desyncs from the widget when per-game capture routes a change to CurrentProfile),
+            // gated on "no game running" so a per-game TDP override is never mistaken for the global.
+            // LocalSettingsHelper survives reboot (same store as ControllerEmulationEnabled).
+            try
+            {
+                bool gameRunning = systemManager?.RunningGame?.Value.IsValid() == true;
+                if (!gameRunning)
+                {
+                    int globalTdp = performanceManager.TDP.Value;
+                    Settings.LocalSettingsHelper.SetValue("GlobalTDP", globalTdp);
+                    Logger.Info($"[TDP-Persist] Saved global TDP = {globalTdp}W (no game running)");
+                }
+                else
+                {
+                    Logger.Debug("[TDP-Persist] Skipped (game running → per-game TDP, not global)");
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"Persist GlobalTDP failed: {ex.Message}"); }
         }
 
         private static void TDPBoostEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)

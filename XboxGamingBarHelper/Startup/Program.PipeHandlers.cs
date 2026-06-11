@@ -203,6 +203,37 @@ namespace XboxGamingBarHelper
                 if (pipeMsg.Extra.TryGetValue("FactoryReset", out object _frObj))
                 {
                     Logger.Info("Pipe: FactoryReset received — resetting global controller profile to defaults");
+
+                    // Deactivate controller emulation FIRST (before anything else is reset):
+                    // tear down the virtual ViGEm controller and ForceUnhideAll() so the physical
+                    // MSI Claw controllers are restored via HidHide as the very first step.
+                    // Reuses the existing working stop/unhide path unchanged.
+                    try
+                    {
+                        if (Devices.DeviceDetector.DetectDevice().DeviceType == Shared.Enums.DeviceType.MSIClaw)
+                            StopMSIClawButtonMonitor();
+                    }
+                    catch (Exception exFr)
+                    {
+                        Logger.Warn($"FactoryReset: controller emulation deactivate failed: {exFr.Message}");
+                    }
+
+                    // Persist controller emulation = OFF. The widget-side factory reset only clears
+                    // the UWP ApplicationData store, but the helper also keeps a fallback copy
+                    // (LocalState / %LocalAppData%\GoTweaks\settings.json) that survives the reset —
+                    // so "ControllerEmulationEnabled" would otherwise re-load as its old value and
+                    // auto-enable emulation after a reboot. Clear it explicitly in both stores.
+                    try
+                    {
+                        controllerEmulationManager?.ControllerEmulationEnabled?.ForceSetValue(false);
+                        Settings.LocalSettingsHelper.SetValue("ControllerEmulationEnabled", false);
+                        Logger.Info("FactoryReset: ControllerEmulationEnabled persisted = false");
+                    }
+                    catch (Exception exCe)
+                    {
+                        Logger.Warn($"FactoryReset: reset ControllerEmulationEnabled failed: {exCe.Message}");
+                    }
+
                     FactoryResetGlobalControllerProfile();
                     SendPipeAck(pipeMsg.RequestId);
                     return;
@@ -1139,6 +1170,16 @@ namespace XboxGamingBarHelper
                     response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
                     Logger.Info($"Pipe: Labs DAService status = {status}");
                 }
+                // Controller-State diagnostic (Controller tab bottom card) — read-only inspection
+                else if (functionValue == (int)Function.RequestControllerState)
+                {
+                    string controllerState = BuildControllerStateString();
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add(nameof(Function), functionValue);
+                    response.Add("Content", controllerState);
+                    response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                    Logger.Info($"Pipe: ControllerState = {controllerState}");
+                }
                 // Labs: DAService Control request (Start/Stop)
                 else if (functionValue == (int)Function.Labs_DAServiceControl)
                 {
@@ -1395,6 +1436,31 @@ namespace XboxGamingBarHelper
                     if (request.Command != Shared.Enums.Command.Set) { return; }
                     Logger.Info("Pipe: test controller vibration requested from widget");
                     clawButtonMonitor?.TestVibration();
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true);
+                }
+                // Special Controller Buttons: fire a momentary Xbox Guide tap on the virtual ViGEm
+                // controller (opens Steam Big Picture / in-game overlay). Used by the "Xbox Button"
+                // app action assigned to a tile or front button. Fire-and-forget.
+                else if (functionValue == (int)Function.EmulateXboxGuide)
+                {
+                    if (request.Command != Shared.Enums.Command.Set) { return; }
+                    Logger.Info("Pipe: Xbox Guide tap requested from widget");
+                    clawButtonMonitor?.TriggerGuideTap();
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true);
+                }
+                // Game Bar auto-nav: widget-bar position of ClawTweaks → RB hop count = position-1.
+                else if (functionValue == (int)Function.GameBarWidgetPosition)
+                {
+                    if (request.Command != Shared.Enums.Command.Set) { return; }
+                    if (int.TryParse(request.Content, out int pos))
+                    {
+                        if (pos < 1) pos = 1;
+                        if (pos > 10) pos = 10;
+                        GameBarAutoNavRbCount = pos - 1;
+                        Logger.Info($"Pipe: ClawTweaks widget position = {pos} → RB hops = {GameBarAutoNavRbCount}");
+                    }
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true);
                 }

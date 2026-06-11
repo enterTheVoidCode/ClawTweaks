@@ -151,6 +151,11 @@ namespace XboxGamingBarHelper.Labs
         // ViGEm virtual Xbox 360 controller
         private ViGEmController _vigem;
         private bool _ownsVigem;
+        // When true, Start() establishes the full physical hide state (DInput switch, the caller
+        // hides PID_1902 via HidHide) but does NOT mount the virtual ViGEm controller. Used by
+        // External Gamepad Mode: same clean "virtual controller" state, just without our virtual
+        // pad, so only an external gamepad remains. All _vigem uses are already null-guarded.
+        private volatile bool _suppressVigem;
 
         // ── Vibration (rumble passthrough) ────────────────────────────────────────
         // The game drives the virtual ViGEm controller's force-feedback; ViGEm raises
@@ -164,6 +169,43 @@ namespace XboxGamingBarHelper.Labs
         private byte _prevRumbleLarge = 0;
         private byte _prevRumbleSmall = 0;
         private const byte RUMBLE_REPORT_ID = 0x05;          // HC DClawController rumble report ID
+
+        // ── Xbox Guide button (momentary tap on the virtual ViGEm Xbox 360 controller) ──
+        // The "Xbox Button" app action / remap target opens Steam Big Picture / the in-game
+        // overlay. TriggerGuideTap() (called from any thread — poll edges, pipe handler) just
+        // sets a release deadline; the poll loop (ServiceGuideTap) presses/releases Guide on
+        // its OWN thread so all ViGEm writes stay single-threaded. SubmitXboxState never touches
+        // Guide, so the press persists across frames until ServiceGuideTap releases it.
+        private long _guideHoldUntilTicks;           // UtcNow.Ticks release deadline; 0 = inactive
+        private bool _guideActive;                   // poll-thread owned: is Guide currently pressed
+        private const int GuideTapDurationMs = 90;   // momentary tap length
+
+        // ── Game Bar auto-navigation injection (widget hop + focus drop) ─────────────
+        // On Game Bar open we inject a short scripted button sequence onto the virtual controller:
+        //   RB × N   → advance the Game Bar widget bar N widgets right onto ClawTweaks (slot 3+,
+        //              because Microsoft occupies the first two), then
+        //   DpadDown × 1 → drop focus from the widget bar INTO the widget body, so RT/LT tab
+        //                  navigation works immediately (replicates the manual press the user did).
+        // Each entry is a group of momentary taps; groups run sequentially via a queue. The pressed
+        // button mask is OR'd into the outgoing state on the poll thread (ServiceInjection). All taps
+        // are normal XInput buttons. Timing is tuned so Game Bar registers distinct events.
+        private sealed class InjectGroup
+        {
+            public ushort Mask;       // XInput button(s) to hold during a press phase
+            public int Remaining;     // press phases still to perform in this group
+            public int PressMs;       // hold duration per tap
+            public int GapMs;         // release gap after each tap
+        }
+        private readonly object _injectLock = new object();
+        private readonly System.Collections.Generic.Queue<InjectGroup> _injectQueue =
+            new System.Collections.Generic.Queue<InjectGroup>();
+        private InjectGroup _injectCurrent;          // group in progress (poll-thread owned)
+        private bool _injectPressing;                // current phase: pressed vs gap
+        private long _injectPhaseUntilTicks;         // UtcNow.Ticks end of current phase; 0 = start next
+        private const int RbTapPressMs   = 35;       // RB hold per tap
+        private const int RbTapGapMs     = 20;       // RB release gap (distinct hops)
+        private const int DpadTapPressMs = 35;       // D-pad hold
+        private const int DpadTapGapMs   = 60;       // slightly longer so the hop settles before focusing in
 
         // ── Stick deadzones (radial inner deadzone, percent of full deflection) ───
         // Applied to the outgoing ViGEm stick values in ProcessDirectInputState. 0 = off.
@@ -278,7 +320,14 @@ namespace XboxGamingBarHelper.Labs
         /// needs a ViGEm virtual Xbox 360 controller to forward all physical gamepad state
         /// (buttons, sticks, triggers, d-pad) — regardless of M1/M2 configuration.
         /// </summary>
-        public bool NeedsViGEm => true;
+        public bool NeedsViGEm => !_suppressVigem;
+
+        /// <summary>
+        /// Suppress (true) or allow (false) mounting the virtual ViGEm controller. Must be set
+        /// before Start(). External Gamepad Mode sets this true so the monitor establishes the
+        /// hidden-DInput state without a virtual pad.
+        /// </summary>
+        public void SetSuppressVigem(bool suppress) => _suppressVigem = suppress;
 
         // ── Public API ────────────────────────────────────────────────────────────
 
@@ -520,9 +569,19 @@ namespace XboxGamingBarHelper.Labs
         {
             if (_running) return true;
 
-            // Always create ViGEm — ClawButtonMonitor is the primary emulation path for MSI Claw.
-            if (!EnsureViGEm())
-                return false;
+            // Normally create ViGEm — ClawButtonMonitor is the primary emulation path for MSI Claw.
+            // External Gamepad Mode suppresses the mount: it wants the hidden-DInput state without
+            // a virtual controller, so only an external gamepad is seen. All _vigem uses below are
+            // null-guarded, so the read loop simply doesn't forward.
+            if (!_suppressVigem)
+            {
+                if (!EnsureViGEm())
+                    return false;
+            }
+            else
+            {
+                Logger.Info("ClawButtonMonitor: ViGEm mount suppressed (External Gamepad Mode) — DInput hide only, no virtual controller");
+            }
 
             bool found = OpenClawInterfaces();
             if (!found)
@@ -1121,6 +1180,9 @@ namespace XboxGamingBarHelper.Labs
                     }
                 }
 
+                // Game Bar auto-nav injection (RB hops + focus drop) — overlay onto the button mask.
+                { ushort injMask = ServiceInjection(); if (injMask != 0) xiBtnsOut |= injMask; }
+
                 // Still submit to ViGEm so hotkeys keep working, but zero out the
                 // sticks and triggers so games don't receive phantom gamepad input.
                 if (_vigem != null && _vigem.IsPluggedIn)
@@ -1128,10 +1190,17 @@ namespace XboxGamingBarHelper.Labs
             }
             else
             {
+                // Game Bar auto-nav injection (RB hops + focus drop) — overlay onto the button mask.
+                { ushort injMask = ServiceInjection(); if (injMask != 0) xiBtnsOut |= injMask; }
+
                 // Normal controller mode — forward everything to ViGEm
                 if (_vigem != null && _vigem.IsPluggedIn)
                     _vigem.SubmitXboxState(xiBtnsOut, ltrigOut, rtrigOut, leftXOut, leftYOut, rightXOut, rightYOut);
             }
+
+            // Service the Xbox Guide momentary tap AFTER SubmitXboxState (which doesn't touch
+            // Guide), so a requested tap presses/holds/releases cleanly on this poll thread.
+            ServiceGuideTap();
 
             // Feed ControllerHotkeyMonitor — 1:1 HC pattern: single DirectInput reader,
             // hotkey system reads from already-computed ButtonState (no second DI instance).
@@ -1150,6 +1219,12 @@ namespace XboxGamingBarHelper.Labs
             // Shows: was the button detected? what XInput remap is active? is callback path enabled?
             if (m1 != _prevM1) Logger.Info($"ClawButtonMonitor: M1 {(m1 ? "↓ pressed" : "↑ released")} — remapAction={_m1RemapAction}, callbackEnabled={_m1Enabled}");
             if (m2 != _prevM2) Logger.Info($"ClawButtonMonitor: M2 {(m2 ? "↓ pressed" : "↑ released")} — remapAction={_m2RemapAction}, callbackEnabled={_m2Enabled}");
+
+            // M1/M2 → "Xbox Button" gamepad remap (LegionButtonM1/M2ComboBox index 25): fire a
+            // momentary Guide tap on the press edge (Guide can't ride the SubmitXboxState button
+            // mask, so ApplyXInputRemapAction is a no-op for it — handled here instead).
+            if (m1 && !_prevM1 && _m1RemapAction == RemapAction.XboxGuide) TriggerGuideTap();
+            if (m2 && !_prevM2 && _m2RemapAction == RemapAction.XboxGuide) TriggerGuideTap();
 
             // M1/M2 edge detection and callback dispatch (for non-XInput actions: shortcuts/commands/Guide)
             if (m1  && !_prevM1) OnButtonDown(true);
@@ -1246,6 +1321,9 @@ namespace XboxGamingBarHelper.Labs
                 case RemapAction.RightTrigger:    rtrig   = byte.MaxValue;   break;
                 case RemapAction.View:            xiBtns |= XI_BACK;         break;
                 case RemapAction.Menu:            xiBtns |= XI_START;        break;
+                // RemapAction.XboxGuide: Guide is not part of the SubmitXboxState button mask
+                // (it's set separately via ViGEmController.SetGuide). Fired as a momentary tap on
+                // the press edge by the caller (TriggerGuideTap), so it's a no-op here.
                 // RemapAction.Disabled, DesktopButton, PageButton: no-op (not XInput actions)
             }
         }
@@ -1297,6 +1375,135 @@ namespace XboxGamingBarHelper.Labs
             {
                 if (!ControllerEmulation.Viiper.ViiperInputForwarder.TryHandleGuidePressFromLabs())
                     _vigem?.SetGuide(false);
+            }
+        }
+
+        // ── Xbox Guide tap ──────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Request a momentary Xbox Guide press on the virtual ViGEm Xbox 360 controller (opens
+        /// Steam Big Picture / the in-game Steam overlay). Safe to call from any thread — it only
+        /// extends a release deadline; the poll loop (ServiceGuideTap) performs the actual ViGEm
+        /// SetGuide(true)/SetGuide(false) on its own thread, keeping all ViGEm writes single-threaded.
+        /// Re-tapping while still held simply extends the window (no double-press).
+        /// </summary>
+        public void TriggerGuideTap()
+        {
+            System.Threading.Interlocked.Exchange(ref _guideHoldUntilTicks,
+                DateTime.UtcNow.AddMilliseconds(GuideTapDurationMs).Ticks);
+            Logger.Info("ClawButtonMonitor: Xbox Guide tap requested");
+        }
+
+        /// <summary>
+        /// Poll-thread service for the Guide tap: presses Guide while within the deadline window and
+        /// releases it once the window elapses. Called every poll iteration after SubmitXboxState
+        /// (which does not touch Guide, so the press persists across frames until released here).
+        /// </summary>
+        private void ServiceGuideTap()
+        {
+            long until = System.Threading.Interlocked.Read(ref _guideHoldUntilTicks);
+            bool shouldPress = until != 0 && DateTime.UtcNow.Ticks < until;
+
+            if (shouldPress && !_guideActive)
+            {
+                if (_vigem != null && _vigem.IsPluggedIn)
+                {
+                    _vigem.SetGuide(true);
+                    _guideActive = true;
+                }
+                else
+                {
+                    // No virtual controller (e.g. External Gamepad Mode) — drop the request.
+                    System.Threading.Interlocked.Exchange(ref _guideHoldUntilTicks, 0);
+                }
+            }
+            else if (!shouldPress && _guideActive)
+            {
+                _vigem?.SetGuide(false);
+                _guideActive = false;
+                System.Threading.Interlocked.Exchange(ref _guideHoldUntilTicks, 0);
+            }
+        }
+
+        // ── RB auto-navigation tap injection ────────────────────────────────────────
+
+        /// <summary>
+        /// Enqueue the full Game Bar auto-navigation: <paramref name="rbCount"/> RB hops to land on
+        /// ClawTweaks, then one D-pad Down to drop focus into the widget body (so RT/LT tab nav works
+        /// right away). Safe from any thread — only enqueues; the poll loop drives the timed taps.
+        /// </summary>
+        public void InjectGameBarNav(int rbCount)
+        {
+            lock (_injectLock)
+            {
+                if (rbCount > 0)
+                    _injectQueue.Enqueue(new InjectGroup { Mask = XI_RB, Remaining = rbCount, PressMs = RbTapPressMs, GapMs = RbTapGapMs });
+                _injectQueue.Enqueue(new InjectGroup { Mask = XI_DPAD_DOWN, Remaining = 1, PressMs = DpadTapPressMs, GapMs = DpadTapGapMs });
+            }
+            Logger.Info($"ClawButtonMonitor: Game Bar nav injection requested (RB×{rbCount} + DpadDown×1)");
+        }
+
+        /// <summary>Back-compat: inject just RB taps (no focus drop).</summary>
+        public void InjectRbTaps(int count)
+        {
+            if (count <= 0) return;
+            lock (_injectLock)
+                _injectQueue.Enqueue(new InjectGroup { Mask = XI_RB, Remaining = count, PressMs = RbTapPressMs, GapMs = RbTapGapMs });
+            Logger.Info($"ClawButtonMonitor: RB tap injection requested (count={count})");
+        }
+
+        /// <summary>
+        /// Poll-thread driver for the injection queue. Returns the button mask to OR into the
+        /// outgoing state this frame (0 = nothing). Walks each group press→gap→press…, then the
+        /// next group, then idle.
+        /// </summary>
+        private ushort ServiceInjection()
+        {
+            lock (_injectLock)
+            {
+                if (_injectCurrent == null)
+                {
+                    if (_injectQueue.Count == 0) return 0;
+                    _injectCurrent = _injectQueue.Dequeue();
+                    _injectPressing = false;
+                    _injectPhaseUntilTicks = 0;
+                }
+
+                long now = DateTime.UtcNow.Ticks;
+                InjectGroup g = _injectCurrent;
+
+                if (_injectPhaseUntilTicks == 0)
+                {
+                    // Begin a press phase.
+                    _injectPressing = true;
+                    _injectPhaseUntilTicks = now + g.PressMs * TimeSpan.TicksPerMillisecond;
+                    return g.Mask;
+                }
+
+                if (now < _injectPhaseUntilTicks)
+                {
+                    return _injectPressing ? g.Mask : (ushort)0; // still within the current phase
+                }
+
+                // Current phase elapsed → flip.
+                if (_injectPressing)
+                {
+                    _injectPressing = false;
+                    g.Remaining--;
+                    _injectPhaseUntilTicks = now + g.GapMs * TimeSpan.TicksPerMillisecond;
+                    return 0;
+                }
+
+                // Gap finished → next tap in this group, or advance to the next group.
+                if (g.Remaining <= 0)
+                {
+                    _injectCurrent = null;       // pick up the next group on the following tick
+                    _injectPhaseUntilTicks = 0;
+                    return 0;
+                }
+                _injectPressing = true;
+                _injectPhaseUntilTicks = now + g.PressMs * TimeSpan.TicksPerMillisecond;
+                return g.Mask;
             }
         }
 

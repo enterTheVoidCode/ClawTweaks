@@ -58,6 +58,9 @@ namespace XboxGamingBarHelper.Labs
             public bool IsKeyboard;
             public string KeyboardToken;
 
+            // Guide-target mode ("Xbox Button"): fire a momentary Guide tap once on the press edge.
+            public bool IsGuide;
+
             // Transient state (poll thread only).
             public bool Pressed;
             public bool PrevPressed;   // keyboard edge detection
@@ -139,6 +142,15 @@ namespace XboxGamingBarHelper.Labs
                     }
                     swap.PrevPressed = pressed;
                 }
+                else if (swap.IsGuide)
+                {
+                    if (pressed && !swap.PrevPressed)
+                    {
+                        try { TriggerGuideTap(); }
+                        catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: gamepad guide swap fire threw: {ex.Message}"); }
+                    }
+                    swap.PrevPressed = pressed;
+                }
             }
 
             if (!anyPressed)
@@ -154,9 +166,9 @@ namespace XboxGamingBarHelper.Labs
             for (int i = 0; i < swaps.Length; i++)
             {
                 GamepadSwapEntry swap = swaps[i];
-                if (!swap.Pressed || swap.IsKeyboard)
+                if (!swap.Pressed || swap.IsKeyboard || swap.IsGuide)
                 {
-                    continue; // keyboard entries only suppress the source (handled in phase 1)
+                    continue; // keyboard/guide entries only suppress the source (handled in phase 1)
                 }
 
                 RemapAction[] actions = swap.Actions;
@@ -232,6 +244,37 @@ namespace XboxGamingBarHelper.Labs
                     continue;
                 }
 
+                // "Xbox Button" target → edge-fire a momentary Guide tap (Guide can't ride the
+                // XInput button mask, so it's not a normal injected action). Detected before the
+                // regular action build because IsXinputSwapAction() excludes it from that list.
+                bool wantsGuide = false;
+                if (parsed.GamepadActions != null)
+                {
+                    for (int i = 0; i < parsed.GamepadActions.Length; i++)
+                    {
+                        if (RemapActionHelper.GetByIndex(parsed.GamepadActions[i]) == RemapAction.XboxGuide)
+                        {
+                            wantsGuide = true;
+                        }
+                    }
+                }
+                if (!wantsGuide && parsed.GamepadAction > 0 &&
+                    RemapActionHelper.GetByIndex(parsed.GamepadAction) == RemapAction.XboxGuide)
+                {
+                    wantsGuide = true;
+                }
+                if (wantsGuide)
+                {
+                    entries.Add(new GamepadSwapEntry
+                    {
+                        SourceButtonMask = sourceMask,
+                        SourceIsLeftTrigger = isLeftTrigger,
+                        SourceIsRightTrigger = isRightTrigger,
+                        IsGuide = true,
+                    });
+                    continue;
+                }
+
                 var actions = new List<RemapAction>();
                 if (parsed.GamepadActions != null)
                 {
@@ -279,6 +322,7 @@ namespace XboxGamingBarHelper.Labs
                 case RemapAction.Disabled:
                 case RemapAction.DesktopButton:
                 case RemapAction.PageButton:
+                case RemapAction.XboxGuide:   // handled as an edge-fire Guide tap, not an injected XInput action
                     return false;
                 default:
                     return true;

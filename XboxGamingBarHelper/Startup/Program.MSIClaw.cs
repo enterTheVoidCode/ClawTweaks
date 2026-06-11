@@ -42,6 +42,18 @@ namespace XboxGamingBarHelper
         private static bool _msiClawOwnsSuppression = false;
 
         /// <summary>
+        /// External Gamepad Mode runtime state (NOT persisted — always starts off after a helper
+        /// start). When active, the handheld is parked as a hidden DInput device with no virtual
+        /// controller, so only an external gamepad is visible. <see cref="_externalGamepadWasVirtual"/>
+        /// remembers whether emulation (virtual ViGEm controller) was running before, so OFF can
+        /// restore the right prior state.
+        /// </summary>
+        internal static bool ExternalGamepadModeActive => _externalGamepadModeActive;
+        private static volatile bool _externalGamepadModeActive;
+        private static bool _externalGamepadWasVirtual;
+        private static readonly object _externalGamepadLock = new object();
+
+        /// <summary>
         /// Software mouse forwarder for MSI Claw "Mouse mode".
         /// Active when controller emulation is disabled (mode tile shows "Mouse").
         /// Null when not running.
@@ -667,6 +679,13 @@ namespace XboxGamingBarHelper
                 // is the authoritative owner; any previous value is safely overwritten.
                 MsiClawControllerModeManager.OnModeChanged = OnMsiClawControllerModeChanged;
 
+                // External Gamepad Mode tile → hide/restore all handheld controllers.
+                MSI.ExternalGamepadModeManager.OnChanged = OnExternalGamepadModeChanged;
+
+                // Game Bar open → auto-hop the widget bar to ClawTweaks via RB taps on the
+                // virtual controller (ClawTweaks sits at slot 3+ behind Microsoft's two widgets).
+                WireGameBarAutoNav();
+
                 // ── Step 0.1: Wire mouse sensitivity / threshold callbacks ─────────
                 // ControllerEmulationManager is suppressed for MSI Claw, so its
                 // SetMouseSensitivity/SetMouseThreshold never reach ClawButtonMonitor.
@@ -729,7 +748,7 @@ namespace XboxGamingBarHelper
                 // DisposeMSIClawControllerEmulation() called during shutdown.
                 if (controllerEmulationManager != null)
                 {
-                    controllerEmulationManager.EmulationEnabledChanged += OnMSIClawEmulationEnabledChanged;
+                    controllerEmulationManager.EmulationEnabledChanged += OnMSIClawMasterEmulationToggled;
                 }
 
                 // ── Step 3: Guard on master "Enable Controller Emulation" toggle ──
@@ -823,6 +842,51 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Called when the MASTER "Enable Controller Emulation" toggle (Controller tab) changes.
+        ///
+        /// This is the TRUE on/off for the virtual controller — distinct from the Controller/Mouse
+        /// mode tile (OnMsiClawControllerModeChanged), which only switches input translation while
+        /// keeping ViGEm mounted + HidHide active:
+        ///   true  → start ClawButtonMonitor, honouring the current Controller/Mouse mode
+        ///   false → StopMSIClawButtonMonitor(): tear down the ViGEm virtual controller and
+        ///           ForceUnhideAll() so the 3 physical MSI Claw controllers reappear via HidHide.
+        ///
+        /// Reuses the existing StopMSIClawButtonMonitor / StartClawButtonMonitorBackground paths
+        /// unchanged. Never touches MSI Center. The mode tile + MSI Center keep using
+        /// OnMSIClawEmulationEnabledChanged / OnMsiCenterStateChanged respectively.
+        /// </summary>
+        private static void OnMSIClawMasterEmulationToggled(bool emulationEnabled)
+        {
+            try
+            {
+                if (emulationEnabled)
+                {
+                    lock (clawButtonMonitorLock)
+                    {
+                        if (clawButtonMonitor != null && clawButtonMonitor.IsRunning)
+                        {
+                            Logger.Info("MSIClaw: Master emulation toggle → ON — ClawButtonMonitor already running, no-op");
+                            return;
+                        }
+                    }
+
+                    bool controllerModeOn = msiClawControllerModeManager?.MsiClawControllerMode?.Value ?? true;
+                    Logger.Info($"MSIClaw: Master emulation toggle → ON — starting ClawButtonMonitor (mouseMode={!controllerModeOn})");
+                    StartClawButtonMonitorBackground(startInMouseMode: !controllerModeOn);
+                }
+                else
+                {
+                    Logger.Info("MSIClaw: Master emulation toggle → OFF — stopping ViGEm + restoring physical controllers (HidHide ForceUnhideAll)");
+                    StopMSIClawButtonMonitor();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"MSIClaw: OnMSIClawMasterEmulationToggled threw: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Called when the MsiClawControllerMode Quick Settings tile is tapped.
         /// Routes to OnMSIClawEmulationEnabledChanged() which handles the full
         /// ClawButtonMonitor ↔ MSIClawDesktopModeForwarder lifecycle.
@@ -834,6 +898,172 @@ namespace XboxGamingBarHelper
         {
             Logger.Info($"MSIClaw: MsiClawControllerMode changed → {(controllerOn ? "Controller" : "Mouse")}");
             OnMSIClawEmulationEnabledChanged(controllerOn);
+        }
+
+        // ── Game Bar auto-navigation (RB hop to ClawTweaks on open) ──────────────────────────
+        //
+        // ClawTweaks sits at widget-bar slot 3+ because Microsoft occupies the first two widgets,
+        // so the user must press RB at least twice to reach us. We piggy-back on the widget's
+        // existing foreground signal (settingsManager.IsForeground, Function.Foreground) — it goes
+        // true the moment the Game Bar overlay comes foreground, even when another widget is shown.
+        // On that false→true edge we inject RB taps on the virtual controller to hop to ClawTweaks.
+        // Hardcoded for now: 2 taps, fixed timing. Only effective while controller emulation is
+        // active (a virtual controller must exist for the taps to land).
+        private static bool _gameBarAutoNavWired;
+        private static bool _lastGameBarForeground;
+        private static DateTime _lastRbNavTime = DateTime.MinValue;
+        // RB hops to reach ClawTweaks = widget position − 1. Set from the widget's
+        // GameBarWidgetPosition (Right MSI Button card); defaults to 2 (slot 3) until synced.
+        private static int GameBarAutoNavRbCount = 2;
+        private const int GameBarAutoNavDelayMs = 40;       // let Game Bar finish opening before hopping
+        private const int GameBarAutoNavDebounceMs = 1500;  // ignore rapid re-opens
+
+        private static void WireGameBarAutoNav()
+        {
+            try
+            {
+                if (_gameBarAutoNavWired) return;
+                var sm = settingsManager;
+                if (sm?.IsForeground == null)
+                {
+                    Logger.Warn("[GameBarAutoNav] settingsManager.IsForeground unavailable — not wired");
+                    return;
+                }
+                _lastGameBarForeground = sm.IsForeground.Value;
+                sm.IsForeground.PropertyChanged += OnGameBarForegroundChangedForAutoNav;
+                _gameBarAutoNavWired = true;
+                Logger.Info("[GameBarAutoNav] wired to widget foreground signal (RB auto-hop on Game Bar open)");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GameBarAutoNav] wiring threw: {ex.Message}");
+            }
+        }
+
+        private static void OnGameBarForegroundChangedForAutoNav(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            try
+            {
+                bool nowForeground = settingsManager?.IsForeground?.Value ?? false;
+                bool wasForeground = _lastGameBarForeground;
+                _lastGameBarForeground = nowForeground;
+
+                // Only act on the rising edge (Game Bar just opened).
+                if (!(nowForeground && !wasForeground)) return;
+
+                var t = DateTime.Now;
+                if ((t - _lastRbNavTime).TotalMilliseconds < GameBarAutoNavDebounceMs)
+                {
+                    Logger.Debug("[GameBarAutoNav] debounced (rapid re-open)");
+                    return;
+                }
+                _lastRbNavTime = t;
+
+                Labs.ClawButtonMonitor monitor;
+                lock (clawButtonMonitorLock) monitor = clawButtonMonitor;
+                bool running = monitor != null && monitor.IsRunning;
+                Logger.Info($"[GameBarAutoNav] Game Bar opened — emulationActive={running} → planning RB×{GameBarAutoNavRbCount}");
+
+                if (!running)
+                {
+                    Logger.Info("[GameBarAutoNav] skip: controller emulation not active (no virtual controller to hop with)");
+                    return;
+                }
+
+                // Small delay so the overlay is fully up before we hop the widget bar.
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.Delay(GameBarAutoNavDelayMs);
+                        monitor.InjectGameBarNav(GameBarAutoNavRbCount);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"[GameBarAutoNav] inject threw: {ex.Message}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GameBarAutoNav] handler threw: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// External Gamepad Mode tile handler. When ON, hides ALL the handheld's own controllers
+        /// via HidHide — native MSI (PID_1901 + PID_1902) AND the virtual ViGEm controller — so only
+        /// an externally connected gamepad remains visible (other gamepads with a different VID/PID
+        /// are untouched). When OFF, restores the prior state.
+        ///
+        /// Reuses the existing ControllerSuppressionManager: hideTargetMode=4 = "external gamepad,
+        /// hide everything". Not persisted — the tile always starts OFF after a helper start.
+        /// </summary>
+        internal static void OnExternalGamepadModeChanged(bool on)
+        {
+            var deviceInfo = Devices.DeviceDetector.DetectDevice();
+            if (deviceInfo.DeviceType != DeviceType.MSIClaw)
+            {
+                Logger.Debug("ExternalGamepadMode: ignored (not an MSI Claw)");
+                return;
+            }
+
+            lock (_externalGamepadLock)
+            {
+                if (on == _externalGamepadModeActive)
+                {
+                    Logger.Debug($"ExternalGamepadMode: already {(on ? "on" : "off")} — no-op");
+                    return;
+                }
+
+                if (on)
+                {
+                    // Remember whether the virtual ViGEm controller was running so OFF restores it.
+                    lock (clawButtonMonitorLock)
+                        _externalGamepadWasVirtual = clawButtonMonitor != null && clawButtonMonitor.IsRunning;
+                    _externalGamepadModeActive = true;
+
+                    Logger.Info($"ExternalGamepadMode ON (wasVirtual={_externalGamepadWasVirtual}) → virtual-controller hide state WITHOUT mounting ViGEm");
+
+                    // Reuse the proven emulation path: it switches the Claw to DInput and hides
+                    // PID_1902 via HidHide exactly like the virtual-controller toggle — we just
+                    // don't mount the ViGEm pad. Net result: no XInput gamepad, no virtual pad,
+                    // physical hidden → only an external gamepad remains. Win+G keeps working.
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            StopMSIClawButtonMonitor();                          // clean baseline (XInput + unhidden)
+                            StartClawButtonMonitorBackground(mountVigem: false); // DInput + hide PID_1902, no ViGEm
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"ExternalGamepadMode ON task threw: {ex.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    bool wasVirtual = _externalGamepadWasVirtual;
+                    _externalGamepadModeActive = false;
+                    Logger.Info($"ExternalGamepadMode OFF (wasVirtual={wasVirtual}) → restoring prior controller state");
+
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            StopMSIClawButtonMonitor();   // clean baseline (XInput + unhidden = HW mode)
+                            if (wasVirtual)
+                                StartClawButtonMonitorBackground(mountVigem: true); // restore virtual controller
+                            // else: HW mode — the baseline above is already the desired state.
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"ExternalGamepadMode OFF task threw: {ex.Message}");
+                        }
+                    });
+                }
+            }
         }
 
         /// <summary>
@@ -943,7 +1173,7 @@ namespace XboxGamingBarHelper
         ///
         /// Must not block the caller — DInput mode switch + HidHide settle takes ~2 s.
         /// </summary>
-        private static void StartClawButtonMonitorBackground(bool startInMouseMode = false)
+        private static void StartClawButtonMonitorBackground(bool startInMouseMode = false, bool mountVigem = true)
         {
             Task.Run(() =>
             {
@@ -977,6 +1207,10 @@ namespace XboxGamingBarHelper
                     // Start() the device is still in XInput mode (PID_1901) and Enable() finds
                     // zero matching device IDs → suppression silently fails.
                     var monitor = EnsureClawButtonMonitor();
+
+                    // External Gamepad Mode: establish the same hidden-DInput state but without
+                    // mounting the virtual ViGEm controller (so only an external gamepad is seen).
+                    monitor.SetSuppressVigem(!mountVigem);
 
                     // Apply current gyro settings from profile BEFORE Start().
                     // LegionControllerSetting_PropertyChanged null-guards on clawButtonMonitor,
@@ -1080,7 +1314,7 @@ namespace XboxGamingBarHelper
             try
             {
                 if (controllerEmulationManager != null)
-                    controllerEmulationManager.EmulationEnabledChanged -= OnMSIClawEmulationEnabledChanged;
+                    controllerEmulationManager.EmulationEnabledChanged -= OnMSIClawMasterEmulationToggled;
             }
             catch { }
 

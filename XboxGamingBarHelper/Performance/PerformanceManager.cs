@@ -528,7 +528,15 @@ namespace XboxGamingBarHelper.Performance
             // RyzenAdj initialization deferred - WinRing0 no longer bundled
             // Use PawnIO for TDP control instead (anti-cheat compatible)
             Logger.Info("RyzenAdj initialization deferred (deprecated - PawnIO preferred for TDP control)");
+            // Seed from the helper-persisted global TDP so the property starts at the user's value
+            // (not the 25W default). ApplyPersistedStartupTdp re-asserts + applies it once HW is ready.
             var initialTDP = 25;
+            try
+            {
+                if (Settings.LocalSettingsHelper.TryGetValue<int>("GlobalTDP", out int seededTdp) && seededTdp > 0)
+                    initialTDP = seededTdp;
+            }
+            catch { }
             var initialCurrentTDP = "-- W";
 
             Logger.Info("Creating TDP properties...");
@@ -646,6 +654,12 @@ namespace XboxGamingBarHelper.Performance
                 }
 
                 hardwareInitialized = true;
+
+                // Apply the user's persisted GLOBAL TDP now that the TDP path is ready. Without
+                // this the hardware sits at the in-memory 25W default after a reboot until the
+                // widget reconnects and re-pushes the value.
+                ApplyPersistedStartupTdp();
+
                 timer.Stop();
                 Logger.Info($"[TIMING] Background hardware detection completed: {timer.ElapsedMilliseconds}ms");
             }
@@ -702,6 +716,34 @@ namespace XboxGamingBarHelper.Performance
         //         Logger.Warn($"Error checking WinRing0 availability: {ex.Message}");
         //     }
         // }
+
+        /// <summary>
+        /// Applies the user's persisted GLOBAL TDP at helper startup, independent of the widget.
+        /// The value is written by Program.TDP_PropertyChanged on every global TDP change and stored
+        /// via LocalSettingsHelper (survives reboot). Uses SetProfileValue so its future timestamp
+        /// beats any in-flight widget sync, while a later genuine user change still overrides it.
+        /// </summary>
+        private void ApplyPersistedStartupTdp()
+        {
+            try
+            {
+                if (Settings.LocalSettingsHelper.TryGetValue<int>("GlobalTDP", out int savedTdp) && savedTdp > 0)
+                {
+                    Logger.Info($"Applying persisted startup TDP: {savedTdp}W (helper-side, widget-independent)");
+                    // Authoritative for a grace window so the widget's connect-time stale 25W default
+                    // (which arrives several seconds later) can't override it. ~8s observed in logs.
+                    tdp.ApplyStartupAuthority(savedTdp, 15000);
+                }
+                else
+                {
+                    Logger.Info("No persisted startup TDP found; leaving default until widget sync");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ApplyPersistedStartupTdp failed: {ex.Message}");
+            }
+        }
 
         private void CopyFileIfNewer(string source, string dest)
         {

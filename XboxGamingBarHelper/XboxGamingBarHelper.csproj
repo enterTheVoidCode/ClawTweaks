@@ -279,6 +279,7 @@
     <Compile Include="Startup\Program.HotkeyHandlers.cs" />
     <Compile Include="Startup\Program.Labs.cs" />
     <Compile Include="Startup\Program.MSIClaw.cs" />
+    <Compile Include="Startup\Program.ControllerState.cs" />
     <Compile Include="Startup\Program.ScreenSaver.cs" />
     <Compile Include="Startup\Program.AutoHibernate.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -320,6 +321,8 @@
     <Compile Include="MSI\MsiClawFanController.cs" />
     <Compile Include="MSI\MsiCenterManager.cs" />
     <Compile Include="MSI\MsiCenterActiveProperty.cs" />
+    <Compile Include="MSI\ExternalGamepadModeManager.cs" />
+    <Compile Include="MSI\ExternalGamepadModeProperty.cs" />
     <Compile Include="MSI\MsiClawControllerModeManager.cs" />
     <Compile Include="MSI\MsiClawControllerModeProperty.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />

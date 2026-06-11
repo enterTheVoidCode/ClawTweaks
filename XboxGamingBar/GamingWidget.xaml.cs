@@ -1049,6 +1049,9 @@ namespace XboxGamingBar
         private readonly TrackedGameProperty trackedGame;
         private readonly RTSSInstalledProperty rtssInstalled;
         private readonly IsForegroundProperty isForeground;
+        // Game Bar auto-jump: ClawTweaks widget-bar slot (→ helper taps RB position-1 times on open)
+        private readonly GameBarWidgetPositionProperty gameBarWidgetPosition;
+        private const string GameBarWidgetPositionKey = "GameBarWidgetPosition";
 
         // AMD properties
         private readonly AMDRadeonSuperResolutionEnabledProperty amdRadeonSuperResolutionEnabled;
@@ -1329,6 +1332,8 @@ namespace XboxGamingBar
         private readonly ToolTriggerProperty uninstallPawnIO;
         private readonly ToolTriggerProperty runToolSetup;
         private readonly ToolTriggerProperty testControllerVibration;
+        // "Xbox Button" app action → momentary Guide tap on the virtual ViGEm controller (helper-side)
+        private readonly ToolTriggerProperty emulateXboxGuide;
         private readonly AutoHibernateEnabledProperty autoHibernateEnabled;
         private readonly AutoHibernateIdleMinutesProperty autoHibernateIdleMinutes;
 
@@ -1395,6 +1400,7 @@ namespace XboxGamingBar
         private readonly MsiCenterActiveProperty msiCenterActive;
         // MSI Claw — Controller / Mouse mode Quick Settings tile
         private readonly MsiClawControllerModeProperty msiClawControllerMode;
+        private readonly ExternalGamepadModeProperty externalGamepadMode;
 
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
@@ -1782,6 +1788,7 @@ namespace XboxGamingBar
             rtssInstalled = new RTSSInstalledProperty(PerformanceOverlaySlider, this);
             rtssInstalled.SetAdditionalCallback(OnRtssInstalledChanged);
             isForeground = new IsForegroundProperty();
+            gameBarWidgetPosition = new GameBarWidgetPositionProperty();
             amdRadeonSuperResolutionEnabled = new AMDRadeonSuperResolutionEnabledProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSupported = new AMDRadeonSuperResolutionSupportedProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSharpness = new AMDRadeonSuperResolutionSharpnessProperty(AMDRadeonSuperResolutionSharpnessSlider, this);
@@ -2098,6 +2105,7 @@ namespace XboxGamingBar
             uninstallPawnIO = new ToolTriggerProperty(this, Function.UninstallPawnIO);
             runToolSetup = new ToolTriggerProperty(this, Function.RunToolSetup);
             testControllerVibration = new ToolTriggerProperty(this, Function.TestControllerVibration);
+            emulateXboxGuide = new ToolTriggerProperty(this, Function.EmulateXboxGuide);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);
             autoHibernateIdleMinutes = new AutoHibernateIdleMinutesProperty(15, AutoHibernateTimeoutSlider, this);
 
@@ -2145,6 +2153,8 @@ namespace XboxGamingBar
             msiCenterActive = new MsiCenterActiveProperty();
             // MSI Claw — Controller / Mouse mode Quick Settings tile
             msiClawControllerMode = new MsiClawControllerModeProperty();
+            // MSI Claw — External Gamepad Mode Quick Settings tile (hide all handheld controllers)
+            externalGamepadMode = new ExternalGamepadModeProperty();
 
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(ProfileMatchByExeToggle, this);
@@ -2371,6 +2381,8 @@ namespace XboxGamingBar
                 uninstallPawnIO,
                 runToolSetup,
                 testControllerVibration,
+                emulateXboxGuide,
+                gameBarWidgetPosition,
                 autoHibernateEnabled,
                 autoHibernateIdleMinutes,
                 autoTDPEnabled,
@@ -2389,6 +2401,7 @@ namespace XboxGamingBar
                 fpsCapMode,
                 msiCenterActive,
                 msiClawControllerMode,
+                externalGamepadMode,
                 osPowerMode,
                 tdpLimits,
                 cpuCoreConfig,
@@ -2720,6 +2733,8 @@ namespace XboxGamingBar
             }
             if (msiClawControllerMode != null)
                 msiClawControllerMode.PropertyChanged += QuickSettingsProperty_Changed;
+            if (externalGamepadMode != null)
+                externalGamepadMode.PropertyChanged += QuickSettingsProperty_Changed;
             // Controller emulation enable/disable is a dependency-gate input — recompute the gate
             // when the helper confirms the state (async), not just on the local toggle handler.
             if (controllerEmulationEnabled != null)

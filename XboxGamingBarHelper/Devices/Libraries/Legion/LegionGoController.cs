@@ -1557,7 +1557,12 @@ public enum RemapAction : byte
     /// <summary>Legion Desktop button (Win+G default)</summary>
     DesktopButton = 0x25,
     /// <summary>Legion Page button (Win+Tab default)</summary>
-    PageButton = 0x26
+    PageButton = 0x26,
+    /// <summary>Xbox Guide button — momentary tap on the virtual ViGEm Xbox 360 controller
+    /// (opens Steam Big Picture / in-game overlay). Not a Legion HID action; handled in software
+    /// by ClawButtonMonitor on the virtual controller. Byte value is above the Legion HID
+    /// protocol's mapped range to avoid collision.</summary>
+    XboxGuide = 0x30
 }
 
 /// <summary>
@@ -1592,8 +1597,9 @@ public static class RemapActionHelper
         RemapAction.RightTrigger,   // 22
         RemapAction.View,           // 23
         RemapAction.Menu,           // 24
-        RemapAction.DesktopButton,  // 25
-        RemapAction.PageButton,     // 26
+        RemapAction.XboxGuide,      // 25  ← widget dropdowns' "Xbox Button" (Claw: virtual Guide tap)
+        RemapAction.DesktopButton,  // 26
+        RemapAction.PageButton,     // 27
     };
 
     /// <summary>

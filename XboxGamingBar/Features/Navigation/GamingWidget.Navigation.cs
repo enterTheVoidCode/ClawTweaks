@@ -145,6 +145,8 @@ namespace XboxGamingBar
                         RequestViGEmBusStatus();
                         // Force remap UI refresh when Legion tab becomes active.
                         RefreshLegionEnhancedRemapUi();
+                        // Controller-State card (MSI Claw): show + request live state.
+                        RefreshControllerStateCard();
                         break;
                     case "GPD":
                         GPDScrollViewer.Visibility = Visibility.Visible;

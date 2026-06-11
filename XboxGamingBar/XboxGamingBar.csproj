@@ -137,6 +137,7 @@
     <Compile Include="Data\CPUBoostProperty.cs" />
     <Compile Include="Data\CpuAdvancedProperties.cs" />
     <Compile Include="Data\IsForegroundProperty.cs" />
+    <Compile Include="Data\GameBarWidgetPositionProperty.cs" />
     <Compile Include="Data\MaxCPUStateProperty.cs" />
     <Compile Include="Data\MinCPUStateProperty.cs" />
     <!-- GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1) -->
@@ -278,6 +279,7 @@
     <Compile Include="Data\FpsCapModeProperty.cs" />
     <Compile Include="Data\MsiCenterActiveProperty.cs" />
     <Compile Include="Data\MsiClawControllerModeProperty.cs" />
+    <Compile Include="Data\ExternalGamepadModeProperty.cs" />
     <Compile Include="Data\OSPowerModeProperty.cs" />
     <Compile Include="Data\RunningGameProperty.cs" />
     <Compile Include="Data\TrackedGameProperty.cs" />
@@ -470,6 +472,9 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Controller\GamingWidget.ScrollWheelRemap.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\Controller\GamingWidget.ControllerState.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Devices\GamingWidget.LegionGo.cs">

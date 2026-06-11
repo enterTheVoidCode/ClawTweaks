@@ -219,6 +219,9 @@ namespace XboxGamingBar
                             case "MsiCenter":
                                 ToggleMsiCenter();
                                 break;
+                            case "ExternalGamepadMode":
+                                ToggleExternalGamepadMode();
+                                break;
                     }
 
                     // Update tile states after action
@@ -2609,6 +2612,21 @@ namespace XboxGamingBar
             Logger.Info($"MSI Center M toggled → active={newState}");
         }
 
+        /// <summary>
+        /// Toggle External Gamepad Mode: when on, the helper hides ALL handheld controllers
+        /// (native MSI + virtual ViGEm) via HidHide so only an external gamepad remains.
+        /// Not persisted — always starts off after a helper start.
+        /// </summary>
+        private void ToggleExternalGamepadMode()
+        {
+            if (externalGamepadMode == null) return;
+            bool newState = !externalGamepadMode.Value;
+            externalGamepadMode.SetValue(newState);
+            Logger.Info($"External Gamepad Mode toggled → on={newState}");
+            // Refresh the Controller-Status card (the helper flips its state flag synchronously).
+            RequestControllerState();
+        }
+
         // ──────────────────────────────────────────────────────────────────────
         // Tile type selector (Keyboard ↔ Action) in the Add Custom Tile panel
         // ──────────────────────────────────────────────────────────────────────
@@ -2835,6 +2853,10 @@ namespace XboxGamingBar
                     case TileActionType.ToggleControllerMouseMode:
                         ToggleMSIClawDesktopMode();
                         break;
+                    // Special Controller Buttons — momentary Xbox Guide tap (Steam BPM / overlay).
+                    case TileActionType.EmulateXboxGuide:
+                        emulateXboxGuide?.Trigger("tap" + (++_emulateXboxGuideSeq));
+                        break;
                     // Launcher actions — Game Bar is already closed on this path.
                     case TileActionType.SteamBigPicture:
                     case TileActionType.Playnite:
@@ -2945,6 +2967,12 @@ namespace XboxGamingBar
 
                     case TileActionType.ToggleControllerMouseMode:
                         ToggleMSIClawDesktopMode();
+                        break;
+
+                    // ── Special Controller Buttons ──────────────────────────
+                    // Momentary Xbox Guide tap on the virtual ViGEm controller (Steam BPM / overlay).
+                    case TileActionType.EmulateXboxGuide:
+                        emulateXboxGuide?.Trigger("tap" + (++_emulateXboxGuideSeq));
                         break;
 
                     // ── Launcher actions ────────────────────────────────────

@@ -40,8 +40,9 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         // HC ClawA1M.cs: SwitchMode byte commands (padded to 64 bytes before send)
         // { 0x0F, 0x00, 0x00, 0x3C, CommandType.SwitchMode(0x24), GamepadMode.<X>, MKeysFunction.Macro(0x00) }
         // GamepadMode enum (HC ClawA1M): Offline=0, XInput=1, DirectInput=2, MSI=3, Desktop=4, BIOS=5
-        private static readonly byte[] SwitchModeXInputCmd   = { 15, 0, 0, 60, 36, 1, 0 }; // GamepadMode.XInput   = 1
-        private static readonly byte[] SwitchModeDesktopCmd  = { 15, 0, 0, 60, 36, 4, 0 }; // GamepadMode.Desktop  = 4
+        private static readonly byte[] SwitchModeXInputCmd   = { 15, 0, 0, 60, 36, 1, 0 }; // GamepadMode.XInput      = 1
+        private static readonly byte[] SwitchModeDInputCmd   = { 15, 0, 0, 60, 36, 2, 0 }; // GamepadMode.DirectInput = 2 (→ PID_1902)
+        private static readonly byte[] SwitchModeDesktopCmd  = { 15, 0, 0, 60, 36, 4, 0 }; // GamepadMode.Desktop     = 4
 
         /// <summary>
         /// Sends the XInput mode-switch command to the physical MSI Claw controller.
@@ -56,6 +57,23 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         public static bool TrySwitchToXInput()
         {
             return TrySendModeCmd(SwitchModeXInputCmd, "XInput");
+        }
+
+        /// <summary>
+        /// Sends the DirectInput mode-switch command to the physical MSI Claw controller.
+        /// After this, the device re-enumerates as PID_1902 (a HID gamepad) which HidHide CAN
+        /// cloak — unlike the XInput gamepad (PID_1901), which XInput accesses bypass HidHide.
+        ///
+        /// Used by External Gamepad Mode to park the handheld controller as a hidden DInput
+        /// device (no XInput gamepad, no virtual ViGEm), leaving only an external gamepad.
+        /// The keyboard HID stays on its own PID, so Win+G keeps working.
+        ///
+        /// The device takes ~2.5 s to re-enumerate as PID_1902; wait before querying it.
+        /// Adapted from HC ClawA1M.SwitchMode(GamepadMode.DirectInput).
+        /// </summary>
+        public static bool TrySwitchToDInput()
+        {
+            return TrySendModeCmd(SwitchModeDInputCmd, "DInput");
         }
 
         /// <summary>

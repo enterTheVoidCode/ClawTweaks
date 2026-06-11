@@ -26,6 +26,27 @@ namespace XboxGamingBarHelper.Performance
             base.SetValue(tdp, futureTimestamp);
         }
 
+        /// <summary>
+        /// Applies the helper-persisted GLOBAL TDP at startup and makes it AUTHORITATIVE for a grace
+        /// window. This (a) consumes forceNextApply so the widget's first connect-time slider value
+        /// (often the stale 25W default it sends BEFORE loading its saved profile) does NOT force-
+        /// apply over us, and (b) sets profileAppliedTimestamp into the future so any widget TDP push
+        /// arriving during the window is ignored by SetValue. Genuine user changes after the window
+        /// (timestamp &gt; grace) still apply normally.
+        /// </summary>
+        public void ApplyStartupAuthority(int tdp, int graceMs)
+        {
+            forceNextApply = false; // we own the initial hardware apply; don't let the widget's first push force it
+            long graceTimestamp = System.DateTime.Now.Ticks + (long)graceMs * System.TimeSpan.TicksPerMillisecond;
+            profileAppliedTimestamp = graceTimestamp;
+            Logger.Info($"TDP startup authority: {tdp}W (ignoring widget TDP pushes for ~{graceMs}ms)");
+            base.SetValue(tdp, graceTimestamp); // update cached value (may be a no-op if seeded to the same value)
+            // ALWAYS apply to hardware + refresh the PL1/PL2 readout, even when the cached value was
+            // already this (seeded in the ctor) — otherwise NotifyPropertyChanged doesn't fire and
+            // SetTDP/ApplyMsiClawTdp never runs (CurrentTDP stays "-- W", HW unset).
+            Manager.SetTDP(tdp);
+        }
+
         public override bool SetValue(object newValue, long updatedTime = 0)
         {
             // Ignore widget messages with timestamps older than our last profile-applied timestamp

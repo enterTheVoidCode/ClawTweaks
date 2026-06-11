@@ -437,6 +437,35 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
         }
 
+        /// <summary>
+        /// Read-only snapshot of the live HidHide driver state for diagnostics (Controller-State
+        /// card). Reports whether cloaking is active and how many devices are currently hidden,
+        /// read directly from the driver via the API. Does NOT modify any state.
+        /// Returns false when the HidHide API is unavailable (driver not installed) — callers
+        /// should treat that as "unknown".
+        /// </summary>
+        public bool TryGetState(out bool cloakingActive, out int blockedCount)
+        {
+            cloakingActive = false;
+            blockedCount = 0;
+
+            if (!TryGetApiService(out IHidHideControlService service, logMissing: false))
+                return false;
+
+            try
+            {
+                cloakingActive = service.IsActive;
+                blockedCount = (service.BlockedInstanceIds ?? Enumerable.Empty<string>())
+                    .Count(id => !string.IsNullOrWhiteSpace(id));
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"HidHide TryGetState failed: {ex.Message}");
+                return false;
+            }
+        }
+
         private bool TryForceUnhideAllWithApi()
         {
             if (!TryGetApiService(out IHidHideControlService service, logMissing: true))

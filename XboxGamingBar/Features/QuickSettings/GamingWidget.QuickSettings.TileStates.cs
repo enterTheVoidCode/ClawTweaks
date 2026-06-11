@@ -1138,6 +1138,23 @@ namespace XboxGamingBar
                     msiCenterTile.TileButton.Background = active ? tileOnBrush : tileOffBrush;
                 }
 
+                // External Gamepad Mode tile (hide all handheld controllers for an external gamepad).
+                // Active state is shown in purple to match the Controller-Status card's
+                // "External Gamepad Mode" color.
+                if (qsTileMap.TryGetValue("ExternalGamepadMode", out var extPadTile) && extPadTile.TileButton != null)
+                {
+                    bool on = externalGamepadMode?.Value == true;
+                    var externalPurple = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 186, 104, 255));
+                    if (extPadTile.StateText != null)
+                    {
+                        extPadTile.StateText.Text = on ? "On" : "Off";
+                        extPadTile.StateText.Foreground = on ? externalPurple : offForeground;
+                    }
+                    extPadTile.TileButton.Background = on
+                        ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 40, 80)) // purple-tinted active background
+                        : tileOffBrush;
+                }
+
                 // Fan Full Speed tile (Legion or GPD)
                 if (qsTileMap.TryGetValue("LegionFanFullSpeed", out var fanFullSpeedTile) && fanFullSpeedTile.TileButton != null)
                 {

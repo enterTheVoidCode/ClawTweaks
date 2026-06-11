@@ -51,6 +51,9 @@ namespace XboxGamingBar.QuickSettings
         OpenSpotify        = 53,
         LaunchUserProgram  = 59,  // generic: launches the exe/ps1 path carried in ActionParam
 
+        // ── Special Controller Buttons (70–79) ─────────────────────────────
+        EmulateXboxGuide       = 70,   // momentary Xbox Guide tap on the virtual ViGEm controller
+
         // ── Launch Website (60–69) ─────────────────────────────────────────
         OpenExophase           = 60,
         OpenRetroAchievements  = 61,
@@ -94,6 +97,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.OpenWindowsStore:   return "Open Windows Store";
                 case TileActionType.OpenChrome:         return "Open Chrome";
                 case TileActionType.OpenSpotify:        return "Open Spotify";
+                case TileActionType.EmulateXboxGuide:       return "Xbox Button";
                 case TileActionType.OpenExophase:           return "Open Exophase (Achievements)";
                 case TileActionType.OpenRetroAchievements:  return "Open Retro Achievements";
                 case TileActionType.OpenGoogle:             return "Open Google";
@@ -135,6 +139,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.OpenWindowsStore:   return "Store";
                 case TileActionType.OpenChrome:         return "Chrome";
                 case TileActionType.OpenSpotify:        return "Spotify";
+                case TileActionType.EmulateXboxGuide:       return "Xbox";
                 case TileActionType.OpenExophase:           return "Exophase";
                 case TileActionType.OpenRetroAchievements:  return "RetroAch";
                 case TileActionType.OpenGoogle:             return "Google";
@@ -176,6 +181,7 @@ namespace XboxGamingBar.QuickSettings
             if (v >= 40 && v < 50) return "Launcher";  // Launcher actions (Steam BP, Playnite, Xbox)
             if (v >= 50 && v < 60) return "Program";   // Program Actions (browser/store/chrome/spotify/user)
             if (v >= 60 && v < 70) return "Website";   // Launch Website (defaults + user URLs)
+            if (v >= 70 && v < 80) return "Controller"; // Special Controller Buttons (Xbox Button)
             if (v >= 20) return "App";
             return "";
         }
@@ -189,6 +195,7 @@ namespace XboxGamingBar.QuickSettings
                 case "Launcher": return "— Launcher Actions —";
                 case "Program":  return "— Program Actions —";
                 case "Website":  return "— Launch Website —";
+                case "Controller": return "— Special Controller Buttons —";
                 default:         return "— ClawTweaks Actions —";
             }
         }
@@ -285,6 +292,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.ShowKeyboard:   return PathKeyboard;
                 case TileActionType.CycleOverlayMode: return PathGauge;
                 case TileActionType.ToggleControllerMouseMode: return PathGames;
+                case TileActionType.EmulateXboxGuide:          return PathGames;  // Xbox/controller glyph
 
                 // Launcher actions → game library grid icon
                 case TileActionType.SteamBigPicture:
@@ -331,6 +339,7 @@ namespace XboxGamingBar.QuickSettings
                 case "LosslessScaling":     return PathResize;
                 case "Keyboard":            return PathKeyboard;
                 case "MsiCenter":           return PathApps;
+                case "ExternalGamepadMode": return PathDesktop;   // monitor/TV — external display setup (distinct from the controller Mode tile)
                 case "ActionTaskManager":   return PathWindow;
                 case "ActionExplorer":      return PathFolder;
                 case "ActionEndTask":       return PathDismiss;
@@ -379,6 +388,8 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.OpenYouTube;
             yield return TileActionType.OpenClawTweaksReleases;
             yield return TileActionType.OpenClawTweaksFaq;
+            // Special Controller Buttons group
+            yield return TileActionType.EmulateXboxGuide;
         }
     }
 

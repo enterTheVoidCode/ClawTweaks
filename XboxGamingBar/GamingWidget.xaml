@@ -6038,6 +6038,30 @@
                                   </StackPanel>
                                 </Border>
 
+                                <!-- ── Right MSI Button (Front) — Game Bar; auto-jump to ClawTweaks ── -->
+                                <Border Background="#14FFFFFF" CornerRadius="8" Padding="12,10,12,12"
+                                        BorderThickness="1" BorderBrush="#22FFFFFF" Margin="0,0,0,12">
+                                  <StackPanel x:Name="RightMsiButtonCard">
+                                    <TextBlock Text="Right MSI Button (Front)" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="#CCCCCC" Margin="0,0,0,6"/>
+                                    <TextBlock Text="Opens Game Bar (press action unchanged). When controller emulation is active, ClawTweaks then auto-jumps to its widget slot on open."
+                                               Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="ClawTweaks widget position" Foreground="#AAAAAA" FontSize="12" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="ClawTweaksWidgetPositionValue" Grid.Column="1" Text="3"
+                                                   Foreground="{StaticResource SystemAccentBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="ClawTweaksWidgetPositionSlider" Minimum="1" Maximum="10" StepFrequency="1" Value="3"
+                                            ValueChanged="ClawTweaksWidgetPosition_ValueChanged"/>
+                                    <TextBlock Text="Microsoft occupies the first two slots, so ClawTweaks is usually #3. On Game Bar open we tap RB (position − 1) times to land on it, then D-pad down into the tabs."
+                                               Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                  </StackPanel>
+                                </Border>
+
 
                                 <!-- Hidden Page controls for code-behind compatibility -->
                                 <StackPanel Visibility="Collapsed">
@@ -7880,6 +7904,7 @@
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
                                             <x:String>Select</x:String><x:String>Start</x:String>
+                                            <x:String>Xbox Button</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonY1MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -7923,6 +7948,7 @@
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
                                             <x:String>Select</x:String><x:String>Start</x:String>
+                                            <x:String>Xbox Button</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonY2MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -7960,6 +7986,7 @@
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
                                             <x:String>Select</x:String><x:String>Start</x:String>
+                                            <x:String>Xbox Button</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonY3MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -7997,6 +8024,7 @@
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
                                             <x:String>Select</x:String><x:String>Start</x:String>
+                                            <x:String>Xbox Button</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonM1MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -8034,6 +8062,7 @@
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
                                             <x:String>Select</x:String><x:String>Start</x:String>
+                                            <x:String>Xbox Button</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonM2MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -8071,6 +8100,7 @@
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
                                             <x:String>Select</x:String><x:String>Start</x:String>
+                                            <x:String>Xbox Button</x:String>
                                         </ComboBox>
                                         <ComboBox x:Name="LegionButtonM3MouseComboBox" Grid.Column="2" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
@@ -8150,6 +8180,7 @@
                                             <x:String>A</x:String><x:String>B</x:String><x:String>X</x:String><x:String>Y</x:String>
                                             <x:String>LB</x:String><x:String>LT</x:String><x:String>RB</x:String><x:String>RT</x:String>
                                             <x:String>Select</x:String><x:String>Start</x:String>
+                                            <x:String>Xbox Button</x:String>
                                         </ComboBox>
                                         <!-- Mouse action dropdown (hidden by default) -->
                                         <ComboBox x:Name="LegionGamepadMouseComboBox" Grid.Column="2" Visibility="Collapsed"
@@ -9037,77 +9068,78 @@
                         </StackPanel>
                         <!-- End hidden Performance Mode section -->
 
-                        <!-- Controller Status Card (device info, moved to bottom) -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- ── Controller Status (read-only diagnostic, bottom of Controller tab) ──
+                             Mirrors Diagnostics\Get-ControllerState.ps1. The elevated helper inspects
+                             ViGEm + HidHide + MSI Claw PnP live and reports one of two main states.
+                             Replaces the old device-info card (its x:Names live as stubs below). -->
+                        <Border x:Name="ControllerStateCard" Style="{StaticResource CardStyle}" Visibility="Visible">
                             <StackPanel>
-                                <TextBlock x:Name="LegionDeviceNameText" Text="Legion Go Controller" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock x:Name="LegionControllerStatusText"
-                                           Text="Connected"
-                                           FontSize="14"
-                                           Foreground="#4CAF50"
-                                           Margin="0,4,0,0"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Controller Status" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
+                                    <Button x:Name="ControllerStateRefreshButton"
+                                            Grid.Column="1"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Padding="8,4"
+                                            VerticalAlignment="Center"
+                                            ToolTipService.ToolTip="Refresh"
+                                            Click="ControllerStateRefreshButton_Click">
+                                        <FontIcon Glyph="&#xE72C;" FontSize="14"/>
+                                    </Button>
+                                    <ToggleButton x:Name="ControllerStateDetailsToggle"
+                                                  Grid.Column="2"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="ControllerStateDetailsToggle_Click">
+                                        <FontIcon x:Name="ControllerStateDetailsIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
 
-                                <!-- Device Info -->
-                                <TextBlock x:Name="LegionControllerPidVidText"
-                                           Text="VID:PID --"
-                                           FontSize="11"
-                                           Foreground="#666666"
-                                           Margin="0,8,0,0"/>
+                                <!-- Main status row: colored dot + state text -->
+                                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0" VerticalAlignment="Center">
+                                    <Ellipse x:Name="ControllerStateDot" Width="12" Height="12" Fill="#666666" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="ControllerStateText"
+                                               Text="Status unknown"
+                                               FontSize="15"
+                                               FontWeight="SemiBold"
+                                               Foreground="#E0E0E0"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <TextBlock x:Name="ControllerStateCaption"
+                                           Text="Tap Refresh to check the current state."
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           TextWrapping="Wrap"
+                                           Margin="22,4,0,0"/>
 
-                                <!-- Controller Information (populated from b0:01 device status) -->
-                                <StackPanel x:Name="LegionControllerInfoSection" Visibility="Collapsed" Margin="0,10,0,0">
-                                    <TextBlock Text="Controller Information"
-                                               FontSize="12"
-                                               Foreground="#888888"
-                                               Margin="0,0,0,4"/>
-
-                                    <Grid Margin="0,2,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Firmware" FontSize="11" Foreground="#888888"/>
-                                        <TextBlock Grid.Column="1" x:Name="LegionControllerFirmwareText"
-                                                   Text="&#x2014;" FontSize="11" Foreground="#FFFFFF"
-                                                   HorizontalAlignment="Right"/>
+                                <!-- Details (collapsed by default) -->
+                                <StackPanel x:Name="ControllerStateDetailsPanel" Spacing="8" Margin="0,14,0,0" Visibility="Collapsed">
+                                    <Grid>
+                                        <TextBlock Text="Virtual ViGEm controller" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStateViGEmValue" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
-
-                                    <Grid Margin="0,4,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Stick light" FontSize="11" Foreground="#888888"/>
-                                        <TextBlock Grid.Column="1" x:Name="LegionControllerLightText"
-                                                   Text="&#x2014;" FontSize="11" Foreground="#FFFFFF"
-                                                   HorizontalAlignment="Right" Margin="0,0,8,0"/>
-                                        <Border Grid.Column="2" x:Name="LegionControllerLightSwatch"
-                                                Width="14" Height="14" CornerRadius="3"
-                                                BorderThickness="1" BorderBrush="#444444"
-                                                Visibility="Collapsed"/>
+                                    <Grid>
+                                        <TextBlock Text="MSI Claw XInput (PID_1901)" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStatePid1901Value" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
-
-                                    <Grid Margin="0,4,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Vibration" FontSize="11" Foreground="#888888"/>
-                                        <TextBlock Grid.Column="1" x:Name="LegionControllerVibrationText"
-                                                   Text="&#x2014;" FontSize="11" Foreground="#FFFFFF"
-                                                   HorizontalAlignment="Right"/>
+                                    <Grid>
+                                        <TextBlock Text="MSI Claw DInput (PID_1902)" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStatePid1902Value" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
-
-                                    <Grid Margin="0,4,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Touchpad" FontSize="11" Foreground="#888888"/>
-                                        <TextBlock Grid.Column="1" x:Name="LegionControllerTouchpadText"
-                                                   Text="&#x2014;" FontSize="11" Foreground="#FFFFFF"
-                                                   HorizontalAlignment="Right"/>
+                                    <Grid>
+                                        <TextBlock Text="HidHide blocked devices" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStateBlockedValue" Text="–" Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="XInput slots connected" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStateXInputValue" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
@@ -9833,6 +9865,17 @@
                             <ComboBox x:Name="ECoreCountComboBox"/>
                         </StackPanel>
                         <ToggleSwitch x:Name="ForceParkModeToggle"/>
+                    </StackPanel>
+                    <!-- Removed device-info card stubs (replaced by ControllerStateCard) -->
+                    <TextBlock x:Name="LegionDeviceNameText"/>
+                    <TextBlock x:Name="LegionControllerStatusText"/>
+                    <TextBlock x:Name="LegionControllerPidVidText"/>
+                    <StackPanel x:Name="LegionControllerInfoSection">
+                        <TextBlock x:Name="LegionControllerFirmwareText"/>
+                        <TextBlock x:Name="LegionControllerLightText"/>
+                        <Border x:Name="LegionControllerLightSwatch"/>
+                        <TextBlock x:Name="LegionControllerVibrationText"/>
+                        <TextBlock x:Name="LegionControllerTouchpadText"/>
                     </StackPanel>
                     <!-- Controller Battery stubs -->
                     <StackPanel x:Name="ControllerBatterySection">
