@@ -264,6 +264,17 @@ namespace XboxGamingBarHelper
                 Logger.Info($"Target directory: {HelperDeploymentService.HelperFolder}");
                 Logger.Info($"Package version: {HelperDeploymentService.GetCurrentPackageVersion()}");
 
+                // Step 0: Terminate any other running helper instance BEFORE we deploy + relaunch.
+                // This is the update/version-mismatch path, and the old (still-running) helper holds
+                // the single-instance mutex AND has the hardware open (LHM kernel driver, KX MCHBAR
+                // MMIO map, MSI WMI/EC, OverBoost). If we don't kill it first:
+                //   - the deployed exe stays locked, the freshly launched helper can't acquire the
+                //     mutex and bows out → the OLD version keeps running after the update, and
+                //   - for the brief transition both versions touch ring0 hardware at once, which
+                //     hard-resets the Claw (Kernel-Power 41, no bluescreen).
+                // Killing here guarantees a single clean owner takes over.
+                KillOtherHelperInstances("update setup");
+
                 // Step 1: Deploy helper files
                 Logger.Info("Step 1: Deploying helper files...");
                 DebugLog("Step 1: Deploying...");
@@ -301,6 +312,57 @@ namespace XboxGamingBarHelper
                 Logger.Error(ex, "Error during setup");
                 DebugLog($"EXCEPTION: {ex.Message}\n{ex.StackTrace}");
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Force-terminates every other XboxGamingBarHelper process (all but the current one) and
+        /// waits for them to exit, then pauses briefly so the OS reclaims their hardware handles
+        /// (LHM/PawnIO kernel-driver handles, KX MCHBAR MMIO mapping, MSI WMI/EC) before a new
+        /// instance opens them. Used on the update path so a stale old-version helper can't keep
+        /// running — and so the old and new builds never touch ring0 hardware at the same time.
+        /// </summary>
+        public static void KillOtherHelperInstances(string reason)
+        {
+            int killed = 0;
+            try
+            {
+                int selfPid = Process.GetCurrentProcess().Id;
+                Process[] procs;
+                try { procs = Process.GetProcessesByName("XboxGamingBarHelper"); }
+                catch (Exception ex) { Logger.Warn($"KillOtherHelperInstances: enumerate failed: {ex.Message}"); return; }
+
+                foreach (var p in procs)
+                {
+                    try
+                    {
+                        if (p.Id == selfPid) continue;
+                        Logger.Info($"KillOtherHelperInstances ({reason}): terminating stale helper PID={p.Id}");
+                        p.Kill();
+                        if (!p.WaitForExit(5000))
+                            Logger.Warn($"KillOtherHelperInstances: PID={p.Id} did not exit within 5s");
+                        else
+                            killed++;
+                    }
+                    catch (Exception ex)
+                    {
+                        // Already gone / access denied (e.g. a higher-integrity instance) — best effort.
+                        Logger.Warn($"KillOtherHelperInstances: could not kill PID={p.Id}: {ex.Message}");
+                    }
+                    finally { try { p.Dispose(); } catch { } }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"KillOtherHelperInstances failed: {ex.Message}");
+            }
+
+            if (killed > 0)
+            {
+                // Let the kernel tear down the freed process's hardware handles/MMIO maps before
+                // the replacement opens them — concurrent ring0 access is what resets the device.
+                try { Thread.Sleep(1000); } catch { }
+                Logger.Info($"KillOtherHelperInstances ({reason}): {killed} stale instance(s) terminated");
             }
         }
 
