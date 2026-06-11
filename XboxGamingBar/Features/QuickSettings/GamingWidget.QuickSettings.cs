@@ -345,6 +345,9 @@ namespace XboxGamingBar
 
             // Row 7 - System/Device
             AddTileDefinition("MsiCenter", "MSI Center", "\uE7F4", order: order++);  // MSI Center M OEM software toggle
+            // External Gamepad Mode: hide ALL handheld controllers (MSI native + virtual ViGEm) via
+            // HidHide so only an externally connected gamepad is seen. MSI Claw only (ShouldSkipTile).
+            AddTileDefinition("ExternalGamepadMode", "Ext. Pad", "\uE7FC", order: order++);
             // AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);  // removed: Legion-specific RGB light mode
             // AddTileDefinition("LegionPowerLight", "Power Light", "\uE7E8", order: order++);  // removed: not used
             // AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);  // removed: not used on MSI Claw

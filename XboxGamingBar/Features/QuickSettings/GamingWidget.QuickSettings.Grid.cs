@@ -1045,6 +1045,13 @@ namespace XboxGamingBar
                 return true;
             }
 
+            // External Gamepad Mode tile is only relevant on MSI Claw (hides the handheld's
+            // own controllers; the hide logic is MSI-Claw-specific).
+            if (tile.Id == "ExternalGamepadMode" && !isMsiClaw)
+            {
+                return true;
+            }
+
             return false;
         }
 

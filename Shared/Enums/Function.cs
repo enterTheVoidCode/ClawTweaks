@@ -488,5 +488,35 @@
         // Controller: fire a short test rumble pulse on the physical MSI Claw at the current
         // vibration intensity (lets the user feel the setting without launching a game).
         TestControllerVibration,     // string - trigger (write "test")
+
+        // Controller State diagnostic (Controller tab, bottom card). Widget sends Command.Get;
+        // the elevated helper inspects ViGEm + HidHide + MSI Claw PnP live and returns a compact
+        // status string. Mirrors Diagnostics\Get-ControllerState.ps1 but runs in-process.
+        // Content format: "state|vigem|pid1901|pid1902|blocked|xinput"
+        //   state   : 0=Undetermined, 1=VirtualControllerMode, 2=HwControllerMode
+        //   vigem   : count of virtual Xbox360 controllers (VID_045E&PID_028E)
+        //   pid1901 : count of MSI Claw XInput/keyboard devices (VID_0DB0&PID_1901)
+        //   pid1902 : count of MSI Claw DInput gamepad devices (VID_0DB0&PID_1902)
+        //   blocked : count of devices currently hidden by HidHide
+        //   xinput  : count of connected XInput slots (0-4)
+        RequestControllerState,      // Get -> Content "state|vigem|pid1901|pid1902|blocked|xinput"
+
+        // External Gamepad Mode (Quick Settings tile, MSI Claw). When ON, hides ALL the handheld's
+        // own controllers via HidHide — the native MSI controllers (PID_1901 + PID_1902) AND our
+        // virtual ViGEm controller — so only an externally connected gamepad remains visible.
+        // NOT persisted: the tile always starts OFF after a helper start (the handheld needs a HW
+        // or virtual controller after every reboot).
+        ExternalGamepadMode,         // bool - true = hide all handheld controllers (external gamepad only)
+
+        // Special Controller Buttons — fire a momentary Xbox Guide tap on the virtual ViGEm Xbox 360
+        // controller (Xbox360Button.Guide press+release). This is the button that opens Steam Big
+        // Picture / the in-game Steam overlay. Used by the "Xbox Button" app action assigned to a
+        // tile or front button. Write any value to trigger (fire-and-forget).
+        EmulateXboxGuide,            // string - trigger (write "tap")
+
+        // Game Bar auto-navigation: the widget bar slot ClawTweaks occupies (Microsoft takes the
+        // first two, so usually 3). On Game Bar open the helper taps RB (position-1) times on the
+        // virtual controller to hop onto ClawTweaks, then D-pad down into the tabs. Widget→helper.
+        GameBarWidgetPosition,       // int - 1-based widget-bar position of ClawTweaks (default 3)
     }
 }

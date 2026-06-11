@@ -62,10 +62,58 @@ namespace XboxGamingBar
             // gyro callback (its only other visibility owner) and used to leave the card hidden.
             if (ControllerFeedbackCard != null) ControllerFeedbackCard.Visibility = Visibility.Visible;
 
+            // Controller-Status card is always visible in the Controller tab (set in XAML).
+            // Just fetch a fresh state on init.
+            RequestControllerState();
+
             RestoreMsiLedColorFromSettings();
             RestoreMsiChargeLimitFromSettings();
+            RestoreGameBarWidgetPositionFromSettings();
 
             Logger.Debug("[MsiClawSettings] Cards visible, settings restored");
+        }
+
+        // ── Right MSI Button: ClawTweaks Game Bar widget position (RB auto-jump) ──────────
+        private bool _loadingGameBarWidgetPosition;
+
+        private void RestoreGameBarWidgetPositionFromSettings()
+        {
+            try
+            {
+                _loadingGameBarWidgetPosition = true;
+                int pos = 3;
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue(GameBarWidgetPositionKey, out var v) && v is int stored)
+                    pos = stored;
+                if (pos < 1) pos = 1;
+                if (pos > 10) pos = 10;
+
+                if (ClawTweaksWidgetPositionSlider != null) ClawTweaksWidgetPositionSlider.Value = pos;
+                if (ClawTweaksWidgetPositionValue != null) ClawTweaksWidgetPositionValue.Text = pos.ToString();
+
+                // Push to helper so the RB hop count is correct even before the user touches it.
+                gameBarWidgetPosition?.SetValue(pos);
+                Logger.Info($"[GameBarAutoNav] restored ClawTweaks widget position = {pos}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GameBarAutoNav] restore position failed: {ex.Message}");
+            }
+            finally { _loadingGameBarWidgetPosition = false; }
+        }
+
+        private void ClawTweaksWidgetPosition_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (_loadingGameBarWidgetPosition) return;
+            int pos = (int)System.Math.Round(e.NewValue);
+            if (ClawTweaksWidgetPositionValue != null) ClawTweaksWidgetPositionValue.Text = pos.ToString();
+            try
+            {
+                Windows.Storage.ApplicationData.Current.LocalSettings.Values[GameBarWidgetPositionKey] = pos;
+            }
+            catch (Exception ex) { Logger.Warn($"[GameBarAutoNav] persist position failed: {ex.Message}"); }
+            gameBarWidgetPosition?.SetValue(pos);
+            Logger.Info($"[GameBarAutoNav] ClawTweaks widget position set to {pos}");
         }
 
         // ── LED Color ────────────────────────────────────────────────────────────────
@@ -109,6 +157,9 @@ namespace XboxGamingBar
         // Send a UNIQUE value each press — the trigger property dedupes equal values, so a constant
         // "test" would only fire once. The helper ignores the content (it just checks for a Set).
         private int _testVibrationSeq;
+        // Monotonic counter so a repeated "Xbox Button" tap always changes the trigger value
+        // (WidgetProperty dedupes equal values). Mirrors _testVibrationSeq.
+        private int _emulateXboxGuideSeq;
         private void TestVibrationButton_Click(object sender, RoutedEventArgs e)
         {
             testControllerVibration?.Trigger("test" + (++_testVibrationSeq));
