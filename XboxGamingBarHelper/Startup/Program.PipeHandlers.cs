@@ -1818,6 +1818,60 @@ namespace XboxGamingBarHelper
                         }
                     }
                 }
+                // In-app update (Onboarding): list the most recent GitHub releases so the
+                // widget can render "jump to / roll back" cards (latest + previous).
+                else if (functionValue == (int)Function.ListAppReleases)
+                {
+                    Logger.Info("Pipe: ListAppReleases request received");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    string json;
+                    try
+                    {
+                        // This pipe handler is synchronous; block on the async fetch.
+                        json = Services.GoTweaksUpdateService.CheckListAsync(2).GetAwaiter().GetResult();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: ListAppReleases threw: {ex.Message}");
+                        json = "[]";
+                    }
+                    response.Add(nameof(Function), functionValue);
+                    response.Add("Content", json);
+                    response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                }
+                // In-app update (Onboarding): install a chosen release by download URL.
+                // AV-clean path — GoTweaksUpdateService downloads via HttpClient and installs
+                // via the WinRT PackageManager (no PowerShell / Process.Start / runas).
+                else if (functionValue == (int)Function.InstallAppRelease)
+                {
+                    if (request.Command != Shared.Enums.Command.Set) { return; }
+                    string relUrl = request.Content;
+                    Logger.Info($"Pipe: InstallAppRelease request received: {relUrl}");
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+
+                    if (string.IsNullOrWhiteSpace(relUrl))
+                    {
+                        response.Add("UpdateStatus", "Error: No download URL provided");
+                    }
+                    else
+                    {
+                        // Ack first: AddPackageAsync(ForceApplicationShutdown) will close the
+                        // widget mid-install, so push "Installing" before the connection drops.
+                        response.Add("UpdateStatus", "Installing");
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                string r = await Services.GoTweaksUpdateService.InstallAsync(relUrl);
+                                Logger.Info($"Pipe: InstallAppRelease finished: {r}");
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Error($"Pipe: InstallAppRelease failed: {ex.Message}");
+                            }
+                        });
+                    }
+                }
                 // System Restore: Prepare for Uninstall
                 else if (functionValue == (int)Function.PrepareForUninstall)
                 {
