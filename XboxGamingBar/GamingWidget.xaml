@@ -3360,7 +3360,7 @@
                             <StackPanel>
                                 <TextBlock x:Name="AppUpdateCurrentVersionText" Text="Installed version: …"
                                            FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,2"/>
-                                <TextBlock Text="Pick a version to install. The download is verified and installed by the signed helper — no extra prompts."
+                                <TextBlock Text="Only versions newer than yours are shown (no downgrades). Experimental test builds are flagged. The download is verified and installed by the signed helper — no extra prompts."
                                            FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
                                 <Button x:Name="AppUpdateRefreshBtn" Content="Reload releases"
