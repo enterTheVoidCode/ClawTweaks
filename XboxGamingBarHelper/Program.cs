@@ -421,6 +421,12 @@ namespace XboxGamingBarHelper
                     }
 
                     SetupDebugLog("Exiting setup mode");
+                    // Force-terminate the setup process. Its job is done (files deployed, task created,
+                    // elevated helper launched via RunTaskNow). A plain `return` has been observed to
+                    // leave the setup process alive — a lingering (mutex-less, hardware-idle) instance
+                    // that makes "only one helper" untrue. Environment.Exit guarantees it goes away so
+                    // exactly the task-launched deployed helper remains.
+                    Environment.Exit(0);
                     return;
                 }
                 catch (Exception ex)
@@ -428,7 +434,7 @@ namespace XboxGamingBarHelper
                     Logger.Error(ex, "Setup failed with exception");
                     SetupDebugLog($"EXCEPTION in setup: {ex.Message}\n{ex.StackTrace}");
                     LogManager.Flush();
-                    return; // Exit on setup failure
+                    Environment.Exit(1); // Exit on setup failure (don't linger)
                 }
             }
 
