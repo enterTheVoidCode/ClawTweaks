@@ -86,11 +86,14 @@ try {
     }
 
     # 4. Install the package (+ dependencies), shutting down a running instance if needed.
+    #    -ForceUpdateFromAnyVersion allows installing over a HIGHER manifest version too. This is
+    #    needed for the one-time switch of the internal-build numbering to the release-line scheme
+    #    (0.1.285.x -> 0.1.4.x is a manifest downgrade) and for any deliberate rollback via ZIP.
     Write-Host "Installing package: $($pkg.Name)" -ForegroundColor Cyan
     if ($deps.Count -gt 0) {
-        Add-AppxPackage -Path $pkg.FullName -DependencyPath $deps.ToArray() -ForceApplicationShutdown
+        Add-AppxPackage -Path $pkg.FullName -DependencyPath $deps.ToArray() -ForceApplicationShutdown -ForceUpdateFromAnyVersion
     } else {
-        Add-AppxPackage -Path $pkg.FullName -ForceApplicationShutdown
+        Add-AppxPackage -Path $pkg.FullName -ForceApplicationShutdown -ForceUpdateFromAnyVersion
     }
 
     # 5. Cleanly terminate the OLD running processes so new features/fixes take effect immediately,
