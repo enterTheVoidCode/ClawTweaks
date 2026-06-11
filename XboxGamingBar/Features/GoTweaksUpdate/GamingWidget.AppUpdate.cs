@@ -88,11 +88,26 @@ namespace XboxGamingBar
                 }
 
                 ShowAppUpdateProgress(false, "");
+
+                // No downgrades: only surface releases whose version is >= the installed one.
+                // To test the updater, publish an (experimental) release with a higher version.
+                int[] installed = GetInstalledVersionParts();
+                int shown = 0;
                 for (uint i = 0; i < arr.Count; i++)
                 {
                     var rel = arr.GetObjectAt(i);
-                    bool isLatest = (i == 0);
-                    BuildReleaseCard(rel, isLatest);
+                    string relVer = JsonStr(rel, "version");
+                    if (string.IsNullOrWhiteSpace(relVer)) relVer = JsonStr(rel, "tag");
+                    if (CompareVerParts(ParseVerParts(relVer), installed) < 0)
+                        continue; // older than installed → hidden (no downgrades)
+                    BuildReleaseCard(rel, shown == 0);
+                    shown++;
+                }
+
+                if (shown == 0)
+                {
+                    ShowAppUpdateProgress(true,
+                        $"You're on the latest version ({installed[0]}.{installed[1]}.{installed[2]}.{installed[3]}). Newer releases appear here automatically.");
                 }
                 _appReleasesLoaded = true;
             }
@@ -144,9 +159,21 @@ namespace XboxGamingBar
 
             var panel = new StackPanel();
 
-            // Header: "v0.1.4 — latest" + date
-            string tag = isLatest ? "  ·  latest" : "  ·  previous";
-            if (prerelease) tag += " (pre-release)";
+            // Experimental (GitHub pre-release) builds are clearly flagged as test builds.
+            if (prerelease)
+            {
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "EXPERIMENTAL BUILD",
+                    FontSize = 10,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = OnbAmberBrush,
+                    Margin = new Thickness(0, 0, 0, 2),
+                });
+            }
+
+            // Header: "Version 0.1.5  ·  latest" + date
+            string tag = isLatest ? "  ·  latest" : "";
             var header = new TextBlock
             {
                 Text = $"Version {version}{tag}",
@@ -200,7 +227,7 @@ namespace XboxGamingBar
             {
                 var btn = new Button
                 {
-                    Content = isLatest ? "Download & install (latest)" : "Download & install this version",
+                    Content = prerelease ? "Download & install (experimental)" : "Download & install",
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Center,
                     FontSize = 12,
@@ -322,6 +349,46 @@ namespace XboxGamingBar
                 Logger.Warn($"PollInstallStatusAsync failed: {ex.Message}");
             }
             finally { _installPolling = false; }
+        }
+
+        // Installed package version as [Major, Minor, Build, Revision].
+        private static int[] GetInstalledVersionParts()
+        {
+            try
+            {
+                var v = Windows.ApplicationModel.Package.Current.Id.Version;
+                return new int[] { v.Major, v.Minor, v.Build, v.Revision };
+            }
+            catch { return new int[] { 0, 0, 0, 0 }; }
+        }
+
+        // Parse a version/tag string ("v0.1.5", "0.1.5.412", "v.0.1.3") into 4 numeric parts.
+        // Non-digit/garbage segments degrade to 0; missing trailing parts are 0.
+        private static int[] ParseVerParts(string s)
+        {
+            var r = new int[4];
+            if (string.IsNullOrWhiteSpace(s)) return r;
+            int start = 0;
+            while (start < s.Length && (s[start] == 'v' || s[start] == 'V' || s[start] == '.' || s[start] == ' ')) start++;
+            var parts = s.Substring(start).Split('.');
+            for (int i = 0; i < 4 && i < parts.Length; i++)
+            {
+                int val = 0;
+                foreach (char c in parts[i])
+                {
+                    if (c < '0' || c > '9') break;
+                    val = val * 10 + (c - '0');
+                }
+                r[i] = val;
+            }
+            return r;
+        }
+
+        private static int CompareVerParts(int[] a, int[] b)
+        {
+            for (int i = 0; i < 4; i++)
+                if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
+            return 0;
         }
 
         private void TryApplyModernButtonStyle(Button btn)
