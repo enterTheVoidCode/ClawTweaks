@@ -1334,6 +1334,7 @@ namespace XboxGamingBar
         // In-app update (Onboarding): query the latest releases (Get) + install a chosen one (Set).
         private readonly WidgetProperty<string> appReleases;
         private readonly ToolTriggerProperty installAppRelease;
+        private readonly WidgetProperty<string> appInstallStatus;
         private readonly ToolTriggerProperty testControllerVibration;
         // "Xbox Button" app action → momentary Guide tap on the virtual ViGEm controller (helper-side)
         private readonly ToolTriggerProperty emulateXboxGuide;
@@ -2109,6 +2110,7 @@ namespace XboxGamingBar
             runToolSetup = new ToolTriggerProperty(this, Function.RunToolSetup);
             appReleases = new WidgetProperty<string>("", null, Function.ListAppReleases);
             installAppRelease = new ToolTriggerProperty(this, Function.InstallAppRelease);
+            appInstallStatus = new WidgetProperty<string>("", null, Function.AppInstallStatus);
             testControllerVibration = new ToolTriggerProperty(this, Function.TestControllerVibration);
             emulateXboxGuide = new ToolTriggerProperty(this, Function.EmulateXboxGuide);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);

@@ -342,6 +342,7 @@
         // WinRT PackageManager (no PowerShell, no Process.Start, no runas) — per-user, no UAC.
         ListAppReleases,                // Query (Get): returns Content = JSON array of the latest releases
         InstallAppRelease,              // Set: Content = msixbundle browser_download_url to download + install
+        AppInstallStatus,               // Query (Get): returns Content = JSON {phase, percent, message} of the in-flight install
 
         // System Restore (for clean uninstall)
         PrepareForUninstall,            // Trigger: restore original system values and remove scheduled task

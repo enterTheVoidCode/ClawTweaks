@@ -262,9 +262,10 @@ namespace XboxGamingBar
                     btn.IsEnabled = false;
                 }
                 ShowAppUpdateProgress(true,
-                    $"Installing version {version}. ClawTweaks will close and reload when the install finishes — this can take a minute.");
+                    $"Starting download of version {version}… ClawTweaks will close and reload when the install finishes (the package is ~80 MB, so this can take several minutes on a slow connection).");
                 Logger.Info($"AppUpdate: installing release {version} from {downloadUrl}");
                 installAppRelease?.Trigger(downloadUrl);
+                _ = PollInstallStatusAsync();
             }
             catch (Exception ex)
             {
@@ -272,6 +273,55 @@ namespace XboxGamingBar
                 if (btn != null) { btn.Content = "Download & install this version"; btn.IsEnabled = true; }
                 ShowAppUpdateProgress(true, $"Install failed to start: {ex.Message}");
             }
+        }
+
+        // Polls the helper for live install progress (download %, phase) so the card shows
+        // "Downloading 45%…" instead of a static "Installing…". The widget is force-closed by the
+        // package install once it reaches the AddPackage step, so this loop simply ends there.
+        private bool _installPolling;
+        private async Task PollInstallStatusAsync()
+        {
+            if (_installPolling) return;
+            _installPolling = true;
+            try
+            {
+                for (int i = 0; i < 600; i++) // ~20 min ceiling at 2s cadence
+                {
+                    await Task.Delay(2000);
+                    if (!App.IsConnected) continue;
+                    try { await appInstallStatus.Sync(); } catch { continue; }
+
+                    string json = appInstallStatus?.Value ?? "";
+                    if (string.IsNullOrEmpty(json) || !JsonObject.TryParse(json, out var o)) continue;
+
+                    string phase = JsonStr(o, "phase");
+                    int percent = (int)o.GetNamedNumber("percent", -1);
+                    string msg = JsonStr(o, "message");
+
+                    switch (phase)
+                    {
+                        case "downloading":
+                            ShowAppUpdateProgress(true, percent >= 0
+                                ? $"Downloading update… {percent}%"
+                                : "Downloading update…");
+                            break;
+                        case "installing":
+                            ShowAppUpdateProgress(true, "Installing the package… ClawTweaks will close and reload shortly.");
+                            break;
+                        case "done":
+                            ShowAppUpdateProgress(true, "Update installed — reloading…");
+                            return;
+                        case "failed":
+                            ShowAppUpdateProgress(true, string.IsNullOrWhiteSpace(msg) ? "Install failed." : $"Install failed: {msg}");
+                            return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"PollInstallStatusAsync failed: {ex.Message}");
+            }
+            finally { _installPolling = false; }
         }
 
         private void TryApplyModernButtonStyle(Button btn)
