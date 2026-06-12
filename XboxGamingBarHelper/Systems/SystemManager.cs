@@ -401,7 +401,7 @@ namespace XboxGamingBarHelper.Systems
             if (shouldLogDiagnostics)
             {
                 _lastDiagnosticLogTime = DateTime.Now;
-                Logger.Info($"[GameDetection] Diagnostic: calls={_gameDetectionCallCount}, gamesOnly={gamesOnly}, preferExe={preferExe}");
+                Logger.Debug($"[GameDetection] Diagnostic: calls={_gameDetectionCallCount}, gamesOnly={gamesOnly}, preferExe={preferExe}");
             }
 
             // Helper: Get game name based on preferExe setting
@@ -445,7 +445,7 @@ namespace XboxGamingBarHelper.Systems
 
             if (shouldLogDiagnostics)
             {
-                Logger.Info($"[GameDetection] ProcessWindows count: {ProcessWindows.Count}, TrackedGame valid: {trackedGame.IsValid()}, TrackedGame: {(trackedGame.IsValid() ? trackedGame.DisplayName : "none")}");
+                Logger.Debug($"[GameDetection] ProcessWindows count: {ProcessWindows.Count}, TrackedGame valid: {trackedGame.IsValid()}, TrackedGame: {(trackedGame.IsValid() ? trackedGame.DisplayName : "none")}");
             }
 
             if (ProcessWindows.Count == 0)
@@ -802,7 +802,7 @@ namespace XboxGamingBarHelper.Systems
             {
                 if (shouldLogDiagnostics)
                 {
-                    Logger.Info($"[GameDetection] No games found - returning empty (windows={ProcessWindows.Count}, gamesOnly={gamesOnly})");
+                    Logger.Debug($"[GameDetection] No games found - returning empty (windows={ProcessWindows.Count}, gamesOnly={gamesOnly})");
                 }
                 Logger.Debug("Not found any game running.");
                 return new RunningGame();

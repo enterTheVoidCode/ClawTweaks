@@ -210,13 +210,18 @@ namespace XboxGamingBarHelper.Core
                         }
                         catch (SharpDX.SharpDXException ex)
                         {
-                            // HC DClawController: re-acquire on NotAcquired / InputLost
-                            if (ex.ResultCode == SharpDX.Result.GetResultFromWin32Error(0x1C /* ERROR_NOT_ENOUGH_MEMORY */) ||
-                                ex.HResult == unchecked((int)0x8007001C) ||
-                                ex.HResult == unchecked((int)0x8007000B) ||
-                                IsNotAcquiredOrInputLost(ex))
+                            // Exception handling mirrors the Labs ClawButtonMonitor (and HC
+                            // DClawController.Tick): use SharpDX's symbolic ResultCode rather than
+                            // hand-coded HRESULTs. The previous code hard-coded DIERR_INPUTLOST as
+                            // 0x8007000B (wrong — that's ERROR_BAD_FORMAT); the real DIERR_INPUTLOST
+                            // is 0x8007001E. So a genuine InputLost fell through to the 'else' branch
+                            // and was only logged (~252x/h) while the joystick handle was never
+                            // re-acquired — leaving the DInput hotkeys dead (and the Claw needing a
+                            // controller-mode toggle to recover) until something else reset the device.
+                            if (ex.ResultCode == ResultCode.NotAcquired)
                             {
-                                Logger.Debug($"ControllerHotkeyMonitor: DirectInput lost, re-acquiring ({ex.HResult:X8})");
+                                // HC: Plug() → joystick.Acquire()
+                                Logger.Debug("ControllerHotkeyMonitor: NotAcquired — re-acquiring");
                                 try { _joystick.Acquire(); }
                                 catch
                                 {
@@ -224,9 +229,18 @@ namespace XboxGamingBarHelper.Core
                                     _joystick = null;
                                 }
                             }
+                            else if (ex.ResultCode == ResultCode.InputLost)
+                            {
+                                // Device handle went stale (mode switch / USB re-enumeration / read
+                                // fault). Drop it so the next loop iteration re-enumerates and
+                                // re-acquires via TryAcquireJoystick().
+                                Logger.Debug("ControllerHotkeyMonitor: InputLost — dropping handle to re-acquire");
+                                _joystick?.Dispose();
+                                _joystick = null;
+                            }
                             else
                             {
-                                Logger.Warn($"ControllerHotkeyMonitor: DirectInput error {ex.HResult:X8}");
+                                Logger.Warn($"ControllerHotkeyMonitor: DirectInput error ({ex.ResultCode}) {ex.HResult:X8}");
                             }
                             Thread.Sleep(PollIntervalMs);
                             continue;
@@ -318,13 +332,6 @@ namespace XboxGamingBarHelper.Core
             int vid2 = b[2] | (b[3] << 8);
             if (vid2 == VendorId && System.Array.IndexOf(ProductIds, pid2) >= 0) return true;
             return false;
-        }
-
-        private static bool IsNotAcquiredOrInputLost(SharpDX.SharpDXException ex)
-        {
-            // DIERR_NOTACQUIRED = 0x8007001C, DIERR_INPUTLOST = 0x8007000B
-            return ex.HResult == unchecked((int)0x8007001C) ||
-                   ex.HResult == unchecked((int)0x8007000B);
         }
 
         // ── Button mapping — 1:1 from HC DClawController.Tick() ──────────────────

@@ -54,7 +54,10 @@ namespace XboxGamingBarHelper
             try
             {
                 var pipeMsg = Shared.IPC.PipeMessage.FromJson(e.Message);
-                Logger.Info($"Helper received pipe message: {pipeMsg}");
+                // Routine IPC traffic (polling Get/Set/BatchGet) — the single biggest log noise
+                // source (~1k lines/h). Keep at Debug so it's available when bumping the level,
+                // but out of the normal Info-level logs.
+                Logger.Debug($"Helper received pipe message: {pipeMsg}");
 
                 // Convert to ValueSet for compatibility with existing handlers
                 var valueSet = pipeMsg.ToValueSet();
@@ -406,7 +409,7 @@ namespace XboxGamingBarHelper
                     {
                         var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
                         var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                        var exportFolder = Path.Combine(desktopPath, $"GoTweaks_Logs_{timestamp}");
+                        var exportFolder = Path.Combine(desktopPath, $"ClawTweaks_Logs_{timestamp}");
 
                         // Create export folder
                         Directory.CreateDirectory(exportFolder);
@@ -415,43 +418,68 @@ namespace XboxGamingBarHelper
                         Directory.CreateDirectory(helperFolder);
                         Directory.CreateDirectory(widgetFolder);
 
-                        // Get log paths from app package location
-                        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-                        var packageFolder = Path.Combine(localAppData, "Packages", "PlayandBuildCustom.10365195AA1EC_8edemd50ez3gg");
-                        var helperLogPath = localAppData; // Helper logs are in %LocalAppData% when elevated
-                        var widgetLogPath = Path.Combine(packageFolder, "LocalState");
+                        // Helper logs are written to the package's LocalCache\Local folder. The exact
+                        // directory is determined once at startup (Program.ConfigureLogDirectory) and
+                        // stored in the NLog GDC, so read it back here instead of hardcoding a package
+                        // name. The old code pointed at the upstream GoTweaks package + %LocalAppData%
+                        // root, which only held stale logs -> exports picked up ancient files.
+                        var helperLogPath = NLog.GlobalDiagnosticsContext.Get("LogDirectory") as string;
+                        if (string.IsNullOrEmpty(helperLogPath) || !Directory.Exists(helperLogPath))
+                        {
+                            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                            helperLogPath = Path.Combine(localAppData, "Packages", "MSIClaw.ClawTweaks_7eszav2039cvc", "LocalCache", "Local");
+                        }
 
-                        // Copy helper logs (last 2) - check both locations
-                        var helperLogs = new List<string>();
+                        // Widget logs live in the package's LocalState (sibling of LocalCache). Derive
+                        // it from the helper log dir (...\<pkg>\LocalCache\Local) when possible.
+                        string widgetLogPath = null;
+                        try
+                        {
+                            var localCacheDir = Directory.GetParent(helperLogPath)?.FullName;   // ...\<pkg>\LocalCache
+                            var packageRoot = localCacheDir != null ? Directory.GetParent(localCacheDir)?.FullName : null; // ...\<pkg>
+                            if (packageRoot != null)
+                                widgetLogPath = Path.Combine(packageRoot, "LocalState");
+                        }
+                        catch { /* fall through to default below */ }
+                        if (string.IsNullOrEmpty(widgetLogPath) || !Directory.Exists(widgetLogPath))
+                        {
+                            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                            widgetLogPath = Path.Combine(localAppData, "Packages", "MSIClaw.ClawTweaks_7eszav2039cvc", "LocalState");
+                        }
+
+                        // Copy the most recent helper logs. Files rotate hourly (helper_yyyy-MM-dd_HH.log),
+                        // so the newest 3 cover the current session (~3h).
                         if (Directory.Exists(helperLogPath))
                         {
-                            helperLogs.AddRange(Directory.GetFiles(helperLogPath, "helper_*.log"));
+                            foreach (var log in Directory.GetFiles(helperLogPath, "helper_*.log")
+                                .OrderByDescending(f => File.GetLastWriteTime(f))
+                                .Take(3))
+                            {
+                                var destPath = Path.Combine(helperFolder, Path.GetFileName(log));
+                                File.Copy(log, destPath, true);
+                                Logger.Info($"Copied helper log: {Path.GetFileName(log)}");
+                            }
                         }
-                        var packageHelperLogPath = Path.Combine(packageFolder, "LocalCache", "Local");
-                        if (Directory.Exists(packageHelperLogPath))
+                        else
                         {
-                            helperLogs.AddRange(Directory.GetFiles(packageHelperLogPath, "helper_*.log"));
-                        }
-                        foreach (var log in helperLogs.OrderByDescending(f => File.GetLastWriteTime(f)).Take(2))
-                        {
-                            var destPath = Path.Combine(helperFolder, Path.GetFileName(log));
-                            File.Copy(log, destPath, true);
-                            Logger.Info($"Copied: {Path.GetFileName(log)}");
+                            Logger.Warn($"Pipe: helper log dir not found: {helperLogPath}");
                         }
 
-                        // Copy widget logs (last 2)
+                        // Copy the most recent widget logs (also rotate hourly).
                         if (Directory.Exists(widgetLogPath))
                         {
-                            var widgetLogs = Directory.GetFiles(widgetLogPath, "widget_*.log")
+                            foreach (var log in Directory.GetFiles(widgetLogPath, "widget_*.log")
                                 .OrderByDescending(f => File.GetLastWriteTime(f))
-                                .Take(2);
-
-                            foreach (var log in widgetLogs)
+                                .Take(3))
                             {
                                 var destPath = Path.Combine(widgetFolder, Path.GetFileName(log));
                                 File.Copy(log, destPath, true);
-                                Logger.Info($"Copied: {Path.GetFileName(log)}");
+                                Logger.Info($"Copied widget log: {Path.GetFileName(log)}");
                             }
+                        }
+                        else
+                        {
+                            Logger.Warn($"Pipe: widget log dir not found: {widgetLogPath}");
                         }
 
                         Logger.Info($"Pipe: Logs exported to: {exportFolder}");

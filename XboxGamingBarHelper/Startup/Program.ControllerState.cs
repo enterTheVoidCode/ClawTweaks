@@ -111,6 +111,23 @@ namespace XboxGamingBarHelper
             else if (vigem == 0 && pid1901 > 0 && hidHideKnown && !cloaking && blocked == 0)
                 state = 2;
 
+            // The classification above infers the mode purely from live PnP/HidHide/XInput
+            // snapshots, which are racy: WMI may briefly omit the ViGEm device during a PnP
+            // re-enumeration, or HidHide's API may momentarily be unavailable (hidHideKnown=false).
+            // When that happens neither strict branch matches and we'd leave state=0 ("unknown"),
+            // even though the controller is working fine — the reported "rare invalid state" that
+            // forced a manual virtual<->HW toggle to clear. Fall back to the helper's authoritative
+            // emulation intent (the master switch the user actually toggles, valid for both the
+            // legacy ViGEm and VIIPER backends) so the headline is always HW or Virtual.
+            if (state == 0)
+            {
+                bool emulationOn = controllerEmulationManager?.EmulationEnabled ?? false;
+                state = emulationOn ? 1 : 2;
+                Logger.Debug($"ControllerState: live snapshot undetermined " +
+                             $"(vigem={vigem}, pid1901={pid1901}, hidHideKnown={hidHideKnown}, " +
+                             $"cloaking={cloaking}, blocked={blocked}) → resolved to {state} via EmulationEnabled={emulationOn}");
+            }
+
             // -1 signals "HidHide state unknown" to the widget so it doesn't show a misleading 0.
             int blockedOut = hidHideKnown ? blocked : -1;
             return $"{state}|{vigem}|{pid1901}|{pid1902}|{blockedOut}|{xinput}";
