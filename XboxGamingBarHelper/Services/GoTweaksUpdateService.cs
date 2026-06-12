@@ -391,8 +391,10 @@ namespace XboxGamingBarHelper.Services
                 {
                     Logger.Info($"GoTweaks update installed successfully from {installPath}");
                     SetInstallStatus("done", 100, "Update installed — reloading.");
-                    // UAC-free in-app update: redeploy the new version ourselves while still elevated.
-                    TrySelfDeployNewVersionElevated(installPath);
+                    // The new version is registered. The helper redeploys + restarts on the next launch
+                    // via the normal elevated setup path (one UAC). We intentionally do NOT self-deploy
+                    // here: launching a helper copy from temp tripped Windows Defender (Bearfoos.A!ml,
+                    // "process spawns a copy of itself from temp"), so the UAC variant is what we ship.
                     return "{\"success\":true,\"message\":\"Update installed — the widget will reload.\"}";
                 }
 
@@ -409,87 +411,6 @@ namespace XboxGamingBarHelper.Services
                 Logger.Warn($"GoTweaks install failed: {ex.Message}");
                 SetInstallStatus("failed", -1, "Install failed.");
                 return "{\"success\":false,\"message\":\"Install failed: " + ex.Message.Replace("\"", "'") + "\"}";
-            }
-        }
-
-        /// <summary>
-        /// UAC-free in-app update (Task #9): the deployed helper runs ELEVATED via the scheduled task,
-        /// so right after AddPackageAsync registers the new version we kick off the normal setup/deploy
-        /// of that new version OURSELVES — launching the new package's helper with <c>--setup</c> and
-        /// <c>UseShellExecute=false</c> (no <c>runas</c>). An already-elevated parent's child inherits
-        /// the admin token, so there is NO UAC prompt. The setup child runs the usual path:
-        /// KillOtherHelperInstances frees the locked deployed exe (kills this old helper), deploys the
-        /// new files, recreates the task, starts the new helper, and the setup watchdog reaps it. The
-        /// next launch then finds a current deployment and never prompts.
-        ///
-        /// Best-effort only: if we are not elevated or anything fails, we simply skip this and the
-        /// existing next-launch setup (with its one UAC) still does the job. Manual ZIP installs keep
-        /// their one-time UAC by design.
-        /// </summary>
-        private static void TrySelfDeployNewVersionElevated(string msixPath)
-        {
-            try
-            {
-                if (!XboxGamingBarHelper.ElevationBootstrapper.IsRunningAsAdmin())
-                {
-                    Logger.Info("Self-deploy skipped: helper not elevated; next launch sets up (with UAC).");
-                    return;
-                }
-                if (string.IsNullOrEmpty(msixPath) || !System.IO.File.Exists(msixPath))
-                {
-                    Logger.Warn("Self-deploy: msix path missing; falling back to next-launch UAC.");
-                    return;
-                }
-
-                // Version from the .msix filename, e.g. XboxGamingBarPackage_0.1.4.420_x64.msix.
-                string version = null;
-                foreach (var tok in System.IO.Path.GetFileNameWithoutExtension(msixPath).Split('_'))
-                {
-                    if (System.Text.RegularExpressions.Regex.IsMatch(tok, @"^\d+\.\d+\.\d+\.\d+$")) { version = tok; break; }
-                }
-                if (string.IsNullOrEmpty(version))
-                {
-                    Logger.Warn("Self-deploy: could not parse version from msix name; falling back to next-launch UAC.");
-                    return;
-                }
-
-                // Extract the .msix (a zip) to get the new helper files. We deliberately do NOT query
-                // PackageManager / WindowsApps for the install location — both are access-denied for the
-                // unpackaged elevated helper (that was the earlier "Zugriff verweigert").
-                string pkgDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "GoTweaksSelfUpdate", "pkg");
-                try { if (System.IO.Directory.Exists(pkgDir)) System.IO.Directory.Delete(pkgDir, true); } catch { }
-                System.IO.Directory.CreateDirectory(pkgDir);
-                System.IO.Compression.ZipFile.ExtractToDirectory(msixPath, pkgDir);
-
-                string childExe = System.IO.Path.Combine(pkgDir, "XboxGamingBarHelper", "XboxGamingBarHelper.exe");
-                if (!System.IO.File.Exists(childExe))
-                {
-                    Logger.Warn($"Self-deploy: helper exe not found in extracted package ({childExe}); falling back to next-launch UAC.");
-                    return;
-                }
-
-                // The temp child has no package identity, so pass the real package LocalCache path and
-                // the version via env vars (HelperDeploymentService reads them). The child then runs the
-                // proven --setup path elevated-by-inheritance (NO UAC): it kills this old helper to free
-                // the locked deployed files, deploys the new files, recreates the task, starts the new
-                // deployed helper, and the setup watchdog reaps the child.
-                string localCache = System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(HelperDeploymentService.HelperFolder));
-
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = childExe,
-                    Arguments = "--setup",
-                    UseShellExecute = false, // already elevated → child inherits admin token, NO UAC
-                    CreateNoWindow = true,
-                };
-                if (!string.IsNullOrEmpty(localCache)) psi.EnvironmentVariables["CLAWTWEAKS_LOCALCACHE"] = localCache;
-                psi.EnvironmentVariables["CLAWTWEAKS_DEPLOY_VERSION"] = version;
-                System.Diagnostics.Process.Start(psi);
-                Logger.Info($"Self-deploy: launched elevated --setup from {childExe} (version {version}, UAC-free in-app update).");
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"Self-deploy failed (falls back to next-launch UAC): {ex.Message}");
             }
         }
 
