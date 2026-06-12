@@ -85,6 +85,28 @@ try {
         }
     }
 
+    # 3.5 Stop any OLD helper BEFORE installing. This is the version-independent safety net:
+    #     Install.ps1 ships fresh with every release, so it protects users updating from a build
+    #     that LACKS the in-app multi-instance guard (older versions). The deployed helper runs
+    #     outside the MSIX (scheduled task), survives the package swap, and holds the hardware
+    #     (LHM kernel driver, KX MCHBAR MMIO, MSI WMI/EC). If it stays alive while the new package
+    #     registers and Game Bar relaunches, the old and new builds can touch ring0 at the same
+    #     time -> hard reset (Kernel-Power 41). End its task (current + legacy name), kill EVERY
+    #     helper process by name (covers multiple/stale instances), and let the kernel release the
+    #     hardware handles before we install + relaunch.
+    Write-Host "Stopping any running ClawTweaks helper before install..." -ForegroundColor DarkGray
+    try {
+        foreach ($tn in @("ClawTweaks\ClawTweaksHelper", "GoTweaks\GoTweaksHelper")) {
+            & schtasks.exe /End /TN $tn 2>$null | Out-Null
+        }
+        Get-Process -Name "XboxGamingBarHelper" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+        Get-Process -Name "XboxGamingBar" -ErrorAction SilentlyContinue |
+            Stop-Process -Force -ErrorAction SilentlyContinue
+        Start-Sleep -Milliseconds 800   # let hardware handles / MMIO maps tear down
+    }
+    catch { }
+
     # 4. Install the package (+ dependencies), shutting down a running instance if needed.
     #    -ForceUpdateFromAnyVersion allows installing over a HIGHER manifest version too. This is
     #    needed for the one-time switch of the internal-build numbering to the release-line scheme
