@@ -96,14 +96,30 @@ try {
     #     hardware handles before we install + relaunch.
     Write-Host "Stopping any running ClawTweaks helper before install..." -ForegroundColor DarkGray
     try {
+        # End the scheduled task first so it cannot relaunch the helper mid-install.
         foreach ($tn in @("ClawTweaks\ClawTweaksHelper", "GoTweaks\GoTweaksHelper")) {
             & schtasks.exe /End /TN $tn 2>$null | Out-Null
         }
-        Get-Process -Name "XboxGamingBarHelper" -ErrorAction SilentlyContinue |
-            Stop-Process -Force -ErrorAction SilentlyContinue
-        Get-Process -Name "XboxGamingBar" -ErrorAction SilentlyContinue |
-            Stop-Process -Force -ErrorAction SilentlyContinue
-        Start-Sleep -Milliseconds 800   # let hardware handles / MMIO maps tear down
+
+        # Kill the helper(s) + widget and WAIT until the helper is verifiably gone before we install.
+        # We do NOT proceed on a fixed delay — we poll (re-killing each round) until no helper process
+        # remains, so the new package never registers alongside a live old helper. ~15s ceiling.
+        $deadline = (Get-Date).AddSeconds(15)
+        do {
+            Get-Process -Name "XboxGamingBarHelper" -ErrorAction SilentlyContinue |
+                Stop-Process -Force -ErrorAction SilentlyContinue
+            Get-Process -Name "XboxGamingBar" -ErrorAction SilentlyContinue |
+                Stop-Process -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Milliseconds 300
+            $still = @(Get-Process -Name "XboxGamingBarHelper" -ErrorAction SilentlyContinue)
+        } while ($still.Count -gt 0 -and (Get-Date) -lt $deadline)
+
+        if ($still.Count -gt 0) {
+            Write-Host "Warning: a helper process is still running after 15s — continuing anyway." -ForegroundColor DarkYellow
+        } else {
+            Start-Sleep -Milliseconds 500   # let kernel release hardware handles / MMIO maps
+            Write-Host "Helper stopped — proceeding with install." -ForegroundColor DarkGray
+        }
     }
     catch { }
 
