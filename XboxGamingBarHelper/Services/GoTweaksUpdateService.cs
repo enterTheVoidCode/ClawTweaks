@@ -337,29 +337,26 @@ namespace XboxGamingBarHelper.Services
                 return "{\"success\":false,\"message\":\"Download failed: " + ex.Message.Replace("\"", "'") + "\"}";
             }
 
-            // If we downloaded the installer .zip, extract it and locate the signed package inside
-            // (.msixbundle preferred, else .msix). Extraction is plain ZipFile — still AV-clean
-            // (no Process.Start / PowerShell / runas).
+            // In-app install: extract the zip and run the bundled Install.ps1 (PowerShell) to INSTALL the
+            // package — the same script as the manual ZIP install. The helper is already elevated, so it
+            // launches Windows PowerShell 5.1 with UseShellExecute=false (child inherits the helper's
+            // HIGH-IL token → no extra UAC, and Install.ps1 passes its admin check). Install.ps1 trusts
+            // the cert, Add-AppxPackage's the new build, and drops the deployed helper copy. The new
+            // helper is then redeployed by the helper's OWN --setup (ElevationBootstrapper → the single
+            // UAC) on next Game Bar open. = GoTweaks model: INSTALL via PowerShell, UAC from the helper.
+            // We deliberately do NOT copy the helper + create/start the task from PowerShell — that
+            // script-driven persistence tripped Defender's Behavior:Win32/Persistence.A!ml. A bare-.msix
+            // zip (no Install.ps1) falls back to WinRT AddPackageAsync below.
             SetInstallStatus("installing", 100);
             string installPath = target;
             if (target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
+                string extractDir = System.IO.Path.Combine(dir, "extracted");
                 try
                 {
-                    string extractDir = System.IO.Path.Combine(dir, "extracted");
                     try { if (System.IO.Directory.Exists(extractDir)) System.IO.Directory.Delete(extractDir, true); } catch { }
                     System.IO.Directory.CreateDirectory(extractDir);
                     System.IO.Compression.ZipFile.ExtractToDirectory(target, extractDir);
-
-                    var pkg = System.IO.Directory.GetFiles(extractDir, "*.msixbundle", System.IO.SearchOption.AllDirectories).FirstOrDefault()
-                              ?? System.IO.Directory.GetFiles(extractDir, "*.msix", System.IO.SearchOption.AllDirectories).FirstOrDefault();
-                    if (string.IsNullOrEmpty(pkg))
-                    {
-                        SetInstallStatus("failed", -1, "No package inside the installer zip.");
-                        return "{\"success\":false,\"message\":\"No .msix/.msixbundle found inside the installer zip.\"}";
-                    }
-                    installPath = pkg;
-                    Logger.Info($"GoTweaksUpdateService: extracted package {installPath} from {target}");
                 }
                 catch (Exception ex)
                 {
@@ -367,6 +364,49 @@ namespace XboxGamingBarHelper.Services
                     SetInstallStatus("failed", -1, "Unpack failed.");
                     return "{\"success\":false,\"message\":\"Unpack failed: " + ex.Message.Replace("\"", "'") + "\"}";
                 }
+
+                string installScript = System.IO.Directory
+                    .GetFiles(extractDir, "Install.ps1", System.IO.SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (!string.IsNullOrEmpty(installScript))
+                {
+                    try
+                    {
+                        string winPs = System.IO.Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.System),
+                            "WindowsPowerShell\\v1.0\\powershell.exe");
+                        var psi = new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = winPs,
+                            Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{installScript}\" -Elevated",
+                            WorkingDirectory = System.IO.Path.GetDirectoryName(installScript),
+                            UseShellExecute = false,   // inherit the helper's elevated token (no extra UAC, high IL)
+                            CreateNoWindow = false,    // show the console so the user sees package progress
+                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal,
+                        };
+                        Logger.Info($"GoTweaksUpdateService: installing via {installScript} (Windows PowerShell)");
+                        System.Diagnostics.Process.Start(psi);
+                        SetInstallStatus("done", 100, "Installing… ClawTweaks reloads; confirm the helper's UAC.");
+                        return "{\"success\":true,\"message\":\"Installer running — ClawTweaks reloads; confirm the helper UAC on next open.\"}";
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"GoTweaks installer launch failed: {ex.Message}");
+                        SetInstallStatus("failed", -1, "Couldn't launch installer.");
+                        return "{\"success\":false,\"message\":\"Couldn't launch installer: " + ex.Message.Replace("\"", "'") + "\"}";
+                    }
+                }
+
+                // Fallback: bare package (no Install.ps1 in the zip) → install via WinRT below.
+                var pkg = System.IO.Directory.GetFiles(extractDir, "*.msixbundle", System.IO.SearchOption.AllDirectories).FirstOrDefault()
+                          ?? System.IO.Directory.GetFiles(extractDir, "*.msix", System.IO.SearchOption.AllDirectories).FirstOrDefault();
+                if (string.IsNullOrEmpty(pkg))
+                {
+                    SetInstallStatus("failed", -1, "No installer in the zip.");
+                    return "{\"success\":false,\"message\":\"No Install.ps1 or .msix found inside the installer zip.\"}";
+                }
+                installPath = pkg;
+                Logger.Info($"GoTweaksUpdateService: extracted package {installPath} from {target}");
             }
 
             // Install via the OS-native WinRT PackageManager. AddPackageAsync

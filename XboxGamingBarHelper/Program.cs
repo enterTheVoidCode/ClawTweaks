@@ -442,13 +442,18 @@ namespace XboxGamingBarHelper
                         }
                     }
 
-                    SetupDebugLog("Exiting setup mode");
-                    // Force-terminate the setup process. Its job is done (files deployed, task created,
-                    // elevated helper launched via RunTaskNow). A plain `return` has been observed to
-                    // leave the setup process alive — a lingering (mutex-less, hardware-idle) instance
-                    // that makes "only one helper" untrue. Environment.Exit guarantees it goes away so
-                    // exactly the task-launched deployed helper remains.
-                    Environment.Exit(0);
+                    SetupDebugLog("Exiting setup mode (hard kill)");
+                    // Hard-terminate this setup process. Its job is done (files deployed, task created,
+                    // elevated helper launched via RunTaskNow). Do NOT rely on Environment.Exit / return:
+                    // both run the managed CLR shutdown, which has been observed to HANG and SPIN at
+                    // ~100% CPU here (NLog/COM teardown). Worse, the hanging shutdown SUSPENDS all other
+                    // managed threads — including the SetupWatchdog — so nothing ever kills it. (Confirmed
+                    // 2026-06-12: setup_debug logged "Exiting setup mode" at 13:55:29 yet the process was
+                    // still spinning 9 min later, blocking the helper's single-instance pipe and leaving
+                    // the widget unable to connect.) Process.Kill() = TerminateProcess: immediate, runs no
+                    // finalizers, cannot deadlock. The task-launched keeper is a separate process, unaffected.
+                    try { System.Diagnostics.Process.GetCurrentProcess().Kill(); } catch { }
+                    Environment.Exit(0); // unreachable safety net
                     return;
                 }
                 catch (Exception ex)
@@ -456,7 +461,10 @@ namespace XboxGamingBarHelper
                     Logger.Error(ex, "Setup failed with exception");
                     SetupDebugLog($"EXCEPTION in setup: {ex.Message}\n{ex.StackTrace}");
                     LogManager.Flush();
-                    Environment.Exit(1); // Exit on setup failure (don't linger)
+                    // Hard kill (TerminateProcess) for the same reason as the success path — never let a
+                    // failed setup process linger/spin. Environment.Exit is only the unreachable fallback.
+                    try { System.Diagnostics.Process.GetCurrentProcess().Kill(); } catch { }
+                    Environment.Exit(1);
                 }
             }
 
@@ -901,6 +909,29 @@ namespace XboxGamingBarHelper
             }
             Logger.Info($"GoTweaks Helper starting v{helperVersion} — writing initial heartbeat");
             WriteHeartbeat();
+
+            // Best-effort cleanup of the in-app updater's temp folder (~80MB zip + extracted installer).
+            // We run this in the KEEPER (post-setup) start: by now any Install.ps1 that ran FROM that
+            // folder has finished and closed, so the files are free to delete. Background + swallowed so
+            // it can never delay or break startup.
+            try
+            {
+                new System.Threading.Thread(() =>
+                {
+                    try
+                    {
+                        string updTmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "GoTweaksSelfUpdate");
+                        if (System.IO.Directory.Exists(updTmp))
+                        {
+                            System.IO.Directory.Delete(updTmp, true);
+                            Logger.Info($"Cleaned up updater temp folder: {updTmp}");
+                        }
+                    }
+                    catch (Exception ex) { Logger.Warn($"Updater temp cleanup skipped: {ex.Message}"); }
+                })
+                { IsBackground = true, Name = "UpdaterTempCleanup" }.Start();
+            }
+            catch { }
 
             // START PIPE SERVER EARLY - Widget can connect while managers initialize
             // BatchGet requests will return "NotReady" until _managersReady is true

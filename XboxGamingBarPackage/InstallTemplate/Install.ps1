@@ -1,5 +1,5 @@
 # =====================================================================================
-#  ClawTweaks — Installer
+#  ClawTweaks - Installer
 #
 #  How to install:
 #    1. Extract the WHOLE ZIP to a folder (keep all files together).
@@ -9,7 +9,7 @@
 #
 #  What it does: trusts the bundled signing certificate, then installs the ClawTweaks
 #  app package together with its runtime dependencies. No external tools are downloaded
-#  — install the required tools (ViGEmBus, HidHide, RTSS, PawnIO) afterwards from the
+#  - install the required tools (ViGEmBus, HidHide, RTSS, PawnIO) afterwards from the
 #  in-app Setup tab.
 #
 #  Tip: close the ClawTweaks widget / Xbox Game Bar before updating an existing install.
@@ -37,7 +37,7 @@ if (-not $Elevated -and ((-not (Test-Admin)) -or ($PSVersionTable.PSEdition -eq 
 }
 
 function Finish($code) {
-    # Auto-close after a short delay instead of waiting for a key — a lingering console
+    # Auto-close after a short delay instead of waiting for a key - a lingering console
     # window is awkward on a handheld. (No Read-Host: nothing to confirm on a touch device.)
     if ($Elevated) { Write-Host ""; Write-Host "Closing in 3 seconds..." -ForegroundColor DarkGray; Start-Sleep -Seconds 3 }
     exit $code
@@ -59,7 +59,7 @@ try {
         Finish 1
     }
     # TrustedPeople is the designated store for sideloaded app signing certs (same as
-    # Add-AppDevPackage). We deliberately do NOT add it to the Root CA store — adding a root
+    # Add-AppDevPackage). We deliberately do NOT add it to the Root CA store - adding a root
     # CA is an antivirus/EDR red flag and is unnecessary for sideload.
     Import-Certificate -FilePath $cer.FullName -CertStoreLocation 'Cert:\LocalMachine\TrustedPeople' | Out-Null
     Write-Host "Trusted signing certificate: $($cer.Name)" -ForegroundColor Green
@@ -102,7 +102,7 @@ try {
         }
 
         # Kill the helper(s) + widget and WAIT until the helper is verifiably gone before we install.
-        # We do NOT proceed on a fixed delay — we poll (re-killing each round) until no helper process
+        # We do NOT proceed on a fixed delay - we poll (re-killing each round) until no helper process
         # remains, so the new package never registers alongside a live old helper. ~15s ceiling.
         $deadline = (Get-Date).AddSeconds(15)
         do {
@@ -115,10 +115,10 @@ try {
         } while ($still.Count -gt 0 -and (Get-Date) -lt $deadline)
 
         if ($still.Count -gt 0) {
-            Write-Host "Warning: a helper process is still running after 15s — continuing anyway." -ForegroundColor DarkYellow
+            Write-Host "Warning: a helper process is still running after 15s - continuing anyway." -ForegroundColor DarkYellow
         } else {
             Start-Sleep -Milliseconds 500   # let kernel release hardware handles / MMIO maps
-            Write-Host "Helper stopped — proceeding with install." -ForegroundColor DarkGray
+            Write-Host "Helper stopped - proceeding with install." -ForegroundColor DarkGray
         }
     }
     catch { }
@@ -134,34 +134,37 @@ try {
         Add-AppxPackage -Path $pkg.FullName -ForceApplicationShutdown -ForceUpdateFromAnyVersion
     }
 
-    # 5. Cleanly terminate the OLD running processes so new features/fixes take effect immediately,
-    #    without a reboot:
-    #    - The WIDGET (XboxGamingBar.exe) is hosted by the Game Bar and is normally cached; kill it so
-    #      the Game Bar reloads the freshly-installed version on the next Win+G.
-    #    - The HELPER runs from a deployed copy under the package LocalCache (launched by the scheduled
-    #      task "ClawTweaks\ClawTweaksHelper"), NOT from the MSIX. An in-place update leaves the OLD
-    #      helper PROCESS running, so new pipe commands silently do nothing. End the task, kill the
-    #      helper and delete the deployed copy — the widget redeploys the NEW helper on next launch.
+    # 5. INSTALL ONLY here, then let the HELPER redeploy itself via its own (signed, UAC-consented)
+    #    setup on next Game Bar open. We deliberately do NOT copy the helper out + create/start the
+    #    scheduled task FROM THIS SCRIPT: doing that script-driven persistence (PowerShell copies an
+    #    .exe to LocalCache + touches a scheduled task) tripped Defender's behavioral cloud detection
+    #    "Behavior:Win32/Persistence.A!ml" on the self-signed helper and quarantined it. The helper's
+    #    own --setup (compiled, signed, launched with a UAC prompt) doing the same deploy+task is far
+    #    less ML-suspicious and was AV-clean. So: kill the old widget+helper, drop the deployed copy,
+    #    and the widget triggers the helper setup (one UAC) on next open. The real long-term fix for the
+    #    behavioral flags is a reputable code-signing cert (Azure Trusted Signing).
     try {
         $appPkg = Get-AppxPackage | Where-Object { $_.Name -like '*ClawTweaks*' } | Select-Object -First 1
 
-        # Widget process (forces the Game Bar to reload the new XAML/code on next open)
+        # Kill the widget so the Game Bar reloads the freshly-installed version on next open.
         Get-Process -Name "XboxGamingBar" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
 
-        # Helper: end the scheduled task, kill the process, drop the deployed copy
+        # End the task + kill the helper, then drop the deployed copy so the widget redeploys the NEW
+        # helper (via its own --setup + UAC) on next launch.
         & schtasks.exe /End /TN "ClawTweaks\ClawTweaksHelper" 2>$null | Out-Null
         Get-Process -Name "XboxGamingBarHelper" -ErrorAction SilentlyContinue |
             Stop-Process -Force -ErrorAction SilentlyContinue
         Start-Sleep -Milliseconds 600
+
         if ($appPkg) {
             $helperDir = Join-Path $env:LOCALAPPDATA "Packages\$($appPkg.PackageFamilyName)\LocalCache\ClawTweaks\Helper"
             if (Test-Path $helperDir) { Remove-Item -Path $helperDir -Recurse -Force -ErrorAction SilentlyContinue }
         }
-        Write-Host "Stopped old widget + helper (new versions load on next open)." -ForegroundColor Green
+        Write-Host "Stopped old widget + helper. The new helper deploys on next Game Bar open (one UAC)." -ForegroundColor Green
     }
     catch {
-        Write-Host "Note: could not stop old processes; reboot once if new features don't appear." -ForegroundColor DarkYellow
+        Write-Host "Note: could not stop old processes; reboot once if new features do not appear." -ForegroundColor DarkYellow
     }
 
     Write-Host ""

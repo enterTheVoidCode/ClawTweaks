@@ -73,7 +73,7 @@ namespace XboxGamingBar
             {
                 if (!App.IsConnected)
                 {
-                    ShowAppUpdateProgress(true, "Helper not connected — open ClawTweaks once so the helper starts, then retry.");
+                    ShowAppUpdateProgress(true, "Helper not connected — open ClawTweaks once so the helper starts, then retry.", spinning: false);
                     return;
                 }
 
@@ -83,7 +83,7 @@ namespace XboxGamingBar
 
                 if (!JsonArray.TryParse(json, out var arr) || arr.Count == 0)
                 {
-                    ShowAppUpdateProgress(true, "Couldn't load releases right now. Check your connection and tap 'Reload releases'.");
+                    ShowAppUpdateProgress(true, "Couldn't load releases right now. Check your connection and tap 'Reload releases'.", spinning: false);
                     return;
                 }
 
@@ -107,14 +107,14 @@ namespace XboxGamingBar
                 if (shown == 0)
                 {
                     ShowAppUpdateProgress(true,
-                        $"You're on the latest version ({installed[0]}.{installed[1]}.{installed[2]}.{installed[3]}). Newer releases appear here automatically.");
+                        $"You're on the latest version ({installed[0]}.{installed[1]}.{installed[2]}.{installed[3]}). Newer releases appear here automatically.", spinning: false);
                 }
                 _appReleasesLoaded = true;
             }
             catch (Exception ex)
             {
                 Logger.Warn($"LoadAppReleasesAsync failed: {ex.Message}");
-                ShowAppUpdateProgress(true, "Couldn't load releases right now. Tap 'Reload releases' to try again.");
+                ShowAppUpdateProgress(true, "Couldn't load releases right now. Tap 'Reload releases' to try again.", spinning: false);
             }
             finally
             {
@@ -123,13 +123,15 @@ namespace XboxGamingBar
             }
         }
 
-        private void ShowAppUpdateProgress(bool show, string text)
+        // spinning: whether the progress ring should animate. Active work (loading, downloading,
+        // installing) spins; terminal/idle messages (done, failed, "you're on the latest") do not.
+        private void ShowAppUpdateProgress(bool show, string text, bool spinning = true)
         {
             if (AppUpdateProgressPanel != null)
                 AppUpdateProgressPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
             if (AppUpdateSpinner != null)
             {
-                bool spin = show && !string.IsNullOrEmpty(text) && text.EndsWith("…");
+                bool spin = show && spinning;
                 AppUpdateSpinner.IsActive = spin;
                 AppUpdateSpinner.Visibility = spin ? Visibility.Visible : Visibility.Collapsed;
             }
@@ -199,24 +201,18 @@ namespace XboxGamingBar
             panel.Children.Add(new TextBlock
             {
                 Text = "What's new",
-                FontSize = 11,
+                FontSize = 12,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = AppUpdAccentBrush,
                 Margin = new Thickness(0, 8, 0, 2),
             });
 
-            var bodyText = new TextBlock
-            {
-                Text = string.IsNullOrWhiteSpace(body) ? "No release notes." : body,
-                FontSize = 11,
-                Foreground = AppUpdBodyBrush,
-                TextWrapping = TextWrapping.Wrap,
-                IsTextSelectionEnabled = true,
-            };
+            var bodyPanel = new StackPanel();
+            RenderReleaseBody(bodyPanel, body);
             var bodyScroll = new ScrollViewer
             {
-                Content = bodyText,
-                MaxHeight = 160,
+                Content = bodyPanel,
+                MaxHeight = 420,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             };
@@ -280,7 +276,7 @@ namespace XboxGamingBar
             {
                 if (!App.IsConnected)
                 {
-                    ShowAppUpdateProgress(true, "Helper not connected — can't install right now.");
+                    ShowAppUpdateProgress(true, "Helper not connected — can't install right now.", spinning: false);
                     return;
                 }
                 if (btn != null)
@@ -298,7 +294,7 @@ namespace XboxGamingBar
             {
                 Logger.Warn($"OnInstallReleaseClick failed: {ex.Message}");
                 if (btn != null) { btn.Content = "Download & install this version"; btn.IsEnabled = true; }
-                ShowAppUpdateProgress(true, $"Install failed to start: {ex.Message}");
+                ShowAppUpdateProgress(true, $"Install failed to start: {ex.Message}", spinning: false);
             }
         }
 
@@ -339,7 +335,7 @@ namespace XboxGamingBar
                             ShowAppUpdateProgress(true, "Update installed — reloading…");
                             return;
                         case "failed":
-                            ShowAppUpdateProgress(true, string.IsNullOrWhiteSpace(msg) ? "Install failed." : $"Install failed: {msg}");
+                            ShowAppUpdateProgress(true, string.IsNullOrWhiteSpace(msg) ? "Install failed." : $"Install failed: {msg}", spinning: false);
                             return;
                     }
                 }
@@ -349,6 +345,188 @@ namespace XboxGamingBar
                 Logger.Warn($"PollInstallStatusAsync failed: {ex.Message}");
             }
             finally { _installPolling = false; }
+        }
+
+        // Renders the GitHub release body into the given panel as readable "What's new" content:
+        // only the "## What's new" section is shown (install instructions / warnings above it are
+        // dropped), headings and bullets are styled, inline markdown is stripped, and image tags
+        // (<img src> and ![](...)) are loaded as actual images. Keeps it lightweight — no full
+        // markdown engine, just the constructs our release notes actually use.
+        private void RenderReleaseBody(StackPanel parent, string body)
+        {
+            if (parent == null) return;
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                parent.Children.Add(MakeBodyText("No release notes."));
+                return;
+            }
+
+            string whatsNew = ExtractWhatsNew(body);
+            var lines = whatsNew.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+
+            bool any = false;
+            foreach (var raw in lines)
+            {
+                string line = raw.Trim();
+                if (line.Length == 0) continue;
+
+                // Section divider / front-matter markers we don't want to show.
+                if (line == "---" || line.StartsWith("> [!") || line.StartsWith("```")) continue;
+
+                // Image (HTML <img src="..."> or markdown ![alt](url)).
+                if (TryExtractImageUrl(line, out string imgUrl))
+                {
+                    var img = MakeImage(imgUrl);
+                    if (img != null) { parent.Children.Add(img); any = true; }
+                    continue;
+                }
+
+                // Heading (### / ## / #).
+                if (line.StartsWith("#"))
+                {
+                    string h = line.TrimStart('#').Trim();
+                    h = StripInline(h);
+                    if (h.Length == 0) continue;
+                    parent.Children.Add(new TextBlock
+                    {
+                        Text = h,
+                        FontSize = 13,
+                        FontWeight = FontWeights.SemiBold,
+                        Foreground = AppUpdTitleBrush,
+                        TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(0, 8, 0, 2),
+                    });
+                    any = true;
+                    continue;
+                }
+
+                // Blockquote → muted note.
+                if (line.StartsWith(">"))
+                {
+                    string q = StripInline(line.TrimStart('>').Trim());
+                    if (q.Length == 0) continue;
+                    var note = MakeBodyText(q);
+                    note.Foreground = AppUpdSubBrush;
+                    parent.Children.Add(note);
+                    any = true;
+                    continue;
+                }
+
+                // Bullet.
+                if (line.StartsWith("- ") || line.StartsWith("* "))
+                {
+                    parent.Children.Add(MakeBodyText("•  " + StripInline(line.Substring(2).Trim())));
+                    any = true;
+                    continue;
+                }
+
+                // Plain paragraph.
+                parent.Children.Add(MakeBodyText(StripInline(line)));
+                any = true;
+            }
+
+            if (!any) parent.Children.Add(MakeBodyText("No release notes."));
+        }
+
+        private TextBlock MakeBodyText(string text) => new TextBlock
+        {
+            Text = text,
+            FontSize = 12,
+            Foreground = AppUpdBodyBrush,
+            TextWrapping = TextWrapping.Wrap,
+            IsTextSelectionEnabled = true,
+            Margin = new Thickness(0, 1, 0, 1),
+        };
+
+        private Image MakeImage(string url)
+        {
+            try
+            {
+                var uri = SafeUri(url);
+                if (uri == null) return null;
+                return new Image
+                {
+                    Source = new Windows.UI.Xaml.Media.Imaging.BitmapImage(uri),
+                    Stretch = Stretch.Uniform,
+                    MaxWidth = 300,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(0, 6, 0, 6),
+                };
+            }
+            catch { return null; }
+        }
+
+        // Returns the text from the "## What's new" heading onward (heading excluded). If no such
+        // heading exists, returns the whole body so nothing is lost.
+        private static string ExtractWhatsNew(string body)
+        {
+            var lines = body.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string t = lines[i].Trim();
+                if (t.StartsWith("#") && t.TrimStart('#').Trim().StartsWith("What's new", StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Join("\n", lines, i + 1, lines.Length - (i + 1));
+                }
+            }
+            return body;
+        }
+
+        // Extracts an image URL from an HTML <img ... src="..."> tag or a markdown ![alt](url).
+        private static bool TryExtractImageUrl(string line, out string url)
+        {
+            url = "";
+            // HTML: <img ... src="URL" ...>
+            int img = line.IndexOf("<img", StringComparison.OrdinalIgnoreCase);
+            if (img >= 0)
+            {
+                int s = line.IndexOf("src", img, StringComparison.OrdinalIgnoreCase);
+                if (s >= 0)
+                {
+                    int q = line.IndexOfAny(new[] { '"', '\'' }, s);
+                    if (q >= 0)
+                    {
+                        char quote = line[q];
+                        int end = line.IndexOf(quote, q + 1);
+                        if (end > q) { url = line.Substring(q + 1, end - q - 1); return url.Length > 0; }
+                    }
+                }
+            }
+            // Markdown: ![alt](URL)
+            int bang = line.IndexOf("![", StringComparison.Ordinal);
+            if (bang >= 0)
+            {
+                int open = line.IndexOf('(', bang);
+                int close = open >= 0 ? line.IndexOf(')', open) : -1;
+                if (open >= 0 && close > open)
+                {
+                    url = line.Substring(open + 1, close - open - 1).Trim();
+                    // a URL may be "url "title" — keep just the url part
+                    int sp = url.IndexOf(' ');
+                    if (sp > 0) url = url.Substring(0, sp);
+                    return url.Length > 0;
+                }
+            }
+            return false;
+        }
+
+        // Strips the inline markdown our notes use: **bold**, `code`, and [text](url) → text.
+        private static string StripInline(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            s = s.Replace("**", "").Replace("`", "");
+            // [text](url) → text
+            int b;
+            while ((b = s.IndexOf('[')) >= 0)
+            {
+                int mid = s.IndexOf("](", b, StringComparison.Ordinal);
+                if (mid < 0) break;
+                int end = s.IndexOf(')', mid + 2);
+                if (end < 0) break;
+                string text = s.Substring(b + 1, mid - b - 1);
+                s = s.Substring(0, b) + text + s.Substring(end + 1);
+            }
+            return s.Trim();
         }
 
         // Installed package version as [Major, Minor, Build, Revision].
