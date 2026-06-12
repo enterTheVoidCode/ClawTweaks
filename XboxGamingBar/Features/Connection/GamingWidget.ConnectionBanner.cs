@@ -57,35 +57,49 @@ namespace XboxGamingBar
                 return;
             }
 
+            // Segoe MDL2 Assets glyphs per state
+            string GlyphError = ((char)0xEA39).ToString();   // StatusErrorFull
+            string GlyphSync  = ((char)0xE895).ToString();   // Sync
+            string GlyphAdmin = ((char)0xE7EF).ToString();   // Admin / shield (UAC)
+
             switch (state)
             {
                 case BannerState.Disconnected:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 204, 51, 51)); // #CC3333
                     ConnectionStatusText.Text = "Not connected to helper";
+                    SetBannerIcon(GlyphError);
                     break;
                 case BannerState.Syncing:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 204)); // #3366CC
                     ConnectionStatusText.Text = "Syncing...";
+                    SetBannerIcon(GlyphSync);
                     break;
                 case BannerState.Reconnecting:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 204, 102, 51)); // #CC6633
                     ConnectionStatusText.Text = "Reconnecting...";
+                    SetBannerIcon(GlyphSync);
                     break;
                 case BannerState.Launching:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 204)); // #3366CC
                     ConnectionStatusText.Text = "Launching helper...";
+                    SetBannerIcon(GlyphSync);
                     break;
                 case BannerState.Loading:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 102, 204)); // #3366CC
                     ConnectionStatusText.Text = "Loading...";
+                    SetBannerIcon(GlyphSync);
                     break;
                 case BannerState.InitialSetup:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 102, 51, 153)); // #663399 Purple
-                    ConnectionStatusText.Text = "Initial setup in progress - please wait...";
+                    // This banner shows while the elevated setup runs. In Game Mode / fullscreen the
+                    // UAC prompt opens BEHIND the game, so the user must alt-tab to it. Spell that out.
+                    ConnectionStatusText.Text = "Setup running — please confirm the Windows admin (UAC) prompt. In fullscreen games it opens in the background, so switch to the desktop (Win/Alt+Tab) to confirm. The widget reloads automatically.";
+                    SetBannerIcon(GlyphAdmin);
                     break;
                 case BannerState.Upgrading:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 153, 102)); // #339966 Green
-                    ConnectionStatusText.Text = "Upgrading helper...";
+                    ConnectionStatusText.Text = "Updating — please confirm the Windows admin (UAC) prompt if it appears (in fullscreen games it opens in the background). The widget reloads automatically when done.";
+                    SetBannerIcon(GlyphAdmin);
                     break;
             }
             ConnectionStatusBanner.Visibility = Visibility.Visible;
@@ -104,6 +118,17 @@ namespace XboxGamingBar
                 case BannerState.Upgrading:
                     UpdateHelperStatusIndicator(HelperStatus.Connecting);
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Sets the leading glyph on the connection banner (Segoe MDL2 Assets).
+        /// </summary>
+        private void SetBannerIcon(string glyph)
+        {
+            if (ConnectionStatusIcon != null)
+            {
+                ConnectionStatusIcon.Glyph = glyph;
             }
         }
 

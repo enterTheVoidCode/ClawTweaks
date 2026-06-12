@@ -3358,25 +3358,41 @@
                                 </StackPanel>
                             </muxc:Expander.Header>
                             <StackPanel>
-                                <TextBlock x:Name="AppUpdateCurrentVersionText" Text="Installed version: …"
-                                           FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,2"/>
-                                <TextBlock Text="Only versions newer than yours are shown (no downgrades). Experimental test builds are flagged. The download is verified and installed by the signed helper — no extra prompts."
+                                <!-- Version line + small refresh icon (clearly distinct from the Download &amp; install action) -->
+                                <Grid Margin="0,0,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="AppUpdateCurrentVersionText" Grid.Column="0" Text="Installed version: …"
+                                               FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    <Button x:Name="AppUpdateRefreshBtn" Grid.Column="1" Click="AppUpdateRefresh_Click"
+                                            Background="Transparent" BorderThickness="0" Padding="6" Width="34" Height="34"
+                                            VerticalAlignment="Top" ToolTipService.ToolTip="Reload releases">
+                                        <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="#5B8DEF"/>
+                                    </Button>
+                                </Grid>
+                                <TextBlock Text="Only versions newer than yours are shown (no downgrades). Experimental test builds are flagged. The signed helper downloads and runs the installer — a PowerShell window shows the progress."
                                            FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                                <Button x:Name="AppUpdateRefreshBtn" Content="Reload releases"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                        Style="{StaticResource ModernButtonStyle}" FontSize="12" Padding="10,6"
-                                        Click="AppUpdateRefresh_Click"/>
+                                <!-- Release cards (each with a Download &amp; install button) — directly below the header
+                                     so the install action sits near the top. Built in code-behind (GamingWidget.AppUpdate.cs). -->
+                                <StackPanel x:Name="AppReleasesContainer"/>
 
-                                <!-- Spinner while the helper fetches the GitHub releases feed -->
-                                <StackPanel x:Name="AppUpdateProgressPanel" Orientation="Horizontal" Margin="0,8,0,0" Visibility="Collapsed">
-                                    <ProgressRing x:Name="AppUpdateSpinner" IsActive="False" Width="16" Height="16"
-                                                  Foreground="#5B8DEF" VerticalAlignment="Top" Margin="0,1,8,0"/>
-                                    <TextBlock x:Name="AppUpdateStatusText" Text="" FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap"/>
-                                </StackPanel>
-
-                                <!-- Release cards are built in code-behind (GamingWidget.AppUpdate.cs) -->
-                                <StackPanel x:Name="AppReleasesContainer" Margin="0,8,0,0"/>
+                                <!-- Spinner + status: directly under the cards so progress is visible right where you tapped install -->
+                                <Border x:Name="AppUpdateProgressPanel" Visibility="Collapsed"
+                                        Background="#1A1A2E" CornerRadius="8" Padding="12,10" Margin="0,8,0,0">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ProgressRing x:Name="AppUpdateSpinner" Grid.Column="0" IsActive="False" Width="22" Height="22"
+                                                      Foreground="#5B8DEF" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <TextBlock x:Name="AppUpdateStatusText" Grid.Column="1" Text="" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="#E6E6E6" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
                             </StackPanel>
                         </muxc:Expander>
 
@@ -9740,16 +9756,33 @@
                 <!-- Visible by default with Loading... so user sees immediate feedback before code runs -->
                 <Border x:Name="ConnectionStatusBanner"
                         Background="#3366CC"
-                        Padding="8,4"
+                        Padding="14,10"
                         VerticalAlignment="Top"
+                        HorizontalAlignment="Stretch"
                         Visibility="Visible"
-                        CornerRadius="0"
-                        Margin="0,0,0,0">
-                    <TextBlock x:Name="ConnectionStatusText"
-                               Text="Loading..."
-                               Foreground="White"
-                               FontSize="12"
-                               HorizontalAlignment="Center"/>
+                        CornerRadius="10"
+                        Margin="8,8,8,0">
+                    <Border.Shadow>
+                        <ThemeShadow/>
+                    </Border.Shadow>
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                Spacing="10">
+                        <FontIcon x:Name="ConnectionStatusIcon"
+                                  FontFamily="Segoe MDL2 Assets"
+                                  Glyph="&#xE895;"
+                                  FontSize="16"
+                                  Foreground="White"
+                                  VerticalAlignment="Center"/>
+                        <TextBlock x:Name="ConnectionStatusText"
+                                   Text="Loading..."
+                                   Foreground="White"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="320"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Border>
 
                 <!-- Update Available Banner - appears below connection banner when update is found -->

@@ -30,6 +30,65 @@ namespace XboxGamingBar
         /// </summary>
         public static bool HasEverConnectedToHelper { get; set; } = false;
 
+        /// <summary>
+        /// One-shot in-app-update detection. On the first entry of this process we compare the
+        /// running package version against the version recorded on the previous run
+        /// (LocalSettings["LastRunVersion"]). If they differ, this is the first start right after
+        /// an in-app update — which is exactly when the standalone "app mode" window (OnLaunched)
+        /// pops up over Game Bar. These flags let us recognise that case (logging now; an auto-close
+        /// of the app-mode window can hang off JustUpdated later).
+        /// </summary>
+        public static bool JustUpdated { get; private set; } = false;
+        public static string PreviousRunVersion { get; private set; } = "";
+        public static string CurrentRunVersion { get; private set; } = "";
+        private static bool _versionTransitionEvaluated = false;
+
+        private static void LogVersionTransition(string entryPoint)
+        {
+            try
+            {
+                string current;
+                try
+                {
+                    var v = Windows.ApplicationModel.Package.Current.Id.Version;
+                    current = $"{v.Major}.{v.Minor}.{v.Build}.{v.Revision}";
+                }
+                catch { current = "unknown"; }
+
+                if (_versionTransitionEvaluated)
+                {
+                    Logger.Info($"[VersionTransition] entry={entryPoint} (already evaluated: current={CurrentRunVersion}, previous={PreviousRunVersion}, justUpdated={JustUpdated})");
+                    return;
+                }
+                _versionTransitionEvaluated = true;
+                CurrentRunVersion = current;
+
+                var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
+                string previous = settings.Values.TryGetValue("LastRunVersion", out var pv) ? (pv as string ?? "") : "";
+                PreviousRunVersion = previous;
+
+                if (string.IsNullOrEmpty(previous))
+                {
+                    Logger.Info($"[VersionTransition] entry={entryPoint}: first recorded run (current={current}, no previous version stored) — not treated as an update.");
+                }
+                else if (previous != current)
+                {
+                    JustUpdated = true;
+                    Logger.Info($"[VersionTransition] entry={entryPoint}: VERSION CHANGED {previous} -> {current} — FIRST START AFTER IN-APP UPDATE.");
+                }
+                else
+                {
+                    Logger.Info($"[VersionTransition] entry={entryPoint}: version unchanged ({current}) — normal start.");
+                }
+
+                settings.Values["LastRunVersion"] = current;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[VersionTransition] failed: {ex.Message}");
+            }
+        }
+
         // Track the active GamingWidget instance to prevent multiple instances from handling messages
         private static GamingWidget activeGamingWidget = null;
         private static readonly object activeWidgetLock = new object();
@@ -208,6 +267,7 @@ namespace XboxGamingBar
         protected override void OnActivated(IActivatedEventArgs args)
         {
             Logger.Info($"=== App.OnActivated START === Kind={args.Kind}, PreviousExecutionState={args.PreviousExecutionState}");
+            LogVersionTransition($"OnActivated:{args.Kind}");
             XboxGameBarWidgetActivatedEventArgs widgetArgs = null;
             if (args.Kind == ActivationKind.Protocol)
             {
@@ -397,6 +457,7 @@ namespace XboxGamingBar
         protected override void OnLaunched(LaunchActivatedEventArgs e)
         {
             Logger.Info("App launched");
+            LogVersionTransition("OnLaunched");
             Frame rootFrame = Window.Current.Content as Frame;
 
             // Do not repeat app initialization when the Window already has content,
