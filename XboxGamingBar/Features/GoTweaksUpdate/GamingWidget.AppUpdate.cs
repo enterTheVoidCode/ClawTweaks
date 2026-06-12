@@ -98,8 +98,8 @@ namespace XboxGamingBar
                     var rel = arr.GetObjectAt(i);
                     string relVer = JsonStr(rel, "version");
                     if (string.IsNullOrWhiteSpace(relVer)) relVer = JsonStr(rel, "tag");
-                    if (CompareVerParts(ParseVerParts(relVer), installed) < 0)
-                        continue; // older than installed → hidden (no downgrades)
+                    if (CompareVerParts(ParseVerParts(relVer), installed) <= 0)
+                        continue; // older than OR same as installed → hidden (no downgrades, no reinstall of current)
                     BuildReleaseCard(rel, shown == 0);
                     shown++;
                 }

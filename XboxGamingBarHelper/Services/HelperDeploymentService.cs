@@ -31,6 +31,17 @@ namespace XboxGamingBarHelper.Services
         /// </summary>
         private static string GetPackageLocalCachePath()
         {
+            // Override for the UAC-free in-app update: the self-deploy launches a setup child from a
+            // temp-extracted .msix (no package identity, exe not under LocalCache), so it can't resolve
+            // the real package LocalCache on its own. The launching (deployed) helper passes the correct
+            // path via this env var so the child deploys to the right place.
+            try
+            {
+                var ov = Environment.GetEnvironmentVariable("CLAWTWEAKS_LOCALCACHE");
+                if (!string.IsNullOrEmpty(ov) && Directory.Exists(ov)) return ov;
+            }
+            catch { }
+
             try
             {
                 // Get the actual LocalCache folder path from the package
@@ -330,8 +341,12 @@ namespace XboxGamingBarHelper.Services
                     Logger.Debug($"Error scanning for additional DLLs: {ex.Message}");
                 }
 
-                // Write version file
-                var currentVersion = GetCurrentPackageVersion();
+                // Write version file. For the UAC-free in-app self-deploy the setup child runs from a
+                // temp-extracted .msix (no package identity), so the real version is passed in via env
+                // var; otherwise use the package version.
+                string currentVersion = null;
+                try { currentVersion = Environment.GetEnvironmentVariable("CLAWTWEAKS_DEPLOY_VERSION"); } catch { }
+                if (string.IsNullOrWhiteSpace(currentVersion)) currentVersion = GetCurrentPackageVersion();
                 try
                 {
                     File.WriteAllText(VersionFilePath, currentVersion);

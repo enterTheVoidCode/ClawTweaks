@@ -392,7 +392,7 @@ namespace XboxGamingBarHelper.Services
                     Logger.Info($"GoTweaks update installed successfully from {installPath}");
                     SetInstallStatus("done", 100, "Update installed — reloading.");
                     // UAC-free in-app update: redeploy the new version ourselves while still elevated.
-                    TrySelfDeployNewVersionElevated();
+                    TrySelfDeployNewVersionElevated(installPath);
                     return "{\"success\":true,\"message\":\"Update installed — the widget will reload.\"}";
                 }
 
@@ -426,7 +426,7 @@ namespace XboxGamingBarHelper.Services
         /// existing next-launch setup (with its one UAC) still does the job. Manual ZIP installs keep
         /// their one-time UAC by design.
         /// </summary>
-        private static void TrySelfDeployNewVersionElevated()
+        private static void TrySelfDeployNewVersionElevated(string msixPath)
         {
             try
             {
@@ -435,71 +435,62 @@ namespace XboxGamingBarHelper.Services
                     Logger.Info("Self-deploy skipped: helper not elevated; next launch sets up (with UAC).");
                     return;
                 }
-
-                string family = GetPackageFamilyName();
-                if (string.IsNullOrEmpty(family))
+                if (string.IsNullOrEmpty(msixPath) || !System.IO.File.Exists(msixPath))
                 {
-                    Logger.Warn("Self-deploy: could not resolve package family name; falling back to next-launch UAC.");
+                    Logger.Warn("Self-deploy: msix path missing; falling back to next-launch UAC.");
                     return;
                 }
 
-                // Locate the freshly-registered package's helper exe in WindowsApps.
-                string newExe = null;
-                var pm = new PackageManager();
-                foreach (var pkg in pm.FindPackagesForUser(string.Empty, family))
+                // Version from the .msix filename, e.g. XboxGamingBarPackage_0.1.4.420_x64.msix.
+                string version = null;
+                foreach (var tok in System.IO.Path.GetFileNameWithoutExtension(msixPath).Split('_'))
                 {
-                    try
-                    {
-                        var loc = pkg?.InstalledLocation?.Path;
-                        if (string.IsNullOrEmpty(loc)) continue;
-                        var cand = System.IO.Path.Combine(loc, "XboxGamingBarHelper", "XboxGamingBarHelper.exe");
-                        if (System.IO.File.Exists(cand)) { newExe = cand; break; }
-                    }
-                    catch { }
+                    if (System.Text.RegularExpressions.Regex.IsMatch(tok, @"^\d+\.\d+\.\d+\.\d+$")) { version = tok; break; }
                 }
-                if (string.IsNullOrEmpty(newExe))
+                if (string.IsNullOrEmpty(version))
                 {
-                    Logger.Warn("Self-deploy: new package helper exe not found; falling back to next-launch UAC.");
+                    Logger.Warn("Self-deploy: could not parse version from msix name; falling back to next-launch UAC.");
                     return;
                 }
+
+                // Extract the .msix (a zip) to get the new helper files. We deliberately do NOT query
+                // PackageManager / WindowsApps for the install location — both are access-denied for the
+                // unpackaged elevated helper (that was the earlier "Zugriff verweigert").
+                string pkgDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "GoTweaksSelfUpdate", "pkg");
+                try { if (System.IO.Directory.Exists(pkgDir)) System.IO.Directory.Delete(pkgDir, true); } catch { }
+                System.IO.Directory.CreateDirectory(pkgDir);
+                System.IO.Compression.ZipFile.ExtractToDirectory(msixPath, pkgDir);
+
+                string childExe = System.IO.Path.Combine(pkgDir, "XboxGamingBarHelper", "XboxGamingBarHelper.exe");
+                if (!System.IO.File.Exists(childExe))
+                {
+                    Logger.Warn($"Self-deploy: helper exe not found in extracted package ({childExe}); falling back to next-launch UAC.");
+                    return;
+                }
+
+                // The temp child has no package identity, so pass the real package LocalCache path and
+                // the version via env vars (HelperDeploymentService reads them). The child then runs the
+                // proven --setup path elevated-by-inheritance (NO UAC): it kills this old helper to free
+                // the locked deployed files, deploys the new files, recreates the task, starts the new
+                // deployed helper, and the setup watchdog reaps the child.
+                string localCache = System.IO.Path.GetDirectoryName(System.IO.Path.GetDirectoryName(HelperDeploymentService.HelperFolder));
 
                 var psi = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = newExe,
+                    FileName = childExe,
                     Arguments = "--setup",
                     UseShellExecute = false, // already elevated → child inherits admin token, NO UAC
                     CreateNoWindow = true,
                 };
+                if (!string.IsNullOrEmpty(localCache)) psi.EnvironmentVariables["CLAWTWEAKS_LOCALCACHE"] = localCache;
+                psi.EnvironmentVariables["CLAWTWEAKS_DEPLOY_VERSION"] = version;
                 System.Diagnostics.Process.Start(psi);
-                Logger.Info($"Self-deploy: launched elevated --setup from {newExe} (UAC-free in-app update).");
+                Logger.Info($"Self-deploy: launched elevated --setup from {childExe} (version {version}, UAC-free in-app update).");
             }
             catch (Exception ex)
             {
                 Logger.Warn($"Self-deploy failed (falls back to next-launch UAC): {ex.Message}");
             }
-        }
-
-        /// <summary>
-        /// Resolves the package family name (e.g. <c>MSIClaw.ClawTweaks_7eszav2039cvc</c>) from the
-        /// deployed helper folder path — the deployed helper has no package identity, so Package.Current
-        /// is unavailable.
-        /// </summary>
-        private static string GetPackageFamilyName()
-        {
-            try
-            {
-                var hf = HelperDeploymentService.HelperFolder; // …\Packages\<FAMILY>\LocalCache\ClawTweaks\Helper
-                const string marker = "\\Packages\\";
-                int i = hf.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-                if (i >= 0)
-                {
-                    var rest = hf.Substring(i + marker.Length);
-                    int j = rest.IndexOf('\\');
-                    if (j > 0) return rest.Substring(0, j);
-                }
-            }
-            catch (Exception ex) { Logger.Debug($"GetPackageFamilyName failed: {ex.Message}"); }
-            return null;
         }
 
         /// <summary>Strips the leading "v" GitHub tags often carry ("v0.3.2" → "0.3.2").</summary>
