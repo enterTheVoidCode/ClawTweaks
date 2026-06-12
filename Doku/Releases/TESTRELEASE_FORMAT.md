@@ -16,7 +16,7 @@ z. B. des In-App-Updaters). Immer so anwenden.
 2. **`> [!WARNING]` Experimental test build** — kurzer Hinweis, dass es ein Prerelease ist.
 3. `---`
 4. **## Installation** — Boilerplate (aus dem letzten Release übernehmen, OHNE dessen „What's new"):
-   - `> [!IMPORTANT]` Changed installation (first-time users only).
+   - KEIN `> [!IMPORTANT]`-Block (entfällt).
    - **Setup process** Schritte. WICHTIG: Install-Befehl IMMER als Einzeiler, NICHT „Run with PowerShell":
      ```powershell
      powershell -ExecutionPolicy Bypass -File .\Install.ps1
