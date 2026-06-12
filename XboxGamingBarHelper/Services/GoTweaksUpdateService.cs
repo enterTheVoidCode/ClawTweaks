@@ -391,6 +391,8 @@ namespace XboxGamingBarHelper.Services
                 {
                     Logger.Info($"GoTweaks update installed successfully from {installPath}");
                     SetInstallStatus("done", 100, "Update installed — reloading.");
+                    // UAC-free in-app update: redeploy the new version ourselves while still elevated.
+                    TrySelfDeployNewVersionElevated();
                     return "{\"success\":true,\"message\":\"Update installed — the widget will reload.\"}";
                 }
 
@@ -408,6 +410,96 @@ namespace XboxGamingBarHelper.Services
                 SetInstallStatus("failed", -1, "Install failed.");
                 return "{\"success\":false,\"message\":\"Install failed: " + ex.Message.Replace("\"", "'") + "\"}";
             }
+        }
+
+        /// <summary>
+        /// UAC-free in-app update (Task #9): the deployed helper runs ELEVATED via the scheduled task,
+        /// so right after AddPackageAsync registers the new version we kick off the normal setup/deploy
+        /// of that new version OURSELVES — launching the new package's helper with <c>--setup</c> and
+        /// <c>UseShellExecute=false</c> (no <c>runas</c>). An already-elevated parent's child inherits
+        /// the admin token, so there is NO UAC prompt. The setup child runs the usual path:
+        /// KillOtherHelperInstances frees the locked deployed exe (kills this old helper), deploys the
+        /// new files, recreates the task, starts the new helper, and the setup watchdog reaps it. The
+        /// next launch then finds a current deployment and never prompts.
+        ///
+        /// Best-effort only: if we are not elevated or anything fails, we simply skip this and the
+        /// existing next-launch setup (with its one UAC) still does the job. Manual ZIP installs keep
+        /// their one-time UAC by design.
+        /// </summary>
+        private static void TrySelfDeployNewVersionElevated()
+        {
+            try
+            {
+                if (!XboxGamingBarHelper.ElevationBootstrapper.IsRunningAsAdmin())
+                {
+                    Logger.Info("Self-deploy skipped: helper not elevated; next launch sets up (with UAC).");
+                    return;
+                }
+
+                string family = GetPackageFamilyName();
+                if (string.IsNullOrEmpty(family))
+                {
+                    Logger.Warn("Self-deploy: could not resolve package family name; falling back to next-launch UAC.");
+                    return;
+                }
+
+                // Locate the freshly-registered package's helper exe in WindowsApps.
+                string newExe = null;
+                var pm = new PackageManager();
+                foreach (var pkg in pm.FindPackagesForUser(string.Empty, family))
+                {
+                    try
+                    {
+                        var loc = pkg?.InstalledLocation?.Path;
+                        if (string.IsNullOrEmpty(loc)) continue;
+                        var cand = System.IO.Path.Combine(loc, "XboxGamingBarHelper", "XboxGamingBarHelper.exe");
+                        if (System.IO.File.Exists(cand)) { newExe = cand; break; }
+                    }
+                    catch { }
+                }
+                if (string.IsNullOrEmpty(newExe))
+                {
+                    Logger.Warn("Self-deploy: new package helper exe not found; falling back to next-launch UAC.");
+                    return;
+                }
+
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = newExe,
+                    Arguments = "--setup",
+                    UseShellExecute = false, // already elevated → child inherits admin token, NO UAC
+                    CreateNoWindow = true,
+                };
+                System.Diagnostics.Process.Start(psi);
+                Logger.Info($"Self-deploy: launched elevated --setup from {newExe} (UAC-free in-app update).");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Self-deploy failed (falls back to next-launch UAC): {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Resolves the package family name (e.g. <c>MSIClaw.ClawTweaks_7eszav2039cvc</c>) from the
+        /// deployed helper folder path — the deployed helper has no package identity, so Package.Current
+        /// is unavailable.
+        /// </summary>
+        private static string GetPackageFamilyName()
+        {
+            try
+            {
+                var hf = HelperDeploymentService.HelperFolder; // …\Packages\<FAMILY>\LocalCache\ClawTweaks\Helper
+                const string marker = "\\Packages\\";
+                int i = hf.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (i >= 0)
+                {
+                    var rest = hf.Substring(i + marker.Length);
+                    int j = rest.IndexOf('\\');
+                    if (j > 0) return rest.Substring(0, j);
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"GetPackageFamilyName failed: {ex.Message}"); }
+            return null;
         }
 
         /// <summary>Strips the leading "v" GitHub tags often carry ("v0.3.2" → "0.3.2").</summary>
