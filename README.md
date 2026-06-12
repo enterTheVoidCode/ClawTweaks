@@ -235,7 +235,15 @@ Cap the battery charge level to extend long-term battery lifespan.
 
 ## Installation
 
-Download the latest release, extract the ZIP, and run `Install.bat`. The script handles everything automatically. (See the release page for step-by-step instructions).
+1. Download the latest release and extract the **whole** ZIP to a folder (keep all files together).
+2. Open a PowerShell window in that folder (type `powershell` in the Explorer address bar and press Enter), then run:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\Install.ps1
+   ```
+3. Approve the UAC prompt. That's it — the script trusts the bundled certificate and installs the package.
+
+> `-ExecutionPolicy Bypass` applies to **this one run only** — it does not change any system setting, so you do **not** need `Set-ExecutionPolicy`. It's required because Windows blocks downloaded `.ps1` scripts by default (so just double-clicking `Install.ps1` fails with *"running scripts is disabled on this system"*). A `READ-ME-FIRST.txt` with these steps is included in the ZIP.
 
 ### Enable the Widget
 
