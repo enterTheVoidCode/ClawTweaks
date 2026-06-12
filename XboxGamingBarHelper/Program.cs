@@ -391,6 +391,35 @@ namespace XboxGamingBarHelper
 
                 SetupDebugLog($"Setup mode entered, args={string.Join(" ", args)}");
                 Logger.Info("=== Setup Mode ===");
+
+                // Safety net: this setup process must NEVER linger. It has been observed to hang and
+                // SPIN (burning ~1.5 cores) after launching the task helper — most likely NLog
+                // shutdown / RunTaskNow contending on the shared hourly log file with the freshly
+                // started deployed helper — so it never reaches the Environment.Exit below, leaving a
+                // second, CPU-hot helper instance. A background watchdog hard-kills this process as
+                // soon as the task-launched deployed helper owns the single-instance mutex (its job is
+                // then done), with a 30s hard backstop no matter what.
+                new System.Threading.Thread(() =>
+                {
+                    const string mtx = "Global\\XboxGamingBarHelper_SingleInstance";
+                    for (int i = 0; i < 300; i++) // ~30s max
+                    {
+                        try
+                        {
+                            using (System.Threading.Mutex.OpenExisting(mtx))
+                            {
+                                // The deployed helper is up and owns the mutex — we're redundant.
+                                try { File.AppendAllText(setupDebugPath, $"{DateTime.Now}: [Watchdog] deployed helper up, exiting setup process\n"); } catch { }
+                                break;
+                            }
+                        }
+                        catch (System.Threading.WaitHandleCannotBeOpenedException) { /* not up yet */ }
+                        catch { }
+                        try { System.Threading.Thread.Sleep(100); } catch { }
+                    }
+                    try { System.Diagnostics.Process.GetCurrentProcess().Kill(); } catch { }
+                })
+                { IsBackground = true, Name = "SetupWatchdog" }.Start();
                 try
                 {
                     SetupDebugLog("Calling PerformSetup...");
