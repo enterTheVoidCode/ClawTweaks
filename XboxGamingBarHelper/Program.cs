@@ -401,22 +401,15 @@ namespace XboxGamingBarHelper
                 // then done), with a 30s hard backstop no matter what.
                 new System.Threading.Thread(() =>
                 {
-                    const string mtx = "Global\\XboxGamingBarHelper_SingleInstance";
-                    for (int i = 0; i < 300; i++) // ~30s max
-                    {
-                        try
-                        {
-                            using (System.Threading.Mutex.OpenExisting(mtx))
-                            {
-                                // The deployed helper is up and owns the mutex — we're redundant.
-                                try { File.AppendAllText(setupDebugPath, $"{DateTime.Now}: [Watchdog] deployed helper up, exiting setup process\n"); } catch { }
-                                break;
-                            }
-                        }
-                        catch (System.Threading.WaitHandleCannotBeOpenedException) { /* not up yet */ }
-                        catch { }
-                        try { System.Threading.Thread.Sleep(100); } catch { }
-                    }
+                    // TIME-BASED backstop ONLY. Do NOT key this off the single-instance mutex: during an
+                    // update the OLD helper still holds that mutex, so a mutex-based kill terminates this
+                    // setup process BEFORE it deploys (KillOtherHelperInstances + DeployHelper run inside
+                    // PerformSetup) — which caused repeated setup/UAC loops. PerformSetup (deploy + task)
+                    // finishes in ~15-20s and normally exits via the Environment.Exit below well before
+                    // this fires; this only catches a genuine hang (NLog/RunTaskNow contention), by which
+                    // point the deploy is already done and the new helper has been launched.
+                    try { System.Threading.Thread.Sleep(45000); } catch { }
+                    try { File.AppendAllText(setupDebugPath, $"{DateTime.Now}: [Watchdog] 45s timeout — forcing setup-process exit\n"); } catch { }
                     try { System.Diagnostics.Process.GetCurrentProcess().Kill(); } catch { }
                 })
                 { IsBackground = true, Name = "SetupWatchdog" }.Start();
