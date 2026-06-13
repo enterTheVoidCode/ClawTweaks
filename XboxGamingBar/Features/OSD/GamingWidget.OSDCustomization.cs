@@ -50,10 +50,10 @@ namespace XboxGamingBar
         // Level 4 (Full):               All options                     — 1 col, vertical
         private Dictionary<int, Dictionary<string, bool>> osdLevelConfig = new Dictionary<int, Dictionary<string, bool>>
         {
-            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
-            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
-            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "GPU", true },  { "GPUClock", true },  { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
-            { 4, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", true },  { "Memory", true },  { "VRAM", true },  { "CPU", true },  { "CPUClock", true },  { "GPU", true },  { "GPUClock", true },  { "Fan", true },  { "AutoTDP", true },  { "FrametimeGraph", true } } }
+            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
+            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
+            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "CPUCores", false }, { "GPU", true },  { "GPUClock", true },  { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
+            { 4, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", true },  { "Memory", true },  { "VRAM", true },  { "CPU", true },  { "CPUClock", true },  { "CPUCores", true },  { "GPU", true },  { "GPUClock", true },  { "Fan", true },  { "AutoTDP", true },  { "FrametimeGraph", true } } }
         };
 
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
@@ -79,10 +79,10 @@ namespace XboxGamingBar
         // Per-level item order (list of item IDs in display order)
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
-            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "ControllerBattery", "Memory", "VRAM", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "Time", "ControllerBattery", "VRAM", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 4, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "ControllerBattery", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "ControllerBattery", "VRAM", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 4, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
         // Per-level item label colors (DEFAULT = use global text color)
@@ -106,6 +106,7 @@ namespace XboxGamingBar
             { "VRAM", "VRAM (GPU Memory)" },
             { "CPU", "CPU (Usage, Wattage, Temp)" },
             { "CPUClock", "CPU Clock Speed" },
+            { "CPUCores", "CPU Per-Core Clocks (P/E)" },
             { "GPU", "GPU (Usage, Wattage, Temp)" },
             { "GPUClock", "GPU Clock Speed" },
             { "Fan", "Fan Speed" },
@@ -565,7 +566,7 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" };
+                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" };
 
                 foreach (var level in new[] { 1, 2, 3, 4 })
                 {
@@ -600,11 +601,14 @@ namespace XboxGamingBar
                     string orderKey = $"OSD_L{level}_Order";
                     if (settings.Values.TryGetValue(orderKey, out object orderVal) && orderVal is string orderStr)
                     {
-                        var orderList = orderStr.Split(',').Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
-                        if (orderList.Count == itemKeys.Length)
-                        {
-                            osdLevelOrder[level] = orderList;
-                        }
+                        var saved = orderStr.Split(',').Where(s => !string.IsNullOrWhiteSpace(s)).ToList();
+                        // Keep the user's saved order but drop unknown keys and append any newly added
+                        // items (e.g. CPUCores) so the order survives item additions instead of being
+                        // discarded outright.
+                        var merged = saved.Where(k => itemKeys.Contains(k)).ToList();
+                        foreach (var k in itemKeys)
+                            if (!merged.Contains(k)) merged.Add(k);
+                        osdLevelOrder[level] = merged;
                     }
 
                     // Load per-level item label colors

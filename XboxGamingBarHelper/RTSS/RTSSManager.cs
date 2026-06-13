@@ -32,6 +32,7 @@ namespace XboxGamingBarHelper.RTSS
         private readonly OSDItemAutoTDP osdItemAutoTDP;
         private readonly OSDItemTDPLimits osdItemTDPLimits;
         private readonly OSDItemCPU osdItemCPU;
+        private readonly OSDItemCPUCores osdItemCPUCores;
         private readonly OSDItemCPUWatts osdItemCPUWatts;
         private readonly OSDItemFPS osdItemFPS;
         private readonly OSDItemGPU osdItemGPU;
@@ -77,6 +78,7 @@ namespace XboxGamingBarHelper.RTSS
         private float currentMinFt = 0f;
         private float currentAvgFt = 0f;
         private float currentMaxFt = 0f;
+        private float current1PercentLowFps = 0f;  // 1% low = framerate at the 99th-percentile (slowest 1%) frametime
 
         // Public frametime stats for stability detection (used by AutoTDPManager)
         public float FrametimeMin => currentMinFt;
@@ -95,7 +97,7 @@ namespace XboxGamingBarHelper.RTSS
             { 1, new HashSet<string> { "Time", "FPS", "Battery" } },
             { 2, new HashSet<string> { "FPS", "Battery", "CPU", "Time" } },
             { 3, new HashSet<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "Time" } },
-            { 4, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 4, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
@@ -144,10 +146,10 @@ namespace XboxGamingBarHelper.RTSS
         // Per-level item order
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
-            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "ControllerBattery", "Memory", "VRAM", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "Time", "ControllerBattery", "VRAM", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 4, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "ControllerBattery", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "ControllerBattery", "VRAM", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
+            { 4, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
         };
 
         // Per-level, per-item label colors (e.g., osdItemLabelColors[1]["CPU"] = "FF0000")
@@ -172,6 +174,7 @@ namespace XboxGamingBarHelper.RTSS
             osdItemTDPLimits.SetPerformanceManager(performanceManager);
             osdItemCPU = new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature);
             osdItemCPU.SetPerformanceManager(performanceManager);
+            osdItemCPUCores = new OSDItemCPUCores(performanceManager.PCoreClocks, performanceManager.ECoreClocks);
             osdItemCPUWatts = new OSDItemCPUWatts(performanceManager.CPUWattage);
             osdItemFPS = new OSDItemFPS();
             osdItemGPU = new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature);
@@ -185,6 +188,7 @@ namespace XboxGamingBarHelper.RTSS
                 new OSDItemBattery(performanceManager.BatteryLevel, performanceManager.BatteryDischargeRate, performanceManager.BatteryChargeRate, performanceManager.BatteryRemainingTime, () => performanceManager.BatteryTimeToFull),
                 osdItemControllerBattery,
                 osdItemCPU,
+                osdItemCPUCores,
                 osdItemCPUWatts,
                 osdItemGPU,
                 osdItemVRAM,
@@ -729,7 +733,14 @@ namespace XboxGamingBarHelper.RTSS
                         string maxColor = ApplyOpacityToColor("FF6600");
                         // Small stats label; the trailing <S> reset is rewritten to the global base
                         // size by ApplyOsdTextScale() (applied centrally just before the OSD is sent).
-                        statsLabel = $"\n<S=50><C={labelColor}>min:<C={minColor}>{currentMinFt:F1}ms <C={labelColor}>avg:<C={avgColor}>{currentAvgFt:F1}ms <C={labelColor}>max:<C={maxColor}>{currentMaxFt:F1}ms<C><S>";
+                        statsLabel = $"\n<S=50><C={labelColor}>min:<C={minColor}>{currentMinFt:F1}ms <C={labelColor}>avg:<C={avgColor}>{currentAvgFt:F1}ms <C={labelColor}>max:<C={maxColor}>{currentMaxFt:F1}ms";
+                        // 1% low (framerate at the 99th-percentile frametime) — shown right after max
+                        if (current1PercentLowFps > 0)
+                        {
+                            string lowColor = ApplyOpacityToColor("FF6600");
+                            statsLabel += $" <C={labelColor}>1% low:<C={lowColor}>{current1PercentLowFps:F0}fps";
+                        }
+                        statsLabel += "<C><S>";
                     }
 
                     // <G=<FT>> - RTSSSharedMemoryNET.ProcessGraphTags converts this to embedded graph object
@@ -1046,6 +1057,7 @@ namespace XboxGamingBarHelper.RTSS
                 float maxFt = 0f;
                 float sumFt = 0f;
                 int validSamples = 0;
+                var ftSamples = new List<float>(sampleCount);
 
                 for (int i = 0; i < sampleCount; i++)
                 {
@@ -1059,6 +1071,7 @@ namespace XboxGamingBarHelper.RTSS
                         sumFt += frametimeMs;
                         if (frametimeMs < minFt) minFt = frametimeMs;
                         if (frametimeMs > maxFt) maxFt = frametimeMs;
+                        ftSamples.Add(frametimeMs);
                     }
                 }
 
@@ -1067,12 +1080,29 @@ namespace XboxGamingBarHelper.RTSS
                     currentMinFt = minFt;
                     currentAvgFt = sumFt / validSamples;
                     currentMaxFt = maxFt;
+
+                    // 1% low FPS = framerate at the 99th-percentile (slowest 1%) frametime — the same
+                    // metric RTSS derives from this buffer. Needs enough samples to be meaningful.
+                    if (ftSamples.Count >= 20)
+                    {
+                        ftSamples.Sort();
+                        int idx = (int)System.Math.Ceiling(ftSamples.Count * 0.99f) - 1;
+                        if (idx < 0) idx = 0;
+                        if (idx >= ftSamples.Count) idx = ftSamples.Count - 1;
+                        float p99Ft = ftSamples[idx];
+                        current1PercentLowFps = p99Ft > 0.01f ? 1000f / p99Ft : 0f;
+                    }
+                    else
+                    {
+                        current1PercentLowFps = 0f;
+                    }
                 }
                 else
                 {
                     currentMinFt = 0f;
                     currentAvgFt = 0f;
                     currentMaxFt = 0f;
+                    current1PercentLowFps = 0f;
                 }
             }
             catch (Exception ex)

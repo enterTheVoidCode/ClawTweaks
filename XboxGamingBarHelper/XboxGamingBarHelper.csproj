@@ -212,6 +212,7 @@
     <Compile Include="Performance\Sensors\BatteryRemainingCapacitySensor.cs" />
     <Compile Include="Performance\Sensors\BatteryRemainingTimeSensor.cs" />
     <Compile Include="Performance\Sensors\CPUClockSensor.cs" />
+    <Compile Include="Performance\Sensors\CPUCoreClockSensor.cs" />
     <Compile Include="Performance\Sensors\CPUTemperatureSensor.cs" />
     <Compile Include="Performance\Sensors\VRMTemperatureSensor.cs" />
     <Compile Include="Performance\Sensors\CPUUsageSensor.cs" />
@@ -292,6 +293,7 @@
     <Compile Include="RTSS\OSDItems\OSDItemBattery.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemControllerBattery.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemCPU.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemCPUCores.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemAutoTDP.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemFan.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemFPS.cs" />

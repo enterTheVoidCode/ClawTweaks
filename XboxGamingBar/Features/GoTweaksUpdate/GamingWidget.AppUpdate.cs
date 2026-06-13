@@ -285,7 +285,7 @@ namespace XboxGamingBar
                     btn.IsEnabled = false;
                 }
                 ShowAppUpdateProgress(true,
-                    $"Starting download of version {version}… when it's done the Windows App Installer opens — just click Install/Update to finish (the package is ~80 MB, so this can take several minutes on a slow connection).");
+                    $"Starting download of version {version}… This runs in the background — you can keep using ClawTweaks. When it's done, the Windows App Installer opens (it may pop up behind this window) — bring it to the front and click Install/Update to finish.");
                 Logger.Info($"AppUpdate: installing release {version} from {downloadUrl}");
                 installAppRelease?.Trigger(downloadUrl);
                 _ = PollInstallStatusAsync();

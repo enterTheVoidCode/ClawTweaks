@@ -114,6 +114,10 @@ namespace XboxGamingBarHelper.Performance
 
         public CPUUsageSensor CPUUsage { get; }
         public CPUClockSensor CPUClock { get; }
+        // Per-core clocks (P-Core #1.., E-Core #1..) for the Full OSD preset. Slots beyond the SKU's
+        // actual core count never match a sensor and stay -1 (N/A) → omitted by the OSD item.
+        public CPUCoreClockSensor[] PCoreClocks { get; }
+        public CPUCoreClockSensor[] ECoreClocks { get; }
         public CPUWattageSensor CPUWattage { get ; }
         public CPUTemperatureSensor CPUTemperature { get; }
         public VRMTemperatureSensor VRMTemperature { get; }
@@ -475,6 +479,14 @@ namespace XboxGamingBarHelper.Performance
             // Initialize hardware sensors immediately (they'll work once hardware is detected)
             Logger.Info("Initializing hardware sensors...");
             CPUClock = new CPUClockSensor();
+            // Register up to 8 P-cores and 8 E-cores; unused slots simply never match a sensor.
+            PCoreClocks = new CPUCoreClockSensor[8];
+            ECoreClocks = new CPUCoreClockSensor[8];
+            for (int i = 0; i < 8; i++)
+            {
+                PCoreClocks[i] = new CPUCoreClockSensor($"P-Core #{i + 1}");
+                ECoreClocks[i] = new CPUCoreClockSensor($"E-Core #{i + 1}");
+            }
             CPUUsage = new CPUUsageSensor();
             CPUWattage = new CPUWattageSensor();
             CPUTemperature = new CPUTemperatureSensor();
@@ -524,6 +536,8 @@ namespace XboxGamingBarHelper.Performance
                 NetworkDownload,
                 NetworkUpload,
             };
+            hardwareSensors.AddRange(PCoreClocks);
+            hardwareSensors.AddRange(ECoreClocks);
 
             // RyzenAdj initialization deferred - WinRing0 no longer bundled
             // Use PawnIO for TDP control instead (anti-cheat compatible)
