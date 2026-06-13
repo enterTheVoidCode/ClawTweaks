@@ -24,12 +24,14 @@ namespace XboxGamingBar
         private const string MsiFanCurveKey   = "MsiFan_CurveCsv"; // 11 ints when custom
 
         // Preset curves — MUST match MsiClawFanController on the helper side.
-        // Softened in the 50-90 °C band so software mode is not louder than MSI's quiet factory
-        // (firmware) curve on Lunar Lake; they still ramp hard near 100 °C for thermal safety.
+        // Quiet at idle/low load, but the 80-100 °C end now cools at firmware level: under-cooling at
+        // the top during sustained full load let the CPU climb until the EC seized the fan and latched
+        // it loud (only a firmware hand-back cleared it). Helper FanTableScale = 150 maps these to the
+        // full EC 0-150 range.
         //                                                 0  10  20  30  40  50  60  70  80  90  100 °C
-        private static readonly double[] MsiCurveQuiet      = { 0, 0, 0,  0,  0,  0, 10, 20, 35, 55,  75 };
-        private static readonly double[] MsiCurveDefault    = { 0, 0, 0,  0,  0,  8, 18, 30, 48, 70,  90 };
-        private static readonly double[] MsiCurveAggressive = { 0, 0, 0,  0,  5, 15, 28, 45, 65, 85, 100 };
+        private static readonly double[] MsiCurveQuiet      = { 0, 0, 0,  0,  0,  0,  8, 22, 40, 63,  87 };
+        private static readonly double[] MsiCurveDefault    = { 0, 0, 0,  0,  2,  4, 14, 30, 50, 75,  97 };
+        private static readonly double[] MsiCurveAggressive = { 0, 0, 0,  3,  6, 10, 22, 40, 63, 85, 100 };
 
         private readonly double[] _msiFanCurve = (double[])MsiCurveDefault.Clone();
         private readonly Ellipse[] _msiFanPoints = new Ellipse[11];
