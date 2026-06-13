@@ -189,6 +189,10 @@ namespace XboxGamingBar
             bool show = controllerEmulationSupported && !gameRunning;
             ControllerEmulationCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
             Logger.Debug($"[VCtrl] Card visibility: supported={controllerEmulationSupported} gameRunning={gameRunning} → {(show ? "Visible" : "Collapsed")}");
+
+            // Drive the expand-chevron discovery glow: pulses only while the card is
+            // visible (no game) and still collapsed; stays off in-game / after discovery.
+            UpdateControllerEmulationExpandHint();
         }
 
         private void RefreshQuickSettingsForControllerEmulation()
@@ -415,6 +419,10 @@ namespace XboxGamingBar
             UpdateControllerEmulationStatusText();
             UpdateControllerEmulationMouseSettingsVisibility();
             UpdateSystemControllerEmulationNavigation();
+            // Per-game controller profiles only work with emulation running — keep the
+            // "create per-game profile" toggle's enabled state in sync if emulation is
+            // flipped while already in-game.
+            RefreshPerGameControllerToggleEnabled();
             // Keep the Quick tab Controller tile in sync with the System-tab toggle
             // and any helper-driven changes (e.g. ControllerEmulationAvailable arrives
             // late and needs to flip the tile from "N/A" to its actual state).

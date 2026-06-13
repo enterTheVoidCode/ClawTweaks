@@ -120,34 +120,50 @@ namespace Shared.Data
                 { nameof(Command), (int)Command.Response }
             };
 
-            switch (command)
+            try
             {
-                case Command.Get:
-                    response = property.AddValueSetContent(response);
-                    break;
-                case Command.Set:
-                    property.SuppressRemoteSync = true;
-                    try
-                    {
-                        if (message.TryGetValue(nameof(Content), out object content))
+                switch (command)
+                {
+                    case Command.Get:
+                        response = property.AddValueSetContent(response);
+                        break;
+                    case Command.Set:
+                        property.SuppressRemoteSync = true;
+                        try
                         {
-                            long updatedTime = 0;
-                            if (message.TryGetValue(nameof(UpdatedTime), out object timeObj))
+                            if (message.TryGetValue(nameof(Content), out object content))
                             {
-                                updatedTime = Convert.ToInt64(timeObj);
+                                long updatedTime = 0;
+                                if (message.TryGetValue(nameof(UpdatedTime), out object timeObj))
+                                {
+                                    updatedTime = Convert.ToInt64(timeObj);
+                                }
+                                property.SetValue(content, updatedTime);
                             }
-                            property.SetValue(content, updatedTime);
                         }
-                    }
-                    finally
-                    {
-                        property.SuppressRemoteSync = false;
-                    }
-                    response.Add(nameof(Content), "Success");
-                    break;
-                default:
-                    Logger.Warn($"Unknown command in pipe message: {command}");
-                    break;
+                        finally
+                        {
+                            property.SuppressRemoteSync = false;
+                        }
+                        response.Add(nameof(Content), "Success");
+                        break;
+                    default:
+                        Logger.Warn($"Unknown command in pipe message: {command}");
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                // A property's Get/Set can dereference a manager that isn't wired up yet — this
+                // happens when the widget connects and requests a property before the helper has
+                // finished initializing its managers. Contain it per-property: log WHICH Function
+                // failed (with stack, so it can be pinned down precisely) and return an error
+                // response so the widget gets an answer (no hang) and re-syncs once the helper is
+                // fully up — instead of bubbling a bare NullReferenceException to the pipe loop's
+                // generic catch (the recurring "Error handling pipe property request: Objektverweis…").
+                Logger.Warn($"HandlePipeMessage: {command} for {function} threw (likely a not-yet-initialized manager): {ex}");
+                if (!response.ContainsKey("Error"))
+                    response.Add("Error", $"{function} not ready: {ex.GetType().Name}");
             }
 
             return response;

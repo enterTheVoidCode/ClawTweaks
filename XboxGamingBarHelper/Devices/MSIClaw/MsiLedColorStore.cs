@@ -16,8 +16,11 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private const string FileName = "msi_led_color.txt";
+        private const string BootCycleFileName = "msi_led_bootcycle.txt";
 
-        private static string ResolvePath()
+        private static string ResolvePath() => ResolvePath(FileName);
+
+        private static string ResolvePath(string fileName)
         {
             string localState;
             try
@@ -33,7 +36,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "Packages", "MSIClaw.ClawTweaks_7eszav2039cvc", "LocalState");
             }
-            return Path.Combine(localState, FileName);
+            return Path.Combine(localState, fileName);
         }
 
         /// <summary>Persists the user's chosen color. Called whenever the widget pushes a new color.</summary>
@@ -73,6 +76,37 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             {
                 Logger.Debug($"[MsiLedStore] Load failed: {ex.Message}");
                 return false;
+            }
+        }
+
+        /// <summary>Persists the startup colour-cycle on/off preference (red→green→colour at boot).</summary>
+        public static void SaveBootCycle(bool enabled)
+        {
+            try
+            {
+                string path = ResolvePath(BootCycleFileName);
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                File.WriteAllText(path, enabled ? "1" : "0");
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[MsiLedStore] SaveBootCycle failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>Loads the startup colour-cycle preference. Defaults to TRUE (enabled) when unset.</summary>
+        public static bool LoadBootCycle()
+        {
+            try
+            {
+                string path = ResolvePath(BootCycleFileName);
+                if (!File.Exists(path)) return true; // default on
+                return File.ReadAllText(path).Trim() != "0";
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[MsiLedStore] LoadBootCycle failed: {ex.Message}");
+                return true;
             }
         }
     }

@@ -150,8 +150,12 @@ namespace XboxGamingBarHelper
             }
             else if (sender == legionManager?.LegionGyroMappingType)
             {
-                Logger.Info($"Saving LegionGyroMappingType to profile {profileName}");
+                // Repurposed on the MSI Claw as the "Gyro Engine" selector
+                // (0 = Adaptive/ClawTweaks, 1 = Direct/HC 1:1). The Legion firmware command this
+                // property would otherwise drive is a no-op on the Claw (no Legion Go hardware).
+                Logger.Info($"Saving LegionGyroMappingType (Claw gyro engine) to profile {profileName}");
                 profileManager.CurrentProfile.LegionGyroMappingType = legionManager.LegionGyroMappingType.Value;
+                clawButtonMonitor?.SetGyroEngineMode(legionManager.LegionGyroMappingType.Value);
             }
             else if (sender == legionManager?.LegionGyroActivationMode)
             {

@@ -530,8 +530,8 @@ namespace XboxGamingBar
 
         // Gyro settings (per-game profile)
         public int GyroTarget { get; set; } = 0;           // Disabled
-        public int GyroSensitivityX { get; set; } = 100;
-        public int GyroSensitivityY { get; set; } = 100;
+        public int GyroSensitivityX { get; set; } = 70;
+        public int GyroSensitivityY { get; set; } = 70;
         public bool GyroInvertX { get; set; } = false;
         public bool GyroInvertY { get; set; } = false;
         public int GyroMappingType { get; set; } = 0;      // Instant
@@ -539,7 +539,7 @@ namespace XboxGamingBar
         public int GyroActivationButton { get; set; } = 0; // None
 
         // Advanced gyro settings (per-game profile)
-        public int GyroDeadzone { get; set; } = 10;         // 1-100
+        public int GyroDeadzone { get; set; } = 1;          // 1-100 (tuned default)
 
         // Stick deadzones (per-game profile)
         public int LeftStickDeadzone { get; set; } = 4;    // Default 4%
@@ -3489,6 +3489,33 @@ namespace XboxGamingBar
                 && a.GamepadMode == b.GamepadMode;
         }
 
+        /// <summary>
+        /// True when controller emulation is supported AND switched on. The per-game controller
+        /// profile (gyro + button remapping) is applied by the ClawButtonMonitor, which only runs
+        /// while emulation is enabled — so per-game activation must be gated on this.
+        /// </summary>
+        private bool IsControllerEmulationActive =>
+            controllerEmulationSupported && ControllerEmulationEnabledToggle?.IsOn == true;
+
+        /// <summary>
+        /// Recomputes whether the per-game controller profile toggle may be enabled. Called when the
+        /// emulation toggle flips while already in-game (so turning emulation off greys out the
+        /// "create per-game profile" toggle, and turning it back on re-enables it). Leaves the
+        /// locked-ON state (an existing per-game profile) and the no-game disabled state untouched.
+        /// </summary>
+        private void RefreshPerGameControllerToggleEnabled()
+        {
+            if (LegionControllerProfileToggle == null) return;
+            if (!HasValidGame(currentGameName)) return; // no game → already disabled by game-change path
+
+            bool hasProfile = ApplicationData.Current.LocalSettings.Containers
+                .ContainsKey($"ControllerProfile_Game_{currentGameName}");
+            if (hasProfile) return; // locked ON (delete to deactivate) — don't touch
+
+            // In-game, no per-game profile yet → only enable the "create" toggle if emulation is active.
+            LegionControllerProfileToggle.IsEnabled = IsControllerEmulationActive;
+        }
+
         private void UpdateControllerProfileForGameChange(string newGameName)
         {
             bool gameActive = HasValidGame(newGameName);
@@ -3573,7 +3600,12 @@ namespace XboxGamingBar
                     legionGyroTarget?.SetValue(0);
                 }
                 finally { isSwitchingControllerProfile = false; }
-                LegionControllerProfileToggle.IsEnabled = true;
+                // Per-game controller profiles (gyro + remapping) are applied by the ClawButtonMonitor,
+                // which only runs while controller emulation is enabled. So the "create per-game profile"
+                // toggle must only be enableable when emulation is active — otherwise the user could arm a
+                // profile that can never take effect. (Gyro already requires an active profile, so this is
+                // consistent; remapping is likewise inert without the monitor.)
+                LegionControllerProfileToggle.IsEnabled = IsControllerEmulationActive;
                 SetControllerProfileHints(gameActive: true, hasProfile: false);
                 UpdateGyroSectionForProfileMode(perGameActive: false);
                 UpdateControllerEmulationCardVisibility(); // game running → card hidden

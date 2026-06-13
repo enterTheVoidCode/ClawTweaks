@@ -42,6 +42,12 @@ namespace XboxGamingBarHelper
         private static bool _msiClawOwnsSuppression = false;
 
         /// <summary>
+        /// Guards the one-time HW-controller baseline self-heal (emulation off→on cycle) performed at
+        /// the first virtual-controller mount of the helper session. Once only — no retry loop.
+        /// </summary>
+        private static bool _clawHwBaselineHealAttempted = false;
+
+        /// <summary>
         /// External Gamepad Mode runtime state (NOT persisted — always starts off after a helper
         /// start). When active, the handheld is parked as a hidden DInput device with no virtual
         /// controller, so only an external gamepad is visible. <see cref="_externalGamepadWasVirtual"/>
@@ -913,8 +919,9 @@ namespace XboxGamingBarHelper
         private static bool _lastGameBarForeground;
         private static DateTime _lastRbNavTime = DateTime.MinValue;
         // RB hops to reach ClawTweaks = widget position − 1. Set from the widget's
-        // GameBarWidgetPosition (Right MSI Button card); defaults to 2 (slot 3) until synced.
-        private static int GameBarAutoNavRbCount = 2;
+        // GameBarWidgetPosition (Right MSI Button card); defaults to 0 (position 1 = auto-jump off)
+        // until synced, so nothing is injected unless the user opts in by raising the position.
+        private static int GameBarAutoNavRbCount = 0;
         private const int GameBarAutoNavDelayMs = 40;       // let Game Bar finish opening before hopping
         private const int GameBarAutoNavDebounceMs = 1500;  // ignore rapid re-opens
 
@@ -950,6 +957,15 @@ namespace XboxGamingBarHelper
 
                 // Only act on the rising edge (Game Bar just opened).
                 if (!(nowForeground && !wasForeground)) return;
+
+                // Position 1 (RB hops = 0) means auto-jump OFF — do nothing at all, not even the
+                // D-pad-down focus drop (InjectGameBarNav always queues a DpadDown, even for rbCount 0,
+                // so we must stop short of calling it). This is the default state.
+                if (GameBarAutoNavRbCount <= 0)
+                {
+                    Logger.Debug("[GameBarAutoNav] widget position = 1 (auto-jump off) — skipping (no RB hops, no focus drop)");
+                    return;
+                }
 
                 var t = DateTime.Now;
                 if ((t - _lastRbNavTime).TotalMilliseconds < GameBarAutoNavDebounceMs)
@@ -1189,6 +1205,38 @@ namespace XboxGamingBarHelper
                         return; // Hard block: do not start ClawButtonMonitor / ViGEm
                     }
 
+                    // ── Step 0.4: One-time HW-controller baseline self-heal ────────
+                    // In rare cases the physical Claw is left in a divergent state (e.g. a previous
+                    // helper crashed leaving HidHide cloaking on, or the controller didn't re-enumerate
+                    // after a mode switch), so the virtual controller mounts on a bad base. The user's
+                    // reliable manual fix is an emulation off→on cycle. Reproduce that ONCE — only when
+                    // actually mounting a ViGEm pad AND the cheap baseline check says the HW base is not
+                    // clean. Common case (base clean) = one WMI query then skip, so mount performance is
+                    // unchanged. Single attempt, no retry loop; mount proceeds either way.
+                    if (mountVigem && !_clawHwBaselineHealAttempted)
+                    {
+                        _clawHwBaselineHealAttempted = true;
+                        try
+                        {
+                            if (IsHwControllerBaselineClean(out string baselineDiag))
+                            {
+                                Logger.Info($"[MSIClaw] HW controller baseline clean before mount ({baselineDiag}) — no self-heal needed");
+                            }
+                            else
+                            {
+                                Logger.Warn($"[MSIClaw] HW controller baseline NOT clean before mount ({baselineDiag}) — forcing one emulation-off cycle to restore the physical controller");
+                                StopMSIClawButtonMonitor(); // = emulation-off cleanup (ForceUnhideAll + re-enumerate)
+                                System.Threading.Thread.Sleep(1200); // let HidHide settle + devices re-enumerate
+                                bool cleanNow = IsHwControllerBaselineClean(out string afterDiag);
+                                Logger.Info($"[MSIClaw] HW controller baseline after self-heal: clean={cleanNow} ({afterDiag}) — proceeding to mount (single attempt, no retry loop)");
+                            }
+                        }
+                        catch (Exception healEx)
+                        {
+                            Logger.Warn($"[MSIClaw] HW controller baseline self-heal threw (continuing to mount): {healEx.Message}");
+                        }
+                    }
+
                     // ── Step 0.5: Proactive XInput mode switch ────────────────────
                     // Mirrors HC ClawA1M.Open() → SwitchMode(gamepadMode):
                     // If the controller is in hardware Desktop mode (e.g. left by a previous
@@ -1227,6 +1275,8 @@ namespace XboxGamingBarHelper
                         monitor.SetGyroSensitivityX(legionManager.LegionGyroSensitivityX.Value);
                         monitor.SetGyroSensitivityY(legionManager.LegionGyroSensitivityY.Value);
                         monitor.SetGyroDeadzone(legionManager.LegionGyroDeadzone.Value);
+                        // Gyro engine (Adaptive/ClawTweaks vs Direct/HC 1:1) — repurposed LegionGyroMappingType.
+                        monitor.SetGyroEngineMode(legionManager.LegionGyroMappingType.Value);
                         monitor.SetGyroInvertX(legionManager.LegionGyroInvertX.Value);
                         monitor.SetGyroInvertY(legionManager.LegionGyroInvertY.Value);
                         // Vibration intensity + stick deadzones (same pre-Start apply rationale as gyro)
@@ -1245,6 +1295,16 @@ namespace XboxGamingBarHelper
                     }
 
                     Logger.Info("MSIClaw: ClawButtonMonitor running (DInput path)");
+
+                    // Boot LED: the ViGEm virtual controller is now mounted → signal "ready" (green,
+                    // then settle to the user's saved color). Only when a virtual pad was actually
+                    // mounted (mountVigem); External Gamepad Mode mounts no ViGEm pad. No-op unless the
+                    // user saved a custom LED color. This is the green stage that was never reached
+                    // before (it had been wired to the Claw-suppressed ControllerEmulationManager).
+                    if (mountVigem)
+                    {
+                        Devices.MSIClaw.MsiLedBoot.SignalControllerReady();
+                    }
 
                     // Apply current mouse sensitivity / threshold from persisted settings.
                     // Done here (after Start) so the values are ready before mouse mode

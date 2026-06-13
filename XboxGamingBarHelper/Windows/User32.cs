@@ -137,6 +137,34 @@ namespace XboxGamingBarHelper.Windows
             return GetWindowProcessId(GetForegroundWindow());
         }
 
+        /// <summary>
+        /// Diagnostic helper: a human-readable description of the current foreground window
+        /// (process name, PID and title). Used when logging injected keyboard shortcuts so a
+        /// hotkey that "does nothing" can be correlated with the window that was supposed to
+        /// receive it (wrong focus / elevated target / shell vs app are the usual culprits).
+        /// </summary>
+        public static string GetForegroundWindowDescription()
+        {
+            try
+            {
+                IntPtr hwnd = GetForegroundWindow();
+                if (hwnd == IntPtr.Zero)
+                    return "<no foreground window>";
+
+                int pid = GetWindowProcessId(hwnd);
+                string proc = "?";
+                try { if (pid > 0) proc = Process.GetProcessById(pid).ProcessName; }
+                catch { /* process may have exited or be protected */ }
+
+                return $"{proc} (pid {pid}) '{GetWindowTitle(hwnd)}'";
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"GetForegroundWindowDescription failed: {ex.Message}");
+                return "<unknown>";
+            }
+        }
+
         public static void GetOpenWindows(IDictionary<int, ProcessWindow> windows)
         {
             var shellWindow = GetShellWindow();

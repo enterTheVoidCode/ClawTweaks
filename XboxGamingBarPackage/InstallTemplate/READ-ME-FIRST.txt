@@ -2,28 +2,59 @@
   ClawTweaks - How to install
 ==================================================================
 
-1. Extract the WHOLE ZIP to a folder (keep all files together).
+==================================================================
+  ALREADY RUNNING CLAWTWEAKS? -> JUST UPDATE (no certificate step)
+==================================================================
+The certificate is already trusted on your device, so updating is
+one step: double-click the new XboxGamingBarPackage_..._x64.msix
+-> Install.
 
-2. In that folder, click the address bar of the Explorer window,
-   type   powershell   and press Enter. A PowerShell window opens
-   in this folder.
+No certificate, no PowerShell. You're done - ignore the rest.
 
-3. Paste this single command and press Enter:
+
+==================================================================
+  FIRST TIME ON THIS DEVICE? -> FULL INSTALL
+==================================================================
+New users install the signing certificate ONCE, then the app.
+No PowerShell, no typing - just a couple of double-clicks.
+
+1. Extract the WHOLE ZIP to a folder (right-click the ZIP ->
+   "Extract All..."). Keep all the files together.
+
+2. Trust the certificate (FIRST INSTALL ONLY, once per device):
+   Double-click  XboxGamingBarPackage_..._x64.cer
+     -> Install Certificate...
+     -> Local Machine  -> Next  (approve the admin prompt)
+     -> "Place all certificates in the following store"
+     -> Browse... -> Trusted People -> OK
+     -> Next -> Finish
+   You should see "The import was successful."
+
+3. Install the app:
+   Double-click  XboxGamingBarPackage_..._x64.msix
+     -> the Windows App Installer opens -> click Install.
+   (If Windows offers to fetch required framework components, allow it.)
+
+4. Wait until the Game Bar opens on its own, approve the background
+   UAC prompt if it appears, then finish setup in the "Setup" tab.
+
+------------------------------------------------------------------
+Alternative: one-shot installer script
+(only needed if the double-click install above complains about
+ missing framework packages)
+
+Install.ps1 installs the certificate AND every framework
+dependency in one go:
+
+1. In the extracted folder, open a terminal in that folder:
+   right-click an empty spot -> "Open in Terminal"
+   (or open Windows PowerShell from the Start menu).
+
+2. Paste this single command and press Enter:
 
        powershell -ExecutionPolicy Bypass -File .\Install.ps1
 
-4. Approve the Windows (UAC) prompt. Done - open ClawTweaks via the
-   Xbox Game Bar (Win+G) and finish setup in the "Setup" tab.
-
-------------------------------------------------------------------
-Why the "-ExecutionPolicy Bypass" part?
-
-Windows blocks downloaded .ps1 scripts by default, so simply
-double-clicking Install.ps1 (or "Run with PowerShell") will fail
-with "running scripts is disabled on this system".
-
-The command above lifts that block FOR THIS ONE RUN ONLY. It does
-NOT change any system setting and you do NOT need to run
-Set-ExecutionPolicy. The installer then requests admin rights
-(UAC) on its own.
+The "-ExecutionPolicy Bypass" part only applies to this one run
+and changes nothing permanently. The installer then requests admin
+rights (UAC) on its own.
 ==================================================================

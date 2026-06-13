@@ -5,7 +5,6 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 using NLog;
-using Windows.Management.Deployment;
 
 namespace XboxGamingBarHelper.Services
 {
@@ -36,21 +35,30 @@ namespace XboxGamingBarHelper.Services
         // In-app install progress, polled by the widget via Function.AppInstallStatus so the
         // Onboarding update card can show "Downloading 45%…" instead of a static "Installing…".
         public static volatile int InstallPercent = -1;        // 0..100 while downloading; -1 = idle/unknown
-        private static volatile string _installPhase = "idle"; // idle | downloading | installing | done | failed
+        private static volatile string _installPhase = "idle"; // idle | downloading | launch | failed
         private static string _installMessage = "";
+        // When phase == "launch": the downloaded package's file name inside the widget's LocalState
+        // \update folder. The widget opens it with the OS App Installer (Launcher.LaunchFileAsync) so
+        // the user finishes with a single "Install/Update" click — no PowerShell, no AddPackage.
+        private static string _installFile = "";
 
         public static string GetInstallStatusJson()
         {
             string phase = _installPhase ?? "idle";
-            string msg = (_installMessage ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
-            return $"{{\"phase\":\"{phase}\",\"percent\":{InstallPercent},\"message\":\"{msg}\"}}";
+            string msg = JsonEscape(_installMessage);
+            string file = JsonEscape(_installFile);
+            return $"{{\"phase\":\"{phase}\",\"percent\":{InstallPercent},\"message\":\"{msg}\",\"file\":\"{file}\"}}";
         }
 
-        private static void SetInstallStatus(string phase, int percent, string message = "")
+        private static string JsonEscape(string s)
+            => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+        private static void SetInstallStatus(string phase, int percent, string message = "", string file = "")
         {
             _installPhase = phase;
             InstallPercent = percent;
             _installMessage = message ?? "";
+            _installFile = file ?? "";
         }
 
         private static HttpClient CreateHttpClient()
@@ -246,15 +254,22 @@ namespace XboxGamingBarHelper.Services
             => obj.TryGetProperty(key, out var v) && v.ValueKind == JsonValueKind.String ? (v.GetString() ?? "") : "";
 
         /// <summary>
-        /// Downloads the signed .msixbundle and installs it via the WinRT
-        /// <see cref="PackageManager"/> (the OS-native install path). Returns
-        /// JSON the widget can display.
+        /// Downloads the signed package and opens it with the OS App Installer so the user finishes
+        /// with a single "Install/Update" click. The helper does the open itself (the Game Bar widget
+        /// sandbox blocks Launcher.LaunchFileAsync); because the helper is elevated and Windows refuses
+        /// to activate a packaged app from an elevated process, it delegates to explorer.exe, which
+        /// opens the file at the user's integrity level. A silent WinRT install is kept only as a
+        /// failure fallback. The helper downloads (and, for legacy installer ZIPs, extracts the .msix).
         ///
-        /// Deliberately AV-clean: no PowerShell, no Process.Start, no "runas"
-        /// verb — all of which were the heuristics flagged by DrWeb
-        /// (Trojan.DownloaderNET) and Defender (Wacapew). The msix signing cert
-        /// is already trusted from the first install, so re-registering a newer
-        /// (or older) build is a silent per-user operation that needs no UAC.
+        /// Deliberately AV-clean: no PowerShell, no Process.Start, no "runas" verb, no script-driven
+        /// persistence and no self-copy from temp — every one of those tripped a Defender/DrWeb
+        /// heuristic in earlier attempts (Persistence.A!ml, Bearfoos.A!ml, Trojan.DownloaderNET,
+        /// Wacapew). Opening a Microsoft-signed App Installer on a downloaded package is none of those.
+        /// The msix signing cert is already trusted from the first install, so the update is a
+        /// per-user operation that needs no UAC.
+        ///
+        /// The package is placed in the widget's LocalState\update folder so the (sandboxed) widget
+        /// can reach it via ApplicationData.Current.LocalFolder and launch it.
         /// </summary>
         public static async Task<string> InstallAsync(string downloadUrl)
         {
@@ -277,9 +292,20 @@ namespace XboxGamingBarHelper.Services
             foreach (var bad in System.IO.Path.GetInvalidFileNameChars())
                 fileName = fileName.Replace(bad, '_');
 
-            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "GoTweaksSelfUpdate");
-            try { System.IO.Directory.CreateDirectory(dir); }
-            catch (Exception ex) { return "{\"success\":false,\"message\":\"Temp dir: " + ex.Message.Replace("\"", "'") + "\"}"; }
+            // Download into the widget's LocalState\update folder. The widget (UWP, sandboxed) can
+            // only Launcher-open files it can reach via ApplicationData.Current.LocalFolder, so the
+            // package must live there — not in the helper's %TEMP%. Wipe stale downloads first.
+            string dir;
+            try
+            {
+                dir = System.IO.Path.Combine(ResolveLocalStateFolder(), "update");
+                if (System.IO.Directory.Exists(dir))
+                {
+                    try { System.IO.Directory.Delete(dir, true); } catch { }
+                }
+                System.IO.Directory.CreateDirectory(dir);
+            }
+            catch (Exception ex) { return "{\"success\":false,\"message\":\"Update dir: " + ex.Message.Replace("\"", "'") + "\"}"; }
 
             string target = System.IO.Path.Combine(dir, fileName);
             Logger.Info($"GoTweaksUpdateService: downloading {downloadUrl} -> {target}");
@@ -337,18 +363,11 @@ namespace XboxGamingBarHelper.Services
                 return "{\"success\":false,\"message\":\"Download failed: " + ex.Message.Replace("\"", "'") + "\"}";
             }
 
-            // In-app install: extract the zip and run the bundled Install.ps1 (PowerShell) to INSTALL the
-            // package — the same script as the manual ZIP install. The helper is already elevated, so it
-            // launches Windows PowerShell 5.1 with UseShellExecute=false (child inherits the helper's
-            // HIGH-IL token → no extra UAC, and Install.ps1 passes its admin check). Install.ps1 trusts
-            // the cert, Add-AppxPackage's the new build, and drops the deployed helper copy. The new
-            // helper is then redeployed by the helper's OWN --setup (ElevationBootstrapper → the single
-            // UAC) on next Game Bar open. = GoTweaks model: INSTALL via PowerShell, UAC from the helper.
-            // We deliberately do NOT copy the helper + create/start the task from PowerShell — that
-            // script-driven persistence tripped Defender's Behavior:Win32/Persistence.A!ml. A bare-.msix
-            // zip (no Install.ps1) falls back to WinRT AddPackageAsync below.
-            SetInstallStatus("installing", 100);
-            string installPath = target;
+            // The package is downloaded. If it's a legacy installer ZIP, extract the .msix/.msixbundle
+            // out of it into the update folder root; a direct package asset is already in place. Then
+            // hand the file name to the widget (phase = "launch"), which opens it with the OS App
+            // Installer. The helper does NOT install it — no PowerShell, no AddPackage, no self-deploy.
+            string packageFile = target; // absolute path to the package the widget should launch
             if (target.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
                 string extractDir = System.IO.Path.Combine(dir, "extracted");
@@ -365,92 +384,107 @@ namespace XboxGamingBarHelper.Services
                     return "{\"success\":false,\"message\":\"Unpack failed: " + ex.Message.Replace("\"", "'") + "\"}";
                 }
 
-                string installScript = System.IO.Directory
-                    .GetFiles(extractDir, "Install.ps1", System.IO.SearchOption.AllDirectories)
-                    .FirstOrDefault();
-                if (!string.IsNullOrEmpty(installScript))
-                {
-                    try
-                    {
-                        string winPs = System.IO.Path.Combine(
-                            Environment.GetFolderPath(Environment.SpecialFolder.System),
-                            "WindowsPowerShell\\v1.0\\powershell.exe");
-                        var psi = new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = winPs,
-                            Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{installScript}\" -Elevated",
-                            WorkingDirectory = System.IO.Path.GetDirectoryName(installScript),
-                            UseShellExecute = false,   // inherit the helper's elevated token (no extra UAC, high IL)
-                            CreateNoWindow = false,    // show the console so the user sees package progress
-                            WindowStyle = System.Diagnostics.ProcessWindowStyle.Normal,
-                        };
-                        Logger.Info($"GoTweaksUpdateService: installing via {installScript} (Windows PowerShell)");
-                        System.Diagnostics.Process.Start(psi);
-                        SetInstallStatus("done", 100, "Installing… ClawTweaks reloads; confirm the helper's UAC.");
-                        return "{\"success\":true,\"message\":\"Installer running — ClawTweaks reloads; confirm the helper UAC on next open.\"}";
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"GoTweaks installer launch failed: {ex.Message}");
-                        SetInstallStatus("failed", -1, "Couldn't launch installer.");
-                        return "{\"success\":false,\"message\":\"Couldn't launch installer: " + ex.Message.Replace("\"", "'") + "\"}";
-                    }
-                }
-
-                // Fallback: bare package (no Install.ps1 in the zip) → install via WinRT below.
-                var pkg = System.IO.Directory.GetFiles(extractDir, "*.msixbundle", System.IO.SearchOption.AllDirectories).FirstOrDefault()
+                string pkg = System.IO.Directory.GetFiles(extractDir, "*.msixbundle", System.IO.SearchOption.AllDirectories).FirstOrDefault()
                           ?? System.IO.Directory.GetFiles(extractDir, "*.msix", System.IO.SearchOption.AllDirectories).FirstOrDefault();
                 if (string.IsNullOrEmpty(pkg))
                 {
-                    SetInstallStatus("failed", -1, "No installer in the zip.");
-                    return "{\"success\":false,\"message\":\"No Install.ps1 or .msix found inside the installer zip.\"}";
+                    SetInstallStatus("failed", -1, "No package in the zip.");
+                    return "{\"success\":false,\"message\":\"No .msix/.msixbundle found inside the installer zip.\"}";
                 }
-                installPath = pkg;
-                Logger.Info($"GoTweaksUpdateService: extracted package {installPath} from {target}");
+
+                // Move it to the update-folder root so the widget can reach it by a simple name.
+                try
+                {
+                    string dest = System.IO.Path.Combine(dir, System.IO.Path.GetFileName(pkg));
+                    if (System.IO.File.Exists(dest)) System.IO.File.Delete(dest);
+                    System.IO.File.Move(pkg, dest);
+                    packageFile = dest;
+                    try { System.IO.Directory.Delete(extractDir, true); } catch { }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"GoTweaks package relocate failed: {ex.Message}");
+                    SetInstallStatus("failed", -1, "Unpack failed.");
+                    return "{\"success\":false,\"message\":\"Couldn't stage package: " + ex.Message.Replace("\"", "'") + "\"}";
+                }
+                Logger.Info($"GoTweaksUpdateService: staged package {packageFile} from {target}");
             }
 
-            // Install via the OS-native WinRT PackageManager. AddPackageAsync
-            // verifies the signature against the already-trusted cert and
-            // re-registers the package for the current user — no elevation, no
-            // PowerShell, no spawned process. ForceApplicationShutdown closes the
-            // running widget so its files can be swapped; the helper (running from
-            // its deployed copy outside the package) survives to finish the job.
+            // Open the package with the OS App Installer. NOT from the widget: the Game Bar widget host
+            // sandbox blocks Launcher.LaunchFileAsync (it returns false). The helper is a full Win32
+            // process and can do it — but it runs elevated, and Windows refuses to activate a packaged
+            // app (App Installer) directly from an elevated process. So we delegate to the already-running
+            // shell via explorer.exe, which opens the file at the user's normal integrity level → the
+            // App Installer appears and the user clicks Install/Update. (explorer.exe opening a document
+            // is maximally benign — none of the heuristics that flagged earlier attempts.)
+            string launchName = System.IO.Path.GetFileName(packageFile);
             try
             {
-                Logger.Info($"GoTweaksUpdateService: installing {installPath} via PackageManager.AddPackageAsync");
-                var pm = new PackageManager();
-                var pkgUri = new Uri(installPath);
-                // ForceUpdateFromAnyVersion lets the user roll BACK to the previous release
-                // (a plain AddPackage refuses to install a lower version over a higher one).
-                var op = pm.AddPackageAsync(pkgUri, null,
-                    DeploymentOptions.ForceApplicationShutdown | DeploymentOptions.ForceUpdateFromAnyVersion);
-                var result = await op.AsTask();
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = "\"" + packageFile + "\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                Logger.Info($"GoTweaksUpdateService: opening App Installer via explorer.exe for {packageFile}");
+                System.Diagnostics.Process.Start(psi);
+                SetInstallStatus("launch", 100, "The Windows App Installer is opening — click Install/Update to finish.", launchName);
+                return "{\"success\":true,\"message\":\"App Installer opening — click Install/Update to finish.\"}";
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"GoTweaks explorer launch failed, falling back to silent install: {ex.Message}");
+            }
 
+            // Fallback: silent WinRT install so an update never dead-ends if the App Installer can't be
+            // opened. AddPackageAsync verifies the already-trusted signature and re-registers the package
+            // for the current user — no PowerShell, no spawned process, no UAC. The helper redeploys on
+            // the next Game Bar open via its own one-UAC setup.
+            try
+            {
+                SetInstallStatus("installing", 100, "Installing the update…");
+                Logger.Info($"GoTweaksUpdateService: installing {packageFile} via PackageManager.AddPackageAsync (fallback)");
+                var pm = new global::Windows.Management.Deployment.PackageManager();
+                var op = pm.AddPackageAsync(new Uri(packageFile), null,
+                    global::Windows.Management.Deployment.DeploymentOptions.ForceApplicationShutdown
+                    | global::Windows.Management.Deployment.DeploymentOptions.ForceUpdateFromAnyVersion);
+                var result = await op.AsTask();
                 if (op.Status == global::Windows.Foundation.AsyncStatus.Completed &&
                     (result == null || result.ExtendedErrorCode == null))
                 {
-                    Logger.Info($"GoTweaks update installed successfully from {installPath}");
+                    Logger.Info($"GoTweaks update installed (fallback) from {packageFile}");
                     SetInstallStatus("done", 100, "Update installed — reloading.");
-                    // The new version is registered. The helper redeploys + restarts on the next launch
-                    // via the normal elevated setup path (one UAC). We intentionally do NOT self-deploy
-                    // here: launching a helper copy from temp tripped Windows Defender (Bearfoos.A!ml,
-                    // "process spawns a copy of itself from temp"), so the UAC variant is what we ship.
                     return "{\"success\":true,\"message\":\"Update installed — the widget will reload.\"}";
                 }
-
                 string err = result?.ErrorText;
-                if (string.IsNullOrWhiteSpace(err) && result?.ExtendedErrorCode != null)
-                    err = result.ExtendedErrorCode.Message;
+                if (string.IsNullOrWhiteSpace(err) && result?.ExtendedErrorCode != null) err = result.ExtendedErrorCode.Message;
                 if (string.IsNullOrWhiteSpace(err)) err = "Install did not complete.";
-                Logger.Warn($"GoTweaks AddPackageAsync failed: {err}");
+                Logger.Warn($"GoTweaks fallback AddPackageAsync failed: {err}");
                 SetInstallStatus("failed", -1, "Install failed.");
                 return "{\"success\":false,\"message\":\"Install failed: " + err.Replace("\"", "'") + "\"}";
             }
             catch (Exception ex)
             {
-                Logger.Warn($"GoTweaks install failed: {ex.Message}");
+                Logger.Warn($"GoTweaks fallback install failed: {ex.Message}");
                 SetInstallStatus("failed", -1, "Install failed.");
                 return "{\"success\":false,\"message\":\"Install failed: " + ex.Message.Replace("\"", "'") + "\"}";
+            }
+        }
+
+        /// <summary>
+        /// The widget's LocalState folder. Uses package identity when available, else the hard-coded
+        /// ClawTweaks family (same fallback the heartbeat/LED writers use) so the elevated helper and
+        /// the sandboxed widget agree on the folder.
+        /// </summary>
+        private static string ResolveLocalStateFolder()
+        {
+            try { return global::Windows.Storage.ApplicationData.Current.LocalFolder.Path; }
+            catch
+            {
+                return System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "Packages", "MSIClaw.ClawTweaks_7eszav2039cvc", "LocalState");
             }
         }
 

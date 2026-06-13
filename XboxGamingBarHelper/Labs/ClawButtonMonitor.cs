@@ -82,7 +82,7 @@ namespace XboxGamingBarHelper.Labs
         private const float GyroMouseMaxDegPerSec  = 720.0f;      // MouseMaxDegPerSecond
         private const float GyroStickMaxDps        = 220.0f;      // StickDegreesPerSecondAtFullDeflection
         private const float GyroOneEuroMinCutoff   = 6.0f;        // OneEuroMinCutoff — raised for less lag at normal speed
-        private const float GyroOneEuroBeta        = 0.0f;        // OneEuroBeta — 0 = linear (no speed-dependent acceleration)
+        private const float GyroOneEuroBeta        = 0.25f;       // OneEuroBeta — speed-adaptive cutoff; lifts cutoff during motion so the stick stops trailing (kills low-speed stickyness). 0 = pure 6 Hz low-pass = lag at all speeds.
         private const float GyroOneEuroDerivCutoff = 1.5f;        // OneEuroDerivativeCutoff
         private const float GyroDeltaDefault       = 1.0f / 250.0f; // DefaultDeltaSeconds
         private const float GyroDeltaMin           = 0.002f;      // MinDeltaSeconds
@@ -239,11 +239,15 @@ namespace XboxGamingBarHelper.Labs
         private volatile int  _gyroTarget;              // 0=Disabled,1=LeftStick,2=RightStick,3=Mouse
         private volatile int  _gyroActivationMode;      // 0=Hold, 1=Toggle
         private volatile int  _gyroActivationButton;    // 0=None,1=LB,2=LT,3=RB,4=RT
-        private volatile int  _gyroSensitivityX = 100;   // 0-100 (from LegionGyroSensitivityX); default 100 (was 50)
-        private volatile int  _gyroSensitivityY = 100;   // 0-100 (from LegionGyroSensitivityY); default 100 (was 50)
-        private volatile int  _gyroDeadzone = 5;        // degrees/sec (from LegionGyroDeadzone)
+        private volatile int  _gyroSensitivityX = 70;   // 0-100 (from LegionGyroSensitivityX); default 70 = tuned sweet spot (×20 → factor 1400)
+        private volatile int  _gyroSensitivityY = 70;   // 0-100 (from LegionGyroSensitivityY); default 70 = tuned sweet spot (×20 → factor 1400)
+        private volatile int  _gyroDeadzone = 1;        // degrees/sec (from LegionGyroDeadzone); default 1 (tuned)
         private volatile bool _gyroInvertX;
         private volatile bool _gyroInvertY;
+        // Gyro engine (stick path): 0 = Adaptive (ClawTweaks — One-Euro speed-adaptive smoothing),
+        // 1 = Direct (HandheldCompanion 1:1 — no software low-pass, raw linear + anti-deadzone).
+        // Repurposes the (Claw-irrelevant) LegionGyroMappingType channel; see SetGyroEngineMode.
+        private volatile int  _gyroEngineMode;
 
         // Adapter — read on monitor thread; written under _gyroTarget checks from UI thread.
         // Reference reads/writes are atomic on .NET; capture to local before use.
@@ -577,6 +581,18 @@ namespace XboxGamingBarHelper.Labs
 
         /// <summary>Deadzone in degrees/sec (applied before filter and output).</summary>
         public void SetGyroDeadzone(int val) => _gyroDeadzone = val;
+
+        /// <summary>
+        /// Gyro engine for the stick path. 0 = Adaptive (ClawTweaks — One-Euro speed-adaptive
+        /// smoothing, tames rest jitter), 1 = Direct (HandheldCompanion 1:1 — no software low-pass,
+        /// raw linear mapping + anti-deadzone, maximally responsive). Fed from the repurposed
+        /// LegionGyroMappingType setting (Claw firmware ignores it, so the channel is free).
+        /// </summary>
+        public void SetGyroEngineMode(int mode)
+        {
+            _gyroEngineMode = mode;
+            Logger.Info($"ClawButtonMonitor: GyroEngineMode → {(mode == 1 ? "Direct (HC 1:1)" : "Adaptive (ClawTweaks)")}");
+        }
 
         /// <summary>
         /// Set the controller vibration intensity (0–100 %). Scales every rumble report sent
@@ -1999,8 +2015,15 @@ namespace XboxGamingBarHelper.Labs
             }
             _gyroLastSampleTicks = nowTicks;
 
-            // One-Euro filter (1:1 from HC ApplyOneEuroAxis)
-            if (!_gyroFilterInit)
+            // One-Euro filter (1:1 from HC ApplyOneEuroAxis) — Adaptive engine only.
+            // Direct engine (HC 1:1) skips the software low-pass entirely: HC's MotionManager
+            // stick path applies no extra smoothing, so gyro maps straight through. Resetting
+            // _gyroFilterInit means a later switch back to Adaptive re-seeds the filter cleanly.
+            if (_gyroEngineMode == 1)
+            {
+                _gyroFilterInit = false;
+            }
+            else if (!_gyroFilterInit)
             {
                 _gyroFiltH = h; _gyroFiltV = v;
                 _gyroDerivH = 0; _gyroDerivV = 0;

@@ -186,8 +186,8 @@ namespace XboxGamingBar
 
                 // Gyro settings
                 profile.GyroTarget = container.Values.ContainsKey("GyroTarget") ? (int)container.Values["GyroTarget"] : 0;
-                profile.GyroSensitivityX = container.Values.ContainsKey("GyroSensitivityX") ? (int)container.Values["GyroSensitivityX"] : 100;
-                profile.GyroSensitivityY = container.Values.ContainsKey("GyroSensitivityY") ? (int)container.Values["GyroSensitivityY"] : 100;
+                profile.GyroSensitivityX = container.Values.ContainsKey("GyroSensitivityX") ? (int)container.Values["GyroSensitivityX"] : 70;
+                profile.GyroSensitivityY = container.Values.ContainsKey("GyroSensitivityY") ? (int)container.Values["GyroSensitivityY"] : 70;
                 profile.GyroInvertX = container.Values.ContainsKey("GyroInvertX") ? (bool)container.Values["GyroInvertX"] : false;
                 profile.GyroInvertY = container.Values.ContainsKey("GyroInvertY") ? (bool)container.Values["GyroInvertY"] : false;
                 profile.GyroMappingType = container.Values.ContainsKey("GyroMappingType") ? (int)container.Values["GyroMappingType"] : 0;
@@ -195,7 +195,7 @@ namespace XboxGamingBar
                 profile.GyroActivationButton = container.Values.ContainsKey("GyroActivationButton") ? (int)container.Values["GyroActivationButton"] : 0;
 
                 // Advanced gyro settings
-                profile.GyroDeadzone = container.Values.ContainsKey("GyroDeadzone") ? (int)container.Values["GyroDeadzone"] : 10;
+                profile.GyroDeadzone = container.Values.ContainsKey("GyroDeadzone") ? (int)container.Values["GyroDeadzone"] : 1;
 
                 // Stick deadzones
                 profile.LeftStickDeadzone = container.Values.ContainsKey("LeftStickDeadzone") ? (int)container.Values["LeftStickDeadzone"] : 4;
@@ -1634,15 +1634,15 @@ namespace XboxGamingBar
                 VibrationIntensity = (int)(VibrationIntensitySlider?.Value ?? 100),
                 // Gyro settings
                 GyroTarget = LegionGyroTargetComboBox?.SelectedIndex ?? 0,
-                GyroSensitivityX = (int)(LegionGyroSensitivityXSlider?.Value ?? 50),
-                GyroSensitivityY = (int)(LegionGyroSensitivityYSlider?.Value ?? 50),
+                GyroSensitivityX = (int)(LegionGyroSensitivityXSlider?.Value ?? 70),
+                GyroSensitivityY = (int)(LegionGyroSensitivityYSlider?.Value ?? 70),
                 GyroInvertX = LegionGyroInvertXToggle?.IsOn ?? false,
                 GyroInvertY = LegionGyroInvertYToggle?.IsOn ?? false,
                 GyroMappingType = LegionGyroMappingTypeComboBox?.SelectedIndex ?? 0,
                 GyroActivationMode = LegionGyroActivationModeComboBox?.SelectedIndex ?? 0,
                 GyroActivationButton = LegionGyroActivationButtonComboBox?.SelectedIndex ?? 0,
                 // Advanced gyro settings
-                GyroDeadzone = (int)(LegionGyroDeadzoneSlider?.Value ?? 10),
+                GyroDeadzone = (int)(LegionGyroDeadzoneSlider?.Value ?? 1),
                 // Stick deadzones
                 LeftStickDeadzone = (int)(LegionLeftStickDeadzoneSlider?.Value ?? 4),
                 RightStickDeadzone = (int)(LegionRightStickDeadzoneSlider?.Value ?? 4),
@@ -1829,8 +1829,8 @@ namespace XboxGamingBar
                 // as stale data. This keeps profiles clean and predictable.
                 if (gameControllerProfile.GyroTarget == 0)
                 {
-                    gameControllerProfile.GyroSensitivityX = 100;
-                    gameControllerProfile.GyroSensitivityY = 100;
+                    gameControllerProfile.GyroSensitivityX = 70;
+                    gameControllerProfile.GyroSensitivityY = 70;
                     gameControllerProfile.GyroDeadzone = 1;
                     gameControllerProfile.GyroInvertX = false;
                     gameControllerProfile.GyroInvertY = false;
@@ -1851,8 +1851,8 @@ namespace XboxGamingBar
                 // STEP 5: same gyro reset for global profile
                 if (globalControllerProfile.GyroTarget == 0)
                 {
-                    globalControllerProfile.GyroSensitivityX = 100;
-                    globalControllerProfile.GyroSensitivityY = 100;
+                    globalControllerProfile.GyroSensitivityX = 70;
+                    globalControllerProfile.GyroSensitivityY = 70;
                     globalControllerProfile.GyroDeadzone = 1;
                     globalControllerProfile.GyroInvertX = false;
                     globalControllerProfile.GyroInvertY = false;

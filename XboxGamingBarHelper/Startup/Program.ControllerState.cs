@@ -46,6 +46,55 @@ namespace XboxGamingBarHelper
         ///   blocked : devices currently hidden by HidHide (-1 = HidHide state unknown)
         ///   xinput  : connected XInput slots (0-4)
         /// </summary>
+        /// <summary>
+        /// Cheap pre-mount baseline check: is the physical MSI Claw controller cleanly present in
+        /// the expected HW-controller state, i.e. ready for the virtual controller to be mounted on
+        /// top of it? Returns true when the physical Claw XInput device (PID_1901) is visible, no
+        /// stale ViGEm pad is lingering, and HidHide is not still cloaking from a previous session.
+        ///
+        /// Used once at the first virtual-controller mount as a self-heal pre-check (see
+        /// StartClawButtonMonitorBackground). Mirrors the Controller-tab status card's classification
+        /// but does NOT use its EmulationEnabled fallback — at this point emulation intent is "on"
+        /// (we are about to mount) yet no ViGEm pad exists yet, so that fallback would mislead.
+        /// One WMI query + one HidHide probe; only run once, so no per-frame cost.
+        /// </summary>
+        internal static bool IsHwControllerBaselineClean(out string diag)
+        {
+            int vigem = 0, pid1901 = 0;
+            try
+            {
+                using (var searcher = new ManagementObjectSearcher(
+                    "SELECT PNPDeviceID FROM Win32_PnPEntity WHERE PNPDeviceID LIKE '%VID_045E%PID_028E%' OR PNPDeviceID LIKE '%VID_0DB0%PID_1901%'"))
+                {
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        string id = (mo["PNPDeviceID"] as string) ?? "";
+                        if (id.IndexOf("VID_045E", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                            id.IndexOf("PID_028E", StringComparison.OrdinalIgnoreCase) >= 0)
+                            vigem++;
+                        else if (id.IndexOf("PID_1901", StringComparison.OrdinalIgnoreCase) >= 0)
+                            pid1901++;
+                    }
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"ControllerState: baseline WMI query failed: {ex.Message}"); }
+
+            bool hidHideKnown = false, cloaking = false;
+            int blocked = 0;
+            try
+            {
+                var suppression = controllerEmulationManager?.SuppressionManager;
+                if (suppression != null)
+                    hidHideKnown = suppression.TryGetState(out cloaking, out blocked);
+            }
+            catch (Exception ex) { Logger.Debug($"ControllerState: baseline HidHide probe failed: {ex.Message}"); }
+
+            bool hidHideHiding = hidHideKnown && (cloaking || blocked > 0);
+            bool clean = pid1901 > 0 && vigem == 0 && !hidHideHiding;
+            diag = $"pid1901={pid1901} vigem={vigem} hidHideKnown={hidHideKnown} cloaking={cloaking} blocked={blocked}";
+            return clean;
+        }
+
         internal static string BuildControllerStateString()
         {
             int vigem = 0, pid1901 = 0, pid1902 = 0, blocked = 0, xinput = 0;

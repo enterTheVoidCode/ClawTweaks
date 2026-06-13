@@ -943,6 +943,12 @@ namespace XboxGamingBarHelper
         /// <summary>
         /// Parse and send a keyboard shortcut using InputInjector (works in widget context unlike SendInput)
         /// </summary>
+        // Staged-injection timing for modifier combos (see SendKeyboardShortcutViaInputInjector).
+        // Long enough that in-game overlay hooks reliably observe the modifier as held before the
+        // main key arrives; short enough to feel instant.
+        private const int ShortcutModifierHoldMs = 25;
+        private const int ShortcutKeyPressMs = 25;
+
         private static void SendKeyboardShortcutViaInputInjector(string shortcut)
         {
             if (inputInjector == null)
@@ -1073,13 +1079,6 @@ namespace XboxGamingBarHelper
                     }
                 }
 
-                // Build key sequence: press modifiers, press all main keys, release all main keys in reverse, release modifiers
-                // Press modifiers
-                foreach (var mod in modifierKeys)
-                {
-                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mod, KeyOptions = InjectedInputKeyOptions.None });
-                }
-
                 // Extended navigation keys require InjectedInputKeyOptions.ExtendedKey so they
                 // are not misinterpreted as numpad keys by the OS or low-level hooks.
                 var extendedVKs = new HashSet<ushort> {
@@ -1090,32 +1089,73 @@ namespace XboxGamingBarHelper
                     0x2C,                   // PrintScreen
                 };
 
-                // Press all main keys
+                // Build the sequence in four stages: modifiers down, main keys down, main keys up
+                // (reverse), modifiers up (reverse).
+                var modsDown = new List<InjectedInputKeyboardInfo>();
+                var mainsDown = new List<InjectedInputKeyboardInfo>();
+                var mainsUp = new List<InjectedInputKeyboardInfo>();
+                var modsUp = new List<InjectedInputKeyboardInfo>();
+
+                foreach (var mod in modifierKeys)
+                    modsDown.Add(new InjectedInputKeyboardInfo { VirtualKey = mod, KeyOptions = InjectedInputKeyOptions.None });
                 foreach (var key in mainKeys)
                 {
-                    var opts = extendedVKs.Contains(key)
-                        ? InjectedInputKeyOptions.ExtendedKey
-                        : InjectedInputKeyOptions.None;
-                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = key, KeyOptions = opts });
+                    var opts = extendedVKs.Contains(key) ? InjectedInputKeyOptions.ExtendedKey : InjectedInputKeyOptions.None;
+                    mainsDown.Add(new InjectedInputKeyboardInfo { VirtualKey = key, KeyOptions = opts });
                 }
-
-                // Release all main keys in reverse order
                 for (int i = mainKeys.Count - 1; i >= 0; i--)
                 {
                     var opts = extendedVKs.Contains(mainKeys[i])
                         ? InjectedInputKeyOptions.ExtendedKey | InjectedInputKeyOptions.KeyUp
                         : InjectedInputKeyOptions.KeyUp;
-                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKeys[i], KeyOptions = opts });
+                    mainsUp.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKeys[i], KeyOptions = opts });
                 }
-
-                // Release modifiers in reverse order
                 for (int i = modifierKeys.Count - 1; i >= 0; i--)
+                    modsUp.Add(new InjectedInputKeyboardInfo { VirtualKey = modifierKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
+
+                keyInfos.AddRange(modsDown);
+                keyInfos.AddRange(mainsDown);
+                keyInfos.AddRange(mainsUp);
+                keyInfos.AddRange(modsUp);
+
+                if (modifierKeys.Count == 0)
                 {
-                    keyInfos.Add(new InjectedInputKeyboardInfo { VirtualKey = modifierKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
+                    // No modifier → a single atomic batch is fine (e.g. F12). Unchanged fast path.
+                    inputInjector.InjectKeyboardInput(keyInfos);
+                }
+                else
+                {
+                    // Modifier combo (e.g. Shift+Tab for the Steam in-game overlay): a single atomic
+                    // batch sends modifier-down and key-down effectively simultaneously. In-game overlay
+                    // hooks that sample modifier state on the key-down via GetAsyncKeyState then miss the
+                    // modifier (it hasn't propagated yet) — so the combo does nothing in-game, even though
+                    // VK-based detectors like Steam's settings "detect hotkey" UI see it fine. Press the
+                    // modifiers first, hold briefly, then the main key, mimicking real hardware timing.
+                    // Run off-thread so a caller like the ClawButtonMonitor poll loop is never stalled.
+                    var injector = inputInjector;
+                    System.Threading.Tasks.Task.Run(() =>
+                    {
+                        try
+                        {
+                            injector.InjectKeyboardInput(modsDown);
+                            System.Threading.Thread.Sleep(ShortcutModifierHoldMs);
+                            injector.InjectKeyboardInput(mainsDown);
+                            System.Threading.Thread.Sleep(ShortcutKeyPressMs);
+                            injector.InjectKeyboardInput(mainsUp);
+                            injector.InjectKeyboardInput(modsUp);
+                        }
+                        catch (Exception ex) { Logger.Error($"Staged shortcut injection failed '{shortcut}': {ex.Message}"); }
+                    });
                 }
 
-                inputInjector.InjectKeyboardInput(keyInfos);
-                Logger.Info($"Sent keyboard shortcut via InputInjector: {shortcut} (modifiers: {modifierKeys.Count}, keys: {mainKeys.Count})");
+                // Diagnostic: a hotkey that "does nothing" is almost always one of — wrong VK
+                // parse, the injector path not taken, the target filtering injected input
+                // (many games / anti-cheat ignore InjectedInput), or the wrong window having
+                // focus. Logging the decoded VK sequence (XX = vk, v=down ^=up) plus the
+                // foreground window lets all of those be told apart from the log alone.
+                string vkDump = string.Join(" ", keyInfos.Select(k =>
+                    $"{k.VirtualKey:X2}{((k.KeyOptions & InjectedInputKeyOptions.KeyUp) != 0 ? "^" : "v")}"));
+                Logger.Info($"Injected shortcut '{shortcut}' [{vkDump}] (mods={modifierKeys.Count}, keys={mainKeys.Count}) → foreground: {Windows.User32.GetForegroundWindowDescription()}");
             }
             catch (Exception ex)
             {

@@ -14,8 +14,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
     internal partial class LegionManager
     {
         private int gyroTarget = 0;
-        private int gyroSensitivityX = 100;
-        private int gyroSensitivityY = 100;
+        private int gyroSensitivityX = 70;   // tuned default (×20 stick scale → factor 1400)
+        private int gyroSensitivityY = 70;   // tuned default (×20 stick scale → factor 1400)
         private bool gyroInvertX = false;
         private bool gyroInvertY = false;
         private int gyroMappingType = 0;
@@ -23,7 +23,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         private int gyroActivationButton = 0;
 
         // Advanced gyro settings
-        private int gyroDeadzone = 10;         // 1-100
+        private int gyroDeadzone = 1;          // 1-100 (tuned default)
 
         /// <summary>
         /// Sets the gyro target output (0=Disabled, 1=LeftStick, 2=RightStick, 3=Mouse).

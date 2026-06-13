@@ -357,8 +357,20 @@ namespace XboxGamingBarHelper
             {
                 try
                 {
-                    Logger.Error($"UnhandledException — releasing EC fan override. Exception: {e.ExceptionObject}");
-                    legionManager?.EmergencyReleaseFanOverride();
+                    // Non-terminating exceptions reach here too — notably the RTSSSharedMemoryNET.OSD
+                    // finalizer throwing FileNotFoundException (0x80070002) on the GC thread when RTSS
+                    // shared memory is gone. Those must NOT release the EC fan override: it interferes
+                    // with fan control (spurious handbacks) and spams the log, while the process keeps
+                    // running. Only release on a genuinely fatal, process-terminating exception.
+                    if (e.IsTerminating)
+                    {
+                        Logger.Error($"UnhandledException (terminating) — releasing EC fan override. Exception: {e.ExceptionObject}");
+                        legionManager?.EmergencyReleaseFanOverride();
+                    }
+                    else
+                    {
+                        Logger.Warn($"Non-terminating unhandled exception (fan override left intact): {e.ExceptionObject}");
+                    }
                     LogManager.Flush();
                 }
                 catch { }

@@ -869,7 +869,17 @@ namespace XboxGamingBarHelper.RTSS
             }
             catch (Exception ex)
             {
-                Logger.Debug($"Error updating OSD: {ex.Message}");
+                // A throw here almost always means the RTSS shared-memory handle went stale:
+                // Modern-Standby (S0) sleep/hibernate resume, or RTSS itself restarted. The
+                // PowerModes.Resume hook that would call ResetRTSSConnection() does NOT fire on the
+                // Claw's S0 standby, so the overlay would otherwise stay frozen forever. Drop +
+                // recreate the OSD here (ResetRTSSConnection disposes, SuppressFinalize's the stale
+                // instance so its finalizer can't throw on the GC thread, and nulls it) so the next
+                // tick recreates a fresh OSD against the current shared memory. Self-heals regardless
+                // of the unreliable resume event. Fires once per stale episode (next tick either
+                // recreates cleanly or bails in the new-OSD guard), so this is not per-tick spam.
+                Logger.Warn($"Error updating OSD ({ex.Message}) — resetting stale RTSS OSD so it recreates next tick");
+                ResetRTSSConnection();
             }
         }
 
