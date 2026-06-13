@@ -1101,8 +1101,151 @@ namespace XboxGamingBar
                 ControllerEmulationExpandIcon.Glyph = isControllerEmulationExpanded ? "\uE70E" : "\uE70D";
             }
 
+            // First time the user opens the card, the discovery hint has done its job \u2014
+            // remember it so the pulsing glow never nags again, and stop it now.
+            if (isControllerEmulationExpanded)
+            {
+                EmuExpandHintSeen = true;
+            }
+            UpdateControllerEmulationExpandHint();
+
             UpdateControllerEmulationMouseSettingsVisibility();
             UpdateSystemControllerEmulationNavigation();
+        }
+
+        // \u2500\u2500 Pulsing glow hint on the Controller Emulation expand chevron \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        // Many users overlook that the "Virtual Controller & Mouse" card hides the
+        // important controller / gyro / mouse settings behind the expand chevron. A soft
+        // pulsing glow draws the eye to it. It runs only while the card is visible \u2014 and
+        // UpdateControllerEmulationCardVisibility() already hides the whole card during a
+        // game, so the hint is implicitly off in-game (the expand is blocked then). It
+        // also stops permanently once the user has expanded the card at least once
+        // (persisted in LocalSettings), so it never nags after discovery.
+        private const string ControllerEmulationExpandHintSeenKey = "ControllerEmulationExpandHintSeen";
+        private Storyboard _emuExpandGlowStoryboard;
+        private bool? _emuExpandHintSeenCache;
+
+        private bool EmuExpandHintSeen
+        {
+            get
+            {
+                if (_emuExpandHintSeenCache == null)
+                {
+                    try
+                    {
+                        var v = ApplicationData.Current.LocalSettings.Values[ControllerEmulationExpandHintSeenKey];
+                        _emuExpandHintSeenCache = v is bool b && b;
+                    }
+                    catch { _emuExpandHintSeenCache = false; }
+                }
+                return _emuExpandHintSeenCache.Value;
+            }
+            set
+            {
+                _emuExpandHintSeenCache = value;
+                try { ApplicationData.Current.LocalSettings.Values[ControllerEmulationExpandHintSeenKey] = value; }
+                catch { }
+            }
+        }
+
+        /// <summary>
+        /// Starts or stops the expand-chevron glow based on current state. Pulses only when
+        /// the card is visible (= no game running), still collapsed, and not yet discovered.
+        /// </summary>
+        internal void UpdateControllerEmulationExpandHint()
+        {
+            bool cardVisible = ControllerEmulationCard != null &&
+                               ControllerEmulationCard.Visibility == Visibility.Visible;
+            bool shouldPulse = cardVisible && !isControllerEmulationExpanded && !EmuExpandHintSeen;
+
+            if (shouldPulse)
+            {
+                StartControllerEmulationExpandHint();
+            }
+            else
+            {
+                StopControllerEmulationExpandHint();
+            }
+        }
+
+        private void StartControllerEmulationExpandHint()
+        {
+            if (ControllerEmulationExpandGlow == null ||
+                ControllerEmulationExpandScale == null ||
+                ControllerEmulationExpandIconBrush == null)
+            {
+                return;
+            }
+
+            if (_emuExpandGlowStoryboard == null)
+            {
+                var sb = new Storyboard { RepeatBehavior = RepeatBehavior.Forever, AutoReverse = true };
+                var dur = new Duration(TimeSpan.FromMilliseconds(900));
+
+                var glow = new DoubleAnimation
+                {
+                    From = 0.0,
+                    To = 0.5,
+                    Duration = dur,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                };
+                Storyboard.SetTarget(glow, ControllerEmulationExpandGlow);
+                Storyboard.SetTargetProperty(glow, "Opacity");
+                sb.Children.Add(glow);
+
+                var scaleX = new DoubleAnimation
+                {
+                    From = 1.0,
+                    To = 1.18,
+                    Duration = dur,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                };
+                Storyboard.SetTarget(scaleX, ControllerEmulationExpandScale);
+                Storyboard.SetTargetProperty(scaleX, "ScaleX");
+                sb.Children.Add(scaleX);
+
+                var scaleY = new DoubleAnimation
+                {
+                    From = 1.0,
+                    To = 1.18,
+                    Duration = dur,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                };
+                Storyboard.SetTarget(scaleY, ControllerEmulationExpandScale);
+                Storyboard.SetTargetProperty(scaleY, "ScaleY");
+                sb.Children.Add(scaleY);
+
+                var color = new ColorAnimation
+                {
+                    From = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF),
+                    To = Windows.UI.Color.FromArgb(0xFF, 0x4C, 0xC2, 0xFF),
+                    Duration = dur,
+                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+                };
+                Storyboard.SetTarget(color, ControllerEmulationExpandIconBrush);
+                Storyboard.SetTargetProperty(color, "Color");
+                sb.Children.Add(color);
+
+                _emuExpandGlowStoryboard = sb;
+            }
+
+            try { _emuExpandGlowStoryboard.Begin(); } catch { }
+        }
+
+        private void StopControllerEmulationExpandHint()
+        {
+            try { _emuExpandGlowStoryboard?.Stop(); } catch { }
+
+            if (ControllerEmulationExpandGlow != null) ControllerEmulationExpandGlow.Opacity = 0.0;
+            if (ControllerEmulationExpandScale != null)
+            {
+                ControllerEmulationExpandScale.ScaleX = 1.0;
+                ControllerEmulationExpandScale.ScaleY = 1.0;
+            }
+            if (ControllerEmulationExpandIconBrush != null)
+            {
+                ControllerEmulationExpandIconBrush.Color = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
+            }
         }
 
         // ControllerEmulationInputNotesExpandButton_Click removed \u2014 UI element was removed

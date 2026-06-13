@@ -24,6 +24,7 @@ namespace XboxGamingBar
     {
         // ── LocalSettings keys ──────────────────────────────────────────────────────
         private const string MsiLedColorKey         = "MsiClaw_LedColor";       // "R,G,B"
+        private const string MsiLedBootCycleKey     = "MsiClaw_LedBootCycle";   // bool (startup red→green→colour)
         private const string MsiChargeLimitEnabledKey = "MsiClaw_ChargeLimitOn";  // bool
         private const string MsiChargeLimitPercentKey = "MsiClaw_ChargeLimitPct"; // int 20..100
         // Set true the first time the user enables the charge limiter in the System tab. The
@@ -34,6 +35,9 @@ namespace XboxGamingBar
         // ── State ───────────────────────────────────────────────────────────────────
         private bool   _msiLedExpanded       = false;
         private bool   _msiLedLoading        = false;
+        // Start TRUE so the ToggleSwitch's construction-time Toggled (XAML IsOn="True") is ignored
+        // until RestoreMsiLedBootCycleFromSettings loads the real value (same pattern as charge limit).
+        private bool   _msiLedBootCycleLoading = true;
         // Start TRUE so the Slider's XAML-default ValueChanged (Value="80") and the ToggleSwitch's
         // default Toggled — both raised during page construction, BEFORE RestoreMsiChargeLimitFromSettings
         // runs — are ignored. Otherwise that spurious 80 clobbered the stored percent and got pushed to
@@ -67,6 +71,7 @@ namespace XboxGamingBar
             RequestControllerState();
 
             RestoreMsiLedColorFromSettings();
+            RestoreMsiLedBootCycleFromSettings();
             RestoreMsiChargeLimitFromSettings();
             RestoreGameBarWidgetPositionFromSettings();
 
@@ -74,14 +79,19 @@ namespace XboxGamingBar
         }
 
         // ── Right MSI Button: ClawTweaks Game Bar widget position (RB auto-jump) ──────────
-        private bool _loadingGameBarWidgetPosition;
+        // Start TRUE (same rationale as _msiChargeLimitLoading): the Slider's XAML-default
+        // ValueChanged (Value="1") fires during page construction, BEFORE
+        // RestoreGameBarWidgetPositionFromSettings runs. With this false, that spurious 1 was saved
+        // over the user's stored value and pushed to the helper — so the position reset to 1 on every
+        // reboot. Restore clears this flag in its finally once the real value is loaded.
+        private bool _loadingGameBarWidgetPosition = true;
 
         private void RestoreGameBarWidgetPositionFromSettings()
         {
             try
             {
                 _loadingGameBarWidgetPosition = true;
-                int pos = 3;
+                int pos = 1; // default 1 = auto-jump off; also the value after a factory reset (LocalSettings cleared → key missing)
                 var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
                 if (settings.Values.TryGetValue(GameBarWidgetPositionKey, out var v) && v is int stored)
                     pos = stored;
@@ -225,6 +235,12 @@ namespace XboxGamingBar
             {
                 if (!IsMsiClawDevice()) return;
                 var s = ApplicationData.Current.LocalSettings.Values;
+
+                // Always seed the helper with the startup-cycle preference (default on if unset),
+                // so it's correct on the next boot even before the user touches the toggle.
+                bool cycleOn = !(s.TryGetValue(MsiLedBootCycleKey, out var cv) && cv is bool cb) || cb;
+                _ = SendMsiLedBootCycleAsync(cycleOn);
+
                 if (!(s.TryGetValue(MsiLedColorKey, out var colorObj) && colorObj is string colorStr)) return;
 
                 var parts = colorStr.Split(',');
@@ -253,6 +269,46 @@ namespace XboxGamingBar
                 Logger.Info($"[MsiLed] Sent color R={r} G={g} B={b}");
             }
             catch (Exception ex) { Logger.Warn($"[MsiLed] Send failed: {ex.Message}"); }
+        }
+
+        // ── Startup colour cycle (red→green→saved colour) on/off ──────────────────────
+        private void RestoreMsiLedBootCycleFromSettings()
+        {
+            try
+            {
+                _msiLedBootCycleLoading = true;
+                bool on = true; // default: cycle enabled
+                var s = ApplicationData.Current.LocalSettings.Values;
+                if (s.TryGetValue(MsiLedBootCycleKey, out var v) && v is bool b) on = b;
+                if (MsiLedBootCycleToggle != null) MsiLedBootCycleToggle.IsOn = on;
+            }
+            catch (Exception ex) { Logger.Warn($"[MsiLed] Restore boot cycle failed: {ex.Message}"); }
+            finally { _msiLedBootCycleLoading = false; }
+        }
+
+        internal void MsiLedBootCycleToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_msiLedBootCycleLoading) return;
+            bool on = MsiLedBootCycleToggle?.IsOn ?? true;
+            try { ApplicationData.Current.LocalSettings.Values[MsiLedBootCycleKey] = on; }
+            catch (Exception ex) { Logger.Warn($"[MsiLed] persist boot cycle failed: {ex.Message}"); }
+            _ = SendMsiLedBootCycleAsync(on);
+            Logger.Info($"[MsiLed] Startup colour cycle → {(on ? "on" : "off")}");
+        }
+
+        private async Task SendMsiLedBootCycleAsync(bool on)
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+                var msg = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "MsiLedBootCycle", on ? "1" : "0" }
+                };
+                await App.SendMessageAsync(msg);
+                Logger.Info($"[MsiLed] Sent boot cycle = {on}");
+            }
+            catch (Exception ex) { Logger.Warn($"[MsiLed] Send boot cycle failed: {ex.Message}"); }
         }
 
         // ── Charge Limit ─────────────────────────────────────────────────────────────

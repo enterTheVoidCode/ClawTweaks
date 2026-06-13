@@ -558,7 +558,9 @@
                     <RadioButton x:Name="OnboardingNavItem" Tag="Onboarding" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Setup">
                         <RadioButton.Content>
                             <Grid>
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEC61;" FontSize="17" VerticalAlignment="Center"/>
+                                <!-- FontSize 15 (was 17): the filled CompletedSolid disc reads heavier than the
+                                     other tabs' 18×18 line icons, so it was visibly larger — trimmed to match. -->
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xEC61;" FontSize="15" VerticalAlignment="Center"/>
                                 <!-- Warning badge shown while required setup is incomplete (toggled from code-behind) -->
                                 <FontIcon x:Name="OnboardingNavBadge" FontFamily="Segoe MDL2 Assets" Glyph="&#xEB90;" FontSize="9"
                                           Foreground="#FFA500" HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -583,8 +585,9 @@
                     </RadioButton>
                     <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Controls">
                         <RadioButton.Content>
+                            <!-- Game controller with grip "horns" (Segoe Fluent Icons "Game", E7FC). -->
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
-                                <PathIcon Data="M14.9979 5C18.8639 5 21.9979 8.13401 21.9979 12C21.9979 15.7855 18.9931 18.8691 15.2385 18.9959L14.9979 19H9.00211C5.13611 19 2.00211 15.866 2.00211 12C2.00211 8.21455 5.00689 5.1309 8.76146 5.00406L9.00211 5H14.9979ZM14.75 12.5C14.0596 12.5 13.5 13.0596 13.5 13.75C13.5 14.4404 14.0596 15 14.75 15C15.4403 15 16 14.4404 16 13.75C16 13.0596 15.4403 12.5 14.75 12.5ZM7.99999 9C7.62029 9 7.3065 9.28215 7.25684 9.64823L7.24999 9.75V11.248L5.74999 11.2487C5.33578 11.2487 4.99999 11.5845 4.99999 11.9987C4.99999 12.3784 5.28214 12.6922 5.64822 12.7419L5.74999 12.7487L7.24999 12.748V14.25C7.24999 14.6642 7.58578 15 7.99999 15C8.37969 15 8.69348 14.7178 8.74314 14.3518L8.74999 14.25V12.748L10.25 12.7487C10.6642 12.7487 11 12.413 11 11.9987C11 11.6191 10.7178 11.3053 10.3518 11.2556L10.25 11.2487L8.74999 11.248V9.75C8.74999 9.33579 8.4142 9 7.99999 9ZM16.75 9C16.0596 9 15.5 9.55964 15.5 10.25C15.5 10.9404 16.0596 11.5 16.75 11.5C17.4403 11.5 18 10.9404 18 10.25C18 9.55964 17.4403 9 16.75 9Z"/>
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7FC;"/>
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
@@ -774,11 +777,15 @@
 
                         <!-- Customize Button -->
                         <Button x:Name="QuickSettingsCustomizeButton"
-                                Content="Customize Tiles and Hotkeys"
                                 HorizontalAlignment="Stretch"
                                 Margin="0,16,0,0"
                                 Style="{StaticResource StandaloneButtonStyle}"
-                                Click="QuickSettingsCustomize_Click"/>
+                                Click="QuickSettingsCustomize_Click">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xEC7A;" FontSize="15" VerticalAlignment="Center"/>
+                                <TextBlock Text="Customize Tiles and Hotkeys" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
 
                         <!-- Customization Panel (hidden by default) -->
                         <Border x:Name="QuickSettingsCustomizePanel"
@@ -827,6 +834,20 @@
                                         </Button>
                                     </Grid>
                                 </Border>
+
+                                <!-- Close customizations (no save — just closes the panel). Mirrors the
+                                     button at the very bottom; placed here too so the user doesn't have to
+                                     scroll all the way down to close the customize area. -->
+                                <Button x:Name="QuickSettingsCustomizeCloseTopButton"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="0,16,0,0"
+                                        Style="{StaticResource StandaloneButtonStyle}"
+                                        Click="QuickSettingsCustomizeDone_Click">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE711;" FontSize="14" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Close Customizations" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
 
                                 <!-- Add Custom Shortcut/Tile Section -->
                                 <TextBlock Text="Add Custom Shortcut/Tile"
@@ -1024,12 +1045,16 @@
                                     </StackPanel>
                                 </Border>
 
-                                <!-- Done Button -->
-                                <Button Content="Done"
-                                        HorizontalAlignment="Stretch"
+                                <!-- Close customizations (no save — just closes the panel). -->
+                                <Button HorizontalAlignment="Stretch"
                                         Margin="0,4,0,0"
                                         Style="{StaticResource StandaloneButtonStyle}"
-                                        Click="QuickSettingsCustomizeDone_Click"/>
+                                        Click="QuickSettingsCustomizeDone_Click">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE711;" FontSize="14" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Close Customizations" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </Border>
 
@@ -3587,6 +3612,68 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Controller LED Color (MSI Claw) — placed directly below Charge Limit.
+                             Visibility is enabled by code on MSI Claw. -->
+                        <Border x:Name="MsiLedColorCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Controller LED Color" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Set the controller LED color."
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="MsiLedExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  IsEnabled="True"
+                                                  VerticalAlignment="Top"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="MsiLedExpandButton_Click">
+                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12" Foreground="#888888"/>
+                                    </ToggleButton>
+                                </Grid>
+                                <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <!-- Hex + RGB/HSV channel text inputs (and their dropdown) are hidden, not
+                                         removed (IsHexInputVisible / IsColorChannelTextInputVisible = False) — the
+                                         colour wheel, the selected-colour preview and the brightness slider are
+                                         enough. Flip these back to True to bring the numeric inputs back. -->
+                                    <muxc:ColorPicker x:Name="MsiLedColorPicker"
+                                                      IsEnabled="True"
+                                                      ColorSpectrumShape="Ring"
+                                                      IsAlphaEnabled="False"
+                                                      IsAlphaSliderVisible="False"
+                                                      IsHexInputVisible="False"
+                                                      IsColorChannelTextInputVisible="False"
+                                                      IsMoreButtonVisible="False"
+                                                      HorizontalAlignment="Left"
+                                                      ColorChanged="MsiLedColorPicker_ColorChanged"/>
+
+                                    <!-- Boot colour cycle on/off (red→green→your colour at controller startup). -->
+                                    <Grid Margin="0,14,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Startup colour cycle" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Red while the controller loads, green when it's ready, then your colour."
+                                                       FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="MsiLedBootCycleToggle" Grid.Column="1"
+                                                      OnContent="" OffContent="" IsOn="True"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="MsiLedBootCycleToggle_Toggled"/>
+                                    </Grid>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Display Color Settings Card — hidden (not relevant for MSI Claw) -->
                         <Border Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
@@ -4840,52 +4927,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Controller LED Color (MSI Claw) — LOCKED. Setting LED colors is not yet
-                             functional; planned for a future update. Moved here (just above About) and
-                             disabled with a "Coming soon" hint. Visibility is enabled by code on MSI Claw. -->
-                        <Border x:Name="MsiLedColorCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="Controller LED Color" Style="{StaticResource CardTitleStyle}"/>
-                                            <Border Background="#33FFA500" CornerRadius="4" Padding="6,1" VerticalAlignment="Center">
-                                                <TextBlock Text="Experimental" FontSize="10" Foreground="#FFD08A" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </StackPanel>
-                                        <TextBlock Text="Set the controller LED color. Experimental — may not apply on all firmware."
-                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="MsiLedExpandButton"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  IsEnabled="True"
-                                                  VerticalAlignment="Top"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="MsiLedExpandButton_Click">
-                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12" Foreground="#888888"/>
-                                    </ToggleButton>
-                                </Grid>
-                                <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <muxc:ColorPicker x:Name="MsiLedColorPicker"
-                                                      IsEnabled="True"
-                                                      ColorSpectrumShape="Ring"
-                                                      IsAlphaEnabled="False"
-                                                      IsAlphaSliderVisible="False"
-                                                      IsHexInputVisible="True"
-                                                      IsMoreButtonVisible="False"
-                                                      HorizontalAlignment="Left"
-                                                      ColorChanged="MsiLedColorPicker_ColorChanged"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
                         <!-- About Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -5903,7 +5944,11 @@
                     <StackPanel Padding="16,8,16,16">
 
                         <!-- Controller Emulation Card -->
-                        <Border x:Name="ControllerEmulationCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                        <!-- Accent-themed card styled to echo the "App version & updates" expander: themed accent
+                             border + accent header icon (both reference ThemeAccentBrush, so they follow the in-app
+                             theme live). The chevron, expand logic and D-pad XYFocus wiring are untouched. -->
+                        <Border x:Name="ControllerEmulationCard" Style="{StaticResource CardStyle}"
+                                BorderBrush="{StaticResource ThemeAccentBrush}" Visibility="Collapsed">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -5911,7 +5956,11 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Virtual Controller &amp; Mouse" Style="{StaticResource CardTitleStyle}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7FC;" FontSize="16"
+                                                      Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Virtual Controller &amp; Mouse" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Text="Enables a virtual controller with full button remapping — including M1, M2, Left-Front-MSI-Buttons and Mouse Mode. Required for button remapping and gyro."
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
@@ -5944,10 +5993,29 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
+                                                  RenderTransformOrigin="0.5,0.5"
                                                   Click="ControllerEmulationExpandButton_Click"
                                                   XYFocusUp="{x:Bind LegionNavItem}"
                                                   UseSystemFocusVisuals="True">
-                                        <FontIcon x:Name="ControllerEmulationExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                        <ToggleButton.RenderTransform>
+                                            <ScaleTransform x:Name="ControllerEmulationExpandScale" ScaleX="1" ScaleY="1"/>
+                                        </ToggleButton.RenderTransform>
+                                        <!-- Grid lets a soft pulsing glow halo sit behind the chevron to draw
+                                             attention to the (easily-overlooked) expandable settings. The pulse
+                                             is driven from code-behind (StartControllerEmulationExpandHint) and
+                                             only runs while the card is visible (= no game running) and unexpanded. -->
+                                        <Grid>
+                                            <Border x:Name="ControllerEmulationExpandGlow"
+                                                    Width="30" Height="30" CornerRadius="15"
+                                                    Background="#4CC2FF" Opacity="0"
+                                                    IsHitTestVisible="False"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <FontIcon x:Name="ControllerEmulationExpandIcon" Glyph="&#xE70D;" FontSize="12">
+                                                <FontIcon.Foreground>
+                                                    <SolidColorBrush x:Name="ControllerEmulationExpandIconBrush" Color="#FFFFFFFF"/>
+                                                </FontIcon.Foreground>
+                                            </FontIcon>
+                                        </Grid>
                                     </ToggleButton>
                                 </Grid>
 
@@ -6102,12 +6170,12 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="ClawTweaks widget position" Foreground="#AAAAAA" FontSize="12" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="ClawTweaksWidgetPositionValue" Grid.Column="1" Text="3"
+                                        <TextBlock x:Name="ClawTweaksWidgetPositionValue" Grid.Column="1" Text="1"
                                                    Foreground="{StaticResource SystemAccentBrush}" FontSize="12" VerticalAlignment="Center"/>
                                     </Grid>
-                                    <Slider x:Name="ClawTweaksWidgetPositionSlider" Minimum="1" Maximum="10" StepFrequency="1" Value="3"
+                                    <Slider x:Name="ClawTweaksWidgetPositionSlider" Minimum="1" Maximum="10" StepFrequency="1" Value="1"
                                             ValueChanged="ClawTweaksWidgetPosition_ValueChanged"/>
-                                    <TextBlock Text="Microsoft occupies the first two slots, so ClawTweaks is usually #3. On Game Bar open we tap RB (position − 1) times to land on it, then D-pad down into the tabs."
+                                    <TextBlock Text="Default 1 = off (no auto-jump). Microsoft occupies the first two slots, so ClawTweaks is usually #3 — set this to your actual slot and on Game Bar open we tap RB (position − 1) times to land on it, then D-pad down into the tabs."
                                                Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
                                   </StackPanel>
                                 </Border>
@@ -7756,22 +7824,31 @@
                                     </ComboBox>
                                 </Grid>
 
-                                <!-- Gyro Mapping Type -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Mapping" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                    <ComboBox x:Name="LegionGyroMappingTypeComboBox"
-                                              Grid.Column="1"
-                                              Style="{StaticResource ModernComboBoxStyle}"
-                                              HorizontalAlignment="Stretch"
-                                              SelectedIndex="0">
-                                        <x:String>Instant</x:String>
-                                        <x:String>Continuous</x:String>
-                                    </ComboBox>
-                                </Grid>
+                                <!-- Gyro Engine — repurposed from the old Legion "Mapping" (Instant/Continuous)
+                                     control. On the MSI Claw the Legion firmware command is a no-op, so this
+                                     channel (LegionGyroMappingType, still persisted per controller-profile) now
+                                     selects the software gyro→stick engine in ClawButtonMonitor.ApplyGyroToStick:
+                                       0 = Adaptive (ClawTweaks)        → One-Euro speed-adaptive smoothing
+                                       1 = Direct (HandheldCompanion)   → HC 1:1, no software low-pass -->
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Gyro Engine" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
+                                        <ComboBox x:Name="LegionGyroMappingTypeComboBox"
+                                                  Grid.Column="1"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  HorizontalAlignment="Stretch"
+                                                  SelectedIndex="0">
+                                            <x:String>Adaptive (ClawTweaks)</x:String>
+                                            <x:String>Direct (HandheldCompanion)</x:String>
+                                        </ComboBox>
+                                    </Grid>
+                                    <TextBlock Text="Adaptive = smoothed (less jitter) · Direct = HC 1:1, raw and most responsive"
+                                               Foreground="#777777" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                </StackPanel>
 
                                 <!-- Gyro Activation Button -->
                                 <Grid>
@@ -7819,13 +7896,13 @@
                                     <Grid>
                                         <TextBlock Text="Sensitivity X" FontSize="13" Foreground="#AAAAAA"/>
                                         <TextBlock x:Name="LegionGyroSensitivityXValue"
-                                                   Text="100"
+                                                   Text="70"
                                                    Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                     <Slider x:Name="LegionGyroSensitivityXSlider"
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
-                                            Value="100"
+                                            Value="70"
                                             StepFrequency="1"/>
                                 </StackPanel>
 
@@ -7834,13 +7911,13 @@
                                     <Grid>
                                         <TextBlock Text="Sensitivity Y" FontSize="13" Foreground="#AAAAAA"/>
                                         <TextBlock x:Name="LegionGyroSensitivityYValue"
-                                                   Text="100"
+                                                   Text="70"
                                                    Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                     <Slider x:Name="LegionGyroSensitivityYSlider"
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
-                                            Value="100"
+                                            Value="70"
                                             StepFrequency="1"/>
                                 </StackPanel>
 
@@ -7849,13 +7926,13 @@
                                     <Grid>
                                         <TextBlock Text="Deadzone" FontSize="13" Foreground="#AAAAAA"/>
                                         <TextBlock x:Name="LegionGyroDeadzoneValue"
-                                                   Text="10"
+                                                   Text="1"
                                                    Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                     <Slider x:Name="LegionGyroDeadzoneSlider"
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
-                                            Value="10"
+                                            Value="1"
                                             StepFrequency="1"/>
                                 </StackPanel>
 

@@ -281,11 +281,11 @@ namespace XboxGamingBar
                 }
                 if (btn != null)
                 {
-                    btn.Content = "Installing…";
+                    btn.Content = "Downloading…";
                     btn.IsEnabled = false;
                 }
                 ShowAppUpdateProgress(true,
-                    $"Starting download of version {version}… ClawTweaks will close and reload when the install finishes (the package is ~80 MB, so this can take several minutes on a slow connection).");
+                    $"Starting download of version {version}… when it's done the Windows App Installer opens — just click Install/Update to finish (the package is ~80 MB, so this can take several minutes on a slow connection).");
                 Logger.Info($"AppUpdate: installing release {version} from {downloadUrl}");
                 installAppRelease?.Trigger(downloadUrl);
                 _ = PollInstallStatusAsync();
@@ -298,9 +298,9 @@ namespace XboxGamingBar
             }
         }
 
-        // Polls the helper for live install progress (download %, phase) so the card shows
-        // "Downloading 45%…" instead of a static "Installing…". The widget is force-closed by the
-        // package install once it reaches the AddPackage step, so this loop simply ends there.
+        // Polls the helper for live download progress (download %, phase) so the card shows
+        // "Downloading 45%…". When the helper signals phase "launch" the download is finished and the
+        // package sits in LocalState\update; the widget then opens it with the OS App Installer.
         private bool _installPolling;
         private async Task PollInstallStatusAsync()
         {
@@ -328,8 +328,15 @@ namespace XboxGamingBar
                                 ? $"Downloading update… {percent}%"
                                 : "Downloading update…");
                             break;
+                        case "launch":
+                            // Helper opened the OS App Installer — the user clicks Install/Update there.
+                            ShowAppUpdateProgress(true,
+                                "The Windows App Installer is opening — click Install/Update to finish. ClawTweaks reloads once it's done.",
+                                spinning: false);
+                            return;
                         case "installing":
-                            ShowAppUpdateProgress(true, "Installing the package… ClawTweaks will close and reload shortly.");
+                            // Fallback path: the helper is doing a silent install (App Installer couldn't open).
+                            ShowAppUpdateProgress(true, "Installing the update… ClawTweaks will reload shortly.");
                             break;
                         case "done":
                             ShowAppUpdateProgress(true, "Update installed — reloading…");
