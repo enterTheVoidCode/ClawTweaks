@@ -475,11 +475,22 @@ namespace XboxGamingBarHelper.AutoTDP
             Logger.Info($"AutoTDP limits updated: Min={minTDP}W, Max={maxTDP}W");
         }
 
+        // ClawTweaks never uses software (closed-loop FPS→TDP) AutoTDP — on Intel/A2VM (Lunar Lake)
+        // TDP management is hardware-based. The engine is permanently neutralized: it never manages
+        // TDP, regardless of the Enabled toggle or any per-game profile. The manager is still
+        // instantiated and all properties/UI/IPC/profile plumbing stay intact (so nothing else
+        // breaks) — Update() just always takes the "disabled" cleanup path below, which restores the
+        // user's manual/profile TDP and clears IsAutoTDPActive so widget/profile TDP changes apply.
+        // Set to false only if a software AutoTDP control loop is ever intentionally re-enabled.
+        // static readonly (not const) on purpose: keeps the rest of Update() reachable to the
+        // compiler so the existing control-loop code below stays warning-clean.
+        private static readonly bool AutoTdpNeutralized = true;
+
         public override void Update()
         {
             base.Update();
 
-            if (!enabled.Value)
+            if (AutoTdpNeutralized || !enabled.Value)
             {
                 // Restore profile TDP when transitioning from active to disabled
                 if (wasActivelyManaging && performanceManager.TDP != null)
