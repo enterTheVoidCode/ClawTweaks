@@ -1853,14 +1853,16 @@ namespace XboxGamingBarHelper.Labs
         ///     gyroZ = -physical AngularVelocityY  (HC defaultGyroscope.Z)
         ///     gyroX = physical AngularVelocityX   (HC defaultGyroscope.X)
         ///
-        /// Sensitivity scaling 1:1 from HC Profile.GetSensitivityX/Y():
-        ///   GetSensitivityX() = MotionSensivityX * 1000.0f  (MotionSensivityX default = 1.0)
-        ///   → sensitivityFactor = 1000 at default sensitivity
-        ///   We map our 0-100 UI scale to HC equivalent:
-        ///     sensitivityFactor = _gyroSensitivityX * 10.0f
-        ///   (100 * 10 = 1000 = HC default; 50 * 10 = 500 = 50% of HC default)
-        ///   Output = Clamp(h * sensitivityFactor, short.MinValue, short.MaxValue)
-        ///   At default (100), full deflection ≈ 33 dps — matching HC's default responsiveness.
+        /// Sensitivity scaling. HC's effective factor is GetSensitivityX() (= MotionSensivityX × 1000,
+        /// default 1.0 → 1000) × ApplyCustomSensitivity() (flat default curve = 0.5) = 500, i.e. full
+        /// deflection at ~65 dps. We deliberately run hotter: _gyroSensitivityX × 20 → factor 2000 at
+        /// the default slider value of 100 (~4× HC). Fast motion is what the user wants strong, and
+        /// the user-facing sensitivity slider lets them dial it; we do NOT lower this to HC's exact
+        /// value because that would also slow the fast-motion range the user is happy with.
+        ///   Output = Clamp((h × factor), short.MinValue, short.MaxValue)
+        ///
+        /// The low-speed "stickiness" is fixed by the radial anti-deadzone below
+        /// (ApplyGyroAntiDeadzoneRadial, HC default 15 %), not by the raw sensitivity.
         /// </summary>
         private void ApplyGyroToStick(GyroSample sample, out short outputX, out short outputY)
         {
@@ -1911,8 +1913,55 @@ namespace XboxGamingBarHelper.Labs
             //   Applying -h here would double-negate → wrong default direction (user must enable InvertX to fix).
             //   Use h directly — ClawGyroSourceAdapter already carries the correct sign for horizontal.
             // → vertical: v = sample.GyroXDegPerSecond = +physical.GyroX, no extra negation needed
-            outputX = GyroClampToInt16( h * scaleX); // was: -h (double-negation bug, fixed 2026-05-27)
-            outputY = GyroClampToInt16( v * scaleY);
+            float fx = h * scaleX; // was: -h (double-negation bug, fixed 2026-05-27)
+            float fy = v * scaleY;
+
+            // Anti-deadzone — ported 1:1 from HC InputUtils.ApplyAntiDeadzone(Vector2, int),
+            // which HC applies downstream of the gyro output in AxisActions
+            // (GyroActions.DefaultAxisAntiDeadZone = 15). Lifts any non-zero gyro vector to at
+            // least 15 % deflection so slow motion clears the *game's* own right-stick deadzone
+            // instead of dying inside it. This was the one HC default missing from this path and
+            // is the direct cause of the "sticky at low speed, only registers when moved fast"
+            // feel: fast motion already produced a large-enough deflection, slow motion didn't.
+            // The _gyroDeadzone gate above keeps rest-state IMU jitter from being lifted.
+            ApplyGyroAntiDeadzoneRadial(ref fx, ref fy, GyroStickAntiDeadZonePercent);
+
+            outputX = GyroClampToInt16(fx);
+            outputY = GyroClampToInt16(fy);
+        }
+
+        // HC GyroActions.DefaultAxisAntiDeadZone = 15. Hardcoded (not a slider) so every install —
+        // fresh or existing — picks up HC's low-speed responsiveness immediately, with no settings
+        // migration and regardless of the (currently disabled) v2 anti-deadzone UI.
+        private const int GyroStickAntiDeadZonePercent = 15;
+
+        /// <summary>
+        /// Radial anti-deadzone, ported 1:1 from HC <c>InputUtils.ApplyAntiDeadzone(Vector2, int)</c>.
+        /// Operates on float stick components in the [-short.MaxValue, short.MaxValue] range: scales
+        /// the stick vector so its smallest non-zero magnitude is <paramref name="percent"/>% of full
+        /// deflection, preserving direction.
+        /// </summary>
+        private static void ApplyGyroAntiDeadzoneRadial(ref float x, ref float y, int percent)
+        {
+            if (percent <= 0 || (x == 0.0f && y == 0.0f))
+            {
+                return;
+            }
+
+            float nx = x / short.MaxValue;
+            float ny = y / short.MaxValue;
+            float len = (float)Math.Sqrt((nx * nx) + (ny * ny));
+            if (len <= 0.0f)
+            {
+                x = 0.0f;
+                y = 0.0f;
+                return;
+            }
+
+            float dz = percent / 100.0f;
+            float mul = (((1.0f - dz) * len) + dz) / len;
+            x = nx * mul * short.MaxValue;
+            y = ny * mul * short.MaxValue;
         }
 
         // ── Gyro-to-mouse (HC ApplyMouseFromGyro port) ───────────────────────────
