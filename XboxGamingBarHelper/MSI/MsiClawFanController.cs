@@ -26,21 +26,31 @@ namespace XboxGamingBarHelper.MSI
         private static readonly byte[] LLFanTable_BestPerformance   = { 10, 0, 10, 26, 46, 78, 113, 150 };
 
         // ── A2VM Lunar Lake software fan curves (11 points: 0,10,…,100 °C → 0–100 %) ──
-        // Non-decreasing, starting at 0 so the fan is silent until the CPU is warm. Softened across
-        // the 50-90 °C band (vs. the original HC-derived values) so enabling software fan control is
-        // not LOUDER than MSI's own quiet factory (firmware) curve on Lunar Lake — that was the whole
-        // problem with software mode. They still ramp hard toward 100 °C so thermals stay safe.
+        // Non-decreasing, silent at idle/low load. The KEY tuning constraint: the 80-100 °C end must
+        // cool at firmware level. If our curve under-cools at the top during sustained full load, the
+        // CPU climbs into the EC's thermal-protection region; the EC then seizes the fan with its own
+        // max override (full-speed bit / active-scenario fan), runs LOUDER than both our table and the
+        // firmware curve, and LATCHES there — only a firmware hand-back clears it. Re-writing or
+        // lowering our table does NOT release the latch (and lowering cools even less). So we keep the
+        // 0-60 °C band quiet but ramp the 80/90/100 °C points to ≥ firmware so the trip never happens.
+        // With FanTableScale = 150 these map to the full EC 0-150 range, e.g. resulting EC tables:
+        //   Quiet      80/90/100 °C -> 60/94/130   Default 75/112/145   Aggressive 94/127/150
+        // (firmware reference: BetterPerformance 63/98/150, BestPerformance 78/113/150).
         //                                                 0  10  20  30  40  50  60  70  80  90  100 °C
-        public static readonly double[] Curve_Quiet      = { 0, 0, 0,  0,  0,  0, 10, 20, 35, 55,  75 };
-        public static readonly double[] Curve_Default    = { 0, 0, 0,  0,  0,  8, 18, 30, 48, 70,  90 };
-        public static readonly double[] Curve_Aggressive = { 0, 0, 0,  0,  5, 15, 28, 45, 65, 85, 100 };
+        public static readonly double[] Curve_Quiet      = { 0, 0, 0,  0,  0,  0,  8, 22, 40, 63,  87 };
+        public static readonly double[] Curve_Default    = { 0, 0, 0,  0,  2,  4, 14, 30, 50, 75,  97 };
+        public static readonly double[] Curve_Aggressive = { 0, 0, 0,  3,  6, 10, 22, 40, 63, 85, 100 };
 
         /// <summary>
-        /// A2VM fan scale: HC's 0–100 % UI is mapped onto MSI 0–100 (instead of 0–150),
-        /// giving more adjustment room in the quiet range. 100 % UI = MSI 100 ≈ 67 % of
-        /// hardware max — ample for Lunar Lake's lower sustained power envelope.
+        /// A2VM fan scale: the 0–100 % UI curve maps onto the full MSI EC range 0–150, so 100 % UI =
+        /// MSI 150 = hardware max. This was 100 (≈67 % of HW max), which structurally capped software
+        /// cooling below the firmware curve and, under sustained full load, let the CPU climb until the
+        /// EC seized the fan and latched it loud (see curve comment above). Full range is required so
+        /// the high-temp end of the curves can actually deliver firmware-level cooling and keep the EC
+        /// from ever taking over. Quiet at low/mid load is preserved by the curve shape, not by capping
+        /// the scale.
         /// </summary>
-        private const double FanTableScale = 100.0;
+        private const double FanTableScale = 150.0;
 
         /// <summary>
         /// Apply a software fan curve (11 points, 0…100 °C, values 0–100 %) and hand fan
