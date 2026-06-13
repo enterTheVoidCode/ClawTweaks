@@ -1417,15 +1417,17 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
-        /// Invoked when the user sets a button mapping in the Legion tab (M1/M2 → gamepad button).
-        /// Routes the mapping to ClawButtonMonitor.ConfigureXInputRemap() for software remapping.
-        ///
-        /// Mirrors HC LayoutManager.MapController() path for OEM3/OEM4 buttons:
+        /// Invoked when the user sets an M1/M2 back-button mapping in the Controller tab.
+        /// Routes ALL three Back-Buttons modes to ClawButtonMonitor:
         ///   buttonIndex 3 = M1 (OEM3), buttonIndex 4 = M2 (OEM4).
         ///   mappingType 0 = Gamepad → values[0] is the RemapAction index.
-        ///   mappingType != 0 = Keyboard/Mouse → no XInput remap; clears any prior action.
+        ///   mappingType 1 = Keyboard → values are HID key codes (fired as a chord on press).
+        ///   mappingType 2 = Mouse → values[0] is the mouse action index.
+        /// Previously only Gamepad was wired here (Keyboard/Mouse were dropped), so a Keyboard or
+        /// Mouse mapping on M1/M2 silently did nothing — unlike the normal "Re-Map Specific Buttons"
+        /// path. ConfigureBackButtonMapping handles all three modes uniformly.
         ///
-        /// EnsureClawButtonMonitor() pre-creates the monitor if not yet running so the remap
+        /// EnsureClawButtonMonitor() pre-creates the monitor if not yet running so the mapping
         /// is ready when Start() is called from StartClawButtonMonitorBackground().
         /// </summary>
         private static void OnMSIClawButtonMappingChanged(int buttonIndex, int mappingType, int[] values)
@@ -1433,16 +1435,13 @@ namespace XboxGamingBarHelper
             string button = buttonIndex == 3 ? "M1" : buttonIndex == 4 ? "M2" : null;
             if (button == null) return; // M3 and Y1/Y2/Y3 not applicable on MSI Claw
 
-            // Only Gamepad (type=0) actions map to XInput; Keyboard/Mouse → clear XInput remap.
-            int actionIndex = (mappingType == 0 && values?.Length > 0) ? values[0] : 0;
-
             try
             {
                 // EnsureClawButtonMonitor() creates the instance if not yet present.
-                // ConfigureXInputRemap() hot-applies if the monitor is running, or
-                // pre-configures the instance so the remap is ready when Start() is called.
-                EnsureClawButtonMonitor().ConfigureXInputRemap(button, actionIndex);
-                Logger.Info($"MSIClaw: {button} XInput remap applied — actionIndex={actionIndex}, mappingType={mappingType}");
+                // ConfigureBackButtonMapping() hot-applies if the monitor is running, or
+                // pre-configures the instance so the mapping is ready when Start() is called.
+                EnsureClawButtonMonitor().ConfigureBackButtonMapping(button, mappingType, values);
+                Logger.Info($"MSIClaw: {button} back-button mapping applied — mappingType={mappingType}, values=[{string.Join(",", values ?? Array.Empty<int>())}]");
             }
             catch (Exception ex)
             {

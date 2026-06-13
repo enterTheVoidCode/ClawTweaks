@@ -273,6 +273,20 @@ namespace XboxGamingBarHelper.Labs
         private volatile RemapAction _m1RemapAction = RemapAction.Disabled;
         private volatile RemapAction _m2RemapAction = RemapAction.Disabled;
 
+        // Back-button (M1/M2) remap MODE + non-gamepad targets. The Back-Buttons UI offers three
+        // modes — Gamepad (Type 0, uses _mXRemapAction above), Keyboard (Type 1) and Mouse (Type 2) —
+        // but only Gamepad was ever wired here, so Keyboard/Mouse on M1/M2 silently did nothing (the
+        // dispatch dropped everything but the gamepad action). These fields carry the Keyboard chord
+        // token and Mouse action so the poll loop can fire them on the press edge, mirroring the
+        // normal-button keyboard path in ClawButtonMonitor.GamepadSwap (BuildGamepadSwaps Type==1).
+        // Written from the UI thread, read from the poll thread → volatile.
+        private volatile int _m1MappingType;          // 0=Gamepad, 1=Keyboard, 2=Mouse
+        private volatile int _m2MappingType;
+        private volatile string _m1KeyboardToken;     // "+"-joined injector chord, e.g. "LShift+F10"
+        private volatile string _m2KeyboardToken;
+        private volatile int _m1MouseAction = -1;     // mouse action index (see FireBackButtonMouse); -1 = none
+        private volatile int _m2MouseAction = -1;
+
         // Whether to use new-firmware M1/M2 bytes (Claw 8 AI A2VM, fw >= 0x166)
         private bool _useNewFirmware = true;
 
@@ -292,11 +306,13 @@ namespace XboxGamingBarHelper.Labs
         private bool _mouseLbWasDown, _mouseRbWasDown;
 
         // mouse_event flags reused from gyro path
-        private const uint MOUSEEVENTF_LEFTDOWN  = 0x0002;
-        private const uint MOUSEEVENTF_LEFTUP    = 0x0004;
-        private const uint MOUSEEVENTF_RIGHTDOWN = 0x0008;
-        private const uint MOUSEEVENTF_RIGHTUP   = 0x0010;
-        private const uint MOUSEEVENTF_WHEEL     = 0x0800;
+        private const uint MOUSEEVENTF_LEFTDOWN   = 0x0002;
+        private const uint MOUSEEVENTF_LEFTUP     = 0x0004;
+        private const uint MOUSEEVENTF_RIGHTDOWN  = 0x0008;
+        private const uint MOUSEEVENTF_RIGHTUP    = 0x0010;
+        private const uint MOUSEEVENTF_MIDDLEDOWN = 0x0020;
+        private const uint MOUSEEVENTF_MIDDLEUP   = 0x0040;
+        private const uint MOUSEEVENTF_WHEEL      = 0x0800;
 
         // Mouse mode tuning — configurable via SetMouseModeSensitivity / SetMouseModeThreshold.
         private const float MouseModeScrollRate     = 0.08f;
@@ -379,6 +395,74 @@ namespace XboxGamingBarHelper.Labs
             if (isM1) _m1RemapAction = action;
             else      _m2RemapAction = action;
             Logger.Info($"ClawButtonMonitor: {button} XInput remap → {action} (actionIndex={actionIndex})");
+        }
+
+        /// <summary>
+        /// Configure an M1/M2 back-button mapping for all three Back-Buttons modes:
+        /// Gamepad (mappingType 0 → values[0] = RemapAction index), Keyboard (1 → values = HID key
+        /// codes), Mouse (2 → values[0] = mouse action index). Sets every per-button field so a mode
+        /// switch fully replaces the previous target (no stale gamepad action left behind when the
+        /// user switches to Keyboard, etc.). Keyboard/Mouse fire on the press edge in the poll loop.
+        /// </summary>
+        public void ConfigureBackButtonMapping(string button, int mappingType, int[] values)
+        {
+            bool isM1 = string.Equals(button, "M1", StringComparison.OrdinalIgnoreCase);
+
+            RemapAction gamepadAction = RemapAction.Disabled;
+            string keyboardToken = null;
+            int mouseAction = -1;
+
+            switch (mappingType)
+            {
+                case 1: // Keyboard — values are HID usage codes; reuse the GamepadSwap token builder
+                    keyboardToken = BuildKeyboardToken(values);
+                    break;
+                case 2: // Mouse — values[0] is the mouse action index
+                    mouseAction = (values != null && values.Length > 0) ? values[0] : -1;
+                    break;
+                default: // 0 = Gamepad
+                    int actionIndex = (values != null && values.Length > 0) ? values[0] : 0;
+                    gamepadAction = RemapActionHelper.GetByIndex(actionIndex);
+                    break;
+            }
+
+            if (isM1)
+            {
+                _m1MappingType = mappingType;
+                _m1RemapAction = gamepadAction;
+                _m1KeyboardToken = keyboardToken;
+                _m1MouseAction = mouseAction;
+            }
+            else
+            {
+                _m2MappingType = mappingType;
+                _m2RemapAction = gamepadAction;
+                _m2KeyboardToken = keyboardToken;
+                _m2MouseAction = mouseAction;
+            }
+
+            Logger.Info($"ClawButtonMonitor: {button} back-button mapping → type={mappingType} " +
+                        $"gamepad={gamepadAction} keyboard='{keyboardToken}' mouse={mouseAction}");
+        }
+
+        /// <summary>
+        /// Fires a mouse action for an M1/M2 mouse mapping. Clicks press on the button-down edge and
+        /// release on the button-up edge (drag-capable); scroll fires one tick on the down edge only.
+        /// Mouse action index matches the widget's LegionGamepadMouseComboBox order:
+        /// 0=Left,1=Right,2=Middle,3=ScrollUp,4=ScrollDown,5=ScrollLeft,6=ScrollRight.
+        /// </summary>
+        private void FireBackButtonMouse(int mouseAction, bool pressed)
+        {
+            switch (mouseAction)
+            {
+                case 0: mouse_event(pressed ? MOUSEEVENTF_LEFTDOWN   : MOUSEEVENTF_LEFTUP,   0, 0, 0, IntPtr.Zero); break;
+                case 1: mouse_event(pressed ? MOUSEEVENTF_RIGHTDOWN  : MOUSEEVENTF_RIGHTUP,  0, 0, 0, IntPtr.Zero); break;
+                case 2: mouse_event(pressed ? MOUSEEVENTF_MIDDLEDOWN : MOUSEEVENTF_MIDDLEUP, 0, 0, 0, IntPtr.Zero); break;
+                case 3: if (pressed) SendMouseWheel(120);  break; // Scroll Up
+                case 4: if (pressed) SendMouseWheel(-120); break; // Scroll Down
+                // 5/6 (horizontal scroll) not wired — rare; left as no-op so routing stays clean.
+                default: break;
+            }
         }
 
         /// <summary>
@@ -1225,6 +1309,32 @@ namespace XboxGamingBarHelper.Labs
             // mask, so ApplyXInputRemapAction is a no-op for it — handled here instead).
             if (m1 && !_prevM1 && _m1RemapAction == RemapAction.XboxGuide) TriggerGuideTap();
             if (m2 && !_prevM2 && _m2RemapAction == RemapAction.XboxGuide) TriggerGuideTap();
+
+            // M1/M2 Keyboard target (Type==1): fire the configured chord once on the press edge,
+            // mirroring the normal-button keyboard path (GamepadSwap IsKeyboard). Uses the same
+            // KeyboardChordCallback (→ SendKeyboardShortcutViaInputInjector) wired by Program.MSIClaw.
+            if (m1 && !_prevM1 && _m1MappingType == 1 && !string.IsNullOrEmpty(_m1KeyboardToken))
+            {
+                try { KeyboardChordCallback?.Invoke(_m1KeyboardToken); }
+                catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: M1 keyboard chord '{_m1KeyboardToken}' failed: {ex.Message}"); }
+            }
+            if (m2 && !_prevM2 && _m2MappingType == 1 && !string.IsNullOrEmpty(_m2KeyboardToken))
+            {
+                try { KeyboardChordCallback?.Invoke(_m2KeyboardToken); }
+                catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: M2 keyboard chord '{_m2KeyboardToken}' failed: {ex.Message}"); }
+            }
+
+            // M1/M2 Mouse target (Type==2): clicks press/release with the button edge; scroll on down.
+            if (_m1MappingType == 2 && _m1MouseAction >= 0)
+            {
+                if (m1 && !_prevM1) FireBackButtonMouse(_m1MouseAction, true);
+                if (!m1 && _prevM1) FireBackButtonMouse(_m1MouseAction, false);
+            }
+            if (_m2MappingType == 2 && _m2MouseAction >= 0)
+            {
+                if (m2 && !_prevM2) FireBackButtonMouse(_m2MouseAction, true);
+                if (!m2 && _prevM2) FireBackButtonMouse(_m2MouseAction, false);
+            }
 
             // M1/M2 edge detection and callback dispatch (for non-XInput actions: shortcuts/commands/Guide)
             if (m1  && !_prevM1) OnButtonDown(true);
