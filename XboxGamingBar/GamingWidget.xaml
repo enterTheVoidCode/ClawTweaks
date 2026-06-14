@@ -1867,117 +1867,6 @@
                         <FontIcon x:Name="TDPExtrasExpandIcon" Visibility="Collapsed" Glyph="&#xE70D;"/>
                         <!-- TDPBoostToggle is now a real card (Overboost) above — no stub needed -->
                         <ToggleSwitch x:Name="LegionFanFullSpeedToggle" Visibility="Collapsed"/>
-                        <!-- CPU (collapsible) — Boost mode, scheduling policy, P/E max freq (ToothNClaw port) -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <!-- Header: title + CPU Boost on/off + expand toggle -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="CPU" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Boost"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="CPUBoostToggle"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  Grid.Column="1"
-                                                  Margin="0,0,8,0"
-                                                  IsEnabled="False"
-                                                  KeyDown="CPUBoostToggle_KeyDown"/>
-                                    <!-- LOCKED: advanced CPU section (boost mode / scheduling / P-E max freq) hidden;
-                                         only the simple CPU boost on/off above remains, like GoTweaks. -->
-                                    <ToggleButton x:Name="CpuSectionExpandButton"
-                                                  Grid.Column="2"
-                                                  IsChecked="False"
-                                                  Visibility="Collapsed"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="CpuSectionExpandButton_Click"
-                                                  UseSystemFocusVisuals="True">
-                                        <FontIcon x:Name="CpuSectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <!-- Collapsible content -->
-                                <StackPanel x:Name="CpuSectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="10">
-                                    <!-- Boost Mode -->
-                                    <StackPanel>
-                                        <TextBlock Text="Boost Mode" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
-                                        <ComboBox x:Name="CpuBoostModeComboBox"
-                                                  Margin="0,4,0,0"
-                                                  HorizontalAlignment="Stretch"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  KeyDown="CpuAdvancedCombo_KeyDown">
-                                            <ComboBoxItem Content="Enabled" Tag="1" IsSelected="True"/>
-                                            <ComboBoxItem Content="Aggressive" Tag="2"/>
-                                            <ComboBoxItem Content="Efficient Enabled" Tag="3"/>
-                                            <ComboBoxItem Content="Efficient Aggressive" Tag="4"/>
-                                            <ComboBoxItem Content="Aggressive (Guaranteed)" Tag="5"/>
-                                            <ComboBoxItem Content="Efficient Aggr. (Guaranteed)" Tag="6"/>
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <!-- Scheduling Policy -->
-                                    <StackPanel>
-                                        <TextBlock Text="Processor Scheduling Policy" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
-                                        <ComboBox x:Name="SchedulingPolicyComboBox"
-                                                  Margin="0,4,0,0"
-                                                  HorizontalAlignment="Stretch"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  KeyDown="CpuAdvancedCombo_KeyDown">
-                                            <ComboBoxItem Content="Auto (default)" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="Prefer P-Cores" Tag="1"/>
-                                            <ComboBoxItem Content="Prefer E-Cores" Tag="2"/>
-                                            <ComboBoxItem Content="Only P-Cores" Tag="3"/>
-                                            <ComboBoxItem Content="Only E-Cores" Tag="4"/>
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <!-- P-Core Max Frequency -->
-                                    <StackPanel>
-                                        <TextBlock Text="P-Core Max Frequency" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
-                                        <ComboBox x:Name="MaxPCoreFreqComboBox"
-                                                  Margin="0,4,0,0"
-                                                  HorizontalAlignment="Stretch"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  KeyDown="CpuAdvancedCombo_KeyDown">
-                                            <ComboBoxItem Content="Unlimited" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="4800 MHz" Tag="4800"/>
-                                            <ComboBoxItem Content="4200 MHz" Tag="4200"/>
-                                            <ComboBoxItem Content="3600 MHz" Tag="3600"/>
-                                            <ComboBoxItem Content="3000 MHz" Tag="3000"/>
-                                            <ComboBoxItem Content="2400 MHz" Tag="2400"/>
-                                            <ComboBoxItem Content="1800 MHz" Tag="1800"/>
-                                            <ComboBoxItem Content="1200 MHz" Tag="1200"/>
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <!-- E-Core Max Frequency -->
-                                    <StackPanel>
-                                        <TextBlock Text="E-Core Max Frequency" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
-                                        <ComboBox x:Name="MaxECoreFreqComboBox"
-                                                  Margin="0,4,0,0"
-                                                  HorizontalAlignment="Stretch"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  KeyDown="CpuAdvancedCombo_KeyDown">
-                                            <ComboBoxItem Content="Unlimited" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="2900 MHz" Tag="2900"/>
-                                            <ComboBoxItem Content="2400 MHz" Tag="2400"/>
-                                            <ComboBoxItem Content="1800 MHz" Tag="1800"/>
-                                            <ComboBoxItem Content="1200 MHz" Tag="1200"/>
-                                            <ComboBoxItem Content="800 MHz" Tag="800"/>
-                                        </ComboBox>
-                                    </StackPanel>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Overlay Card (merged Performance Overlay + OSD Customization) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -2039,10 +1928,10 @@
                                     <StackPanel x:Name="RTSSOptionsPanel">
                                         <ComboBox x:Name="OSDCustomizeLevelComboBox" Visibility="Collapsed"
                                                   SelectionChanged="OSDCustomizeLevelComboBox_SelectionChanged">
-                                            <ComboBoxItem Content="Basic" Tag="1" IsSelected="True"/>
+                                            <ComboBoxItem Content="Basic" Tag="1"/>
                                             <ComboBoxItem Content="Horizontal" Tag="2"/>
                                             <ComboBoxItem Content="H. Detailed" Tag="3"/>
-                                            <ComboBoxItem Content="Full" Tag="4"/>
+                                            <ComboBoxItem Content="Full" Tag="4" IsSelected="True"/>
                                         </ComboBox>
 
                                         <!-- Layout Settings Section -->
@@ -2110,6 +1999,34 @@
                                             <ComboBoxItem Content="XXX-Large" Tag="300"/>
                                         </ComboBox>
                                     </Grid>
+
+                                    <!-- Overlay Font (applied to the RTSS Global profile; helper restarts RTSS briefly) -->
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Overlay Font"
+                                                   Foreground="#B0B0B0"
+                                                   VerticalAlignment="Center"
+                                                   FontSize="13"/>
+                                        <ComboBox x:Name="OSDFontComboBox"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  Width="190"
+                                                  Grid.Column="1"
+                                                  SelectionChanged="OSDFontComboBox_SelectionChanged"
+                                                  UseSystemFocusVisuals="True"
+                                                  FocusVisualPrimaryBrush="White">
+                                            <ComboBoxItem Content="Cascadia Mono" Tag="Cascadia Mono|400" IsSelected="True"/>
+                                            <ComboBoxItem Content="Cascadia Mono Light" Tag="Cascadia Mono|300"/>
+                                            <ComboBoxItem Content="Cascadia Mono SemiLight" Tag="Cascadia Mono|350"/>
+                                            <ComboBoxItem Content="Cascadia Mono SemiBold" Tag="Cascadia Mono|600"/>
+                                            <ComboBoxItem Content="Cascadia Mono Bold" Tag="Cascadia Mono|700"/>
+                                            <ComboBoxItem Content="RTSS default (Unispace)" Tag="Unispace|400"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <TextBlock Text="Changing the font briefly restarts RTSS (a short overlay blink). It only happens when you actually change the font, not on every boot."
+                                               Foreground="#707070" FontSize="11" TextWrapping="Wrap" Margin="0,-2,0,8"/>
 
                                     <!-- Colors Section -->
                                     <TextBlock Text="Colors"
@@ -2272,9 +2189,12 @@
                                     </Grid>
 
                                         <!-- Items Section -->
-                                        <TextBlock Text="Items to Display"
+                                        <TextBlock Text="Items to Display — Full Overlay"
                                                    Style="{StaticResource CardTitleStyle}"
-                                                   Margin="0,12,0,8"/>
+                                                   Margin="0,12,0,2"/>
+                                        <TextBlock Text="Everything is on by default — remove what you don't want and reorder. The smaller overlay presets are preset by ClawTweaks."
+                                                   Foreground="#707070" FontSize="11" TextWrapping="Wrap"
+                                                   Margin="0,0,0,8"/>
 
                                         <!-- OSD Items with reordering -->
                                         <ItemsControl x:Name="OSDItemsControl">
@@ -2544,6 +2464,121 @@
                                     <StackPanel x:Name="ECFloorLegendPanel" Orientation="Horizontal" Margin="0,4,0,0" HorizontalAlignment="Center">
                                         <Line X1="0" Y1="0" X2="20" Y2="0" Stroke="#FF8800" StrokeThickness="2" StrokeDashArray="4,2" VerticalAlignment="Center"/>
                                         <TextBlock Text=" EC Protection Floor" FontSize="10" Foreground="#888888" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- CPU (collapsible, EXPERIMENTAL) — moved to the bottom of the Performance tab: boost mode, scheduling policy (Only P / Only E), P/E max freq (ToothNClaw port) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <!-- Header: title + CPU Boost on/off + expand toggle -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="CPU" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                            <Border Background="#33FF3B30" BorderBrush="#FF3B30" BorderThickness="1"
+                                                    CornerRadius="4" Padding="5,1,5,1" VerticalAlignment="Center">
+                                                <TextBlock Text="EXPERIMENTAL" FontSize="9" FontWeight="SemiBold" Foreground="#FF6B60"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="Boost · P/E max freq · core scheduling"
+                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="CPUBoostToggle"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  Grid.Column="1"
+                                                  Margin="0,0,8,0"
+                                                  IsEnabled="False"
+                                                  KeyDown="CPUBoostToggle_KeyDown"/>
+                                    <!-- EXPERIMENTAL advanced CPU section: boost mode / scheduling policy (Only P / Only E) / P-E max freq -->
+                                    <ToggleButton x:Name="CpuSectionExpandButton"
+                                                  Grid.Column="2"
+                                                  IsChecked="False"
+                                                  VerticalAlignment="Center"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="CpuSectionExpandButton_Click"
+                                                  UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="CpuSectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible content -->
+                                <StackPanel x:Name="CpuSectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="10">
+                                    <!-- Boost Mode -->
+                                    <StackPanel>
+                                        <TextBlock Text="Boost Mode" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
+                                        <ComboBox x:Name="CpuBoostModeComboBox"
+                                                  Margin="0,4,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Enabled" Tag="1" IsSelected="True"/>
+                                            <ComboBoxItem Content="Aggressive" Tag="2"/>
+                                            <ComboBoxItem Content="Efficient Enabled" Tag="3"/>
+                                            <ComboBoxItem Content="Efficient Aggressive" Tag="4"/>
+                                            <ComboBoxItem Content="Aggressive (Guaranteed)" Tag="5"/>
+                                            <ComboBoxItem Content="Efficient Aggr. (Guaranteed)" Tag="6"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- Scheduling Policy -->
+                                    <StackPanel>
+                                        <TextBlock Text="Processor Scheduling Policy" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
+                                        <ComboBox x:Name="SchedulingPolicyComboBox"
+                                                  Margin="0,4,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Auto (default)" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Prefer P-Cores" Tag="1"/>
+                                            <ComboBoxItem Content="Prefer E-Cores" Tag="2"/>
+                                            <ComboBoxItem Content="Only P-Cores" Tag="3"/>
+                                            <ComboBoxItem Content="Only E-Cores" Tag="4"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- P-Core Max Frequency -->
+                                    <StackPanel>
+                                        <TextBlock Text="P-Core Max Frequency" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
+                                        <ComboBox x:Name="MaxPCoreFreqComboBox"
+                                                  Margin="0,4,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Unlimited" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="4800 MHz" Tag="4800"/>
+                                            <ComboBoxItem Content="4200 MHz" Tag="4200"/>
+                                            <ComboBoxItem Content="3600 MHz" Tag="3600"/>
+                                            <ComboBoxItem Content="3000 MHz" Tag="3000"/>
+                                            <ComboBoxItem Content="2400 MHz" Tag="2400"/>
+                                            <ComboBoxItem Content="1800 MHz" Tag="1800"/>
+                                            <ComboBoxItem Content="1200 MHz" Tag="1200"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- E-Core Max Frequency -->
+                                    <StackPanel>
+                                        <TextBlock Text="E-Core Max Frequency" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
+                                        <ComboBox x:Name="MaxECoreFreqComboBox"
+                                                  Margin="0,4,0,0"
+                                                  HorizontalAlignment="Stretch"
+                                                  Style="{StaticResource ModernComboBoxStyle}"
+                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Unlimited" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="2900 MHz" Tag="2900"/>
+                                            <ComboBoxItem Content="2400 MHz" Tag="2400"/>
+                                            <ComboBoxItem Content="1800 MHz" Tag="1800"/>
+                                            <ComboBoxItem Content="1200 MHz" Tag="1200"/>
+                                            <ComboBoxItem Content="800 MHz" Tag="800"/>
+                                        </ComboBox>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>

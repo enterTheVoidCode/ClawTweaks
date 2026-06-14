@@ -90,11 +90,6 @@ namespace XboxGamingBar
         /// </summary>
         private string BuildCpuAdvancedSummary(PerformanceProfile p)
         {
-            // LOCKED: advanced CPU controls are hidden and never applied (see CpuAdvancedApply in the
-            // helper). Return null so the profile cards (Now Playing / Global / Saved) don't show a
-            // stale "Aggressive · Prefer P · ..." summary row for values that aren't in effect.
-            return null;
-#pragma warning disable CS0162 // unreachable while locked — kept so re-enabling is a one-line change
             if (p == null) return null;
             var parts = new System.Collections.Generic.List<string>();
 
@@ -108,7 +103,6 @@ namespace XboxGamingBar
             if (p.MaxECoreFreqMHz > 0) parts.Add($"E{p.MaxECoreFreqMHz}");
 
             return parts.Count == 0 ? null : string.Join(" · ", parts);
-#pragma warning restore CS0162
         }
 
         private static void SelectComboByTag(ComboBox combo, int value)

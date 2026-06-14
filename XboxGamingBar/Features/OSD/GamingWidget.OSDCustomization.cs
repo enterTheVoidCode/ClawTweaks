@@ -50,10 +50,13 @@ namespace XboxGamingBar
         // Level 4 (Full):               All options                     — 1 col, vertical
         private Dictionary<int, Dictionary<string, bool>> osdLevelConfig = new Dictionary<int, Dictionary<string, bool>>
         {
-            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
-            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
-            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", false }, { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "CPUCores", false }, { "GPU", true },  { "GPUClock", true },  { "Fan", false }, { "AutoTDP", false }, { "FrametimeGraph", false } } },
-            { 4, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "ControllerBattery", true },  { "Memory", true },  { "VRAM", true },  { "CPU", true },  { "CPUClock", true },  { "CPUCores", true },  { "GPU", true },  { "GPUClock", true },  { "Fan", true },  { "AutoTDP", true },  { "FrametimeGraph", true } } }
+            // Levels 1-3 are fixed presets (not user-editable). Level 4 (Full) is what "Items to Display"
+            // configures, and it defaults to EVERYTHING on — users remove what they don't want / reorder.
+            // ControllerBattery + AutoTDP are Legion-only and intentionally not offered on the Claw.
+            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false } } },
+            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false } } },
+            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "CPUCores", false }, { "GPU", true },  { "GPUClock", true },  { "TDPLimits", true },  { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false } } },
+            { 4, new Dictionary<string, bool> { { "AppName", true },  { "FPS", true },  { "FrametimeGraph", true },  { "Blank1", true },  { "GPU", true },  { "CPU", true },  { "CPUClock", true },  { "CPUCores", true },  { "Blank2", true },  { "Memory", true },  { "Blank3", true },  { "VRAM", true },  { "TDPLimits", true },  { "Battery", true },  { "GPUClock", true },  { "Blank4", true },  { "Time", true } } }
         };
 
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
@@ -73,16 +76,17 @@ namespace XboxGamingBar
             { 4, 1 }   // Full:               1 column
         };
 
-        // Current OSD customization level (1=Basic, 2=Horizontal, 3=Horizontal Detailed, 4=Full)
-        private int osdCustomizeLevel = 1;
+        // "Items to Display" customizes the FULL overlay (level 4) only; levels 1-3 are fixed presets
+        // we define. The level picker is collapsed in XAML, so this stays at 4.
+        private int osdCustomizeLevel = 4;
 
         // Per-level item order (list of item IDs in display order)
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
-            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "ControllerBattery", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "ControllerBattery", "VRAM", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 4, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4" } },
+            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4" } },
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "VRAM", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4" } },
+            { 4, new List<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "CPU", "CPUClock", "CPUCores", "Blank2", "TDPLimits", "Blank3", "Memory", "VRAM", "Battery", "GPUClock", "Blank4", "Time" } }
         };
 
         // Per-level item label colors (DEFAULT = use global text color)
@@ -98,21 +102,22 @@ namespace XboxGamingBar
         private static readonly Dictionary<string, string> osdItemDisplayNames = new Dictionary<string, string>
         {
             { "AppName", "App Name (D3D11, Vulkan, etc.)" },
-            { "Time", "Time (12-hour)" },
+            { "Time", "Time" },
             { "FPS", "FPS & Frametime" },
             { "Battery", "Battery" },
-            { "ControllerBattery", "Controller Battery (L/R)" },
             { "Memory", "Memory (RAM)" },
             { "VRAM", "VRAM (GPU Memory)" },
-            { "CPU", "CPU (Usage, Wattage, Temp)" },
+            { "CPU", "CPU (Usage, Temp)" },
             { "CPUClock", "CPU Clock Speed" },
             { "CPUCores", "CPU Per-Core Clocks (P/E)" },
             { "GPU", "GPU (Usage, Wattage, Temp)" },
             { "GPUClock", "GPU Clock Speed" },
-            { "Fan", "Fan Speed" },
-            { "AutoTDP", "AutoTDP Status" },
-            { "TDPLimits", "TDP Limits (SPL/SPPT/FPPT)" },
-            { "FrametimeGraph", "Frametime Graph" }
+            { "TDPLimits", "TDP (Watts, PL1/PL2)" },
+            { "FrametimeGraph", "Frametime Graph" },
+            { "Blank1", "---------------- Blank 1 --------------" },
+            { "Blank2", "---------------- Blank 2 --------------" },
+            { "Blank3", "---------------- Blank 3 --------------" },
+            { "Blank4", "---------------- Blank 4 --------------" }
         };
 
         // Observable collection for OSD items UI
@@ -120,6 +125,10 @@ namespace XboxGamingBar
 
         // Global OSD layout settings
         private int osdTextSize = 125;    // Percentage: 50=Small, 100=Medium, 125=Default, 150=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
+        // RTSS overlay font (applied helper-side to the RTSS Global profile). Default = modern Cascadia
+        // Mono (ships with Win 11; helper falls back to RTSS's Unispace if it isn't installed).
+        private string osdFont = "Cascadia Mono";
+        private int osdFontWeight = 400;  // 200=ExtraLight,300=Light,350=SemiLight,400=Regular,600=SemiBold,700=Bold
         private string osdTextColor = "DYNAMIC";  // DYNAMIC = value-based colors, or hex color code
         private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
         private int osdProvider = 0;  // 0=RTSS, 1=AMD
@@ -548,6 +557,8 @@ namespace XboxGamingBar
                 // Save global layout settings (text size is per-resolution)
                 string currentRes = resolution?.Value ?? "default";
                 settings.Values[$"OSD_TextSize_{currentRes}"] = osdTextSize;
+                settings.Values["OSD_Font"] = osdFont;
+                settings.Values["OSD_FontWeight"] = osdFontWeight;
                 settings.Values["OSD_TextColor"] = osdTextColor;
                 settings.Values["OSD_LabelColor"] = osdLabelColor;
                 settings.Values["OSD_Opacity"] = osdOpacity;
@@ -566,7 +577,21 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
-                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" };
+
+                // One-time reset: bump this whenever we ship a new default OSD layout so existing users
+                // get the new defaults instead of their stale saved config. All OSD_* keys are wiped;
+                // the rest of this method then finds nothing stored and keeps the new in-memory defaults.
+                const int CurrentOsdConfigVersion = 4;
+                int storedOsdVersion = (settings.Values.TryGetValue("OSD_ConfigVersion", out var osdVerObj) && osdVerObj is int osdVer) ? osdVer : 0;
+                if (storedOsdVersion < CurrentOsdConfigVersion)
+                {
+                    foreach (var staleKey in settings.Values.Keys.Where(k => k.StartsWith("OSD_") && k != "OSD_ConfigVersion").ToList())
+                        settings.Values.Remove(staleKey);
+                    settings.Values["OSD_ConfigVersion"] = CurrentOsdConfigVersion;
+                    Logger.Info($"OSD config reset to v{CurrentOsdConfigVersion} defaults (was v{storedOsdVersion}) — stale OSD settings wiped");
+                }
+
+                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4" };
 
                 foreach (var level in new[] { 1, 2, 3, 4 })
                 {
@@ -640,6 +665,14 @@ namespace XboxGamingBar
                     osdTextSize = 125;
                     Logger.Info($"No OSD text size saved for resolution {currentRes}, using default 125");
                 }
+                if (settings.Values.TryGetValue("OSD_Font", out object fontVal) && fontVal is string fontFace && !string.IsNullOrWhiteSpace(fontFace))
+                {
+                    osdFont = fontFace;
+                }
+                if (settings.Values.TryGetValue("OSD_FontWeight", out object fontWeightVal) && fontWeightVal is int fontWeight && fontWeight > 0)
+                {
+                    osdFontWeight = fontWeight;
+                }
                 if (settings.Values.TryGetValue("OSD_TextColor", out object textColorVal) && textColorVal is string textColor)
                 {
                     osdTextColor = textColor;
@@ -689,6 +722,7 @@ namespace XboxGamingBar
 
                 // Add global layout settings
                 configParts.Add($"TextSize:{osdTextSize}");
+                configParts.Add($"Font:{osdFont}|{osdFontWeight}");
                 configParts.Add($"TextColor:{osdTextColor}");
                 configParts.Add($"LabelColor:{osdLabelColor}");
                 configParts.Add($"Opacity:{osdOpacity}");
@@ -1704,6 +1738,26 @@ namespace XboxGamingBar
                 isLoadingTDPLimits = false;
             }
         }
+        private void OSDFontComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+            if (OSDFontComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string tag)
+            {
+                int bar = tag.IndexOf('|');
+                if (bar > 0)
+                {
+                    osdFont = tag.Substring(0, bar);
+                    if (int.TryParse(tag.Substring(bar + 1), out int w) && w > 0) osdFontWeight = w;
+                }
+                else
+                {
+                    osdFont = tag;
+                }
+                SaveOSDConfigToStorage();
+                SendOSDConfigToHelper();
+            }
+        }
+
         private void OSDLayoutOption_Changed(object sender, SelectionChangedEventArgs e)
         {
             if (isLoadingOSDConfig) return;
@@ -1963,6 +2017,20 @@ namespace XboxGamingBar
                         if (item.Tag is string tag && int.TryParse(tag, out int val) && val == osdTextSize)
                         {
                             OSDTextSizeComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+
+                // Set overlay font combobox (Tag = "Face|Weight")
+                if (OSDFontComboBox != null)
+                {
+                    string fontTag = $"{osdFont}|{osdFontWeight}";
+                    foreach (ComboBoxItem item in OSDFontComboBox.Items)
+                    {
+                        if (item.Tag is string ftag && string.Equals(ftag, fontTag, StringComparison.OrdinalIgnoreCase))
+                        {
+                            OSDFontComboBox.SelectedItem = item;
                             break;
                         }
                     }

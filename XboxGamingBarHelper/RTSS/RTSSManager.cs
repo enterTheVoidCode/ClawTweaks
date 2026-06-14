@@ -33,6 +33,7 @@ namespace XboxGamingBarHelper.RTSS
         private readonly OSDItemTDPLimits osdItemTDPLimits;
         private readonly OSDItemCPU osdItemCPU;
         private readonly OSDItemCPUCores osdItemCPUCores;
+        private readonly OSDItemBlankLine osdItemBlank1, osdItemBlank2, osdItemBlank3, osdItemBlank4;
         private readonly OSDItemCPUWatts osdItemCPUWatts;
         private readonly OSDItemFPS osdItemFPS;
         private readonly OSDItemGPU osdItemGPU;
@@ -96,8 +97,8 @@ namespace XboxGamingBarHelper.RTSS
         {
             { 1, new HashSet<string> { "Time", "FPS", "Battery" } },
             { 2, new HashSet<string> { "FPS", "Battery", "CPU", "Time" } },
-            { 3, new HashSet<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "Time" } },
-            { 4, new HashSet<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 3, new HashSet<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "TDPLimits", "Time" } },
+            { 4, new HashSet<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "CPU", "CPUClock", "CPUCores", "Blank2", "Memory", "Blank3", "VRAM", "TDPLimits", "Battery", "GPUClock", "Blank4", "Time" } }
         };
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
@@ -146,10 +147,10 @@ namespace XboxGamingBarHelper.RTSS
         // Per-level item order
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
-            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "ControllerBattery", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "ControllerBattery", "VRAM", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } },
-            { 4, new List<string> { "AppName", "Time", "FPS", "Battery", "ControllerBattery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "AutoTDP", "TDPLimits", "FrametimeGraph" } }
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "TDPLimits", "FrametimeGraph" } },
+            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "TDPLimits", "FrametimeGraph" } },
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "VRAM", "Fan", "TDPLimits", "FrametimeGraph" } },
+            { 4, new List<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "CPU", "CPUClock", "CPUCores", "Blank2", "TDPLimits", "Blank3", "Memory", "VRAM", "Battery", "GPUClock", "Blank4", "Time" } }
         };
 
         // Per-level, per-item label colors (e.g., osdItemLabelColors[1]["CPU"] = "FF0000")
@@ -175,6 +176,10 @@ namespace XboxGamingBarHelper.RTSS
             osdItemCPU = new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature);
             osdItemCPU.SetPerformanceManager(performanceManager);
             osdItemCPUCores = new OSDItemCPUCores(performanceManager.PCoreClocks, performanceManager.ECoreClocks);
+            osdItemBlank1 = new OSDItemBlankLine("Blank1");
+            osdItemBlank2 = new OSDItemBlankLine("Blank2");
+            osdItemBlank3 = new OSDItemBlankLine("Blank3");
+            osdItemBlank4 = new OSDItemBlankLine("Blank4");
             osdItemCPUWatts = new OSDItemCPUWatts(performanceManager.CPUWattage);
             osdItemFPS = new OSDItemFPS();
             osdItemGPU = new OSDItemGPU(performanceManager.GPUUsage, performanceManager.GPUClock, performanceManager.GPUWattage, performanceManager.GPUTemperature);
@@ -189,6 +194,10 @@ namespace XboxGamingBarHelper.RTSS
                 osdItemControllerBattery,
                 osdItemCPU,
                 osdItemCPUCores,
+                osdItemBlank1,
+                osdItemBlank2,
+                osdItemBlank3,
+                osdItemBlank4,
                 osdItemCPUWatts,
                 osdItemGPU,
                 osdItemVRAM,
@@ -316,6 +325,23 @@ namespace XboxGamingBarHelper.RTSS
                             osdTextSize = size;
                             Logger.Debug($"OSD TextSize: {size}");
                         }
+                    }
+                    else if (key == "Font")
+                    {
+                        // value = "Face|Weight". Applied via the RTSS Global profile off-thread — it may
+                        // rewrite the profile + restart RTSS, but only when the font actually changes.
+                        string face = value;
+                        int weight = RtssFontManager.DefaultWeight;
+                        int bar = value.IndexOf('|');
+                        if (bar >= 0)
+                        {
+                            face = value.Substring(0, bar);
+                            int.TryParse(value.Substring(bar + 1), out weight);
+                        }
+                        string faceCapture = face;
+                        int weightCapture = weight;
+                        _ = System.Threading.Tasks.Task.Run(() => RtssFontManager.EnsureFont(faceCapture, weightCapture));
+                        Logger.Debug($"OSD Font: {face} weight {weight}");
                     }
                     else if (key == "TextColor")
                     {
@@ -524,8 +550,7 @@ namespace XboxGamingBarHelper.RTSS
         public void SetLegionManager(LegionManager legionManager)
         {
             osdItemFan.SetLegionManager(legionManager);
-            osdItemTDPLimits.SetLegionManager(legionManager);
-            Logger.Info("LegionManager reference set for RTSS OSD fan speed and TDP limits");
+            Logger.Info("LegionManager reference set for RTSS OSD fan speed");
         }
 
         /// <summary>
@@ -727,20 +752,23 @@ namespace XboxGamingBarHelper.RTSS
                     string statsLabel = "";
                     if (currentMinFt > 0 && currentMaxFt > 0)
                     {
+                        // Show the frametime stats as FPS metrics (not ms): min FPS is the slowest frame
+                        // (= max frametime), max FPS the fastest (= min frametime). Base font size (no
+                        // <S> shrink) so it stays readable and consistent with the rest of the overlay.
                         string labelColor = ApplyOpacityToColor("808080");
-                        string minColor = ApplyOpacityToColor("00FF00");
+                        string minColor = ApplyOpacityToColor("FF6600");   // min fps = worst → orange
                         string avgColor = ApplyOpacityToColor("FFFF00");
-                        string maxColor = ApplyOpacityToColor("FF6600");
-                        // Small stats label; the trailing <S> reset is rewritten to the global base
-                        // size by ApplyOsdTextScale() (applied centrally just before the OSD is sent).
-                        statsLabel = $"\n<S=50><C={labelColor}>min:<C={minColor}>{currentMinFt:F1}ms <C={labelColor}>avg:<C={avgColor}>{currentAvgFt:F1}ms <C={labelColor}>max:<C={maxColor}>{currentMaxFt:F1}ms";
-                        // 1% low (framerate at the 99th-percentile frametime) — shown right after max
+                        string maxColor = ApplyOpacityToColor("00FF00");   // max fps = best → green
+                        string lowColor = ApplyOpacityToColor("FF3030");
+                        int minFps = currentMaxFt > 0.01f ? (int)System.Math.Round(1000f / currentMaxFt) : 0;
+                        int avgFps = currentAvgFt > 0.01f ? (int)System.Math.Round(1000f / currentAvgFt) : 0;
+                        int maxFps = currentMinFt > 0.01f ? (int)System.Math.Round(1000f / currentMinFt) : 0;
+                        statsLabel = $"\n<C={labelColor}>min:<C={minColor}>{minFps} <C={labelColor}>avg:<C={avgColor}>{avgFps} <C={labelColor}>max:<C={maxColor}>{maxFps}";
                         if (current1PercentLowFps > 0)
                         {
-                            string lowColor = ApplyOpacityToColor("FF6600");
-                            statsLabel += $" <C={labelColor}>1% low:<C={lowColor}>{current1PercentLowFps:F0}fps";
+                            statsLabel += $" <C={labelColor}>1% low:<C={lowColor}>{current1PercentLowFps:F0}";
                         }
-                        statsLabel += "<C><S>";
+                        statsLabel += $" <C={labelColor}>fps<C>";
                     }
 
                     // <G=<FT>> - RTSSSharedMemoryNET.ProcessGraphTags converts this to embedded graph object

@@ -21,10 +21,10 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         {
             var osdItems = base.GetValues(osdLevel);
 
-            // Show VRAM used, total and clock with 1 decimal place for memory
+            // VRAM used / total (GB). The GPU-memory clock is intentionally omitted — the Claw's iGPU
+            // uses shared memory and has no separate VRAM clock, so that sensor reads N/A.
             osdItems.Add(new OSDItemValue(gpuMemoryUsedSensor.Value / 1024f, "/", OSDValueType.None, 1)); // Convert MB to GB
-            osdItems.Add(new OSDItemValue((gpuMemoryUsedSensor.Value + gpuMemoryFreeSensor.Value) / 1024f, "GB ", OSDValueType.None, 1));
-            osdItems.Add(new OSDItemValue(gpuMemoryClockSensor.Value, "MHz", OSDValueType.Speed));
+            osdItems.Add(new OSDItemValue((gpuMemoryUsedSensor.Value + gpuMemoryFreeSensor.Value) / 1024f, "GB", OSDValueType.None, 1));
 
             return osdItems;
         }

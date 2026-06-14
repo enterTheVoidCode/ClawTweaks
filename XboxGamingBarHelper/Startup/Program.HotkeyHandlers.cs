@@ -259,9 +259,9 @@ namespace XboxGamingBarHelper
                     return -1;
                 }
 
-                // Cycle through levels: 0 -> 1 -> 2 -> 3 -> 0
+                // Cycle through levels: 0 (off) -> 1 (Basic) -> 2 (Horizontal) -> 3 (Detailed) -> 4 (Full) -> 0
                 int currentLevel = onScreenDisplay.Value;
-                int newLevel = (currentLevel + 1) % 4;  // 0, 1, 2, 3, then back to 0
+                int newLevel = (currentLevel + 1) % 5;  // include level 4 (Full)
 
                 onScreenDisplay.SetValue(newLevel);
                 Logger.Info($"ToggleOSD: OSD level changed from {currentLevel} to {newLevel}");

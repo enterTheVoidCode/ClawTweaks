@@ -1,39 +1,24 @@
-using System.Collections.Generic;
-using System.Drawing;
-using Shared.Data;
-using XboxGamingBarHelper.Devices.Libraries.Legion;
+using System;
 using XboxGamingBarHelper.Performance;
 
 namespace XboxGamingBarHelper.RTSS.OSDItems
 {
     /// <summary>
-    /// OSD item for displaying current TDP limits (SPL/SPPT/FPPT) or mode name
+    /// Dedicated TDP block: the APU's current package power (the main CPU+GPU draw — the same value
+    /// that used to sit in the CPU block) followed by the configured PL1/PL2 limits (PL1=SPL, PL2=FPPT).
+    /// Always slider-based — ClawTweaks has no TDP "modes"/presets, so no mode/preset name is ever shown.
     /// </summary>
     internal class OSDItemTDPLimits : OSDItem
     {
         private PerformanceManager performanceManager;
-        private LegionManager legionManager;
 
-        public OSDItemTDPLimits() : base("Limits", "TDPLimits", Color.Orange)
+        public OSDItemTDPLimits() : base("TDP", "TDPLimits", System.Drawing.Color.Orange)
         {
         }
 
-        /// <summary>
-        /// Sets the Performance Manager reference to read TDP limits from.
-        /// Must be called after PerformanceManager is initialized.
-        /// </summary>
         public void SetPerformanceManager(PerformanceManager manager)
         {
             performanceManager = manager;
-        }
-
-        /// <summary>
-        /// Sets the Legion Manager reference to read performance mode from.
-        /// Must be called after LegionManager is initialized.
-        /// </summary>
-        public void SetLegionManager(LegionManager manager)
-        {
-            legionManager = manager;
         }
 
         public override string GetOSDString(int osdLevel)
@@ -43,46 +28,24 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                 return string.Empty;
             }
 
-            // Apply opacity to label and text colors for OLED protection
-            var labelColor = ApplyOpacity(colorCode);
-            var tc = GetTextColorWithOpacity();
+            int pl1 = performanceManager.CurrentSPL;   // PL1 (sustained)
+            int pl2 = performanceManager.CurrentFPPT;  // PL2 (fast/turbo)
 
-            // If Legion Go is detected and not in Custom mode, show mode name instead of limits
-            if (legionManager != null && legionManager.LegionGoDetected?.Value == true)
-            {
-                int mode = legionManager.CurrentPerformanceMode;
-                if (mode != 255) // Not Custom mode
-                {
-                    string modeName = LegionManager.GetPerformanceModeName(mode);
-                    return $"<C={labelColor}>Mode<C={tc}> <C={tc}>{modeName}<C={tc}>";
-                }
-            }
-
-            int spl = performanceManager.CurrentSPL;
-            int sppt = performanceManager.CurrentSPPT;
-            int fppt = performanceManager.CurrentFPPT;
-
-            // Don't show if no TDP has been set yet
-            if (spl == 0 && sppt == 0 && fppt == 0)
+            // Nothing meaningful to show until a TDP has been applied.
+            if (pl1 == 0 && pl2 == 0)
             {
                 return string.Empty;
             }
 
-            // MSI Claw (non-Legion): show preset name + PL1/PL2 for known built-in preset modes.
-            // For Slider/custom values (no matching preset name), fall through to raw limits display.
-            if (legionManager == null || legionManager.LegionGoDetected?.Value != true)
-            {
-                string presetName = TdpPreset.GetPresetNameByWatts(spl);
-                if (presetName != null)
-                {
-                    // Format: "Super Battery 8/9W" (PL1/PL2)
-                    return $"<C={labelColor}>{presetName}<C={tc}> <C={tc}>{spl}/{fppt}W<C={tc}>";
-                }
-                // Custom/Slider value: fall through to raw limits display below
-            }
+            var labelColor = ApplyOpacity(colorCode);
+            var tc = GetTextColorWithOpacity();
 
-            // Format: "Limits: SPL/SPPT/FPPT" e.g. "Limits: 25/26/28"
-            return $"<C={labelColor}>Limits<C={tc}> <C={tc}>{spl}/{sppt}/{fppt}W<C={tc}>";
+            // Current package power = the actual TDP we display (APU = CPU + GPU on one die).
+            float watt = performanceManager.CPUWattage?.Value ?? -1f;
+            string wattText = watt >= 0 ? $"{(int)Math.Round(watt)}W " : "";
+
+            string plText = pl2 > 0 ? $"PL1:{pl1}W PL2:{pl2}W" : $"PL1:{pl1}W";
+            return $"<C={labelColor}>TDP<C={tc}> {wattText}{plText}<C={tc}>";
         }
     }
 }

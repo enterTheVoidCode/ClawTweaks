@@ -294,6 +294,7 @@
     <Compile Include="RTSS\OSDItems\OSDItemControllerBattery.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemCPU.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemCPUCores.cs" />
+    <Compile Include="RTSS\OSDItems\OSDItemBlankLine.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemAutoTDP.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemFan.cs" />
     <Compile Include="RTSS\OSDItems\OSDItemFPS.cs" />
@@ -312,6 +313,7 @@
     <Compile Include="RTSS\FPSLimitProperty.cs" />
     <Compile Include="RTSS\RTSSFPSLimiter.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
+    <Compile Include="RTSS\RtssFontManager.cs" />
     <Compile Include="Intel\IGCLBackend.cs" />
     <Compile Include="Intel\IntelGpuManager.cs" />
     <Compile Include="Intel\IntelFpsTierProperty.cs" />

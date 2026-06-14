@@ -38,8 +38,9 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                 return $"<C={tc}><FR> FPS <S=35><C={graphColor}><G=<FT>><C={tc}><S>{capHint}";
             }
 
-            // All other levels: standard FPS + frametime in ms
-            return $"<C={tc}><FR> FPS <C={ApplyOpacity("FFFF00")}><FT> ms<C={tc}>{capHint}";
+            // All other levels: standard FPS + frametime in ms. The frametime is rendered ~75% size so
+            // the FPS number stands out (the trailing <S> is rescaled to the global base by ApplyOsdTextScale).
+            return $"<C={tc}><FR> FPS <S=75><C={ApplyOpacity("FFFF00")}><FT> ms<C={tc}><S>{capHint}";
         }
 
         /// <summary>

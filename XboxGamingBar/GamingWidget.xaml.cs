@@ -2670,7 +2670,7 @@ namespace XboxGamingBar
 
             // Load OSD customization settings
             LoadOSDConfigFromStorage();
-            LoadOSDOptionsForLevel(1); // Load Basic level options by default
+            LoadOSDOptionsForLevel(4); // "Items to Display" edits the Full overlay (levels 1-3 are fixed presets)
 
             // Load Display and OSD settings
             LoadDisplayOSDSettingsFromStorage();

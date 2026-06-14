@@ -7,14 +7,14 @@ namespace XboxGamingBarHelper.Power
     // scheme (AC + DC) on change. -1 = "unset" (don't touch); for frequency, 0 = unlimited.
     // A "hasUserModified" guard prevents overwriting system defaults on first sync.
     //
-    // LOCKED: the advanced CPU controls (detailed boost mode, scheduling policy, P/E-core max
-    // frequency) are hidden in the UI and must NOT touch Windows power settings — only the simple
-    // CPU boost on/off (CPUBoostProperty → PowerManager.SetCpuBoostMode) stays active, like upstream
-    // GoTweaks. The single switch below disables all four applies at the source so nothing is written
-    // regardless of widget pushes, profile switches or startup. Flip to true to re-enable the port.
+    // Master switch for the advanced CPU controls (detailed boost mode, scheduling policy, P/E-core
+    // max frequency). When false, all four applies below are no-ops at the source (nothing is written
+    // to Windows power settings regardless of widget pushes, profile switches or startup). Re-enabled
+    // as an EXPERIMENTAL feature (P/E max frequency + Only-P/Only-E core scheduling), surfaced in the
+    // Performance tab with an "experimental" badge.
     internal static class CpuAdvancedApply
     {
-        public const bool Enabled = false;
+        public const bool Enabled = true;
     }
 
     /// <summary>

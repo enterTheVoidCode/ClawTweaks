@@ -60,7 +60,12 @@ Then finish the first-time setup:
 ### In-app updates (experimental)
 A new **App version & updates** section at the top of the Onboarding tab lists the available builds and installs them straight from the widget — the download is verified and installed by the signed helper, with no extra prompts. You only ever see versions **newer** than the one you have (no downgrades), and test builds are clearly flagged as **EXPERIMENTAL BUILD**.
 
-<img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/d7c8424da53876258ce5baf055ad5d71838bdb83/Doku/Releases/0.1.5/Auto%20In-App%20Updates.png" width="420">
+<img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/e6f4557dd2247381a4199b9ca8139af2586686b7/Doku/Releases/0.1.5/Auto%20In-App%20Updates.png" width="420">
+
+### Reworked Full overlay — per-core clocks, 1% lows & a modern font
+The Full performance overlay was reworked: a dedicated **TDP** block (PL1/PL2 + live package watts), **per-core CPU clocks** for every P- and E-core in GHz, **1% low** FPS shown under the frametime graph, cleaner grouping with spacer lines, and a modern, sharper overlay font (**Cascadia Mono**) you can pick in the OSD settings.
+
+<img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/e6f4557dd2247381a4199b9ca8139af2586686b7/Doku/Releases/0.1.5/Optimized%20Full%20Overlay%20with%20Core%20Freq%20New%20Font.png" width="420">
 
 ### Auto-jump to the ClawTweaks widget
 Open the Game Bar with the **Right MSI (front) button** and — when controller emulation is active — ClawTweaks now **auto-jumps to its own widget** instead of leaving you on the first Microsoft widget. Set your widget position (Microsoft occupies the first two slots, so ClawTweaks is usually #3) and it lands there on open. The jump is **off by default** (position 1); raise it to your actual slot to enable it.
