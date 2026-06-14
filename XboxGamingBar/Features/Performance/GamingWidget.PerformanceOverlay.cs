@@ -180,21 +180,24 @@ namespace XboxGamingBar
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                CPUBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                // Below OS Power Mode is the Overlay card (CPU card is now last on the tab).
+                PerformanceOverlayComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }
 
+        // CPU Boost on/off toggle (CPU card, last card on the Performance tab). Up → overlay combo
+        // (card above), Down → the "More settings" expander directly beneath the toggle.
         private void CPUBoostToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                OSPowerModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                PerformanceOverlayComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                PerformanceOverlayComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                CpuSectionExpandButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }
@@ -209,16 +212,13 @@ namespace XboxGamingBar
 
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                var target = CPUBoostToggle ?? (Windows.UI.Xaml.Controls.Control)OSPowerModeComboBox;
-                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                OSPowerModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                // The overlay card is the last card on the Performance tab (the fan card now lives
-                // in the dedicated Fan tab) — loop back to the top.
-                var target = PerGameProfileToggle ?? FPSStateCycleButton ?? (Windows.UI.Xaml.Controls.Control)TDPSlider;
-                target?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                // Below the Overlay card is the CPU card (now the last card on the Performance tab).
+                CPUBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }

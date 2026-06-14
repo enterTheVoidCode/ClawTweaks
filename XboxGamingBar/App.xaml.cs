@@ -4,7 +4,9 @@ using System;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
+using Windows.Foundation;
 using Windows.Foundation.Collections;
+using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
@@ -89,9 +91,37 @@ namespace XboxGamingBar
             }
         }
 
+        // Standalone "app mode" window (App.OnLaunched) — the ClawTweaks UI shown as a normal desktop
+        // window, an alternative to the Game Bar widget. We track its CoreWindow so we can auto-close it
+        // when Game Bar later launches the actual widget (so it doesn't linger and block the widget host).
+        // Compact launch size so the narrow widget UI doesn't render stretched across the whole screen.
+        private static Windows.UI.Core.CoreWindow appModeCoreWindow = null;
+        private static Windows.UI.Core.CoreDispatcher appModeDispatcher = null;
+        private static readonly Size AppModeWindowSize = new Size(480, 940);
+
         // Track the active GamingWidget instance to prevent multiple instances from handling messages
         private static GamingWidget activeGamingWidget = null;
         private static readonly object activeWidgetLock = new object();
+
+        /// <summary>
+        /// Closes the standalone app-mode window if one is open and it isn't the window we're now using
+        /// for the Game Bar widget. Called when Game Bar launches the widget, so opening Game Bar makes
+        /// the standalone window disappear and the widget take over (per the user's auto-close choice).
+        /// </summary>
+        private static void CloseAppModeWindowIfOpen(Windows.UI.Core.CoreWindow exclude)
+        {
+            var cw = appModeCoreWindow;
+            var disp = appModeDispatcher;
+            if (cw == null || disp == null) return;
+            if (ReferenceEquals(cw, exclude)) return; // the standalone window is being reused as the widget host
+            appModeCoreWindow = null;
+            appModeDispatcher = null;
+            Logger.Info("Closing standalone app-mode window — Game Bar is taking over the widget.");
+            _ = disp.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            {
+                try { cw.Close(); } catch (Exception ex) { Logger.Warn($"App-mode window close failed: {ex.Message}"); }
+            });
+        }
 
         public static void RegisterActiveGamingWidget(GamingWidget widget)
         {
@@ -345,6 +375,10 @@ namespace XboxGamingBar
                     Logger.Info("Calling Window.Current.Activate()...");
                     Window.Current.Activate();
                     Logger.Info("Window activated successfully");
+
+                    // Auto-close the standalone app-mode window (if any) now that Game Bar hosts the widget
+                    // in its own view, so it doesn't linger as an orphan desktop window.
+                    CloseAppModeWindowIfOpen(Window.Current?.CoreWindow);
                 }
                 else
                 {
@@ -388,6 +422,14 @@ namespace XboxGamingBar
                             Logger.Info("Calling Window.Current.Activate() for upgrade...");
                             Window.Current.Activate();
                             Logger.Info("Successfully upgraded from app mode to Game Bar widget mode.");
+
+                            // This standalone window has BECOME the Game Bar widget host — stop tracking it
+                            // as app-mode so the auto-close never targets the live widget window.
+                            if (ReferenceEquals(appModeCoreWindow, Window.Current?.CoreWindow))
+                            {
+                                appModeCoreWindow = null;
+                                appModeDispatcher = null;
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -458,6 +500,17 @@ namespace XboxGamingBar
         {
             Logger.Info("App launched");
             LogVersionTransition("OnLaunched");
+
+            // Standalone "app mode": launch compact (not stretched across the whole screen). Set the
+            // preferred size before the view is activated; this only affects the standalone desktop
+            // window — the Game Bar host sizes the widget from the manifest, not this.
+            try
+            {
+                ApplicationView.PreferredLaunchViewSize = AppModeWindowSize;
+                ApplicationView.PreferredLaunchWindowingMode = ApplicationViewWindowingMode.PreferredLaunchViewSize;
+            }
+            catch (Exception ex) { Logger.Warn($"App-mode preferred size failed: {ex.Message}"); }
+
             Frame rootFrame = Window.Current.Content as Frame;
 
             // Do not repeat app initialization when the Window already has content,
@@ -489,7 +542,31 @@ namespace XboxGamingBar
                 }
                 // Ensure the current window is active
                 Window.Current.Activate();
+
+                // Track this as the standalone app-mode window and force a compact size (covers the case
+                // where PreferredLaunchViewSize didn't apply, e.g. an already-running instance). Also
+                // resize on close-tracking so the auto-close hook can find and dismiss it later.
+                try
+                {
+                    appModeCoreWindow = Window.Current?.CoreWindow;
+                    appModeDispatcher = Window.Current?.Dispatcher;
+                    ApplicationView.GetForCurrentView()?.TryResizeView(AppModeWindowSize);
+                    Window.Current.Closed -= AppModeWindow_Closed;
+                    Window.Current.Closed += AppModeWindow_Closed;
+                }
+                catch (Exception ex) { Logger.Warn($"App-mode window setup failed: {ex.Message}"); }
             }
+        }
+
+        private void AppModeWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
+        {
+            Logger.Info("Standalone app-mode window closed");
+            if (ReferenceEquals(appModeCoreWindow, sender as Windows.UI.Core.CoreWindow) || appModeCoreWindow == Window.Current?.CoreWindow)
+            {
+                appModeCoreWindow = null;
+                appModeDispatcher = null;
+            }
+            try { Window.Current.Closed -= AppModeWindow_Closed; } catch { }
         }
 
         /// <summary>

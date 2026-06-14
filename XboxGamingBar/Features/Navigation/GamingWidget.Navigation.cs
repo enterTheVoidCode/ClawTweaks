@@ -54,6 +54,10 @@ namespace XboxGamingBar
                 // ApplyTheme runs at load, so they'd show the un-themed grey pill on first select).
                 ApplyNavPillTheme(selectedItem);
 
+                // User actively opened Game Bar and is navigating → run the throttled update-availability
+                // probe (drives the green Setup-tab badge). Self-limits via timestamp, so this is cheap.
+                _ = MaybeCheckForAppUpdateAsync();
+
                 // Hide all sections
                 QuickSettingsScrollViewer.Visibility = Visibility.Collapsed;
                 PerformanceScrollViewer.Visibility = Visibility.Collapsed;

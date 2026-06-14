@@ -172,6 +172,35 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// D-Pad navigation for the "More settings" expander that sits directly below the CPU Boost
+        /// toggle. Up returns to the toggle; Down drops into the first advanced combo when the section
+        /// is open, otherwise loops back to the top of the Performance tab.
+        /// </summary>
+        private void CpuSectionExpandButton_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case VirtualKey.GamepadDPadUp:
+                case VirtualKey.GamepadLeftThumbstickUp:
+                case VirtualKey.Up:
+                    try { CPUBoostToggle?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+                case VirtualKey.GamepadDPadDown:
+                case VirtualKey.GamepadLeftThumbstickDown:
+                case VirtualKey.Down:
+                    bool expanded = CpuSectionExpandButton?.IsChecked == true
+                                    && CpuSectionContent?.Visibility == Visibility.Visible;
+                    Windows.UI.Xaml.Controls.Control target = expanded
+                        ? (Windows.UI.Xaml.Controls.Control)CpuBoostModeComboBox
+                        : (PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSStateCycleButton);
+                    try { target?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        /// <summary>
         /// Controller/keyboard navigation between the CPU advanced combos. Up/Down move between
         /// the four combos; Left or B returns focus to the expand toggle so the user can leave
         /// the section. ComboBoxes consume A/Enter themselves to open the drop-down.
@@ -194,7 +223,12 @@ namespace XboxGamingBar
                 case VirtualKey.GamepadDPadUp:
                 case VirtualKey.GamepadLeftThumbstickUp:
                 case VirtualKey.Up:
-                    if (MoveCpuComboFocus(combo, -1)) e.Handled = true;
+                    // Move to the previous combo; from the first one, go back up to the expander.
+                    if (!MoveCpuComboFocus(combo, -1))
+                    {
+                        try { CpuSectionExpandButton?.Focus(FocusState.Keyboard); } catch { }
+                    }
+                    e.Handled = true;
                     break;
                 case VirtualKey.GamepadB:
                 case VirtualKey.GamepadDPadLeft:

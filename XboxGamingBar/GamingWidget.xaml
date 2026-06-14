@@ -565,6 +565,11 @@
                                 <FontIcon x:Name="OnboardingNavBadge" FontFamily="Segoe MDL2 Assets" Glyph="&#xEB90;" FontSize="9"
                                           Foreground="#FFA500" HorizontalAlignment="Right" VerticalAlignment="Top"
                                           Margin="0,-2,-2,0" Visibility="Collapsed"/>
+                                <!-- Green dot shown when a newer ClawTweaks release is available (the Setup tab also
+                                     hosts in-app updates). Bottom-right so it never collides with the yellow warning. -->
+                                <Ellipse x:Name="OnboardingUpdateBadge" Width="8" Height="8" Fill="#32D74B"
+                                         HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                         Margin="0,0,-1,-1" Visibility="Collapsed"/>
                             </Grid>
                         </RadioButton.Content>
                     </RadioButton>
@@ -1912,7 +1917,7 @@
                                 <!-- Hidden slider for property system compatibility -->
                                 <Slider x:Name="PerformanceOverlaySlider"
                                         Visibility="Collapsed"
-                                        Minimum="0" Maximum="3"
+                                        Minimum="0" Maximum="4"
                                         Value="0"
                                         ValueChanged="PerformanceOverlaySlider_ValueChanged"/>
 
@@ -2472,11 +2477,11 @@
                         <!-- CPU (collapsible, EXPERIMENTAL) — moved to the bottom of the Performance tab: boost mode, scheduling policy (Only P / Only E), P/E max freq (ToothNClaw port) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <!-- Header: title + CPU Boost on/off + expand toggle -->
+                                <!-- Header: title + caption. The Boost toggle (on/off) sits on top-right,
+                                     the "More settings" expander directly BELOW it opens the advanced submenu. -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
@@ -2487,27 +2492,38 @@
                                                 <TextBlock Text="EXPERIMENTAL" FontSize="9" FontWeight="SemiBold" Foreground="#FF6B60"/>
                                             </Border>
                                         </StackPanel>
-                                        <TextBlock Text="Boost · P/E max freq · core scheduling"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
+                                        <TextBlock Text="Toggle = Boost on/off · expander = advanced"
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,0,12,0"/>
                                     </StackPanel>
-                                    <ToggleSwitch x:Name="CPUBoostToggle"
-                                                  Style="{StaticResource ModernToggleStyle}"
-                                                  Grid.Column="1"
-                                                  Margin="0,0,8,0"
-                                                  IsEnabled="False"
-                                                  KeyDown="CPUBoostToggle_KeyDown"/>
-                                    <!-- EXPERIMENTAL advanced CPU section: boost mode / scheduling policy (Only P / Only E) / P-E max freq -->
-                                    <ToggleButton x:Name="CpuSectionExpandButton"
-                                                  Grid.Column="2"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="CpuSectionExpandButton_Click"
-                                                  UseSystemFocusVisuals="True">
-                                        <FontIcon x:Name="CpuSectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
+
+                                    <!-- Right column: Boost on/off toggle, with the advanced expander directly beneath it. -->
+                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="6">
+                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock Text="Boost" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                            <ToggleSwitch x:Name="CPUBoostToggle"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          MinWidth="0"
+                                                          IsEnabled="False"
+                                                          KeyDown="CPUBoostToggle_KeyDown"/>
+                                        </StackPanel>
+                                        <!-- EXPERIMENTAL advanced CPU section: boost mode / scheduling policy (Only P / Only E) / P-E max freq -->
+                                        <ToggleButton x:Name="CpuSectionExpandButton"
+                                                      IsChecked="False"
+                                                      HorizontalAlignment="Right"
+                                                      Background="Transparent"
+                                                      BorderThickness="0"
+                                                      Padding="8,4"
+                                                      Click="CpuSectionExpandButton_Click"
+                                                      KeyDown="CpuSectionExpandButton_KeyDown"
+                                                      UseSystemFocusVisuals="True">
+                                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                <TextBlock Text="More settings" FontSize="12" Foreground="#CFCFCF" VerticalAlignment="Center"/>
+                                                <FontIcon x:Name="CpuSectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                            </StackPanel>
+                                        </ToggleButton>
+                                    </StackPanel>
                                 </Grid>
 
                                 <!-- Collapsible content -->

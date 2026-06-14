@@ -3335,13 +3335,16 @@ namespace XboxGamingBar
             bool noProfileFound = false)
         {
             if (notificationManager == null || widget == null)
+            {
+                Logger.Info($"Profile notification skipped — notificationManager={(notificationManager == null ? "null" : "ok")}, widget={(widget == null ? "null (app mode?)" : "ok")} (game='{gameName}', perGame={isPerGameProfile})");
                 return;
+            }
 
             try
             {
                 if (notificationManager.Setting == XboxGameBarWidgetNotificationSetting.DisabledByUser)
                 {
-                    Logger.Debug("Profile notifications disabled by user");
+                    Logger.Info("Profile notification skipped — notifications DisabledByUser in Game Bar settings");
                     return;
                 }
 
@@ -3445,7 +3448,7 @@ namespace XboxGamingBar
             }
             catch (Exception ex)
             {
-                Logger.Debug($"Failed to show profile notification: {ex.Message}");
+                Logger.Info($"Failed to show profile notification: {ex.Message}");
             }
         }
 
