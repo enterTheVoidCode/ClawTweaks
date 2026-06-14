@@ -35,7 +35,9 @@ namespace XboxGamingBar
         // at helper start — and at most once per AppUpdateCheckInterval (timestamp persisted to survive
         // restarts). No auto-download, no banner; it just flips the badge.
         private const string LastAppUpdateCheckKey = "AppUpdate_LastCheckUtc";
-        private static readonly TimeSpan AppUpdateCheckInterval = TimeSpan.FromHours(6);
+        // Releases are infrequent, so a 12h throttle is plenty — the update LIST (expander) always
+        // fetches fresh; this only paces the background "is a newer build out?" badge probe.
+        private static readonly TimeSpan AppUpdateCheckInterval = TimeSpan.FromHours(12);
         private bool _appUpdateCheckInFlight;
         private bool _appUpdateAvailable;
 
@@ -56,6 +58,8 @@ namespace XboxGamingBar
                     && DateTime.UtcNow - last < AppUpdateCheckInterval)
                 {
                     // Checked recently — just re-assert the cached result so the badge survives nav rebuilds.
+                    double remainingSec = (AppUpdateCheckInterval - (DateTime.UtcNow - last)).TotalSeconds;
+                    Logger.Info($"App update check skipped (throttled) — last={last:o}, next due in ~{remainingSec:F0}s, cachedUpdateAvailable={_appUpdateAvailable}");
                     SetUpdateAvailableBadge(_appUpdateAvailable);
                     return;
                 }
