@@ -1280,6 +1280,15 @@ namespace XboxGamingBarHelper.Labs
                     }
                 }
 
+                // Suppress the button(s) mapped to a mouse click from the ViGEm submit, so a
+                // click button only produces the Windows mouse event and NOT a phantom gamepad
+                // press. This matters above all for A: Xbox-A is the Game Bar's "confirm/activate"
+                // button, so a phantom A would be eaten by the overlay's gamepad nav (the reason
+                // A "wouldn't map" while B/X/Y/LB/RB did). Triggers are already zeroed below, and
+                // hotkeys read the physical xiBtns feed, so neither is affected.
+                xiBtnsOut &= (ushort)~(GetMouseModeButtonMask(_mouseLeftClickButton)
+                                       | GetMouseModeButtonMask(_mouseRightClickButton));
+
                 // Game Bar auto-nav injection (RB hops + focus drop) — overlay onto the button mask.
                 { ushort injMask = ServiceInjection(); if (injMask != 0) xiBtnsOut |= injMask; }
 
@@ -1384,6 +1393,28 @@ namespace XboxGamingBarHelper.Labs
                 9  => ltrig  > MouseTriggerThreshold, // LT — HC TriggerThreshold = 30
                 10 => rtrig  > MouseTriggerThreshold, // RT — HC TriggerThreshold = 30
                 _  => false,
+            };
+        }
+
+        /// <summary>
+        /// XInput button-mask for a mouse-click button index, used to strip the click button from
+        /// the ViGEm submit in mouse mode (so it doesn't double as a phantom gamepad press).
+        /// None (0) and the analog triggers LT/RT (9/10) return 0 — triggers are already zeroed on
+        /// submit, so there's nothing to mask there.
+        /// </summary>
+        private static ushort GetMouseModeButtonMask(int buttonIndex)
+        {
+            return buttonIndex switch
+            {
+                1  => XI_A,
+                2  => XI_B,
+                3  => XI_X,
+                4  => XI_Y,
+                5  => XI_LB,
+                6  => XI_RB,
+                7  => XI_LS,
+                8  => XI_RS,
+                _  => (ushort)0,
             };
         }
 

@@ -40,6 +40,14 @@ namespace XboxGamingBar
         private bool _gateVigemInstalled;
         private bool _gateHidHideInstalled;
 
+        // "Reported" flags: true once the helper has actually told us each tool's real install state.
+        // Until ALL four are known, RefreshOnboardingState shows the *persisted* last-known completion
+        // state instead of assuming "incomplete" — otherwise the yellow badge flashed on every start for
+        // users who long finished onboarding (gates default to false until the helper confirms).
+        private bool _onbVigemReported, _onbHidHideReported, _onbRtssReported, _onbPawnReported;
+        private bool OnbToolStatesKnown => _onbVigemReported && _onbHidHideReported && _onbRtssReported && _onbPawnReported;
+        private const string OnboardingCompleteKey = "Onboarding_Complete";
+
         // Called when the Onboarding tab becomes visible: render all rows from current state.
         private void RefreshOnboardingTab()
         {
@@ -66,18 +74,21 @@ namespace XboxGamingBar
 
         private void UpdateOnboardingViGEm(bool installed)
         {
+            _onbVigemReported = true;
             SetOnbStatus(OnbViGEmStatus, "ViGEmBus", installed);
             RefreshOnboardingState();
         }
 
         private void UpdateOnboardingHidHide(bool installed)
         {
+            _onbHidHideReported = true;
             SetOnbStatus(OnbHidHideStatus, "HidHide", installed);
             RefreshOnboardingState();
         }
 
         private void UpdateOnboardingRtss(bool installed)
         {
+            _onbRtssReported = true;
             SetOnbStatus(OnbRtssStatus, "RTSS", installed);
             SetDebugToolRow(DebugRtssStatusText, DebugRtssInstallButton, DebugRtssUninstallButton, "RTSS", "Install RTSS", installed);
             RefreshOnboardingState();
@@ -85,6 +96,7 @@ namespace XboxGamingBar
 
         private void UpdateOnboardingPawnIO(bool installed)
         {
+            _onbPawnReported = true;
             SetOnbStatus(OnbPawnIOStatus, "PawnIO", installed);
             SetDebugToolRow(DebugPawnIOStatusText, DebugPawnIOInstallButton, DebugPawnIOUninstallButton, "PawnIO", "Install PawnIO", installed);
             RefreshOnboardingState();
@@ -139,18 +151,40 @@ namespace XboxGamingBar
         {
             try
             {
-                bool complete = OnbAllToolsInstalled;
+                bool known = OnbToolStatesKnown;
+                // Until the helper has reported every tool's real state, fall back to the persisted
+                // last-known completion state so completed users don't get a yellow-badge flash on start.
+                bool complete = known ? OnbAllToolsInstalled : GetPersistedOnboardingComplete();
                 ApplyOnboardingTabLayout(complete);
 
                 if (OnboardingNavBadge != null)
                 {
                     OnboardingNavBadge.Visibility = complete ? Visibility.Collapsed : Visibility.Visible;
                 }
+
+                // Persist only the *confirmed* state so the next cold start initialises from truth.
+                if (known) SetPersistedOnboardingComplete(OnbAllToolsInstalled);
             }
             catch (Exception ex)
             {
                 Logger.Warn($"RefreshOnboardingState failed: {ex.Message}");
             }
+        }
+
+        private static bool GetPersistedOnboardingComplete()
+        {
+            try
+            {
+                var ls = Windows.Storage.ApplicationData.Current.LocalSettings;
+                return ls.Values.TryGetValue(OnboardingCompleteKey, out var v) && v is bool b && b;
+            }
+            catch { return false; }
+        }
+
+        private static void SetPersistedOnboardingComplete(bool complete)
+        {
+            try { Windows.Storage.ApplicationData.Current.LocalSettings.Values[OnboardingCompleteKey] = complete; }
+            catch { }
         }
 
         /// <summary>

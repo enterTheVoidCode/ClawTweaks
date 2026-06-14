@@ -30,6 +30,76 @@ namespace XboxGamingBar
         private bool _appReleasesLoaded;
         private bool _appReleasesLoading;
 
+        // Throttled "is a newer release available?" probe that drives the green dot on the Setup tab.
+        // It runs only when the user opens Game Bar and navigates (from NavRadioButton_Checked) — never
+        // at helper start — and at most once per AppUpdateCheckInterval (timestamp persisted to survive
+        // restarts). No auto-download, no banner; it just flips the badge.
+        private const string LastAppUpdateCheckKey = "AppUpdate_LastCheckUtc";
+        private static readonly TimeSpan AppUpdateCheckInterval = TimeSpan.FromHours(6);
+        private bool _appUpdateCheckInFlight;
+        private bool _appUpdateAvailable;
+
+        /// <summary>
+        /// Lightweight, throttled update-availability check. Compares the newest GitHub release against
+        /// the installed version and shows the green Setup-tab badge when a newer build exists. Called
+        /// from tab navigation so it never fires on helper start; rate-limited by a persisted timestamp.
+        /// </summary>
+        internal async Task MaybeCheckForAppUpdateAsync()
+        {
+            if (_appUpdateCheckInFlight || !App.IsConnected) return;
+
+            try
+            {
+                var ls = Windows.Storage.ApplicationData.Current.LocalSettings;
+                if (ls.Values.TryGetValue(LastAppUpdateCheckKey, out var lastObj) && lastObj is string lastStr
+                    && DateTime.TryParse(lastStr, null, System.Globalization.DateTimeStyles.RoundtripKind, out var last)
+                    && DateTime.UtcNow - last < AppUpdateCheckInterval)
+                {
+                    // Checked recently — just re-assert the cached result so the badge survives nav rebuilds.
+                    SetUpdateAvailableBadge(_appUpdateAvailable);
+                    return;
+                }
+            }
+            catch { }
+
+            _appUpdateCheckInFlight = true;
+            try
+            {
+                await appReleases.Sync();
+                string json = appReleases?.Value ?? "[]";
+                bool available = false;
+                if (JsonArray.TryParse(json, out var arr) && arr.Count > 0)
+                {
+                    int[] installed = GetInstalledVersionParts();
+                    for (uint i = 0; i < arr.Count; i++)
+                    {
+                        var rel = arr.GetObjectAt(i);
+                        string relVer = JsonStr(rel, "version");
+                        if (string.IsNullOrWhiteSpace(relVer)) relVer = JsonStr(rel, "tag");
+                        if (CompareVerParts(ParseVerParts(relVer), installed) > 0) { available = true; break; }
+                    }
+                }
+                try { Windows.Storage.ApplicationData.Current.LocalSettings.Values[LastAppUpdateCheckKey] = DateTime.UtcNow.ToString("o"); } catch { }
+                SetUpdateAvailableBadge(available);
+                Logger.Info($"App update check (nav-triggered): updateAvailable={available}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"MaybeCheckForAppUpdateAsync failed: {ex.Message}");
+            }
+            finally
+            {
+                _appUpdateCheckInFlight = false;
+            }
+        }
+
+        private void SetUpdateAvailableBadge(bool available)
+        {
+            _appUpdateAvailable = available;
+            if (OnboardingUpdateBadge != null)
+                OnboardingUpdateBadge.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         // Lazy-load the releases the first time the section is expanded.
         private void AppUpdateExpander_Expanding(object sender, object e)
         {

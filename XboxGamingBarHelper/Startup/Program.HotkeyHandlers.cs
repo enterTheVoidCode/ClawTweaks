@@ -327,6 +327,21 @@ namespace XboxGamingBarHelper
                         Logger.Info("LaunchLauncher: Xbox app launched via AppsFolder AUMID");
                         break;
 
+                    case "ClawTweaksWindow":
+                        // Open ClawTweaks as a standalone desktop window (UWP "app mode", App.OnLaunched) —
+                        // an alternative to the Game Bar widget. The helper runs elevated and Windows refuses
+                        // to activate a packaged app directly from an elevated process, so we delegate to
+                        // explorer.exe (de-elevates) with the app's AppsFolder AUMID, exactly like XboxApp.
+                        // PFN is the fixed package identity (CN=ClawTweaks Dev, O=MSIClaw).
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = "explorer.exe",
+                            Arguments = @"shell:AppsFolder\MSIClaw.ClawTweaks_7eszav2039cvc!App",
+                            UseShellExecute = true
+                        });
+                        Logger.Info("LaunchLauncher: ClawTweaks standalone window launched via AppsFolder AUMID");
+                        break;
+
                     default:
                         Logger.Warn($"LaunchLauncher: unknown launcher '{which}'");
                         break;
@@ -670,6 +685,9 @@ namespace XboxGamingBarHelper
                                 break;
                             case 42: // XboxApp
                                 LaunchLauncher("XboxApp");
+                                break;
+                            case 43: // OpenClawTweaksWindow — standalone app-mode window (GameBar alternative)
+                                LaunchLauncher("ClawTweaksWindow");
                                 break;
                             case 30: // MediaNextTrack
                                 ExecuteKeyboardShortcut("MEDIA_NEXT_TRACK");

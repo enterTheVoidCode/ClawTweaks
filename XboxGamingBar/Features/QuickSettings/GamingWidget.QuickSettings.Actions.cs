@@ -2706,6 +2706,7 @@ namespace XboxGamingBar
                 case TileActionType.SteamBigPicture: return "SteamBigPicture";
                 case TileActionType.Playnite:        return "Playnite";
                 case TileActionType.XboxApp:         return "XboxApp";
+                case TileActionType.OpenClawTweaksWindow: return "ClawTweaksWindow";
                 default:                             return "";
             }
         }
@@ -2862,6 +2863,11 @@ namespace XboxGamingBar
                     case TileActionType.Playnite:
                     case TileActionType.XboxApp:
                         await LaunchLauncherViaHelper(LauncherKey(actionType), closeGameBar: false);
+                        break;
+                    // Open ClawTweaks as a standalone window — close Game Bar so the window comes
+                    // to the foreground (and the Game Bar widget host yields).
+                    case TileActionType.OpenClawTweaksWindow:
+                        await LaunchLauncherViaHelper(LauncherKey(actionType), closeGameBar: true);
                         break;
                     // Media keys
                     case TileActionType.MediaNextTrack:

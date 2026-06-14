@@ -28,6 +28,7 @@ namespace XboxGamingBarHelper
                 case 40: return "Steam Big Picture";
                 case 41: return "Playnite";
                 case 42: return "Xbox App";
+                case 43: return "Open ClawTweaks Window";
                 case 50: return "Open Default Browser";
                 case 51: return "Open Windows Store";
                 case 52: return "Open Chrome";

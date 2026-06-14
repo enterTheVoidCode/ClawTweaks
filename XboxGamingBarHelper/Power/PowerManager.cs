@@ -53,6 +53,14 @@ namespace XboxGamingBarHelper.Power
         private readonly MaxECoreFreqProperty maxECoreFreq;
         public MaxECoreFreqProperty MaxECoreFreq { get { return maxECoreFreq; } }
 
+        // ToothNClaw re-applies MaxFreq + scheduling policy on a periodic timer because Windows
+        // silently resets these power-scheme values on power/scheme events — most visibly when the
+        // Game Bar widget closes and reopens, which is exactly when users saw the P/E caps and the
+        // Only-P/Only-E policy "fly out" back to unlimited/auto. We mirror that 3s enforce loop.
+        // (See docs/TOOTHNCLAW_PORT_ANALYSIS.md §1.3.)
+        private System.Threading.Timer cpuAdvancedEnforceTimer;
+        private const int CpuAdvancedEnforceIntervalMs = 3000;
+
         // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
         //private readonly LimitGPUClockProperty limitGPUClock;
         //public LimitGPUClockProperty LimitGPUClock
@@ -100,6 +108,15 @@ namespace XboxGamingBarHelper.Power
             schedulingPolicy = new ProcessorSchedulingPolicyProperty(-1, this); // read-back not reliable; -1 = unset until user picks
             maxPCoreFreq = new MaxPCoreFreqProperty((int)initPFreq, this);
             maxECoreFreq = new MaxECoreFreqProperty((int)initEFreq, this);
+
+            // Enforce P/E max freq + scheduling policy against Windows scheme resets (ToothNClaw 1:1).
+            if (CpuAdvancedApply.Enabled)
+            {
+                cpuAdvancedEnforceTimer = new System.Threading.Timer(
+                    _ => EnforceCpuAdvanced(), null,
+                    CpuAdvancedEnforceIntervalMs, CpuAdvancedEnforceIntervalMs);
+                Logger.Info($"CPU advanced enforce timer started ({CpuAdvancedEnforceIntervalMs}ms) — re-applies P/E max freq + scheduling policy after scheme resets.");
+            }
 
             // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
             //// Initialize GPU Clock properties
@@ -273,6 +290,70 @@ namespace XboxGamingBarHelper.Power
 
             Logger.Info($"Set Scheduling Policy to {mode} ({name}) [{policy},{threadPolicy},{shortThreadPolicy}].");
             PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+        }
+
+        /// <summary>
+        /// Periodically re-applies the user's P/E max-frequency caps and scheduling policy. Windows
+        /// resets these power-scheme values on power/scheme events (notably when the Game Bar widget
+        /// closes and reopens), which is why the caps and the Only-P/Only-E policy "flew out" shortly
+        /// after being set. 1:1 with ToothNClaw's 3s enforce timer. Each value is only re-written when
+        /// the live scheme actually drifted from the desired value, so there's no needless churn.
+        /// </summary>
+        private void EnforceCpuAdvanced()
+        {
+            if (!CpuAdvancedApply.Enabled) return;
+            try
+            {
+                int pf = maxPCoreFreq?.Value ?? 0;
+                if (pf > 0 && GetCpuFreqLimit(true, isSecondary: true) != (uint)pf)
+                {
+                    Logger.Info($"[CpuEnforce] P-Core max freq drifted — re-applying {pf}MHz");
+                    SetCpuFreqLimit(false, (uint)pf, isSecondary: true);
+                    SetCpuFreqLimit(true,  (uint)pf, isSecondary: true);
+                }
+
+                int ef = maxECoreFreq?.Value ?? 0;
+                if (ef > 0 && GetCpuFreqLimit(true, isSecondary: false) != (uint)ef)
+                {
+                    Logger.Info($"[CpuEnforce] E-Core max freq drifted — re-applying {ef}MHz");
+                    SetCpuFreqLimit(false, (uint)ef, isSecondary: false);
+                    SetCpuFreqLimit(true,  (uint)ef, isSecondary: false);
+                }
+
+                int sp = schedulingPolicy?.Value ?? -1;
+                if (sp >= 1 && GetHeteroPolicy() != ExpectedHeteroPolicy(sp))
+                {
+                    Logger.Info($"[CpuEnforce] Scheduling policy drifted — re-applying mode {sp}");
+                    SetSchedulingPolicy(sp);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[CpuEnforce] tick failed: {ex.Message}");
+            }
+        }
+
+        // Heterogeneous-policy value the active scheme should hold for a given scheduling-policy mode
+        // (mirrors the switch in SetSchedulingPolicy). Used only to detect a Windows reset to Auto (0).
+        private static uint ExpectedHeteroPolicy(int mode)
+        {
+            switch (mode)
+            {
+                case 1: return 1; // Prefer P-Core
+                case 2: return 1; // Prefer E-Core (same het policy as Prefer-P; thread policy differs)
+                case 3: return 3; // Only P-Core
+                case 4: return 2; // Only E-Core
+                default: return 0; // Auto
+            }
+        }
+
+        private static uint GetHeteroPolicy()
+        {
+            Guid scheme = GetActiveScheme();
+            Guid subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+            Guid setting = PowerGuids.GUID_PROCESSOR_HETEROGENEOUS_POLICY;
+            uint status = PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out uint result);
+            return status == 0 ? result : 0;
         }
 
         private static void WriteAcDc(ref Guid scheme, ref Guid subgroup, Guid setting, uint value)

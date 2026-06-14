@@ -43,6 +43,7 @@ namespace XboxGamingBar.QuickSettings
         SteamBigPicture   = 40,   // open Steam Big Picture (steam://open/bigpicture)
         Playnite          = 41,   // open Playnite Fullscreen
         XboxApp           = 42,   // open the Xbox (Game Pass) app
+        OpenClawTweaksWindow = 43, // open ClawTweaks as a standalone desktop window (app mode), GameBar alternative
 
         // ── Program Actions (50–59) ────────────────────────────────────────
         OpenDefaultBrowser = 50,
@@ -93,6 +94,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.SteamBigPicture:  return "Steam Big Picture";
                 case TileActionType.Playnite:         return "Playnite";
                 case TileActionType.XboxApp:          return "Xbox App";
+                case TileActionType.OpenClawTweaksWindow: return "Open ClawTweaks Window";
                 case TileActionType.OpenDefaultBrowser: return "Open Default Browser";
                 case TileActionType.OpenWindowsStore:   return "Open Windows Store";
                 case TileActionType.OpenChrome:         return "Open Chrome";
@@ -135,6 +137,7 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.SteamBigPicture:  return "Steam";
                 case TileActionType.Playnite:         return "Playnite";
                 case TileActionType.XboxApp:          return "Xbox";
+                case TileActionType.OpenClawTweaksWindow: return "Window";
                 case TileActionType.OpenDefaultBrowser: return "Browser";
                 case TileActionType.OpenWindowsStore:   return "Store";
                 case TileActionType.OpenChrome:         return "Chrome";
@@ -299,6 +302,8 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.XboxApp:
                 case TileActionType.Playnite:         return PathGameLibrary;
 
+                case TileActionType.OpenClawTweaksWindow: return PathWindow;
+
                 case TileActionType.OpenWindowsStore: return PathStore;
                 case TileActionType.OpenSpotify:      return PathMusic;
                 case TileActionType.LaunchUserProgram: return PathApp;
@@ -376,6 +381,7 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.SteamBigPicture;
             yield return TileActionType.Playnite;
             yield return TileActionType.XboxApp;
+            yield return TileActionType.OpenClawTweaksWindow;
             // Program group (defaults; user programs appended dynamically by BuildChoices)
             yield return TileActionType.OpenDefaultBrowser;
             yield return TileActionType.OpenWindowsStore;

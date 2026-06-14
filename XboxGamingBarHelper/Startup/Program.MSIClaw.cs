@@ -279,6 +279,7 @@ namespace XboxGamingBarHelper
                 case 40: LaunchLauncher("SteamBigPicture"); break;
                 case 41: LaunchLauncher("Playnite"); break;
                 case 42: LaunchLauncher("XboxApp"); break;
+                case 43: LaunchLauncher("ClawTweaksWindow"); break; // OpenClawTweaksWindow — standalone app-mode window
                 case 30: SendKeyboardShortcutViaInputInjector("MEDIA_NEXT_TRACK"); break;
                 case 31: SendKeyboardShortcutViaInputInjector("MEDIA_PREV_TRACK"); break;
                 case 32: SendKeyboardShortcutViaInputInjector("MEDIA_PLAY_PAUSE"); break;

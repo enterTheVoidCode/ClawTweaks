@@ -1047,6 +1047,15 @@ namespace XboxGamingBarHelper
                             powerManager.CPUEPP.SetValue(runningGameProfile.CPUEPP);
                             powerManager.MaxCPUState.SetValue(runningGameProfile.MaxCPUState);
                             powerManager.MinCPUState.SetValue(runningGameProfile.MinCPUState);
+                            // CPU advanced (ToothNClaw port) — mirror the other apply paths
+                            powerManager.CpuBoostMode.SetValue(runningGameProfile.CpuBoostMode);
+                            powerManager.SchedulingPolicy.SetValue(runningGameProfile.ProcessorSchedulingPolicy);
+                            powerManager.MaxPCoreFreq.SetValue(runningGameProfile.MaxPCoreFreqMHz);
+                            powerManager.MaxECoreFreq.SetValue(runningGameProfile.MaxECoreFreqMHz);
+                            // Intel display (IGCL): saturation/hue/sharpness etc. This auto-detect path was
+                            // the only apply path missing it, so per-game colour settings weren't applied
+                            // when a game with a per-game profile was auto-detected (only on global/manual switch).
+                            ApplyIntelDisplayFromProfile(runningGameProfile);
 
                             ApplyFpsLimiterFromProfile(runningGameProfile);
 
