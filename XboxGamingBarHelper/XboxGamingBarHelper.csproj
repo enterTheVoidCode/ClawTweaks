@@ -344,6 +344,7 @@
     <Compile Include="ControllerEmulation\Viiper\XInputNative.cs" />
     <Compile Include="ControllerEmulation\Viiper\ViiperInputForwarder.cs" />
     <Compile Include="ControllerEmulation\Viiper\ViiperStickGyroProcessor.cs" />
+    <Compile Include="ControllerEmulation\Viiper\ViiperWireFormat.cs" />
     <Compile Include="Settings\UsbipInstalledProperty.cs" />
     <Compile Include="Settings\ViiperDeviceTypeProperty.cs" />
     <Compile Include="Settings\ViiperInputSourceProperty.cs" />
@@ -451,6 +452,7 @@
     <Compile Include="Labs\LegionButtonMonitor.cs" />
     <Compile Include="Labs\ClawButtonMonitor.cs" />
     <Compile Include="Labs\ClawButtonMonitor.GamepadSwap.cs" />
+    <Compile Include="Labs\ClawButtonMonitor.Viiper.cs" />
     <Compile Include="Labs\ViGEmBusProperties.cs" />
     <Compile Include="Labs\HidHideProperties.cs" />
     <Compile Include="Labs\RtssInstallHelper.cs" />

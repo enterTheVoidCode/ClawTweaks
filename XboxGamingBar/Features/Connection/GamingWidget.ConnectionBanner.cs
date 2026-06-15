@@ -98,7 +98,7 @@ namespace XboxGamingBar
                     break;
                 case BannerState.Upgrading:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 153, 102)); // #339966 Green
-                    ConnectionStatusText.Text = "Updating — please confirm the Windows admin (UAC) prompt if it appears (in fullscreen games it opens in the background). The widget reloads automatically when done.";
+                    ConnectionStatusText.Text = "Updating — please confirm the Windows admin (UAC) prompt if it appears (in FSE Mode it opens in the background). If the app opens in the large main window, close it so the Game Bar widget is shown again.";
                     SetBannerIcon(GlyphAdmin);
                     break;
             }

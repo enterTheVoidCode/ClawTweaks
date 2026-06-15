@@ -688,14 +688,6 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
             return (short)value;
         }
 
-        private static short ScaleDs4Accel(short raw)
-        {
-            int scaled = raw * 2;
-            if (scaled > short.MaxValue) return short.MaxValue;
-            if (scaled < short.MinValue) return short.MinValue;
-            return (short)scaled;
-        }
-
         public void Stop()
         {
             if (!running) return;
@@ -1053,307 +1045,55 @@ namespace XboxGamingBarHelper.ControllerEmulation.Viiper
         }
 
         /// <summary>
-        /// Switch Pro / Joy-Con wire format (24 bytes). libviiper's switchpro InputState
-        /// requires ≥24 bytes; falling through to BuildXbox360Input sent only 20 bytes
-        /// and every poll logged "switchpro: input state too short: 20 &lt; 24".
-        /// Button positions are mapped positionally (Xbox A → Switch B since both are
-        /// the bottom face button).
+        /// Builds the optional per-frame extras (Legion back-paddles, touchpad, IMU) that the
+        /// device-format builders in <see cref="ViiperWireFormat"/> consume. Only used for the
+        /// formats that carry these channels (DS4/DSE/Elite2); xbox360/switchpro ignore them.
         /// </summary>
-        private static byte[] BuildSwitchProInput(ViiperXInputGamepad gp)
+        private ViiperWireFormat.Extras BuildExtras()
         {
-            var data = new byte[24];
-            uint buttons = 0;
-
-            // Face buttons — positional.
-            if ((gp.Buttons & ViiperXInput.A) != 0) buttons |= 0x000004;  // B (bottom)
-            if ((gp.Buttons & ViiperXInput.B) != 0) buttons |= 0x000008;  // A (right)
-            if ((gp.Buttons & ViiperXInput.X) != 0) buttons |= 0x000001;  // Y (left)
-            if ((gp.Buttons & ViiperXInput.Y) != 0) buttons |= 0x000002;  // X (top)
-            if ((gp.Buttons & ViiperXInput.LB) != 0) buttons |= 0x400000; // L
-            if ((gp.Buttons & ViiperXInput.RB) != 0) buttons |= 0x000040; // R
-
-            // Switch has no analog triggers — map >50% press to ZL/ZR digital.
-            if (gp.LeftTrigger > 128) buttons |= 0x800000;  // ZL
-            if (gp.RightTrigger > 128) buttons |= 0x000080; // ZR
-
-            if ((gp.Buttons & ViiperXInput.Back) != 0) buttons |= 0x000100;       // Minus
-            if ((gp.Buttons & ViiperXInput.Start) != 0) buttons |= 0x000200;      // Plus
-            if ((gp.Buttons & ViiperXInput.Guide) != 0) buttons |= 0x001000;      // Home
-            if ((gp.Buttons & ViiperXInput.LeftThumb) != 0) buttons |= 0x000800;
-            if ((gp.Buttons & ViiperXInput.RightThumb) != 0) buttons |= 0x000400;
-
-            if ((gp.Buttons & ViiperXInput.DPadUp) != 0)    buttons |= 0x020000;
-            if ((gp.Buttons & ViiperXInput.DPadDown) != 0)  buttons |= 0x010000;
-            if ((gp.Buttons & ViiperXInput.DPadLeft) != 0)  buttons |= 0x080000;
-            if ((gp.Buttons & ViiperXInput.DPadRight) != 0) buttons |= 0x040000;
-
-            WriteU32(data, 0, buttons);
-
-            WriteI16(data, 4, gp.ThumbLX);
-            WriteI16(data, 6, gp.ThumbLY);
-            WriteI16(data, 8, gp.ThumbRX);
-            WriteI16(data, 10, gp.ThumbRY);
-
-            // Bytes 12-23 are IMU (gyro XYZ + accel XYZ as int16). Leave zeroed here;
-            // if the caller wants gyro on Switch output, TryBuildImuCounts can populate
-            // these exactly like the DSE path. Future enhancement.
-            return data;
-        }
-
-        // -------------------------------------------------------------------
-        // Wire format builders (ported from ViiperController reference impl)
-        // -------------------------------------------------------------------
-
-        private static byte[] BuildXbox360Input(ViiperXInputGamepad gp)
-        {
-            var data = new byte[20];
-            WriteU32(data, 0, gp.Buttons);
-            data[4] = gp.LeftTrigger;
-            data[5] = gp.RightTrigger;
-            WriteI16(data, 6, gp.ThumbLX);
-            WriteI16(data, 8, gp.ThumbLY);
-            WriteI16(data, 10, gp.ThumbRX);
-            WriteI16(data, 12, gp.ThumbRY);
-            return data;
-        }
-
-        private byte[] BuildDualShock4Input(ViiperXInputGamepad gp)
-        {
-            var data = new byte[31];
-            // DS4 sticks are int8. Y-axis: XInput positive=UP, DS4 positive=DOWN → negate.
-            data[0] = (byte)(gp.ThumbLX >> 8);
-            data[1] = (byte)(NegateClamp(gp.ThumbLY) >> 8);
-            data[2] = (byte)(gp.ThumbRX >> 8);
-            data[3] = (byte)(NegateClamp(gp.ThumbRY) >> 8);
-
-            ushort ds4Buttons = 0;
-            if ((gp.Buttons & ViiperXInput.A) != 0) ds4Buttons |= 0x0020;
-            if ((gp.Buttons & ViiperXInput.B) != 0) ds4Buttons |= 0x0040;
-            if ((gp.Buttons & ViiperXInput.X) != 0) ds4Buttons |= 0x0010;
-            if ((gp.Buttons & ViiperXInput.Y) != 0) ds4Buttons |= 0x0080;
-            if ((gp.Buttons & ViiperXInput.LB) != 0) ds4Buttons |= 0x0100;
-            if ((gp.Buttons & ViiperXInput.RB) != 0) ds4Buttons |= 0x0200;
-            if ((gp.Buttons & ViiperXInput.Back) != 0) ds4Buttons |= 0x1000;
-            if ((gp.Buttons & ViiperXInput.Start) != 0) ds4Buttons |= 0x2000;
-            if ((gp.Buttons & ViiperXInput.LeftThumb) != 0) ds4Buttons |= 0x4000;
-            if ((gp.Buttons & ViiperXInput.RightThumb) != 0) ds4Buttons |= 0x8000;
-            if ((gp.Buttons & ViiperXInput.Guide) != 0) ds4Buttons |= 0x0001;
-
-            // Legion back buttons -> DS4 extensions (preserve the extra-button channel the
-            // user gets from Legion HID, so they don't go to waste in the DS4 mapping).
-            ushort aux = currentAuxButtons;
-            if ((aux & LegionAux.Mode) != 0) ds4Buttons |= 0x0001;   // Mode -> PS
-            if ((aux & LegionAux.Share) != 0) ds4Buttons |= 0x0002;  // Share -> Touchpad click
-            WriteU16(data, 4, ds4Buttons);
-
-            byte dpad = 0;
-            if ((gp.Buttons & ViiperXInput.DPadUp) != 0) dpad |= 0x01;
-            if ((gp.Buttons & ViiperXInput.DPadDown) != 0) dpad |= 0x02;
-            if ((gp.Buttons & ViiperXInput.DPadLeft) != 0) dpad |= 0x04;
-            if ((gp.Buttons & ViiperXInput.DPadRight) != 0) dpad |= 0x08;
-            data[6] = dpad;
-
-            data[7] = gp.LeftTrigger;
-            data[8] = gp.RightTrigger;
-
-            // Touchpad bytes (DS4): X at 9-10, Y at 11-12, active flag at 13.
-            if (currentTouchActive)
+            var x = new ViiperWireFormat.Extras
             {
-                ushort tx = ScaleTouchAxis(currentTouchX, 1919);
-                ushort ty = ScaleTouchAxis(currentTouchY, 942);
-                WriteU16(data, 9, tx);
-                WriteU16(data, 11, ty);
-                data[13] = 1;
-            }
-
-            // IMU bytes at offsets 19-30 (gyroX,Y,Z then accelX,Y,Z as int16).
+                Aux = currentAuxButtons,
+                TouchActive = currentTouchActive,
+                TouchRawX = currentTouchX,
+                TouchRawY = currentTouchY,
+            };
             short gx, gy, gz, ax, ay, az;
             if (TryBuildImuCounts(out gx, out gy, out gz, out ax, out ay, out az))
             {
-                WriteI16(data, 19, gx);
-                WriteI16(data, 21, gy);
-                WriteI16(data, 23, gz);
-                WriteI16(data, 25, ScaleDs4Accel(ax));
-                WriteI16(data, 27, ScaleDs4Accel(ay));
-                WriteI16(data, 29, ScaleDs4Accel(az));
+                x.HaveImu = true;
+                x.GyroX = gx; x.GyroY = gy; x.GyroZ = gz;
+                x.AccelX = ax; x.AccelY = ay; x.AccelZ = az;
             }
-            return data;
+            return x;
+        }
+
+        // Wire-format builders now live in ViiperWireFormat (single source of truth shared with
+        // the MSI Claw submit path). These thin wrappers feed the Legion forwarder's extra
+        // channels (aux/touch/IMU) into the shared builders.
+
+        private static byte[] BuildSwitchProInput(ViiperXInputGamepad gp)
+            => ViiperWireFormat.BuildSwitchPro(gp);
+
+        private static byte[] BuildXbox360Input(ViiperXInputGamepad gp)
+            => ViiperWireFormat.BuildXbox360(gp);
+
+        private byte[] BuildDualShock4Input(ViiperXInputGamepad gp)
+        {
+            var x = BuildExtras();
+            return ViiperWireFormat.BuildDualShock4(gp, in x);
         }
 
         private byte[] BuildDualSenseEdgeInput(ViiperXInputGamepad gp)
         {
-            var data = new byte[33];
-            data[0] = (byte)(gp.ThumbLX >> 8);
-            data[1] = (byte)(NegateClamp(gp.ThumbLY) >> 8);
-            data[2] = (byte)(gp.ThumbRX >> 8);
-            data[3] = (byte)(NegateClamp(gp.ThumbRY) >> 8);
-
-            uint dseButtons = 0;
-            if ((gp.Buttons & ViiperXInput.A) != 0) dseButtons |= 0x0020;
-            if ((gp.Buttons & ViiperXInput.B) != 0) dseButtons |= 0x0040;
-            if ((gp.Buttons & ViiperXInput.X) != 0) dseButtons |= 0x0010;
-            if ((gp.Buttons & ViiperXInput.Y) != 0) dseButtons |= 0x0080;
-            if ((gp.Buttons & ViiperXInput.LB) != 0) dseButtons |= 0x0100;
-            if ((gp.Buttons & ViiperXInput.RB) != 0) dseButtons |= 0x0200;
-            if ((gp.Buttons & ViiperXInput.Back) != 0) dseButtons |= 0x1000;
-            if ((gp.Buttons & ViiperXInput.Start) != 0) dseButtons |= 0x2000;
-            if ((gp.Buttons & ViiperXInput.LeftThumb) != 0) dseButtons |= 0x4000;
-            if ((gp.Buttons & ViiperXInput.RightThumb) != 0) dseButtons |= 0x8000;
-            if ((gp.Buttons & ViiperXInput.Guide) != 0) dseButtons |= 0x00010000;
-
-            // Legion back paddles -> DSE Edge paddle buttons. DSE paddle bit masks:
-            //   ExtraL2=0x00100000, ExtraL1=0x00400000,
-            //   ExtraR1=0x00200000, ExtraL3=0x00800000.
-            ushort aux = currentAuxButtons;
-            if ((aux & LegionAux.Y1) != 0) dseButtons |= 0x00100000;    // Y1 (left upper)  -> ExtraL2
-            if ((aux & LegionAux.Y2) != 0) dseButtons |= 0x00400000;    // Y2 (left lower)  -> ExtraL1
-            if ((aux & LegionAux.Y3) != 0) dseButtons |= 0x00200000;    // Y3 (right upper) -> ExtraR1
-            if ((aux & LegionAux.M3) != 0) dseButtons |= 0x00800000;    // M3 (right lower) -> ExtraL3
-            if ((aux & LegionAux.Mode) != 0) dseButtons |= 0x00010000;  // Mode  -> PS
-            if ((aux & LegionAux.Share) != 0) dseButtons |= 0x00020000; // Share -> Touchpad click
-            WriteU32(data, 4, dseButtons);
-
-            byte dpad = 0;
-            if ((gp.Buttons & ViiperXInput.DPadUp) != 0) dpad |= 0x01;
-            if ((gp.Buttons & ViiperXInput.DPadDown) != 0) dpad |= 0x02;
-            if ((gp.Buttons & ViiperXInput.DPadLeft) != 0) dpad |= 0x04;
-            if ((gp.Buttons & ViiperXInput.DPadRight) != 0) dpad |= 0x08;
-            data[8] = dpad;
-
-            data[9] = gp.LeftTrigger;
-            data[10] = gp.RightTrigger;
-
-            // Touchpad bytes (DSE): X at 11-12, Y at 13-14, active flag at 15.
-            if (currentTouchActive)
-            {
-                ushort tx = ScaleTouchAxis(currentTouchX, 1920);
-                ushort ty = ScaleTouchAxis(currentTouchY, 1080);
-                WriteU16(data, 11, tx);
-                WriteU16(data, 13, ty);
-                data[15] = 1;
-            }
-
-            // DSE IMU bytes at offsets 21..32.
-            short gx, gy, gz, ax, ay, az;
-            if (TryBuildImuCounts(out gx, out gy, out gz, out ax, out ay, out az))
-            {
-                WriteI16(data, 21, gx);
-                WriteI16(data, 23, gy);
-                WriteI16(data, 25, gz);
-                WriteI16(data, 27, ScaleDs4Accel(ax));
-                WriteI16(data, 29, ScaleDs4Accel(ay));
-                WriteI16(data, 31, ScaleDs4Accel(az));
-            }
-            return data;
+            var x = BuildExtras();
+            return ViiperWireFormat.BuildDualSenseEdge(gp, in x);
         }
 
-        /// <summary>
-        /// Legion touchpad raw range is 0-1023 (10-bit). DS4 host expects 0-1919x942,
-        /// DSE expects 0-1920x1080. Scale linearly and clamp.
-        /// </summary>
-        private static ushort ScaleTouchAxis(ushort raw, int maxOut)
-        {
-            int scaled = raw * maxOut / 1023;
-            if (scaled < 0) return 0;
-            if (scaled > maxOut) return (ushort)maxOut;
-            return (ushort)scaled;
-        }
-
-        /// <summary>
-        /// Xbox Elite 2 wire format (33 bytes). Also used for Steam Generic, Steam Deck,
-        /// and Steam Controller targets since libviiper routes those through the Elite 2
-        /// InputState. Reads <see cref="currentAuxButtons"/> so Legion Go back-paddles
-        /// (Y1/Y2/Y3/M3), Mode and Share reach the virtual pad — without this, Steam-
-        /// target emulation was silent on every back-paddle press (issue reported via
-        /// Steam Generic / Steam Deck Go S profiles).
-        ///
-        /// Paddle bit layout matches the reference VIIPER app (aligned with HHD):
-        ///   Y1 → P1 (0x1000), Y3 → P2 (0x2000), Y2 → P3 (0x4000), M3 → P4 (0x8000).
-        /// Mode → Guide (0x0400); Share → reserved bit at data[13] |= 0x01.
-        /// </summary>
         private byte[] BuildXboxElite2Input(ViiperXInputGamepad gp)
         {
-            var data = new byte[33];
-            ushort buttons = 0;
-            if ((gp.Buttons & ViiperXInput.A) != 0) buttons |= 0x0001;
-            if ((gp.Buttons & ViiperXInput.B) != 0) buttons |= 0x0002;
-            if ((gp.Buttons & ViiperXInput.X) != 0) buttons |= 0x0004;
-            if ((gp.Buttons & ViiperXInput.Y) != 0) buttons |= 0x0008;
-            if ((gp.Buttons & ViiperXInput.LB) != 0) buttons |= 0x0010;
-            if ((gp.Buttons & ViiperXInput.RB) != 0) buttons |= 0x0020;
-            if ((gp.Buttons & ViiperXInput.Back) != 0) buttons |= 0x0040;
-            if ((gp.Buttons & ViiperXInput.Start) != 0) buttons |= 0x0080;
-            if ((gp.Buttons & ViiperXInput.LeftThumb) != 0) buttons |= 0x0100;
-            if ((gp.Buttons & ViiperXInput.RightThumb) != 0) buttons |= 0x0200;
-            if ((gp.Buttons & ViiperXInput.Guide) != 0) buttons |= 0x0400;
-
-            // Legion aux → Elite 2 paddles + Guide.
-            // libviiper's Steam path decodes the P-bits as:
-            //   P1 → R5 (right lower), P2 → L5 (left lower),
-            //   P3 → R4 (right upper), P4 → L4 (left upper).
-            // To land each physical Legion paddle on its matching position we therefore
-            // send Y1→P4, Y3→P3, Y2→P2, M3→P1 — both the L/R and the upper/lower pair
-            // are flipped vs. the HHD order I originally ported, confirmed empirically
-            // by re-testing on Steam Generic / Steam Deck / GO S targets.
-            ushort aux = currentAuxButtons;
-            if ((aux & LegionAux.Mode) != 0) buttons |= 0x0400; // Mode → Guide
-            if ((aux & LegionAux.Y1) != 0)   buttons |= 0x8000; // Y1 (back L upper) → P4 (L4)
-            if ((aux & LegionAux.Y3) != 0)   buttons |= 0x4000; // Y3 (back R upper) → P3 (R4)
-            if ((aux & LegionAux.Y2) != 0)   buttons |= 0x2000; // Y2 (back L lower) → P2 (L5)
-            if ((aux & LegionAux.M3) != 0)   buttons |= 0x1000; // M3 (back R lower) → P1 (R5)
-            WriteU16(data, 0, buttons);
-
-            data[2] = gp.LeftTrigger;
-            data[3] = gp.RightTrigger;
-
-            WriteI16(data, 4, gp.ThumbLX);
-            WriteI16(data, 6, gp.ThumbLY);
-            WriteI16(data, 8, gp.ThumbRX);
-            WriteI16(data, 10, gp.ThumbRY);
-
-            byte dpad = 0;
-            if ((gp.Buttons & ViiperXInput.DPadUp) != 0) dpad |= 0x01;
-            if ((gp.Buttons & ViiperXInput.DPadDown) != 0) dpad |= 0x02;
-            if ((gp.Buttons & ViiperXInput.DPadLeft) != 0) dpad |= 0x04;
-            if ((gp.Buttons & ViiperXInput.DPadRight) != 0) dpad |= 0x08;
-            data[12] = dpad;
-
-            // Share → reserved bit at byte 13 (matches reference app's mapping).
-            if ((aux & LegionAux.Share) != 0) data[13] |= 0x01;
-            return data;
-        }
-
-        // -------------------------------------------------------------------
-        // Wire helpers (replacements for BitConverter.TryWriteBytes/Span which
-        // aren't available on .NET Framework 4.8)
-        // -------------------------------------------------------------------
-
-        private static void WriteU16(byte[] buf, int offset, ushort value)
-        {
-            buf[offset] = (byte)(value & 0xFF);
-            buf[offset + 1] = (byte)((value >> 8) & 0xFF);
-        }
-
-        private static void WriteI16(byte[] buf, int offset, short value)
-        {
-            buf[offset] = (byte)(value & 0xFF);
-            buf[offset + 1] = (byte)((value >> 8) & 0xFF);
-        }
-
-        private static void WriteU32(byte[] buf, int offset, uint value)
-        {
-            buf[offset] = (byte)(value & 0xFF);
-            buf[offset + 1] = (byte)((value >> 8) & 0xFF);
-            buf[offset + 2] = (byte)((value >> 16) & 0xFF);
-            buf[offset + 3] = (byte)((value >> 24) & 0xFF);
-        }
-
-        private static int NegateClamp(short value)
-        {
-            int neg = -(int)value;
-            if (neg > short.MaxValue) neg = short.MaxValue;
-            if (neg < short.MinValue) neg = short.MinValue;
-            return neg;
+            var x = BuildExtras();
+            return ViiperWireFormat.BuildXboxElite2(gp, in x);
         }
     }
 }

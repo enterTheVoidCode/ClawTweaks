@@ -60,7 +60,8 @@ namespace XboxGamingBar
                 if (ControllerStateText == null)
                     return;
 
-                int state = 0, vigem = 0, pid1901 = 0, pid1902 = 0, blocked = -1, xinput = 0;
+                int state = 0, vigem = 0, pid1901 = 0, pid1902 = 0, blocked = -1, xinput = 0, viiper = 0;
+                string viiperType = "";
                 try
                 {
                     var parts = (content ?? "").Split('|');
@@ -73,8 +74,12 @@ namespace XboxGamingBar
                         int.TryParse(parts[4], out blocked);
                         int.TryParse(parts[5], out xinput);
                     }
+                    if (parts.Length >= 7) int.TryParse(parts[6], out viiper);
+                    if (parts.Length >= 8) viiperType = parts[7] ?? "";
                 }
                 catch { /* fall through to "unknown" defaults */ }
+
+                string viiperName = ViiperDeviceTypeDisplayName(viiperType);
 
                 Color color;
                 string title;
@@ -84,7 +89,9 @@ namespace XboxGamingBar
                     case 1: // Virtual controller mode
                         color = Color.FromArgb(255, 0, 200, 83);   // green
                         title = "Virtual controller mode";
-                        caption = "Virtual ViGEm controller active · physical MSI controllers hidden via HidHide.";
+                        caption = viiper > 0
+                            ? $"Virtual VIIPER controller active ({viiperName}) · physical MSI controllers hidden via HidHide."
+                            : "Virtual ViGEm controller active · physical MSI controllers hidden via HidHide.";
                         break;
                     case 2: // Hardware controller mode
                         color = Color.FromArgb(255, 46, 155, 255);  // blue
@@ -111,6 +118,10 @@ namespace XboxGamingBar
 
                 if (ControllerStateViGEmValue != null)
                     ControllerStateViGEmValue.Text = vigem > 0 ? $"{vigem} active" : "none";
+                if (ControllerStateViiperValue != null)
+                    ControllerStateViiperValue.Text = viiper > 0
+                        ? (string.IsNullOrEmpty(viiperName) ? $"{viiper} active" : $"{viiperName} (active)")
+                        : "none";
                 if (ControllerStatePid1901Value != null)
                     ControllerStatePid1901Value.Text = pid1901 > 0 ? "present" : "not present";
                 if (ControllerStatePid1902Value != null)
@@ -120,6 +131,23 @@ namespace XboxGamingBar
                 if (ControllerStateXInputValue != null)
                     ControllerStateXInputValue.Text = xinput.ToString();
             });
+        }
+
+        /// <summary>Maps a libviiper device-type tag to the friendly name shown in the status card.</summary>
+        private static string ViiperDeviceTypeDisplayName(string tag)
+        {
+            switch (tag)
+            {
+                case "xbox360":          return "Xbox 360";
+                case "dualshock4":       return "DualShock 4";
+                case "dualsenseedge":    return "DualSense Edge";
+                case "xboxelite2":       return "Xbox Elite 2";
+                case "steam-generic":
+                case "steam-controller": return "Steam Controller";
+                case "steamdeck-generic": return "Steam Deck";
+                case "switchpro":        return "Switch Pro";
+                default:                 return tag ?? "";
+            }
         }
 
         private void ControllerStateRefreshButton_Click(object sender, RoutedEventArgs e)

@@ -4552,8 +4552,8 @@
                                         </Grid>
                                     </Border>
 
-                                    <!-- VIIPER Emulation Backend Toggle (coming soon — read-only, non-interactive) -->
-                                    <Grid Margin="0,16,0,0" Opacity="0.5" IsHitTestVisible="False">
+                                    <!-- VIIPER Emulation Backend Toggle (experimental — debug menu only) -->
+                                    <Grid Margin="0,16,0,0">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -4561,11 +4561,8 @@
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="Use VIIPER emulation (Experimental)" FontSize="14" Foreground="#FFC107"/>
-                                                <Border Background="#1A3A1A" BorderBrush="#336633" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                                                    <TextBlock Text="Coming Soon" FontSize="10" Foreground="#88CC88"/>
-                                                </Border>
                                             </StackPanel>
-                                            <TextBlock Text="Replaces the legacy ViGEm controller emulation with VIIPER (USBIP-based). Requires usbip-win2." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                            <TextBlock Text="Replaces the legacy ViGEm controller emulation with VIIPER (USBIP-based). Requires usbip-win2. Toggling restarts controller emulation." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
                                             <TextBlock x:Name="UsbipPrereqStatusLine"
                                                        FontSize="11"
                                                        Margin="0,4,0,0"
@@ -4575,8 +4572,7 @@
                                         <ToggleSwitch x:Name="ViiperEmulationToggle"
                                                       Grid.Column="1"
                                                       OnContent="" OffContent=""
-                                                      IsOn="False"
-                                                      IsEnabled="False"/>
+                                                      IsOn="False"/>
                                     </Grid>
 
                                     <!-- USBIP prerequisite card, visible only when VIIPER toggle is on and usbip-win2 is not installed -->
@@ -8412,6 +8408,13 @@
                                             <TextBlock x:Name="VibrationIntensityValue" Text="100%" Style="{StaticResource CardValueStyle}"/>
                                         </Grid>
                                         <Slider x:Name="VibrationIntensitySlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="100" Value="100" StepFrequency="1"/>
+                                        <!-- Test pulse: feel the current vibration intensity without a game -->
+                                        <Button x:Name="TestVibrationButton"
+                                                Content="Test Vibration"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,8,0,0"
+                                                Click="TestVibrationButton_Click"/>
                                     </StackPanel>
                                     <!-- Stick Deadzones -->
                                     <TextBlock Text="Stick Deadzones" FontSize="12" Foreground="#888888" Margin="0,4,0,0"/>
@@ -8429,14 +8432,6 @@
                                         </Grid>
                                         <Slider x:Name="LegionRightStickDeadzoneSlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="50" Value="4" StepFrequency="1"/>
                                     </StackPanel>
-
-                                    <!-- Test pulse: feel the current vibration intensity without a game -->
-                                    <Button x:Name="TestVibrationButton"
-                                            Content="Test Vibration"
-                                            Style="{StaticResource StandaloneButtonStyle}"
-                                            HorizontalAlignment="Left"
-                                            Margin="0,4,0,0"
-                                            Click="TestVibrationButton_Click"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -9302,6 +9297,10 @@
                                     <Grid>
                                         <TextBlock Text="Virtual ViGEm controller" FontSize="13" Foreground="#AAAAAA"/>
                                         <TextBlock x:Name="ControllerStateViGEmValue" Text="–" Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="Virtual VIIPER controller" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStateViiperValue" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                     <Grid>
                                         <TextBlock Text="MSI Claw XInput (PID_1901)" FontSize="13" Foreground="#AAAAAA"/>

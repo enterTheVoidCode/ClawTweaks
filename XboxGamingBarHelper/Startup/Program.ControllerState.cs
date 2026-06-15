@@ -59,6 +59,20 @@ namespace XboxGamingBarHelper
         /// One WMI query + one HidHide probe; only run once, so no per-frame cost.
         /// </summary>
         internal static bool IsHwControllerBaselineClean(out string diag)
+            => IsHwControllerBaselineClean(out diag, out _);
+
+        /// <summary>
+        /// As <see cref="IsHwControllerBaselineClean(out string)"/>, but additionally reports whether
+        /// the base is dirty because of <em>stale state a Stop()/unhide can actually fix</em>
+        /// (<paramref name="staleStatePresent"/> = a lingering ViGEm pad OR HidHide still cloaking),
+        /// as opposed to merely "the physical Claw hasn't enumerated yet" (pid1901=0 at cold boot).
+        ///
+        /// The self-heal (emulation off→on cycle) only helps the former. At a cold boot the base is
+        /// "not clean" purely because pid1901=0 — the device is mid-enumeration — and a Stop()+settle
+        /// cannot conjure it (measured: baseline stays clean=False afterwards), so it just wastes
+        /// 1.5–3.3 s. Callers skip the heal when !staleStatePresent.
+        /// </summary>
+        internal static bool IsHwControllerBaselineClean(out string diag, out bool staleStatePresent)
         {
             int vigem = 0, pid1901 = 0;
             try
@@ -91,6 +105,9 @@ namespace XboxGamingBarHelper
 
             bool hidHideHiding = hidHideKnown && (cloaking || blocked > 0);
             bool clean = pid1901 > 0 && vigem == 0 && !hidHideHiding;
+            // Stale = something a Stop()/unhide cycle can remove. pid1901=0 alone is NOT stale — the
+            // device is simply not enumerated yet — so it doesn't justify the self-heal.
+            staleStatePresent = vigem > 0 || hidHideHiding;
             diag = $"pid1901={pid1901} vigem={vigem} hidHideKnown={hidHideKnown} cloaking={cloaking} blocked={blocked}";
             return clean;
         }
@@ -110,8 +127,14 @@ namespace XboxGamingBarHelper
                     foreach (ManagementObject mo in searcher.Get())
                     {
                         string id = (mo["PNPDeviceID"] as string) ?? "";
+                        // Count DISTINCT Xbox360 controllers, not every PnP node. A single pad
+                        // (ViGEm *or* VIIPER xbox360) enumerates as a bare USB parent
+                        // (…PID_028E\<serial>) PLUS child interfaces (…PID_028E&IG_0x…, HID\…),
+                        // so counting every node inflates one pad to 2-3. Only the bare parent —
+                        // a backslash right after PID_028E — counts as one controller. (Diagnosed
+                        // 2026-06-15: a single VIIPER xbox360 device showed up as 3 nodes → "2 active".)
                         if (id.IndexOf("VID_045E", StringComparison.OrdinalIgnoreCase) >= 0 &&
-                            id.IndexOf("PID_028E", StringComparison.OrdinalIgnoreCase) >= 0)
+                            id.IndexOf("PID_028E\\", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
                             vigem++;
                         }
@@ -145,6 +168,30 @@ namespace XboxGamingBarHelper
             }
             catch (Exception ex) { Logger.Debug($"ControllerState: XInput probe failed: {ex.Message}"); }
 
+            // ── VIIPER virtual devices (helper-internal truth) ────────────────
+            // A VIIPER xbox360 device presents as the SAME VID_045E&PID_028E as a ViGEm pad, so
+            // the WMI count above can't tell them apart. The helper knows its own mounts exactly.
+            int viiper = 0;
+            string viiperType = "";
+            try
+            {
+                Labs.ClawButtonMonitor cbm;
+                lock (clawButtonMonitorLock) cbm = clawButtonMonitor;
+                if (cbm != null && cbm.ViiperMounted)
+                {
+                    viiper++;
+                    viiperType = cbm.ViiperActiveDeviceType ?? "";
+                }
+                // Legion path (non-Claw) — its own VIIPER manager.
+                if (viiperEmulationManager != null && viiperEmulationManager.IsRunning)
+                    viiper++;
+            }
+            catch (Exception ex) { Logger.Debug($"ControllerState: VIIPER probe failed: {ex.Message}"); }
+
+            // Don't double-count a VIIPER xbox360 device as a ViGEm pad (shared VID/PID).
+            if (viiperType == "xbox360" && vigem > 0)
+                vigem--;
+
             // ── Classify ──────────────────────────────────────────────────────
             // 1 = Virtual controller mode: a ViGEm virtual pad is present AND the physical
             //     DInput gamepad is hidden by HidHide (cloaking on / blocked > 0).
@@ -155,9 +202,9 @@ namespace XboxGamingBarHelper
             bool hidHideHiding = hidHideKnown && (cloaking || blocked > 0);
             if (_externalGamepadModeActive)
                 state = 3; // External Gamepad Mode: handheld parked/hidden, only external gamepad visible
-            else if (vigem > 0 && hidHideHiding)
-                state = 1;
-            else if (vigem == 0 && pid1901 > 0 && hidHideKnown && !cloaking && blocked == 0)
+            else if ((vigem > 0 || viiper > 0) && hidHideHiding)
+                state = 1; // a virtual pad (ViGEm or VIIPER) is present and the physical one is hidden
+            else if (vigem == 0 && viiper == 0 && pid1901 > 0 && hidHideKnown && !cloaking && blocked == 0)
                 state = 2;
 
             // The classification above infers the mode purely from live PnP/HidHide/XInput
@@ -179,7 +226,7 @@ namespace XboxGamingBarHelper
 
             // -1 signals "HidHide state unknown" to the widget so it doesn't show a misleading 0.
             int blockedOut = hidHideKnown ? blocked : -1;
-            return $"{state}|{vigem}|{pid1901}|{pid1902}|{blockedOut}|{xinput}";
+            return $"{state}|{vigem}|{pid1901}|{pid1902}|{blockedOut}|{xinput}|{viiper}|{viiperType}";
         }
     }
 }

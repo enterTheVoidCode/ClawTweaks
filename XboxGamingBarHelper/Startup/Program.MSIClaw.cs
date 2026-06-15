@@ -48,6 +48,15 @@ namespace XboxGamingBarHelper
         private static bool _clawHwBaselineHealAttempted = false;
 
         /// <summary>
+        /// Counts how often <see cref="StartClawButtonMonitorBackground"/> has been invoked this helper
+        /// session. Purely diagnostic — surfaces in the boot-timing log so we can see whether the mount
+        /// runs once at boot or is re-triggered (e.g. widget toggle echo, MSI-Center restart). Each
+        /// invocation = one full DInput-settle + (ViGEm/VIIPER) mount cycle, so a count > 1 at boot is
+        /// the prime suspect for "the LED cycled several times".
+        /// </summary>
+        private static int _startClawMonitorInvocations;
+
+        /// <summary>
         /// External Gamepad Mode runtime state (NOT persisted — always starts off after a helper
         /// start). When active, the handheld is parked as a hidden DInput device with no virtual
         /// controller, so only an external gamepad is visible. <see cref="_externalGamepadWasVirtual"/>
@@ -58,6 +67,16 @@ namespace XboxGamingBarHelper
         private static volatile bool _externalGamepadModeActive;
         private static bool _externalGamepadWasVirtual;
         private static readonly object _externalGamepadLock = new object();
+
+        /// <summary>
+        /// Experimental VIIPER backend selector (Debug menu). When true, the next
+        /// controller-emulation activation mounts a VIIPER virtual pad instead of ViGEm
+        /// (read by <see cref="StartClawButtonMonitorBackground"/>). Mirrors the helper's
+        /// EmulationBackend property; the legacy ViiperEmulationManager skips the Claw, so
+        /// this flag is the Claw's authoritative backend state.
+        /// </summary>
+        internal static bool ViiperBackendActive => _viiperBackendActive;
+        private static volatile bool _viiperBackendActive;
 
         /// <summary>
         /// Software mouse forwarder for MSI Claw "Mouse mode".
@@ -689,6 +708,26 @@ namespace XboxGamingBarHelper
                 // External Gamepad Mode tile → hide/restore all handheld controllers.
                 MSI.ExternalGamepadModeManager.OnChanged = OnExternalGamepadModeChanged;
 
+                // Experimental VIIPER backend toggle (Debug menu) → always deactivate
+                // controller emulation so the Claw HW controller is restored. The next
+                // manual re-enable mounts VIIPER instead of ViGEm. Seed the flag from the
+                // persisted value and react to runtime changes.
+                if (settingsManager?.EmulationBackend != null)
+                {
+                    _viiperBackendActive = settingsManager.EmulationBackend.Value;
+                    settingsManager.EmulationBackend.PropertyChanged += (s, e) =>
+                        OnEmulationBackendChanged(settingsManager.EmulationBackend.Value);
+                    Logger.Info($"MSIClaw: EmulationBackend seeded → {(_viiperBackendActive ? "VIIPER" : "ViGEm (Legacy)")}");
+                }
+
+                // VIIPER virtual device type (Xbox 360 / DS4 / DSE / Elite2-Steam / Switch Pro)
+                // and its Steam sub-device: hot-swap the live VIIPER device when the user changes
+                // the selection while the VIIPER backend is active.
+                if (settingsManager?.ViiperDeviceType != null)
+                    settingsManager.ViiperDeviceType.PropertyChanged += (s, e) => OnViiperDeviceTargetChanged();
+                if (settingsManager?.ViiperSteamSubDevice != null)
+                    settingsManager.ViiperSteamSubDevice.PropertyChanged += (s, e) => OnViiperDeviceTargetChanged();
+
                 // Game Bar open → auto-hop the widget bar to ClawTweaks via RB taps on the
                 // virtual controller (ClawTweaks sits at slot 3+ behind Microsoft's two widgets).
                 WireGameBarAutoNav();
@@ -1084,6 +1123,94 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
+        /// Experimental: reacts to the VIIPER backend toggle (Debug menu).
+        ///
+        /// Toggling the backend (either direction) ALWAYS deactivates controller emulation
+        /// via the robust stop path (SwitchMode(XInput) + ForceUnhideAll), so the physical
+        /// Claw controller is restored. The user re-enables controller emulation manually;
+        /// <see cref="StartClawButtonMonitorBackground"/> then reads <see cref="_viiperBackendActive"/>
+        /// and mounts a VIIPER virtual pad instead of ViGEm.
+        ///
+        /// The legacy ViiperEmulationManager skips the MSI Claw (DInput path), so this is the
+        /// Claw's authoritative reaction to the backend change.
+        /// </summary>
+        internal static void OnEmulationBackendChanged(bool viiperOn)
+        {
+            var deviceInfo = Devices.DeviceDetector.DetectDevice();
+            if (deviceInfo.DeviceType != DeviceType.MSIClaw)
+            {
+                Logger.Debug("EmulationBackend change: ignored (not an MSI Claw)");
+                return;
+            }
+
+            _viiperBackendActive = viiperOn;
+            Logger.Info($"EmulationBackend changed → {(viiperOn ? "VIIPER" : "ViGEm (Legacy)")}; deactivating controller emulation via the master toggle (UI + tiles sync, HW controller restored). Re-enable emulation to mount the selected backend.");
+
+            // Drive the disable through the SAME master "Enable Controller Emulation" property
+            // the user normally toggles. ControllerEmulationEnabled.SetValue(false):
+            //   (a) pushes the new state to the widget so the master toggle AND the Quick-tile
+            //       statuses flip to "off" (they mirror this property), and
+            //   (b) runs SetEnabled(false) → OnMSIClawMasterEmulationToggled → StopMSIClawButtonMonitor()
+            //       (the robust HW restore: SwitchMode(XInput) + HidHide ForceUnhideAll).
+            // Off-thread so the lengthy stop (HID switch + up to 5 s HidHide settle) doesn't block
+            // the pipe callback that delivered the backend change.
+            Task.Run(() =>
+            {
+                try
+                {
+                    var enabledProp = controllerEmulationManager?.ControllerEmulationEnabled;
+                    if (enabledProp != null && enabledProp.Value)
+                        enabledProp.SetValue(false);
+                    else
+                        StopMSIClawButtonMonitor(); // already off in the property — just ensure the HW controller is restored
+                }
+                catch (Exception ex) { Logger.Warn($"EmulationBackend change deactivate task threw: {ex.Message}"); }
+            });
+        }
+
+        /// <summary>
+        /// Resolves the VIIPER virtual device target (libviiper type tag + optional Steam VID/PID)
+        /// from the current settings. Mirrors ViiperEmulationManager.ResolveDeviceTargets so the
+        /// Claw path and the Legion path agree on the same mapping.
+        /// </summary>
+        private static void ResolveViiperDeviceTarget(out string type, out ushort vid, out ushort pid)
+        {
+            type = "xbox360";
+            vid = 0;
+            pid = 0;
+
+            var dt = settingsManager?.ViiperDeviceType?.Value;
+            if (!string.IsNullOrEmpty(dt)) type = dt;
+
+            bool isSteam = type == "steam-generic" || type == "steam-controller" || type == "steamdeck-generic";
+            if (isSteam && settingsManager?.ViiperSteamSubDevice != null)
+                Settings.ViiperSteamSubDeviceProperty.TryGetSteamVidPid(settingsManager.ViiperSteamSubDevice.Value, out vid, out pid);
+        }
+
+        /// <summary>
+        /// Reacts to a VIIPER device-type / Steam-sub-device change. Hot-swaps the live VIIPER
+        /// device when the VIIPER backend is active on an MSI Claw. Off-thread because the USBIP
+        /// swap is a 1–2 s round-trip that must not block the pipe callback.
+        /// </summary>
+        private static void OnViiperDeviceTargetChanged()
+        {
+            if (!_viiperBackendActive) return;
+            var deviceInfo = Devices.DeviceDetector.DetectDevice();
+            if (deviceInfo.DeviceType != DeviceType.MSIClaw) return;
+
+            ResolveViiperDeviceTarget(out string type, out ushort vid, out ushort pid);
+            Labs.ClawButtonMonitor monitor;
+            lock (clawButtonMonitorLock) monitor = clawButtonMonitor;
+            if (monitor == null) return;
+
+            Task.Run(() =>
+            {
+                try { monitor.SwitchViiperDeviceType(type, vid, pid); }
+                catch (Exception ex) { Logger.Warn($"VIIPER device-target change task threw: {ex.Message}"); }
+            });
+        }
+
+        /// <summary>
         /// Starts MSIClawDesktopModeForwarder on a background thread.
         /// The mode switch + settle (~600 ms) must not block the toggle handler.
         /// </summary>
@@ -1194,6 +1321,13 @@ namespace XboxGamingBarHelper
         {
             Task.Run(() =>
             {
+                // Boot-timing instrumentation: a single stopwatch threaded through every phase so the
+                // log shows exactly where the ~seconds before the controller is usable are spent, and
+                // an invocation counter so a re-triggered mount (LED cycling) is obvious. The "+{ms}"
+                // offsets are relative to this method's entry. Cheap (one Stopwatch + Info lines).
+                var bootSw = System.Diagnostics.Stopwatch.StartNew();
+                int invocation = System.Threading.Interlocked.Increment(ref _startClawMonitorInvocations);
+                Logger.Info($"[ClawBoot #{invocation}] StartClawButtonMonitorBackground begin (startInMouseMode={startInMouseMode}, mountVigem={mountVigem}, viiperBackendActive={_viiperBackendActive})");
                 try
                 {
                     // ── Step 0: MSI Center guard ──────────────────────────────────
@@ -1219,17 +1353,25 @@ namespace XboxGamingBarHelper
                         _clawHwBaselineHealAttempted = true;
                         try
                         {
-                            if (IsHwControllerBaselineClean(out string baselineDiag))
+                            if (IsHwControllerBaselineClean(out string baselineDiag, out bool staleStatePresent))
                             {
-                                Logger.Info($"[MSIClaw] HW controller baseline clean before mount ({baselineDiag}) — no self-heal needed");
+                                Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms baseline clean before mount ({baselineDiag}) — no self-heal needed");
+                            }
+                            else if (!staleStatePresent)
+                            {
+                                // "Not clean" only because the physical Claw hasn't enumerated yet
+                                // (pid1901=0 at cold boot) — nothing stale for a Stop()/unhide to fix.
+                                // Measured: the heal left clean=False anyway and cost 1.5–3.3 s. Skip it;
+                                // the mount below brings the controller up the normal way.
+                                Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms baseline not-yet-ready but nothing stale ({baselineDiag}) — skipping self-heal (saves the off→on cycle)");
                             }
                             else
                             {
-                                Logger.Warn($"[MSIClaw] HW controller baseline NOT clean before mount ({baselineDiag}) — forcing one emulation-off cycle to restore the physical controller");
+                                Logger.Warn($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms baseline STALE ({baselineDiag}) — forcing one emulation-off cycle (+1200ms settle) to restore the physical controller");
                                 StopMSIClawButtonMonitor(); // = emulation-off cleanup (ForceUnhideAll + re-enumerate)
                                 System.Threading.Thread.Sleep(1200); // let HidHide settle + devices re-enumerate
                                 bool cleanNow = IsHwControllerBaselineClean(out string afterDiag);
-                                Logger.Info($"[MSIClaw] HW controller baseline after self-heal: clean={cleanNow} ({afterDiag}) — proceeding to mount (single attempt, no retry loop)");
+                                Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms baseline after self-heal: clean={cleanNow} ({afterDiag})");
                             }
                         }
                         catch (Exception healEx)
@@ -1246,7 +1388,25 @@ namespace XboxGamingBarHelper
                     // Switching to XInput first gives immediate gamepad behaviour.
                     // No settle needed here — ClawButtonMonitor.Start() includes its own
                     // 2.5 s settle after the XInput → DInput transition.
-                    MSIClawHidController.TrySwitchToXInput();
+                    //
+                    // The proactive XInput switch GUARANTEES OpenClawInterfaces() then finds no DInput
+                    // joystick and must SwitchMode(DInput) + wait 2500 ms. It's the HC pattern (immediate
+                    // gamepad feel during the settle, relevant for the ViGEm pad). For the VIIPER path the
+                    // virtual pad produces nothing until the DInput read is live anyway, so the switch buys
+                    // nothing at cold boot and merely forces the 2500 ms settle. Measured: skipping it lets
+                    // the Claw often already be acquirable in DInput → ~3.8 s usable instead of ~6.5 s.
+                    // VIIPER-only; the ViGEm path keeps the HC behaviour untouched.
+                    bool skipXInputSwitch = _viiperBackendActive && mountVigem;
+                    if (skipXInputSwitch)
+                    {
+                        Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms skipping proactive XInput-switch (VIIPER path — avoids forcing the 2500ms DInput settle)");
+                    }
+                    else
+                    {
+                        Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms pre-XInput-switch (TrySwitchToXInput)");
+                        MSIClawHidController.TrySwitchToXInput();
+                        Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms post-XInput-switch");
+                    }
 
                     // ── Step 1: Start ClawButtonMonitor ───────────────────────────
                     // MUST happen before HidHide Enable.
@@ -1259,7 +1419,20 @@ namespace XboxGamingBarHelper
 
                     // External Gamepad Mode: establish the same hidden-DInput state but without
                     // mounting the virtual ViGEm controller (so only an external gamepad is seen).
-                    monitor.SetSuppressVigem(!mountVigem);
+                    //
+                    // Experimental VIIPER backend: instead of the ViGEm pad, mount a VIIPER virtual
+                    // Xbox controller fed from the very same submit point (see ClawButtonMonitor.Viiper.cs).
+                    // Only when a virtual pad is actually wanted (mountVigem); External Gamepad Mode
+                    // wants no virtual pad at all. When VIIPER owns the pad, ViGEm stays suppressed.
+                    bool useViiper = _viiperBackendActive && mountVigem;
+                    monitor.SetSuppressVigem(!mountVigem || useViiper);
+                    monitor.SetViiperEnabled(useViiper);
+                    if (useViiper)
+                    {
+                        ResolveViiperDeviceTarget(out string vType, out ushort vVid, out ushort vPid);
+                        monitor.SetViiperDeviceType(vType, vVid, vPid);
+                        Logger.Info($"MSIClaw: VIIPER backend active → mounting VIIPER virtual pad ({vType}, vid=0x{vVid:X4}, pid=0x{vPid:X4}) instead of ViGEm");
+                    }
 
                     // Apply current gyro settings from profile BEFORE Start().
                     // LegionControllerSetting_PropertyChanged null-guards on clawButtonMonitor,
@@ -1287,15 +1460,16 @@ namespace XboxGamingBarHelper
                         Logger.Info($"MSIClaw: Gyro settings applied before Start() — target={legionManager.LegionGyroTarget.Value}, activationButton={legionManager.LegionGyroActivationButton.Value}, activationMode={legionManager.LegionGyroActivationMode.Value}");
                     }
 
+                    Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms entering monitor.Start() (mounts {(useViiper ? "VIIPER" : mountVigem ? "ViGEm" : "no")} pad + opens Claw DInput interface)");
                     bool ok = monitor.Start();
 
                     if (!ok)
                     {
-                        Logger.Warn("MSIClaw: ClawButtonMonitor Start() failed — ViGEmBus not installed or Claw DInput interface unavailable");
+                        Logger.Warn($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms monitor.Start() FAILED — ViGEmBus/VIIPER unavailable or Claw DInput interface not found");
                         return;
                     }
 
-                    Logger.Info("MSIClaw: ClawButtonMonitor running (DInput path)");
+                    Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms monitor.Start() OK — virtual pad live + DInput acquired (controller now usable)");
 
                     // Boot LED: the ViGEm virtual controller is now mounted → signal "ready" (green,
                     // then settle to the user's saved color). Only when a virtual pad was actually
@@ -1304,6 +1478,7 @@ namespace XboxGamingBarHelper
                     // before (it had been wired to the Claw-suppressed ControllerEmulationManager).
                     if (mountVigem)
                     {
+                        Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms signalling LED controller-ready (saved colour)");
                         Devices.MSIClaw.MsiLedBoot.SignalControllerReady();
                     }
 
@@ -1354,10 +1529,12 @@ namespace XboxGamingBarHelper
                             Logger.Warn($"[MSIClaw] HidHide Enable threw: {ex.Message}");
                         }
                     }
+
+                    Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms BOOT COMPLETE (HidHide enabled, physical DInput hidden)");
                 }
                 catch (Exception ex)
                 {
-                    Logger.Error($"MSIClaw: ClawButtonMonitor startup threw: {ex.Message}");
+                    Logger.Error($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms startup threw: {ex.Message}");
                 }
             });
         }

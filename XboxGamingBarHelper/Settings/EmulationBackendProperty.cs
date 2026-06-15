@@ -20,9 +20,10 @@ namespace XboxGamingBarHelper.Settings
 
         private static bool LoadFromSettings()
         {
-            // VIIPER is not yet released — always use Legacy ViGEm regardless of stored value.
-            // Remove this override and restore the LocalSettings read when VIIPER ships.
-            return false;
+            // Experimental: read the stored backend. Default Legacy (ViGEm) when unset.
+            // The widget exposes this only behind the debug menu.
+            return LocalSettingsHelper.TryGetValue<int>(SettingsKey, out var stored)
+                   && stored == (int)EmulationBackend.Viiper;
         }
 
         private void SaveToSettings()

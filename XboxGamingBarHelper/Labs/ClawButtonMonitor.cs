@@ -148,6 +148,11 @@ namespace XboxGamingBarHelper.Labs
         private Thread _thread;
         private volatile bool _running;
 
+        // True once the M1/M2/SyncToROM firmware block has been sent in the current emulation session.
+        // The mapping is persisted to ROM, so a transient re-open (HidHide cycle-port → InputLost →
+        // re-acquire) doesn't need to resend it. Reset in Start() so a fresh off→on cycle reconfigures.
+        private bool _firmwareConfigSent;
+
         // ViGEm virtual Xbox 360 controller
         private ViGEmController _vigem;
         private bool _ownsVigem;
@@ -669,6 +674,9 @@ namespace XboxGamingBarHelper.Labs
         {
             if (_running) return true;
 
+            // Fresh emulation session → resend the firmware block once on the first OpenClawInterfaces.
+            _firmwareConfigSent = false;
+
             // Normally create ViGEm — ClawButtonMonitor is the primary emulation path for MSI Claw.
             // External Gamepad Mode suppresses the mount: it wants the hidden-DInput state without
             // a virtual controller, so only an external gamepad is seen. All _vigem uses below are
@@ -677,6 +685,15 @@ namespace XboxGamingBarHelper.Labs
             {
                 if (!EnsureViGEm())
                     return false;
+            }
+            else if (_viiperEnabled)
+            {
+                // Experimental VIIPER backend: mount a VIIPER virtual Xbox pad instead of ViGEm,
+                // fed from the same submit point. Fail Start() on mount error so the robust stop
+                // path restores the physical controller (no hidden HW with no replacement).
+                if (!EnsureViiper())
+                    return false;
+                Logger.Info("ClawButtonMonitor: VIIPER virtual Xbox pad mounted (ViGEm suppressed)");
             }
             else
             {
@@ -786,6 +803,9 @@ namespace XboxGamingBarHelper.Labs
             _vigem = null;
             _ownsVigem = false;
 
+            // Tear down the VIIPER virtual device (no-op when the legacy ViGEm path was used).
+            TeardownViiper();
+
             Logger.Info("ClawButtonMonitor: Stopped");
         }
 
@@ -808,10 +828,35 @@ namespace XboxGamingBarHelper.Labs
         /// </summary>
         private bool OpenClawInterfaces()
         {
+            // Boot-timing instrumentation: breaks the fixed open-interface cost into its parts so the
+            // log shows how much is the 1:1-HC M1/M2/SyncToROM block (3×500 ms) vs the conditional
+            // 2500 ms DInput settle, and crucially whether the joystick was ALREADY in DInput (settle
+            // skipped) or had to be switched (settle paid). Offsets are relative to this call's entry.
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             CleanupHandles();
 
             // ── Phase 1: command interface via HidSharp ───────────────────────────
             _cmdDevice = FindCommandDevice();
+            if (_cmdDevice == null && _firmwareConfigSent)
+            {
+                // Transient re-open right after the HidHide cycle-port: the command HID (PID_1902)
+                // briefly disappears while it re-enumerates, so the FIRST FindCommandDevice misses it.
+                // Poll for it here instead of returning false and bouncing back to the MonitorLoop's
+                // coarse 2000 ms RETRY_INTERVAL_MS — the HID normally returns within a few hundred ms,
+                // so this collapses the post-boot "controller briefly drops" window. Only on a re-open
+                // (_firmwareConfigSent): the very first open must fail fast if the Claw is truly absent.
+                const int CmdPollStepMs = 100;
+                const int CmdPollMaxMs  = 2500;
+                int cmdWaited = 0;
+                while (_cmdDevice == null && cmdWaited < CmdPollMaxMs && _running)
+                {
+                    Thread.Sleep(CmdPollStepMs);
+                    cmdWaited += CmdPollStepMs;
+                    _cmdDevice = FindCommandDevice();
+                }
+                if (_cmdDevice != null)
+                    Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms command interface returned after {cmdWaited}ms poll (post-cycle-port re-enumeration)");
+            }
             if (_cmdDevice == null)
             {
                 Logger.Warn("ClawButtonMonitor: MSI Claw command interface not found (searched PID_1901/0xFFA0 and PID_1902/0xFFF0)");
@@ -820,36 +865,89 @@ namespace XboxGamingBarHelper.Labs
             Logger.Info($"ClawButtonMonitor: Found command interface: {_cmdDevice.DevicePath}");
 
             // ── M1/M2 firmware configuration (send before SwitchMode, 1:1 HC order) ──
-            byte[] m1 = _useNewFirmware ? M1_NEW : M1_DEF;
-            byte[] m2 = _useNewFirmware ? M2_NEW : M2_DEF;
-            SendRawCmd(BuildGetM12Cmd(true,  m1));  Thread.Sleep(500);
-            SendRawCmd(BuildGetM12Cmd(false, m2));  Thread.Sleep(500);
-            SendRawCmd(BuildSyncToRomCmd());         Thread.Sleep(500);
+            // Only on the FIRST open of an emulation session. SyncToROM persists the mapping, so a
+            // transient re-open (HidHide cycle-port → InputLost → re-acquire) doesn't need to resend
+            // it — that just wasted ~1.5 s and widened the dead window mid-boot. firstOpen also selects
+            // the joystick-acquire strategy below (real mode switch vs. brief re-enumeration poll).
+            bool firstOpen = !_firmwareConfigSent;
+            if (firstOpen)
+            {
+                byte[] m1 = _useNewFirmware ? M1_NEW : M1_DEF;
+                byte[] m2 = _useNewFirmware ? M2_NEW : M2_DEF;
+                SendRawCmd(BuildGetM12Cmd(true,  m1));  Thread.Sleep(500);
+                SendRawCmd(BuildGetM12Cmd(false, m2));  Thread.Sleep(500);
+                SendRawCmd(BuildSyncToRomCmd());         Thread.Sleep(500);
+                _firmwareConfigSent = true;
+                Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms M1/M2/SyncToROM done (fixed 1500ms HC block, first open)");
+            }
+            else
+            {
+                Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms M1/M2/SyncToROM SKIPPED (already in ROM — transient re-open)");
+            }
 
             // ── Phase 2: acquire DInput joystick via SharpDX.DirectInput ─────────
             // 1:1 from HC DInputController.AttachDetails(): iterate GetDevices(Gamepad),
             // match by VID/PID in the interface path, then Acquire().
             if (!FindAndAcquireJoystick())
             {
-                // 0x1902 not yet enumerated — controller is not in DInput mode.
-                Logger.Info("ClawButtonMonitor: DInput joystick not found; sending SwitchMode(DInput), waiting...");
-                SendSwitchMode(MODE_DINPUT);
-                Thread.Sleep(2500);
-
-                if (!FindAndAcquireJoystick())
+                if (firstOpen)
                 {
-                    Logger.Warn("ClawButtonMonitor: DInput joystick (PID 0x1902) not found after mode switch");
-                    CleanupHandles();
-                    return false;
+                    // First open and 0x1902 not enumerated → the controller is genuinely not in DInput
+                    // mode. Do the real mode switch + settle (the original, big boot cost).
+                    Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick NOT present → SwitchMode(DInput) + 2500ms settle (this is the big boot cost)");
+                    SendSwitchMode(MODE_DINPUT);
+                    Thread.Sleep(2500);
+
+                    if (!FindAndAcquireJoystick())
+                    {
+                        Logger.Warn($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick (PID 0x1902) STILL not found after switch+settle");
+                        CleanupHandles();
+                        return false;
+                    }
+                    Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick acquired after mode switch");
                 }
-                Logger.Info("ClawButtonMonitor: DInput joystick acquired after mode switch");
+                else
+                {
+                    // Transient re-open: the device is ALREADY in DInput mode (the cycle-port just
+                    // re-enumerated PID_1902), so a 2500 ms SwitchMode is wrong here. Poll briefly for
+                    // the device to come back — it normally reappears within a few hundred ms. Only if
+                    // it really doesn't return do we fall back to the full switch as a safety net.
+                    const int ReopenPollStepMs = 100;
+                    const int ReopenPollMaxMs  = 2000;
+                    bool reacquired = false;
+                    int waited = 0;
+                    while (waited < ReopenPollMaxMs && _running)
+                    {
+                        Thread.Sleep(ReopenPollStepMs);
+                        waited += ReopenPollStepMs;
+                        if (FindAndAcquireJoystick()) { reacquired = true; break; }
+                    }
+
+                    if (reacquired)
+                    {
+                        Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick re-acquired after {waited}ms re-enumeration poll (no mode switch, no firmware resend)");
+                    }
+                    else
+                    {
+                        Logger.Warn($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick did not return within {ReopenPollMaxMs}ms on re-open → falling back to SwitchMode(DInput) + 2500ms settle");
+                        SendSwitchMode(MODE_DINPUT);
+                        Thread.Sleep(2500);
+                        if (!FindAndAcquireJoystick())
+                        {
+                            Logger.Warn($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick (PID 0x1902) STILL not found after fallback switch+settle");
+                            CleanupHandles();
+                            return false;
+                        }
+                        Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick acquired after fallback mode switch");
+                    }
+                }
             }
             else
             {
-                Logger.Info("ClawButtonMonitor: DInput joystick already available; acquired");
+                Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick ALREADY available → settle SKIPPED");
             }
 
-            Logger.Info("ClawButtonMonitor: interfaces ready");
+            Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms interfaces ready");
             return true;
         }
 
@@ -1296,6 +1394,9 @@ namespace XboxGamingBarHelper.Labs
                 // sticks and triggers so games don't receive phantom gamepad input.
                 if (_vigem != null && _vigem.IsPluggedIn)
                     _vigem.SubmitXboxState(xiBtnsOut, 0, 0, 0, 0, 0, 0);
+                // Experimental VIIPER backend: same assembled state, same zeroing.
+                if (_viiperEnabled)
+                    SubmitViiperState(xiBtnsOut, 0, 0, 0, 0, 0, 0);
             }
             else
             {
@@ -1305,6 +1406,9 @@ namespace XboxGamingBarHelper.Labs
                 // Normal controller mode — forward everything to ViGEm
                 if (_vigem != null && _vigem.IsPluggedIn)
                     _vigem.SubmitXboxState(xiBtnsOut, ltrigOut, rtrigOut, leftXOut, leftYOut, rightXOut, rightYOut);
+                // Experimental VIIPER backend: same assembled state goes to the VIIPER device.
+                if (_viiperEnabled)
+                    SubmitViiperState(xiBtnsOut, ltrigOut, rtrigOut, leftXOut, leftYOut, rightXOut, rightYOut);
             }
 
             // Service the Xbox Guide momentary tap AFTER SubmitXboxState (which doesn't touch
