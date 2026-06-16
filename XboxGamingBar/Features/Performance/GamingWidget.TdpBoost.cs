@@ -46,6 +46,13 @@ namespace XboxGamingBar
         private void TDPBoostToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (TDPBoostToggle == null) return;
+
+            // Show the PL2-Boost slider only while Overboost is ON; collapse it (compact card) when
+            // off. Done before the early-returns below so it also tracks programmatic toggles from
+            // profile/helper sync (those skip the save/send logic but the visibility must still follow).
+            if (TDPBoostSliderArea != null)
+                TDPBoostSliderArea.Visibility = TDPBoostToggle.IsOn ? Visibility.Visible : Visibility.Collapsed;
+
             if (isApplyingHelperUpdate) return;
             // Skip during mode changes - don't save forced-off state
             if (isUpdatingTDPMode) return;

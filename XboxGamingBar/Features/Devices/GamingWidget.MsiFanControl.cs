@@ -520,18 +520,27 @@ namespace XboxGamingBar
             }
         }
 
-        /// <summary>Maps the current 11-point graph curve to the 8-byte EC table (same mapping as the helper).</summary>
+        // Must match MsiClawFanController.FanTableScale: the 0–100 % UI curve maps onto the full
+        // MSI EC range 0–150, so each EC byte = percent × 1.5. Keep these in sync.
+        private const double MsiFanTableScale = 150.0;
+
+        /// <summary>Maps the current 11-point graph curve to the 8-byte EC table — byte-for-byte the
+        /// same mapping the helper uses when writing (MsiClawFanController.CurveToTable): scale by
+        /// 150/100 and TRUNCATE via the (byte) cast (NOT Math.Round). Rounding mismatched the top
+        /// samples (e.g. 97 % → 145.5: truncates to 145 in the EC, rounding gave 146) and made the
+        /// "Check applied values" report a false mismatch after the fan curve was scaled to 0–150.</summary>
         private byte[] MsiExpectedTable()
         {
+            double scale = MsiFanTableScale / 100.0d;
             byte[] t = new byte[8];
-            t[0] = (byte)Math.Round(_msiFanCurve[4]);
-            t[1] = (byte)Math.Round(_msiFanCurve[0]);
-            t[2] = (byte)Math.Round(_msiFanCurve[2]);
-            t[3] = (byte)Math.Round(_msiFanCurve[5]);
-            t[4] = (byte)Math.Round(_msiFanCurve[6]);
-            t[5] = (byte)Math.Round(_msiFanCurve[8]);
-            t[6] = (byte)Math.Round(_msiFanCurve[9]);
-            t[7] = (byte)Math.Round(_msiFanCurve[10]);
+            t[0] = (byte)(_msiFanCurve[4]  * scale);
+            t[1] = (byte)(_msiFanCurve[0]  * scale);
+            t[2] = (byte)(_msiFanCurve[2]  * scale);
+            t[3] = (byte)(_msiFanCurve[5]  * scale);
+            t[4] = (byte)(_msiFanCurve[6]  * scale);
+            t[5] = (byte)(_msiFanCurve[8]  * scale);
+            t[6] = (byte)(_msiFanCurve[9]  * scale);
+            t[7] = (byte)(_msiFanCurve[10] * scale);
             return t;
         }
 

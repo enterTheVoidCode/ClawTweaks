@@ -63,35 +63,23 @@ namespace XboxGamingBar
             {
                 bool backendOn = emulationBackend.Value;
 
-                // Determine whether the Controller Emulation card is currently expanded.
-                // ControllerEmulationContent's visibility is driven by ControllerEmulationExpandButton_Click;
-                // we preserve that visibility state and only swap which body shows.
-                bool cardExpanded = ControllerEmulationContent != null
-                    && ControllerEmulationContent.Visibility == Visibility.Visible;
+                // The Controller Emulation card body (gyro / remaps / mouse mode) is backend-INDEPENDENT
+                // on the Claw — those settings are processed in ClawButtonMonitor before the submit point,
+                // so they apply equally to ViGEm and VIIPER. It therefore follows ONLY the card's expand
+                // state in both backends (it is no longer swapped out for the VIIPER body). The VIIPER body
+                // (forwarder-only, GoTweaks/Legion path) is never shown on the Claw; the VIIPER device
+                // picker now lives in the Controller Status card (ViiperDeviceConfigPanel).
+                if (ViiperEmulationContent != null) ViiperEmulationContent.Visibility = Visibility.Collapsed;
+                if (ControllerEmulationContent != null)
+                {
+                    ControllerEmulationContent.Visibility = LastCardExpandedBeforeHide
+                        ? Visibility.Visible
+                        : Visibility.Collapsed;
+                }
 
-                if (backendOn)
-                {
-                    // VIIPER backend owns the card body.
-                    if (ControllerEmulationContent != null) ControllerEmulationContent.Visibility = Visibility.Collapsed;
-                    if (ViiperEmulationContent != null)
-                    {
-                        // Mirror the expand state. If the card was collapsed, keep VIIPER panel collapsed too.
-                        ViiperEmulationContent.Visibility = cardExpanded || LastCardExpandedBeforeHide
-                            ? Visibility.Visible
-                            : Visibility.Collapsed;
-                    }
-                }
-                else
-                {
-                    // Legacy backend owns the card body.
-                    if (ViiperEmulationContent != null) ViiperEmulationContent.Visibility = Visibility.Collapsed;
-                    if (ControllerEmulationContent != null)
-                    {
-                        ControllerEmulationContent.Visibility = cardExpanded || LastCardExpandedBeforeHide
-                            ? Visibility.Visible
-                            : Visibility.Collapsed;
-                    }
-                }
+                // VIIPER device picker: visible only while the VIIPER backend is active.
+                if (ViiperDeviceConfigPanel != null)
+                    ViiperDeviceConfigPanel.Visibility = backendOn ? Visibility.Visible : Visibility.Collapsed;
 
                 if (ViiperSteamSubDevicePanel != null && viiperDeviceType != null)
                 {

@@ -137,7 +137,13 @@ namespace XboxGamingBarHelper
             intelGpuManager.IntelDisplayContrast.SetValue(p.IntelDisplayContrast ?? 50);
             intelGpuManager.IntelDisplayBrightness.SetValue(p.IntelDisplayBrightness ?? 50);
             intelGpuManager.IntelDisplayGamma.SetValue(p.IntelDisplayGamma ?? 100);
-            intelGpuManager.IntelAdaptiveSharpness.SetValue(p.IntelAdaptiveSharpness ?? 0);
+            // Sharpness is a single-property group (no sibling to trigger a group re-apply), so the
+            // SetValue dedup can skip ApplyAdaptiveSharpness when the cached value already equals the
+            // target while the GPU still holds the per-game value → it wouldn't reset on game end.
+            // Force it so the GPU is always synced to the active profile (same rationale as the AMD
+            // sharpening sliders' ForceSetValue). The grouped colour properties above stay on SetValue:
+            // a group re-apply already heals their cache/GPU divergence.
+            intelGpuManager.IntelAdaptiveSharpness.ForceSetValue(p.IntelAdaptiveSharpness ?? 0);
         }
 
         private static void AutoTDPSetting_PropertyChanged(object sender, PropertyChangedEventArgs e)

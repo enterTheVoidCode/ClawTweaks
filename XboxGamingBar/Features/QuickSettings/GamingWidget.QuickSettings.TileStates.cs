@@ -864,6 +864,16 @@ namespace XboxGamingBar
                     boostTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
                 }
 
+                // LED lighting tile — on when RGB brightness > 0.
+                if (qsTileMap.TryGetValue("LedToggle", out var ledTile) && ledTile.TileButton != null)
+                {
+                    int brightness = legionLightBrightness?.Value ?? (int)(LegionBrightnessSlider?.Value ?? 0);
+                    bool on = brightness > 0;
+                    ledTile.StateText.Text = on ? "On" : "Off";
+                    ledTile.StateText.Foreground = on ? accentForeground : offForeground;
+                    ledTile.TileButton.Background = on ? tileOnBrush : tileOffBrush;
+                }
+
                 // DISABLED: FPS Limiter tile removed from the grid (see QuickSettings.cs). State block
                 // kept commented so it can be restored if the tile is ever re-enabled.
                 /*

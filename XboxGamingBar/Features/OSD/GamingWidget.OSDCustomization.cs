@@ -1117,21 +1117,19 @@ namespace XboxGamingBar
             isControllerEmulationExpanded = !isControllerEmulationExpanded;
             LastCardExpandedBeforeHide = isControllerEmulationExpanded;
 
-            // Show whichever backend's body the user has selected (legacy vs VIIPER).
-            bool viiperActive = emulationBackend != null && emulationBackend.Value;
-
+            // The card body (gyro / remaps / mouse mode) is backend-independent on the Claw, so it
+            // shows on expand for BOTH ViGEm and VIIPER. The VIIPER body is never shown (its only live
+            // control, the device picker, was moved to the Controller Status card).
             if (ControllerEmulationContent != null)
             {
-                ControllerEmulationContent.Visibility = (isControllerEmulationExpanded && !viiperActive)
+                ControllerEmulationContent.Visibility = isControllerEmulationExpanded
                     ? Visibility.Visible
                     : Visibility.Collapsed;
             }
 
             if (ViiperEmulationContent != null)
             {
-                ViiperEmulationContent.Visibility = (isControllerEmulationExpanded && viiperActive)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                ViiperEmulationContent.Visibility = Visibility.Collapsed;
             }
 
             if (ControllerEmulationExpandIcon != null)

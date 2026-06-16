@@ -36,9 +36,18 @@ namespace XboxGamingBar
             }
         }
 
+        // The Boost on/off ToggleSwitch (CPUBoostToggle) is now HIDDEN; the visible control is the
+        // Boost Mode dropdown (with an "Off" entry). The two are kept in sync here so the hidden
+        // toggle still carries the on/off state for the Quick-Settings boost tile and the performance
+        // profile cards. Invariant: cpuBoost (toggle on) == (CpuBoostMode > 0).
+        private int lastBoostMode = 1;        // last non-off mode, to restore when the tile flips boost back on
+        private bool _syncingBoostUi;          // re-entrancy guard for the dropdown <-> toggle cross-sync
+
         /// <summary>
-        /// When the CPU Boost toggle flips, drive the explicit boost mode so the dropdown
-        /// selection wins over the legacy on/off write: ON => send selected mode, OFF => send 0.
+        /// The hidden Boost toggle flipped (Quick-Settings tile, or CPUState forcing it off when the
+        /// Max CPU State drops below 100 %). Reflect on/off into the visible Boost Mode dropdown so the
+        /// UI and the pushed CpuBoostMode follow. Skips helper-driven flips (the dropdown is synced from
+        /// its own property then) and our own dropdown→toggle sync (guarded).
         /// </summary>
         private void CpuBoostToggle_AdvancedToggled(object sender, RoutedEventArgs e)
         {
@@ -46,20 +55,15 @@ namespace XboxGamingBar
             {
                 UpdateCpuBoostModeEnabled();
 
-                // Don't echo a mode write while we're applying a helper-driven update
-                // (e.g. profile sync flipping the toggle programmatically).
-                if (isApplyingHelperUpdate) return;
-                if (cpuBoostMode == null) return;
+                if (_syncingBoostUi) return;          // came from the dropdown; it's already authoritative
+                if (isApplyingHelperUpdate) return;   // helper/profile drives both controls directly
+                if (CPUBoostToggle == null) return;
 
-                if (CPUBoostToggle != null && CPUBoostToggle.IsOn)
-                {
-                    int mode = GetSelectedTagInt(CpuBoostModeComboBox, 1);
-                    cpuBoostMode.SetValue(mode);
-                }
-                else
-                {
-                    cpuBoostMode.SetValue(0);
-                }
+                int mode = CPUBoostToggle.IsOn ? (lastBoostMode > 0 ? lastBoostMode : 1) : 0;
+                _syncingBoostUi = true;
+                try { SelectComboByTag(CpuBoostModeComboBox, mode); }
+                finally { _syncingBoostUi = false; }
+                cpuBoostMode?.SetValue(mode);
             }
             catch (Exception ex)
             {
@@ -67,13 +71,48 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// The visible Boost Mode dropdown changed by genuine user action. Keep the hidden on/off
+        /// carrier (CPUBoostToggle → cpuBoost → tile + profiles) in sync: "Off" (0) = boost off, any
+        /// 1-6 mode = boost on. The mode value itself is pushed to the helper by the CpuIntComboProperty
+        /// bound to this combo. Helper/profile-driven changes are skipped (isApplyingHelperUpdate).
+        /// </summary>
+        private void CpuBoostModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            try
+            {
+                int mode = GetSelectedTagInt(CpuBoostModeComboBox, 1);
+                if (mode > 0) lastBoostMode = mode;   // remember across any source (incl. helper sync)
+
+                if (_syncingBoostUi) return;
+                if (isApplyingHelperUpdate) return;
+
+                bool shouldBeOn = mode > 0;
+                if (CPUBoostToggle != null && CPUBoostToggle.IsOn != shouldBeOn)
+                {
+                    _syncingBoostUi = true;
+                    try { CPUBoostToggle.IsOn = shouldBeOn; }  // drives cpuBoost (tile/profile state)
+                    finally { _syncingBoostUi = false; }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"CpuBoostModeComboBox_SelectionChanged: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// The Boost Mode dropdown is the single boost control now (it includes "Off"), so it is enabled
+        /// whenever boost is AVAILABLE (Max CPU State ≥ 100 %), not only when boost is on. Windows can't
+        /// boost above a sub-100 % max state, so we grey it out then — mirroring UpdateCPUBoostEnabledState.
+        /// </summary>
         private void UpdateCpuBoostModeEnabled()
         {
-            bool on = CPUBoostToggle != null && CPUBoostToggle.IsOn && CPUBoostToggle.IsEnabled;
+            bool canBoost = MaxCPUStateComboBox == null || GetSelectedCPUStateValue(MaxCPUStateComboBox) >= 100;
             if (CpuBoostModeComboBox != null)
             {
-                CpuBoostModeComboBox.IsEnabled = on;
-                CpuBoostModeComboBox.Opacity = on ? 1.0 : 0.5;
+                CpuBoostModeComboBox.IsEnabled = canBoost;
+                CpuBoostModeComboBox.Opacity = canBoost ? 1.0 : 0.5;
             }
         }
 
@@ -120,36 +159,25 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Restores the CPU advanced combo selections from a profile and pushes them to the
-        /// helper. When the switch was helper-driven (isApplyingHelperUpdate) we only sync the
-        /// UI and let the helper's own BatchSync carry the values, mirroring the CPU Boost path.
+        /// Syncs the CPU advanced combo selections (Boost Mode, Scheduling Policy, P/E max freq)
+        /// from a profile — UI ONLY. The HELPER owns CPU advanced state: it applies the active
+        /// profile's values on every switch (Program.ProfileHandlers Apply... paths) AND re-enforces
+        /// them every 3 s against Windows scheme resets, then pushes the live values back via the
+        /// property BatchSync (on open) / per-property push (in-session switch). The widget must NOT
+        /// push its own (possibly stale / default-0) stored values here, or it overrides the user's
+        /// last P/E freq + boost mode on every Game Bar reopen — the cap "flew out" to unlimited
+        /// because this path pushed MaxPCoreFreqMHz=0 over the helper's enforced value. Same fix as
+        /// the Intel Display path above. UI follows the helper.
         /// </summary>
         private void ApplyCpuAdvancedFromProfile(PerformanceProfile profile)
         {
             try
             {
-                if (isApplyingHelperUpdate)
-                {
-                    // boost mode 0 = off; keep the combo on a valid 1-6 entry for when it re-enables
-                    if (profile.CpuBoostMode > 0) SelectComboByTag(CpuBoostModeComboBox, profile.CpuBoostMode);
-                    if (profile.ProcessorSchedulingPolicy >= 0) SelectComboByTag(SchedulingPolicyComboBox, profile.ProcessorSchedulingPolicy);
-                    SelectComboByTag(MaxPCoreFreqComboBox, profile.MaxPCoreFreqMHz);
-                    SelectComboByTag(MaxECoreFreqComboBox, profile.MaxECoreFreqMHz);
-                }
-                else
-                {
-                    if (profile.CpuBoostMode > 0) SelectComboByTag(CpuBoostModeComboBox, profile.CpuBoostMode);
-                    cpuBoostMode?.SetValue(profile.CpuBoostMode);
-                    if (profile.ProcessorSchedulingPolicy >= 0)
-                    {
-                        SelectComboByTag(SchedulingPolicyComboBox, profile.ProcessorSchedulingPolicy);
-                        schedulingPolicy?.SetValue(profile.ProcessorSchedulingPolicy);
-                    }
-                    SelectComboByTag(MaxPCoreFreqComboBox, profile.MaxPCoreFreqMHz);
-                    maxPCoreFreq?.SetValue(profile.MaxPCoreFreqMHz);
-                    SelectComboByTag(MaxECoreFreqComboBox, profile.MaxECoreFreqMHz);
-                    maxECoreFreq?.SetValue(profile.MaxECoreFreqMHz);
-                }
+                // boost mode 0 = off; keep the combo on a valid 1-6 entry for when it re-enables
+                if (profile.CpuBoostMode > 0) SelectComboByTag(CpuBoostModeComboBox, profile.CpuBoostMode);
+                if (profile.ProcessorSchedulingPolicy >= 0) SelectComboByTag(SchedulingPolicyComboBox, profile.ProcessorSchedulingPolicy);
+                SelectComboByTag(MaxPCoreFreqComboBox, profile.MaxPCoreFreqMHz);
+                SelectComboByTag(MaxECoreFreqComboBox, profile.MaxECoreFreqMHz);
                 UpdateCpuBoostModeEnabled();
             }
             catch (Exception ex)
@@ -223,17 +251,18 @@ namespace XboxGamingBar
                 case VirtualKey.GamepadDPadUp:
                 case VirtualKey.GamepadLeftThumbstickUp:
                 case VirtualKey.Up:
-                    // Move to the previous combo; from the first one, go back up to the expander.
+                    // Move to the previous combo; from the first one, leave the section upward to the
+                    // OS Power Mode combo above (the "More settings" expander was removed).
                     if (!MoveCpuComboFocus(combo, -1))
                     {
-                        try { CpuSectionExpandButton?.Focus(FocusState.Keyboard); } catch { }
+                        try { OSPowerModeComboBox?.Focus(FocusState.Keyboard); } catch { }
                     }
                     e.Handled = true;
                     break;
                 case VirtualKey.GamepadB:
                 case VirtualKey.GamepadDPadLeft:
                 case VirtualKey.Left:
-                    try { CpuSectionExpandButton?.Focus(FocusState.Keyboard); e.Handled = true; } catch { }
+                    try { OSPowerModeComboBox?.Focus(FocusState.Keyboard); e.Handled = true; } catch { }
                     break;
             }
         }
