@@ -1390,23 +1390,18 @@ namespace XboxGamingBarHelper
                     // 2.5 s settle after the XInput → DInput transition.
                     //
                     // The proactive XInput switch GUARANTEES OpenClawInterfaces() then finds no DInput
-                    // joystick and must SwitchMode(DInput) + wait 2500 ms. It's the HC pattern (immediate
-                    // gamepad feel during the settle, relevant for the ViGEm pad). For the VIIPER path the
-                    // virtual pad produces nothing until the DInput read is live anyway, so the switch buys
-                    // nothing at cold boot and merely forces the 2500 ms settle. Measured: skipping it lets
-                    // the Claw often already be acquirable in DInput → ~3.8 s usable instead of ~6.5 s.
-                    // VIIPER-only; the ViGEm path keeps the HC behaviour untouched.
-                    bool skipXInputSwitch = _viiperBackendActive && mountVigem;
-                    if (skipXInputSwitch)
-                    {
-                        Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms skipping proactive XInput-switch (VIIPER path — avoids forcing the 2500ms DInput settle)");
-                    }
-                    else
-                    {
-                        Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms pre-XInput-switch (TrySwitchToXInput)");
-                        MSIClawHidController.TrySwitchToXInput();
-                        Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms post-XInput-switch");
-                    }
+                    // joystick and must SwitchMode(DInput) + wait 2500 ms. That XInput→DInput transition is
+                    // REQUIRED, not just cosmetic: the MSI Claw firmware only ARMS its rumble engine on a
+                    // real mode transition. An earlier VIIPER-only optimisation skipped this switch (the
+                    // Claw is often already in DInput after a warm reboot, so it saved the ~2.5 s settle and
+                    // booted ~3.8 s instead of ~6.5 s) — but that left vibration DEAD until a manual
+                    // emulation re-toggle, because no transition ever happened. ViGEm always did the switch,
+                    // which is exactly why rumble always worked there. So we do it unconditionally now for
+                    // VIIPER too: rumble correctness outweighs the ~2.5 s boot cost. (HC pattern; also gives
+                    // immediate gamepad feel during the settle.)
+                    Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms pre-XInput-switch (TrySwitchToXInput — required to arm firmware rumble)");
+                    MSIClawHidController.TrySwitchToXInput();
+                    Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms post-XInput-switch");
 
                     // ── Step 1: Start ClawButtonMonitor ───────────────────────────
                     // MUST happen before HidHide Enable.

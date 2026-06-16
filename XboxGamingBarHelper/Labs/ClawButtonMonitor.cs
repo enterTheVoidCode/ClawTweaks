@@ -677,6 +677,11 @@ namespace XboxGamingBarHelper.Labs
             // Fresh emulation session → resend the firmware block once on the first OpenClawInterfaces.
             _firmwareConfigSent = false;
 
+            // Drop any cached rumble interface so it re-resolves for this session. After a reboot the
+            // HidHide cycle-port re-enumeration shuffles HID enumeration order, and the resolver must
+            // re-pick the DInput controller (PID 0x1902) rather than a stale/wrong cached handle.
+            _rumbleDevice = null;
+
             // Normally create ViGEm — ClawButtonMonitor is the primary emulation path for MSI Claw.
             // External Gamepad Mode suppresses the mount: it wants the hidden-DInput state without
             // a virtual controller, so only an external gamepad is seen. All _vigem uses below are
@@ -892,9 +897,12 @@ namespace XboxGamingBarHelper.Labs
             {
                 if (firstOpen)
                 {
-                    // First open and 0x1902 not enumerated → the controller is genuinely not in DInput
-                    // mode. Do the real mode switch + settle (the original, big boot cost).
-                    Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick NOT present → SwitchMode(DInput) + 2500ms settle (this is the big boot cost)");
+                    // First open and 0x1902 not enumerated → the controller is in XInput (the boot path's
+                    // proactive TrySwitchToXInput put it there). Do the real SwitchMode(DInput) + settle.
+                    // This XInput→DInput transition is ALSO what arms the firmware rumble engine — a
+                    // SwitchMode(DInput) sent while already in DInput is a no-op and leaves rumble dead,
+                    // which is why the Claw must be in XInput before this point (boot path guarantees it).
+                    Logger.Info($"ClawButtonMonitor: [open] +{sw.ElapsedMilliseconds}ms DInput joystick NOT present → SwitchMode(DInput) + 2500ms settle (real XInput→DInput transition, arms rumble)");
                     SendSwitchMode(MODE_DINPUT);
                     Thread.Sleep(2500);
 
@@ -1904,11 +1912,19 @@ namespace XboxGamingBarHelper.Labs
         /// Finds the MSI Claw GAMEPAD HID interface (Generic Desktop usage page 0x01,
         /// usage 0x04 Joystick or 0x05 Game Pad) — the interface that accepts the 0x05
         /// rumble report (mirrors HC's controller HID, not the vendor/LED interface).
+        ///
+        /// Critically, it PREFERS the DInput controller (PID 0x1902) — the same device the monitor
+        /// reads input from in this mode and the one whose firmware actually actuates the 0x05 rumble.
+        /// The XInput interface (PID 0x1901) also exposes a Generic-Desktop Game Pad usage, so a naive
+        /// "first match" would non-deterministically pick it after a reboot (HidHide's cycle-port
+        /// re-enumeration shuffles the device order) — the write then "succeeds" but the Claw never
+        /// buzzes. Two-pass: PID 0x1902 first, any Claw gamepad as fallback.
         /// </summary>
         private static HidDevice FindGamepadHidDevice()
         {
             try
             {
+                HidDevice fallback = null;
                 foreach (var d in DeviceList.Local.GetHidDevices())
                 {
                     if (d.VendorID != CLAW_VID) continue;
@@ -1916,17 +1932,29 @@ namespace XboxGamingBarHelper.Labs
                     {
                         var desc = d.GetReportDescriptor();
                         if (desc == null) continue;
+                        bool isGamepad = false;
                         foreach (var item in desc.DeviceItems)
                             foreach (uint enc in item.Usages.GetAllValues())
                             {
                                 int page  = (int)((enc >> 16) & 0xFFFF);
                                 int usage = (int)(enc & 0xFFFF);
-                                if (page == 0x01 && (usage == 0x04 || usage == 0x05))
-                                    return d;
+                                if (page == 0x01 && (usage == 0x04 || usage == 0x05)) { isGamepad = true; break; }
                             }
+                        if (!isGamepad) continue;
+
+                        if (d.ProductID == CLAW_PID_DINPUT)
+                        {
+                            Logger.Info($"ClawButtonMonitor: rumble interface = DInput PID 0x{CLAW_PID_DINPUT:X4} ({d.DevicePath})");
+                            return d; // the active DInput controller — actuates rumble
+                        }
+                        if (fallback == null) fallback = d; // e.g. XInput PID 0x1901 — only if no DInput found
                     }
                     catch { /* restricted interface — skip */ }
                 }
+
+                if (fallback != null)
+                    Logger.Warn($"ClawButtonMonitor: rumble interface = fallback PID 0x{fallback.ProductID:X4} (DInput PID 0x{CLAW_PID_DINPUT:X4} not found — rumble may not actuate) ({fallback.DevicePath})");
+                return fallback;
             }
             catch (Exception ex)
             {

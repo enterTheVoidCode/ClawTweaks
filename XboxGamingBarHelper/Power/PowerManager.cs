@@ -268,17 +268,17 @@ namespace XboxGamingBarHelper.Power
         /// </summary>
         public static void SetSchedulingPolicy(int mode)
         {
-            if (mode < 0) return; // unset
+            if (!TryMapSchedulingMode(mode, out uint policy, out uint threadPolicy, out uint shortThreadPolicy))
+                return; // unset
 
-            uint policy, threadPolicy, shortThreadPolicy;
             string name;
             switch (mode)
             {
-                case 1: policy = 1; threadPolicy = 2; shortThreadPolicy = 2; name = "Prefer P-Core"; break;
-                case 2: policy = 1; threadPolicy = 4; shortThreadPolicy = 4; name = "Prefer E-Core"; break;
-                case 3: policy = 3; threadPolicy = 1; shortThreadPolicy = 1; name = "Only P-Core"; break;
-                case 4: policy = 2; threadPolicy = 3; shortThreadPolicy = 3; name = "Only E-Core"; break;
-                default: policy = 0; threadPolicy = 5; shortThreadPolicy = 5; name = "Auto"; break;
+                case 1: name = "Prefer P-Core"; break;
+                case 2: name = "Prefer E-Core"; break;
+                case 3: name = "Only P-Core"; break;
+                case 4: name = "Only E-Core"; break;
+                default: name = "Auto"; break;
             }
 
             var scheme = GetActiveScheme();
@@ -293,11 +293,36 @@ namespace XboxGamingBarHelper.Power
         }
 
         /// <summary>
-        /// Periodically re-applies the user's P/E max-frequency caps and scheduling policy. Windows
-        /// resets these power-scheme values on power/scheme events (notably when the Game Bar widget
-        /// closes and reopens), which is why the caps and the Only-P/Only-E policy "flew out" shortly
-        /// after being set. 1:1 with ToothNClaw's 3s enforce timer. Each value is only re-written when
-        /// the live scheme actually drifted from the desired value, so there's no needless churn.
+        /// Maps a scheduling-policy mode (0-4) to its (heterogeneous, long-thread, short-thread) policy
+        /// trio. Single source of truth shared by <see cref="SetSchedulingPolicy"/> and the enforce
+        /// timer. Returns false for an unset mode (&lt; 0).
+        /// </summary>
+        private static bool TryMapSchedulingMode(int mode, out uint policy, out uint threadPolicy, out uint shortThreadPolicy)
+        {
+            switch (mode)
+            {
+                case 1: policy = 1; threadPolicy = 2; shortThreadPolicy = 2; return true; // Prefer P-Core
+                case 2: policy = 1; threadPolicy = 4; shortThreadPolicy = 4; return true; // Prefer E-Core
+                case 3: policy = 3; threadPolicy = 1; shortThreadPolicy = 1; return true; // Only P-Core
+                case 4: policy = 2; threadPolicy = 3; shortThreadPolicy = 3; return true; // Only E-Core
+                case 0: policy = 0; threadPolicy = 5; shortThreadPolicy = 5; return true; // Auto
+                default: policy = 0; threadPolicy = 5; shortThreadPolicy = 5; return false; // unset (< 0)
+            }
+        }
+
+        /// <summary>
+        /// Light periodic safety net that re-applies the user's P/E max-frequency caps and scheduling
+        /// policy ONLY when the stored scheme value has actually drifted from the desired value. Each tick
+        /// just reads the scheme (cheap) and writes + a single PowerSetActiveScheme only on a real
+        /// mismatch, so in steady state it costs a handful of powrprof reads and nothing else.
+        ///
+        /// History: the "freq cap resets when the Game Bar opens" symptom was NOT Windows resetting the
+        /// scheme — diagnostics proved the stored index stays correct for minutes (storedBefore/After
+        /// always matched). The real cause was the WIDGET pushing 0 to the helper on open, fixed
+        /// widget-side (ApplyCpuAdvancedFromProfile no longer drives the combos). So the earlier
+        /// UNCONDITIONAL every-3s re-write + PowerSetActiveScheme was pure overhead (measurable extra CPU)
+        /// and is gone; this conditional check stays only as cheap insurance for genuine power events
+        /// (sleep/resume, AC/DC switch) that could legitimately reset the scheme.
         /// </summary>
         private void EnforceCpuAdvanced()
         {
@@ -305,27 +330,40 @@ namespace XboxGamingBarHelper.Power
             try
             {
                 int pf = maxPCoreFreq?.Value ?? 0;
-                if (pf > 0 && GetCpuFreqLimit(true, isSecondary: true) != (uint)pf)
-                {
-                    Logger.Info($"[CpuEnforce] P-Core max freq drifted — re-applying {pf}MHz");
-                    SetCpuFreqLimit(false, (uint)pf, isSecondary: true);
-                    SetCpuFreqLimit(true,  (uint)pf, isSecondary: true);
-                }
-
                 int ef = maxECoreFreq?.Value ?? 0;
-                if (ef > 0 && GetCpuFreqLimit(true, isSecondary: false) != (uint)ef)
+                int sp = schedulingPolicy?.Value ?? -1;
+                if (pf <= 0 && ef <= 0 && sp < 1) return; // nothing capped → nothing to enforce
+
+                var scheme = GetActiveScheme();
+                var subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+                var pSetting = PowerGuids.GUID_PROCESSOR_FREQUENCY_LIMIT1; // P-core (Efficiency Class 1)
+                var eSetting = PowerGuids.GUID_PROCESSOR_FREQUENCY_LIMIT;  // E-core / all-core
+                bool wrote = false;
+
+                if (pf > 0 && DriftedAcDc(ref scheme, ref subgroup, ref pSetting, (uint)pf))
                 {
-                    Logger.Info($"[CpuEnforce] E-Core max freq drifted — re-applying {ef}MHz");
-                    SetCpuFreqLimit(false, (uint)ef, isSecondary: false);
-                    SetCpuFreqLimit(true,  (uint)ef, isSecondary: false);
+                    WriteAcDc(ref scheme, ref subgroup, pSetting, (uint)pf);
+                    Logger.Debug($"[CpuEnforce] P-core freq drifted → re-applied {pf}MHz");
+                    wrote = true;
+                }
+                if (ef > 0 && DriftedAcDc(ref scheme, ref subgroup, ref eSetting, (uint)ef))
+                {
+                    WriteAcDc(ref scheme, ref subgroup, eSetting, (uint)ef);
+                    Logger.Debug($"[CpuEnforce] E-core freq drifted → re-applied {ef}MHz");
+                    wrote = true;
+                }
+                if (sp >= 1 && TryMapSchedulingMode(sp, out uint policy, out uint threadPolicy, out uint shortThreadPolicy)
+                    && GetHeteroPolicy(scheme, subgroup) != policy)
+                {
+                    WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_HETEROGENEOUS_POLICY, policy);
+                    WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_LONG_THREAD_POLICY, threadPolicy);
+                    WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_SHORT_THREAD_POLICY, shortThreadPolicy);
+                    Logger.Debug($"[CpuEnforce] scheduling policy drifted → re-applied mode {sp}");
+                    wrote = true;
                 }
 
-                int sp = schedulingPolicy?.Value ?? -1;
-                if (sp >= 1 && GetHeteroPolicy() != ExpectedHeteroPolicy(sp))
-                {
-                    Logger.Info($"[CpuEnforce] Scheduling policy drifted — re-applying mode {sp}");
-                    SetSchedulingPolicy(sp);
-                }
+                if (wrote)
+                    PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
             }
             catch (Exception ex)
             {
@@ -333,27 +371,18 @@ namespace XboxGamingBarHelper.Power
             }
         }
 
-        // Heterogeneous-policy value the active scheme should hold for a given scheduling-policy mode
-        // (mirrors the switch in SetSchedulingPolicy). Used only to detect a Windows reset to Auto (0).
-        private static uint ExpectedHeteroPolicy(int mode)
+        /// <summary>True if the stored AC or DC index for <paramref name="setting"/> differs from the desired value.</summary>
+        private static bool DriftedAcDc(ref Guid scheme, ref Guid subgroup, ref Guid setting, uint desired)
         {
-            switch (mode)
-            {
-                case 1: return 1; // Prefer P-Core
-                case 2: return 1; // Prefer E-Core (same het policy as Prefer-P; thread policy differs)
-                case 3: return 3; // Only P-Core
-                case 4: return 2; // Only E-Core
-                default: return 0; // Auto
-            }
+            PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out uint ac);
+            PowrProf.PowerReadDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out uint dc);
+            return ac != desired || dc != desired;
         }
 
-        private static uint GetHeteroPolicy()
+        private static uint GetHeteroPolicy(Guid scheme, Guid subgroup)
         {
-            Guid scheme = GetActiveScheme();
-            Guid subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
             Guid setting = PowerGuids.GUID_PROCESSOR_HETEROGENEOUS_POLICY;
-            uint status = PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out uint result);
-            return status == 0 ? result : 0;
+            return PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out uint result) == 0 ? result : 0;
         }
 
         private static void WriteAcDc(ref Guid scheme, ref Guid subgroup, Guid setting, uint value)

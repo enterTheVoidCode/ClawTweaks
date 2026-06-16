@@ -173,11 +173,15 @@ namespace XboxGamingBar
         {
             try
             {
-                // boost mode 0 = off; keep the combo on a valid 1-6 entry for when it re-enables
-                if (profile.CpuBoostMode > 0) SelectComboByTag(CpuBoostModeComboBox, profile.CpuBoostMode);
-                if (profile.ProcessorSchedulingPolicy >= 0) SelectComboByTag(SchedulingPolicyComboBox, profile.ProcessorSchedulingPolicy);
-                SelectComboByTag(MaxPCoreFreqComboBox, profile.MaxPCoreFreqMHz);
-                SelectComboByTag(MaxECoreFreqComboBox, profile.MaxECoreFreqMHz);
+                // INTENTIONALLY does NOT set the four advanced combos from the widget's profile copy.
+                // The HELPER is the source of truth for Boost Mode / Scheduling Policy / P-/E-core max
+                // freq: it holds the live value in memory, re-applies it every 3 s, and pushes it to the
+                // widget via the property BatchSync (on open) and a per-property push (in-session switch).
+                // Driving the combos from `profile.*` here used to clobber the just-synced helper value
+                // with the widget's stale stored value (typically 0) on every Game Bar reopen — that's
+                // exactly why the P/E freq dropdowns "snapped back to unlimited" the instant the widget
+                // opened, even though the helper still held the real cap. Same fix as the Intel Display
+                // path above: UI follows the helper. We only refresh the enable state here.
                 UpdateCpuBoostModeEnabled();
             }
             catch (Exception ex)
