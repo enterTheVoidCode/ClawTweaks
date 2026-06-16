@@ -159,6 +159,33 @@ namespace XboxGamingBarHelper.RTSS
         }
 
         /// <summary>
+        /// Forces the running RTSS to re-read + apply the Global profile from disk WITHOUT restarting
+        /// it. Used after editing the [Font] section so the new overlay font takes effect live — a full
+        /// kill+restart makes RTSS reload its OSD at the default (centered) position and lose the runtime
+        /// layout, which is very visible when the font is changed mid-game. Returns false if RTSS isn't
+        /// running or the hooks DLL isn't available (caller falls back to a restart).
+        /// </summary>
+        public static bool ReloadGlobalProfile()
+        {
+            if (!_isAvailable) return false;
+            if (!RTSSHelper.IsRunning()) return false;
+
+            try
+            {
+                UpdateProfiles();              // re-scan profile files on disk (picks up our edit)
+                LoadProfile(GLOBAL_PROFILE);   // make Global the active profile
+                UpdateProfiles();              // apply to the live OSD (no restart)
+                Logger.Info("RTSSFPSLimiter: reloaded Global profile live (no restart)");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"RTSSFPSLimiter: ReloadGlobalProfile failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Gets the current global FPS limit.
         /// </summary>
         /// <returns>Current FPS limit (0 = unlimited, -1 = error)</returns>

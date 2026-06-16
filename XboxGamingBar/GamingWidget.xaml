@@ -8,7 +8,8 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    d:DesignHeight="670" d:DesignWidth="600">
+    d:DesignHeight="670" d:DesignWidth="600"
+    FontFamily="Bahnschrift SemiLight">
 
     <Page.Resources>
         <!-- Existing Converters -->
@@ -2126,11 +2127,22 @@
                                                   SelectionChanged="OSDFontComboBox_SelectionChanged"
                                                   UseSystemFocusVisuals="True"
                                                   FocusVisualPrimaryBrush="White">
-                                            <ComboBoxItem Content="Cascadia Mono" Tag="Cascadia Mono|400" IsSelected="True"/>
-                                            <ComboBoxItem Content="Cascadia Mono Light" Tag="Cascadia Mono|300"/>
-                                            <ComboBoxItem Content="Cascadia Mono SemiLight" Tag="Cascadia Mono|350"/>
-                                            <ComboBoxItem Content="Cascadia Mono SemiBold" Tag="Cascadia Mono|600"/>
-                                            <ComboBoxItem Content="Cascadia Mono Bold" Tag="Cascadia Mono|700"/>
+                                            <!-- Bahnschrift named instances. The weight is baked into the
+                                                 face name, so all use RTSS Weight 400. Each item is rendered
+                                                 in its own variant for a live preview. Falls back to RTSS's
+                                                 Unispace helper-side if a face isn't installed. -->
+                                            <ComboBoxItem Content="Bahnschrift" Tag="Bahnschrift|400" IsSelected="True" FontFamily="Bahnschrift"/>
+                                            <ComboBoxItem Content="Bahnschrift Light" Tag="Bahnschrift Light|400" FontFamily="Bahnschrift Light"/>
+                                            <ComboBoxItem Content="Bahnschrift SemiLight" Tag="Bahnschrift SemiLight|400" FontFamily="Bahnschrift SemiLight"/>
+                                            <ComboBoxItem Content="Bahnschrift SemiBold" Tag="Bahnschrift SemiBold|400" FontFamily="Bahnschrift SemiBold"/>
+                                            <ComboBoxItem Content="Bahnschrift Condensed" Tag="Bahnschrift Condensed|400" FontFamily="Bahnschrift Condensed"/>
+                                            <ComboBoxItem Content="Bahnschrift SemiCondensed" Tag="Bahnschrift SemiCondensed|400" FontFamily="Bahnschrift SemiCondensed"/>
+                                            <ComboBoxItem Content="Bahnschrift Light Condensed" Tag="Bahnschrift Light Condensed|400" FontFamily="Bahnschrift Light Condensed"/>
+                                            <ComboBoxItem Content="Bahnschrift Light SemiCondensed" Tag="Bahnschrift Light SemiCondensed|400" FontFamily="Bahnschrift Light SemiCondensed"/>
+                                            <ComboBoxItem Content="Bahnschrift SemiLight Condensed" Tag="Bahnschrift SemiLight Condensed|400" FontFamily="Bahnschrift SemiLight Condensed"/>
+                                            <ComboBoxItem Content="Bahnschrift SemiLight SemiCondensed" Tag="Bahnschrift SemiLight SemiCondensed|400" FontFamily="Bahnschrift SemiLight SemiCondensed"/>
+                                            <ComboBoxItem Content="Bahnschrift SemiBold Condensed" Tag="Bahnschrift SemiBold Condensed|400" FontFamily="Bahnschrift SemiBold Condensed"/>
+                                            <ComboBoxItem Content="Bahnschrift SemiBold SemiCondensed" Tag="Bahnschrift SemiBold SemiCondensed|400" FontFamily="Bahnschrift SemiBold SemiCondensed"/>
                                             <ComboBoxItem Content="RTSS default (Unispace)" Tag="Unispace|400"/>
                                         </ComboBox>
                                     </Grid>

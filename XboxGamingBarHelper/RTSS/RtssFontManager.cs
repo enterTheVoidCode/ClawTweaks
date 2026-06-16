@@ -9,8 +9,8 @@ namespace XboxGamingBarHelper.RTSS
 {
     /// <summary>
     /// Sets the RTSS OSD font by editing RTSS's Global profile ([Font] Face/Weight) and restarting RTSS
-    /// so it picks the change up. ClawTweaks defaults the overlay to "Cascadia Mono" (modern, ships with
-    /// Windows 11) and falls back to RTSS's stock "Unispace" if Cascadia isn't installed.
+    /// so it picks the change up. ClawTweaks defaults the overlay to "Bahnschrift" (ships with Windows
+    /// 10/11) and falls back to RTSS's stock "Unispace" if Bahnschrift isn't installed.
     ///
     /// RTSS owns the profile at runtime (reads on start, writes on exit), so we only write + restart when
     /// the requested font actually differs from what's already on disk — no needless restart/blink on
@@ -20,7 +20,7 @@ namespace XboxGamingBarHelper.RTSS
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        public const string DefaultFace = "Cascadia Mono";
+        public const string DefaultFace = "Bahnschrift";
         public const string FallbackFace = "Unispace";
         public const int DefaultWeight = 400;
 
@@ -99,12 +99,50 @@ namespace XboxGamingBarHelper.RTSS
                 else lines.Insert(sec + 1, "Weight=" + weight);
 
                 File.WriteAllLines(path, lines);
-                Logger.Info($"[RtssFont] Global font set to '{face}' weight {weight} — restarting RTSS");
-                RestartRtss();
+                Logger.Info($"[RtssFont] Global font set to '{face}' weight {weight}");
+
+                // Apply WITHOUT restarting RTSS when possible. A kill+restart makes RTSS reload its OSD
+                // at the default (centered) position and drop the runtime layout — very visible when the
+                // font is changed mid-game (the Full preset jumps to screen centre and stays there).
+                // Instead ask the running RTSS to re-read the Global profile from disk live (the same
+                // RTSSHooks API the FPS limiter uses). Only fall back to a restart if that's unavailable.
+                if (TryLiveReload())
+                    Logger.Info("[RtssFont] applied via live profile reload (no RTSS restart, OSD position kept)");
+                else
+                {
+                    Logger.Info("[RtssFont] live reload unavailable — restarting RTSS");
+                    RestartRtss();
+                }
             }
             catch (Exception ex)
             {
                 Logger.Warn($"[RtssFont] EnsureFont failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Applies the just-written profile font to the running RTSS without a restart. If RTSS isn't
+        /// running there's nothing to do (the profile is read on its next start), so this also returns
+        /// true to skip the restart. Returns false only when RTSS is running but the live-reload API
+        /// (RTSSHooks64.dll) isn't usable — the caller then restarts RTSS as a fallback.
+        /// </summary>
+        private static bool TryLiveReload()
+        {
+            try
+            {
+                if (!RTSSHelper.IsRunning())
+                {
+                    Logger.Debug("[RtssFont] RTSS not running — font will be read on next start, no restart needed");
+                    return true;
+                }
+                if (!RTSSFPSLimiter.Initialize())
+                    return false;
+                return RTSSFPSLimiter.ReloadGlobalProfile();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[RtssFont] TryLiveReload failed: {ex.Message}");
+                return false;
             }
         }
 

@@ -125,10 +125,11 @@ namespace XboxGamingBar
 
         // Global OSD layout settings
         private int osdTextSize = 125;    // Percentage: 50=Small, 100=Medium, 125=Default, 150=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
-        // RTSS overlay font (applied helper-side to the RTSS Global profile). Default = modern Cascadia
-        // Mono (ships with Win 11; helper falls back to RTSS's Unispace if it isn't installed).
-        private string osdFont = "Cascadia Mono";
-        private int osdFontWeight = 400;  // 200=ExtraLight,300=Light,350=SemiLight,400=Regular,600=SemiBold,700=Bold
+        // RTSS overlay font (applied helper-side to the RTSS Global profile). Default = Bahnschrift
+        // (ships with Win 10/11; helper falls back to RTSS's Unispace if it isn't installed). The
+        // Bahnschrift variants bake the weight into the face name, so weight stays 400 for all of them.
+        private string osdFont = "Bahnschrift";
+        private int osdFontWeight = 400;  // Bahnschrift named instances all use 400 (weight is in the face name)
         private string osdTextColor = "DYNAMIC";  // DYNAMIC = value-based colors, or hex color code
         private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
         private int osdProvider = 0;  // 0=RTSS, 1=AMD
@@ -672,6 +673,13 @@ namespace XboxGamingBar
                 if (settings.Values.TryGetValue("OSD_FontWeight", out object fontWeightVal) && fontWeightVal is int fontWeight && fontWeight > 0)
                 {
                     osdFontWeight = fontWeight;
+                }
+                // Cascadia Mono was fully replaced by Bahnschrift — migrate any saved Cascadia selection
+                // (and its non-400 weight) so existing users move over without keeping the old overlay font.
+                if (osdFont != null && osdFont.StartsWith("Cascadia", StringComparison.OrdinalIgnoreCase))
+                {
+                    osdFont = "Bahnschrift";
+                    osdFontWeight = 400;
                 }
                 if (settings.Values.TryGetValue("OSD_TextColor", out object textColorVal) && textColorVal is string textColor)
                 {
