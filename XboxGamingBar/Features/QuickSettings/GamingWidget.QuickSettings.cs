@@ -317,6 +317,9 @@ namespace XboxGamingBar
             // AddTileDefinition("Rotation", "Rotation", "\uE7AD", order: order++);  // removed: not used on MSI Claw
             // AddTileDefinition("HDR", "HDR", "\uE706", order: order++);  // removed: MSI Claw has no HDR output
             AddTileDefinition("Fullscreen", "Fullscreen", "\uE740", order: order++);
+            // Global LED on/off: simply sets the RGB brightness to 0 (off) and restores the last
+            // brightness when turned back on. Uses the Brightness/light glyph (\uE706).
+            AddTileDefinition("LedToggle", "LED", "\uE706", order: order++);
 
             // Row 4 - Overlay Tools (hotkey tiles \u2014 close Game Bar then send key to game)
             // AddTileDefinition("AFMF", "AFMF", "\uE916", order: order++);   // removed: AMD-only feature

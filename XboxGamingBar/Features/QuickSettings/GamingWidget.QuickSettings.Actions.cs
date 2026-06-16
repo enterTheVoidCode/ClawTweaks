@@ -162,6 +162,9 @@ namespace XboxGamingBar
                             case "CPUBoost":
                                 ToggleCPUBoost();
                                 break;
+                            case "LedToggle":
+                                ToggleLedLighting();
+                                break;
                             case "EPP":
                                 CycleEPP();
                                 break;
@@ -1126,6 +1129,34 @@ namespace XboxGamingBar
                 if (CPUBoostToggle != null)
                     CPUBoostToggle.IsOn = newValue;
                 Logger.Info($"CPU Boost toggled to {newValue}");
+            }
+        }
+
+        // Remembers the brightness to restore when the LED is toggled back on (in-session).
+        private int _lastLedBrightness = 100;
+
+        /// <summary>
+        /// Global LED on/off tile. Simple logic per request: when on, remember the current RGB
+        /// brightness and set it to 0 (lights off); when off, restore the last brightness. Drives the
+        /// existing Brightness slider so its ValueChanged pushes the value to the helper exactly like a
+        /// manual change — no separate code path.
+        /// </summary>
+        private void ToggleLedLighting()
+        {
+            if (LegionBrightnessSlider == null) return;
+
+            int current = (int)LegionBrightnessSlider.Value;
+            if (current > 0)
+            {
+                _lastLedBrightness = current;        // remember to restore later
+                LegionBrightnessSlider.Value = 0;    // off — ValueChanged pushes to helper
+                Logger.Info($"LED lighting toggled OFF (was {current}%)");
+            }
+            else
+            {
+                int restore = _lastLedBrightness > 0 ? _lastLedBrightness : 100;
+                LegionBrightnessSlider.Value = restore;
+                Logger.Info($"LED lighting toggled ON ({restore}%)");
             }
         }
 

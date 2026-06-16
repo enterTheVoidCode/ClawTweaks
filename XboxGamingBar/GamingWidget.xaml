@@ -969,6 +969,101 @@
                                     </StackPanel>
                                 </Grid>
 
+                                <!-- ===== Program Actions management (moved here from Settings) ===== -->
+                                <TextBlock Text="PROGRAM ACTIONS" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,0"/>
+                                <Border Style="{StaticResource CardStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Manage Program Actions" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Add .exe or .ps1 files. They appear under &quot;Program Actions (User)&quot; when assigning tiles or the front buttons."
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+
+                                        <ItemsControl x:Name="ProgramActionsItemsControl" Margin="0,8,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding DisplayName}" FontSize="14" Foreground="#FFFFFF"/>
+                                                            <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                        <Button Grid.Column="1" FontSize="12" Padding="8,4" Background="#2A2A2A"
+                                                                Click="ProgramActionDeleteButton_Click" Tag="{Binding}"
+                                                                VerticalAlignment="Center">
+                                                            <FontIcon Glyph="&#xE74D;" FontSize="12" Foreground="#FF6B6B"/>
+                                                        </Button>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="ProgramActionPathTextBox" Grid.Column="0"
+                                                     PlaceholderText="Path to .exe or .ps1"
+                                                     VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <Button x:Name="ProgramActionBrowseButton" Grid.Column="1" Content="Browse…"
+                                                    FontSize="13" Padding="10,6" Margin="0,0,8,0" Background="#2A2A2A"
+                                                    Click="BrowseProgramAction_Click"/>
+                                            <Button x:Name="ProgramActionAddButton" Grid.Column="2" Content="Add"
+                                                    FontSize="13" Padding="12,6" Background="#2A2A2A"
+                                                    Click="AddProgramAction_Click"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- ===== URL Actions management (moved here from Settings) ===== -->
+                                <TextBlock Text="URL ACTIONS" Style="{StaticResource SectionHeaderStyle}" Margin="0,4,0,0"/>
+                                <Border Style="{StaticResource CardStyle}">
+                                    <StackPanel>
+                                        <TextBlock Text="Manage URL Actions" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Add websites. They appear under &quot;Launch Website (User)&quot; when assigning tiles or the front buttons."
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+
+                                        <ItemsControl x:Name="UrlActionsItemsControl" Margin="0,8,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Url}" FontSize="14" Foreground="#FFFFFF"
+                                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                        <Button Grid.Column="1" FontSize="12" Padding="8,4" Background="#2A2A2A"
+                                                                Click="UrlActionDeleteButton_Click" Tag="{Binding}"
+                                                                VerticalAlignment="Center">
+                                                            <FontIcon Glyph="&#xE74D;" FontSize="12" Foreground="#FF6B6B"/>
+                                                        </Button>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Grid Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="UrlActionTextBox" Grid.Column="0"
+                                                     PlaceholderText="https://example.com"
+                                                     VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <Button x:Name="UrlActionAddButton" Grid.Column="1" Content="Add"
+                                                    FontSize="13" Padding="12,6" Background="#2A2A2A"
+                                                    Click="AddUrlAction_Click"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Separator -->
+                                <Border Height="1" Background="#30444444" Margin="0,12,0,12"/>
+
                                 <!-- Show Metrics Row Toggle -->
                                 <Grid Margin="0,0,0,8">
                                     <Grid.ColumnDefinitions>
@@ -1791,25 +1886,30 @@
                                     <TextBlock Text="Sets PL2 directly. Must be higher than PL1. Capped at 37W."
                                                Style="{StaticResource CardCaptionStyle}"
                                                TextWrapping="Wrap"
-                                               Margin="0,2,0,10"/>
-                                    <Grid Margin="0,0,0,4">
-                                        <TextBlock Text="PL2-Boost"
-                                                   FontSize="13" Foreground="#AAAAAA" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="TDPBoostFPPTValueInCard"
-                                                   FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                   Text="3W"/>
-                                    </Grid>
-                                    <Slider x:Name="TDPBoostFPPTSliderCard"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="10" Maximum="37"
-                                            TickFrequency="1" SnapsTo="Ticks"
-                                            Value="3"
-                                            IsEnabled="False"
-                                            XYFocusUp="{x:Bind TDPBoostToggle}"
-                                            XYFocusDown="{x:Bind TDPBoostToggle}"
-                                            ValueChanged="TDPBoostFPPTSlider_ValueChanged"
-                                            KeyDown="TDPBoostFPPTSliderCard_KeyDown"/>
+                                               Margin="0,2,0,0"/>
+                                    <!-- Slider + value: only shown while Overboost is ON. Collapsed when off so
+                                         the card stays compact (just title + caption + toggle). Driven from
+                                         TDPBoostToggle_Toggled. -->
+                                    <StackPanel x:Name="TDPBoostSliderArea" Visibility="Collapsed" Margin="0,10,0,0">
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="PL2-Boost"
+                                                       FontSize="13" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="TDPBoostFPPTValueInCard"
+                                                       FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       Text="3W"/>
+                                        </Grid>
+                                        <Slider x:Name="TDPBoostFPPTSliderCard"
+                                                Style="{StaticResource ModernSliderStyle}"
+                                                Minimum="10" Maximum="37"
+                                                TickFrequency="1" SnapsTo="Ticks"
+                                                Value="3"
+                                                IsEnabled="False"
+                                                XYFocusUp="{x:Bind TDPBoostToggle}"
+                                                XYFocusDown="{x:Bind TDPBoostToggle}"
+                                                ValueChanged="TDPBoostFPPTSlider_ValueChanged"
+                                                KeyDown="TDPBoostFPPTSliderCard_KeyDown"/>
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <!-- Right: on/off toggle -->
@@ -1853,7 +1953,7 @@
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
                                           SelectionChanged="OSPowerModeComboBox_SelectionChanged"
-                                          XYFocusDown="{x:Bind CPUBoostToggle}"
+                                          XYFocusDown="{x:Bind CpuBoostModeComboBox}"
                                           KeyDown="OSPowerModeComboBox_KeyDown">
                                     <ComboBoxItem Content="Best Power Efficiency"/>
                                     <ComboBoxItem Content="Balanced"/>
@@ -1870,6 +1970,10 @@
                         <ToggleButton x:Name="TDPExtrasExpandToggle" Visibility="Collapsed"/>
                         <StackPanel x:Name="TDPExtrasContent" Visibility="Collapsed"/>
                         <FontIcon x:Name="TDPExtrasExpandIcon" Visibility="Collapsed" Glyph="&#xE70D;"/>
+                        <!-- Stubs for the removed CPU "More settings" expander — kept so the existing
+                             code-behind references (focus/keydown handlers) still compile; never shown. -->
+                        <ToggleButton x:Name="CpuSectionExpandButton" Visibility="Collapsed"/>
+                        <FontIcon x:Name="CpuSectionExpandIcon" Visibility="Collapsed" Glyph="&#xE70D;"/>
                         <!-- TDPBoostToggle is now a real card (Overboost) above — no stub needed -->
                         <ToggleSwitch x:Name="LegionFanFullSpeedToggle" Visibility="Collapsed"/>
                         <!-- Overlay Card (merged Performance Overlay + OSD Customization) -->
@@ -2492,50 +2596,38 @@
                                                 <TextBlock Text="EXPERIMENTAL" FontSize="9" FontWeight="SemiBold" Foreground="#FF6B60"/>
                                             </Border>
                                         </StackPanel>
-                                        <TextBlock Text="Toggle = Boost on/off · expander = advanced"
+                                        <TextBlock Text="Boost mode, scheduling policy and P/E core max frequency."
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"
                                                    Margin="0,0,12,0"/>
                                     </StackPanel>
 
-                                    <!-- Right column: Boost on/off toggle, with the advanced expander directly beneath it. -->
-                                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" Spacing="6">
-                                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                            <TextBlock Text="Boost" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                            <ToggleSwitch x:Name="CPUBoostToggle"
-                                                          Style="{StaticResource ModernToggleStyle}"
-                                                          MinWidth="0"
-                                                          IsEnabled="False"
-                                                          KeyDown="CPUBoostToggle_KeyDown"/>
-                                        </StackPanel>
-                                        <!-- EXPERIMENTAL advanced CPU section: boost mode / scheduling policy (Only P / Only E) / P-E max freq -->
-                                        <ToggleButton x:Name="CpuSectionExpandButton"
-                                                      IsChecked="False"
-                                                      HorizontalAlignment="Right"
-                                                      Background="Transparent"
-                                                      BorderThickness="0"
-                                                      Padding="8,4"
-                                                      Click="CpuSectionExpandButton_Click"
-                                                      KeyDown="CpuSectionExpandButton_KeyDown"
-                                                      UseSystemFocusVisuals="True">
-                                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                                <TextBlock Text="More settings" FontSize="12" Foreground="#CFCFCF" VerticalAlignment="Center"/>
-                                                <FontIcon x:Name="CpuSectionExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                            </StackPanel>
-                                        </ToggleButton>
-                                    </StackPanel>
+                                    <!-- Hidden Boost on/off carrier. The visible control is now the Boost Mode
+                                         dropdown below ("Off" + the variants). CPUBoostToggle stays in the tree
+                                         (collapsed) because cpuBoost is bound to it and the Quick-Settings boost
+                                         tile + performance-profile cards drive/read its state — those must keep
+                                         working. Dropdown <-> toggle are kept in sync in code (mode 0 = off). -->
+                                    <ToggleSwitch x:Name="CPUBoostToggle"
+                                                  Grid.Column="1"
+                                                  Visibility="Collapsed"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  MinWidth="0"
+                                                  IsEnabled="False"
+                                                  KeyDown="CPUBoostToggle_KeyDown"/>
                                 </Grid>
 
-                                <!-- Collapsible content -->
-                                <StackPanel x:Name="CpuSectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="10">
-                                    <!-- Boost Mode -->
+                                <!-- Always-expanded content (the "More settings" expander was removed). -->
+                                <StackPanel x:Name="CpuSectionContent" Visibility="Visible" Margin="0,12,0,0" Spacing="10">
+                                    <!-- Boost Mode (single control — includes "Off" since the on/off toggle is hidden) -->
                                     <StackPanel>
                                         <TextBlock Text="Boost Mode" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
                                         <ComboBox x:Name="CpuBoostModeComboBox"
                                                   Margin="0,4,0,0"
                                                   HorizontalAlignment="Stretch"
                                                   Style="{StaticResource ModernComboBoxStyle}"
+                                                  SelectionChanged="CpuBoostModeComboBox_SelectionChanged"
                                                   KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <ComboBoxItem Content="Off" Tag="0"/>
                                             <ComboBoxItem Content="Enabled" Tag="1" IsSelected="True"/>
                                             <ComboBoxItem Content="Aggressive" Tag="2"/>
                                             <ComboBoxItem Content="Efficient Enabled" Tag="3"/>
@@ -4116,97 +4208,8 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- ===== Program Actions management ===== -->
-                        <TextBlock Text="PROGRAM ACTIONS" Style="{StaticResource SectionHeaderStyle}"/>
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Manage Program Actions" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Add .exe or .ps1 files. They appear under &quot;Program Actions (User)&quot; when assigning tiles or the front buttons."
-                                           Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
-
-                                <ItemsControl x:Name="ProgramActionsItemsControl" Margin="0,8,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,4">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding DisplayName}" FontSize="14" Foreground="#FFFFFF"/>
-                                                    <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis"/>
-                                                </StackPanel>
-                                                <Button Grid.Column="1" FontSize="12" Padding="8,4" Background="#2A2A2A"
-                                                        Click="ProgramActionDeleteButton_Click" Tag="{Binding}"
-                                                        VerticalAlignment="Center">
-                                                    <FontIcon Glyph="&#xE74D;" FontSize="12" Foreground="#FF6B6B"/>
-                                                </Button>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="ProgramActionPathTextBox" Grid.Column="0"
-                                             PlaceholderText="Path to .exe or .ps1"
-                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <Button x:Name="ProgramActionBrowseButton" Grid.Column="1" Content="Browse…"
-                                            FontSize="13" Padding="10,6" Margin="0,0,8,0" Background="#2A2A2A"
-                                            Click="BrowseProgramAction_Click"/>
-                                    <Button x:Name="ProgramActionAddButton" Grid.Column="2" Content="Add"
-                                            FontSize="13" Padding="12,6" Background="#2A2A2A"
-                                            Click="AddProgramAction_Click"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- ===== URL Actions management ===== -->
-                        <TextBlock Text="URL ACTIONS" Style="{StaticResource SectionHeaderStyle}"/>
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Manage URL Actions" Style="{StaticResource CardTitleStyle}"/>
-                                <TextBlock Text="Add websites. They appear under &quot;Launch Website (User)&quot; when assigning tiles or the front buttons."
-                                           Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
-
-                                <ItemsControl x:Name="UrlActionsItemsControl" Margin="0,8,0,0">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Margin="0,4">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock Grid.Column="0" Text="{Binding Url}" FontSize="14" Foreground="#FFFFFF"
-                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                                <Button Grid.Column="1" FontSize="12" Padding="8,4" Background="#2A2A2A"
-                                                        Click="UrlActionDeleteButton_Click" Tag="{Binding}"
-                                                        VerticalAlignment="Center">
-                                                    <FontIcon Glyph="&#xE74D;" FontSize="12" Foreground="#FF6B6B"/>
-                                                </Button>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox x:Name="UrlActionTextBox" Grid.Column="0"
-                                             PlaceholderText="https://example.com"
-                                             VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <Button x:Name="UrlActionAddButton" Grid.Column="1" Content="Add"
-                                            FontSize="13" Padding="12,6" Background="#2A2A2A"
-                                            Click="AddUrlAction_Click"/>
-                                </Grid>
-                            </StackPanel>
-                        </Border>
+                        <!-- Program Actions + URL Actions were moved up into the "Customize Tiles and
+                             Hotkeys" panel (Quick Settings tab), just above "Show Metrics Row". -->
 
                         <!-- MSI Claw Driver Updates Card -->
                         <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
@@ -4224,16 +4227,16 @@
                                     </StackPanel>
                                     <ToggleButton x:Name="DriverUpdatesExpandToggle"
                                                   Grid.Column="1"
-                                                  IsChecked="True"
+                                                  IsChecked="False"
                                                   VerticalAlignment="Center"
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
                                                   Click="DriverUpdatesExpandToggle_Click">
-                                        <FontIcon x:Name="DriverUpdatesExpandIcon" Glyph="&#xE70E;" FontSize="12"/>
+                                        <FontIcon x:Name="DriverUpdatesExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
-                                <StackPanel x:Name="DriverUpdatesContent" Spacing="10" Margin="0,12,0,0">
+                                <StackPanel x:Name="DriverUpdatesContent" Visibility="Collapsed" Spacing="10" Margin="0,12,0,0">
                                     <!-- Coming soon notice -->
                                     <Border Background="#1A2A1A" CornerRadius="4" Padding="10">
                                         <Grid>
@@ -7082,33 +7085,12 @@
                             <StackPanel x:Name="ViiperEmulationContent" Visibility="Collapsed" Margin="0,12,0,0">
                                 <Border Background="#1E2A3E" BorderBrush="#3D5A80" BorderThickness="1" CornerRadius="6" Padding="12">
                                     <StackPanel>
-                                        <TextBlock Text="VIIPER Device Configuration" FontSize="13" FontWeight="SemiBold" Foreground="#4AB3F4"/>
-                                        <TextBlock Text="Active backend: VIIPER (USBIP). Changes take effect immediately (hot-swap)." FontSize="11" Foreground="#888888" Margin="0,2,0,10" TextWrapping="Wrap"/>
-
-                                        <TextBlock Text="Virtual device" FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,4"/>
-                                        <ComboBox x:Name="ViiperDeviceTypeComboBox" HorizontalAlignment="Stretch">
-                                            <ComboBoxItem Content="Xbox 360" Tag="xbox360"/>
-                                            <ComboBoxItem Content="DualShock 4" Tag="dualshock4"/>
-                                            <ComboBoxItem Content="DualSense Edge" Tag="dualsenseedge"/>
-                                            <ComboBoxItem Content="Xbox Elite 2" Tag="xboxelite2"/>
-                                            <ComboBoxItem Content="Steam Controller" Tag="steam-generic"/>
-                                            <ComboBoxItem Content="Switch Pro" Tag="switchpro"/>
-                                        </ComboBox>
-
-                                        <StackPanel x:Name="ViiperSteamSubDevicePanel" Visibility="Collapsed" Margin="0,12,0,0">
-                                            <TextBlock Text="Steam sub-device" FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,4"/>
-                                            <ComboBox x:Name="ViiperSteamSubDeviceComboBox" HorizontalAlignment="Stretch">
-                                                <ComboBoxItem Content="Generic" Tag="generic"/>
-                                                <ComboBoxItem Content="Steam Deck" Tag="steam-deck"/>
-                                                <ComboBoxItem Content="Legion Go" Tag="legion-go"/>
-                                                <ComboBoxItem Content="Legion Go S" Tag="legion-go-s"/>
-                                                <ComboBoxItem Content="Legion Go 2" Tag="legion-go-2"/>
-                                                <ComboBoxItem Content="ROG Ally" Tag="rog-ally"/>
-                                                <ComboBoxItem Content="MSI Claw" Tag="msi-claw"/>
-                                                <ComboBoxItem Content="Zotac Zone" Tag="zotac-zone"/>
-                                            </ComboBox>
-                                        </StackPanel>
-
+                                        <!-- VIIPER Device Configuration title + the "Virtual device" / Steam
+                                             sub-device pickers were RELOCATED to the Controller Status card
+                                             (ViiperDeviceConfigPanel). The forwarder-only controls below stay
+                                             here but ViiperEmulationContent is never shown on the Claw — they
+                                             are inert (GoTweaks/Legion path) and kept only so their existing
+                                             property wiring keeps compiling. -->
                                         <TextBlock Text="Input source" FontSize="12" Foreground="#CCCCCC" Margin="0,12,0,4"/>
                                         <ComboBox x:Name="ViiperInputSourceComboBox" HorizontalAlignment="Stretch">
                                             <ComboBoxItem Content="XInput (any controller)" Tag="XInput"/>
@@ -9291,6 +9273,45 @@
                                            Style="{StaticResource CardCaptionStyle}"
                                            TextWrapping="Wrap"
                                            Margin="22,4,0,0"/>
+
+                                <!-- VIIPER device picker (relocated here from the Controller Emulation card).
+                                     On the MSI Claw only the virtual device TYPE is functional: VIIPER is fed
+                                     from ClawButtonMonitor's submit point, so the GoTweaks forwarder settings
+                                     (input/gyro source, IMU axis map, gyro→stick) don't apply and stay hidden in
+                                     the (now never-shown) ViiperEmulationContent. Shown only while VIIPER is the
+                                     active backend; sits above the device-count details. -->
+                                <StackPanel x:Name="ViiperDeviceConfigPanel" Visibility="Collapsed" Margin="0,14,0,0">
+                                    <Border Background="#1E2A3E" BorderBrush="#3D5A80" BorderThickness="1" CornerRadius="6" Padding="12">
+                                        <StackPanel>
+                                            <TextBlock Text="VIIPER Device" FontSize="13" FontWeight="SemiBold" Foreground="#4AB3F4"/>
+                                            <TextBlock Text="Active backend: VIIPER (USBIP). Changes take effect immediately (hot-swap)." FontSize="11" Foreground="#888888" Margin="0,2,0,10" TextWrapping="Wrap"/>
+
+                                            <TextBlock Text="Virtual device" FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,4"/>
+                                            <ComboBox x:Name="ViiperDeviceTypeComboBox" HorizontalAlignment="Stretch">
+                                                <ComboBoxItem Content="Xbox 360" Tag="xbox360"/>
+                                                <ComboBoxItem Content="DualShock 4" Tag="dualshock4"/>
+                                                <ComboBoxItem Content="DualSense Edge" Tag="dualsenseedge"/>
+                                                <ComboBoxItem Content="Xbox Elite 2" Tag="xboxelite2"/>
+                                                <ComboBoxItem Content="Steam Controller" Tag="steam-generic"/>
+                                                <ComboBoxItem Content="Switch Pro" Tag="switchpro"/>
+                                            </ComboBox>
+
+                                            <StackPanel x:Name="ViiperSteamSubDevicePanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                                <TextBlock Text="Steam sub-device" FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,4"/>
+                                                <ComboBox x:Name="ViiperSteamSubDeviceComboBox" HorizontalAlignment="Stretch">
+                                                    <ComboBoxItem Content="Generic" Tag="generic"/>
+                                                    <ComboBoxItem Content="Steam Deck" Tag="steam-deck"/>
+                                                    <ComboBoxItem Content="Legion Go" Tag="legion-go"/>
+                                                    <ComboBoxItem Content="Legion Go S" Tag="legion-go-s"/>
+                                                    <ComboBoxItem Content="Legion Go 2" Tag="legion-go-2"/>
+                                                    <ComboBoxItem Content="ROG Ally" Tag="rog-ally"/>
+                                                    <ComboBoxItem Content="MSI Claw" Tag="msi-claw"/>
+                                                    <ComboBoxItem Content="Zotac Zone" Tag="zotac-zone"/>
+                                                </ComboBox>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
 
                                 <!-- Details (collapsed by default) -->
                                 <StackPanel x:Name="ControllerStateDetailsPanel" Spacing="8" Margin="0,14,0,0" Visibility="Collapsed">

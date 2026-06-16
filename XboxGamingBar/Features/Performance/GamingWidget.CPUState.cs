@@ -172,13 +172,18 @@ namespace XboxGamingBar
 
             CPUBoostToggle.IsEnabled = canBoost;
 
-            // If boost is now disabled and was on, turn it off and notify helper
+            // If boost is now disabled and was on, turn it off and notify helper. The hidden toggle
+            // flipping off drives CpuBoostToggle_AdvancedToggled, which moves the visible Boost Mode
+            // dropdown to "Off".
             if (!canBoost && CPUBoostToggle.IsOn)
             {
                 CPUBoostToggle.IsOn = false;
                 cpuBoost?.SetValue(false);
                 Logger.Info("CPU Boost disabled automatically - Max CPU State is below 100%");
             }
+
+            // Keep the (now visible) Boost Mode dropdown's enabled/greyed state in sync with availability.
+            UpdateCpuBoostModeEnabled();
         }
 
         /// <summary>
