@@ -122,6 +122,7 @@
     <Compile Include="Data\UsbipInstalledProperty.cs" />
     <Compile Include="Data\ViiperStringComboProperty.cs" />
     <Compile Include="Data\ViiperSwapRumbleMotorsProperty.cs" />
+    <Compile Include="Data\ViiperGameBarAutoXboxSwapProperty.cs" />
     <Compile Include="Data\ViiperRumbleIntensityProperty.cs" />
     <Compile Include="Data\ViiperMirrorLightbarToStickProperty.cs" />
     <Compile Include="Data\ViiperStickGyroEnabledProperty.cs" />
@@ -133,6 +134,7 @@
     <Compile Include="Data\InstallViGEmBusProperty.cs" />
     <Compile Include="Data\HidHideInstalledProperty.cs" />
     <Compile Include="Data\InstallHidHideProperty.cs" />
+    <Compile Include="Data\InstallUsbipProperty.cs" />
     <Compile Include="Data\ToolTriggerProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
     <Compile Include="Data\CpuAdvancedProperties.cs" />

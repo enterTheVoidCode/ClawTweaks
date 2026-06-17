@@ -217,8 +217,13 @@ namespace XboxGamingBar
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                // Below the Overlay card is the CPU card (now the last card on the Performance tab).
-                CPUBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                // When the Overlay panel is expanded, drop into it (Columns). Otherwise go to the CPU
+                // card below. Focus the VISIBLE Boost Mode dropdown — CPUBoostToggle is Collapsed
+                // (hidden carrier), so focusing it was a no-op and left focus stuck here.
+                if (isOSDCustomizeExpanded && OSDColumnsComboBox != null)
+                    OSDColumnsComboBox.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                else if (CpuBoostModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard) != true)
+                    OSPowerModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard); // fallback if Boost is disabled
                 e.Handled = true;
             }
         }

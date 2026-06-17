@@ -1998,7 +1998,8 @@
                                               Margin="0,0,8,0"
                                               SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
                                               KeyDown="PerformanceOverlayComboBox_KeyDown"
-                                              XYFocusLeft="{x:Bind PerformanceNavItem}">
+                                              XYFocusLeft="{x:Bind PerformanceNavItem}"
+                                              XYFocusDown="{x:Bind CpuBoostModeComboBox}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
                                         <ComboBoxItem Content="Basic" Tag="1"/>
                                         <ComboBoxItem Content="Horizontal" Tag="2"/>
@@ -2013,7 +2014,7 @@
                                                   BorderThickness="0"
                                                   Padding="8,4"
                                                   Click="OSDCustomizeExpandButton_Click"
-                                                  XYFocusDown="{x:Bind TDPSlider}"
+                                                  KeyDown="OSDCustomizeExpandButton_KeyDown"
                                                   UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="OSDCustomizeExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
@@ -2068,6 +2069,7 @@
                                                   Width="80"
                                                   Grid.Column="1"
                                                   SelectionChanged="OSDLayoutOption_Changed"
+                                                  KeyDown="OsdPanelNav_KeyDown"
                                                   UseSystemFocusVisuals="True"
                                                   FocusVisualPrimaryBrush="White">
                                             <ComboBoxItem Content="1" Tag="1"/>
@@ -2098,6 +2100,7 @@
                                                   Width="100"
                                                   Grid.Column="1"
                                                   SelectionChanged="OSDLayoutOption_Changed"
+                                                  KeyDown="OsdPanelNav_KeyDown"
                                                   UseSystemFocusVisuals="True"
                                                   FocusVisualPrimaryBrush="White">
                                             <ComboBoxItem Content="Small" Tag="50"/>
@@ -2125,6 +2128,7 @@
                                                   Width="190"
                                                   Grid.Column="1"
                                                   SelectionChanged="OSDFontComboBox_SelectionChanged"
+                                                  KeyDown="OsdPanelNav_KeyDown"
                                                   UseSystemFocusVisuals="True"
                                                   FocusVisualPrimaryBrush="White">
                                             <!-- Bahnschrift named instances. The weight is baked into the
@@ -2169,6 +2173,7 @@
                                                           Foreground="#AAAAAA"
                                                           FontSize="11"
                                                           Margin="0,0,8,0"
+                                                          KeyDown="OsdPanelNav_KeyDown"
                                                           Checked="OSDTextColorDynamic_Changed"
                                                           Unchecked="OSDTextColorDynamic_Changed"/>
                                                 <Border x:Name="OSDTextColorPreview"
@@ -2219,6 +2224,7 @@
                                                           Foreground="#AAAAAA"
                                                           FontSize="11"
                                                           Margin="0,0,8,0"
+                                                          KeyDown="OsdPanelNav_KeyDown"
                                                           Checked="OSDLabelColorDefault_Changed"
                                                           Unchecked="OSDLabelColorDefault_Changed"/>
                                                 <Border x:Name="OSDLabelColorPreview"
@@ -2274,6 +2280,8 @@
                                                 TickFrequency="5"
                                                 SnapsTo="Ticks"
                                                 Value="100"
+                                                XYFocusUp="{x:Bind OSDLabelColorDefaultCheckBox}"
+                                                XYFocusDown="{x:Bind OSDPositionShiftToggle}"
                                                 ValueChanged="OSDOpacitySlider_ValueChanged"/>
                                     </StackPanel>
 
@@ -2290,6 +2298,7 @@
                                         <ToggleSwitch x:Name="OSDPositionShiftToggle"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
+                                                      KeyDown="OsdPanelNav_KeyDown"
                                                       Toggled="OSDPositionShiftToggle_Toggled"/>
                                     </Grid>
 
@@ -2306,6 +2315,7 @@
                                         <ToggleSwitch x:Name="FrametimeGraphPinnedToggle"
                                                       Grid.Column="1"
                                                       Style="{StaticResource ModernToggleStyle}"
+                                                      KeyDown="OsdPanelNav_KeyDown"
                                                       Toggled="FrametimeGraphPinnedToggle_Toggled"/>
                                     </Grid>
 
@@ -2638,7 +2648,8 @@
                                                   HorizontalAlignment="Stretch"
                                                   Style="{StaticResource ModernComboBoxStyle}"
                                                   SelectionChanged="CpuBoostModeComboBox_SelectionChanged"
-                                                  KeyDown="CpuAdvancedCombo_KeyDown">
+                                                  KeyDown="CpuAdvancedCombo_KeyDown"
+                                                  XYFocusUp="{x:Bind PerformanceOverlayComboBox}">
                                             <ComboBoxItem Content="Off" Tag="0"/>
                                             <ComboBoxItem Content="Enabled" Tag="1" IsSelected="True"/>
                                             <ComboBoxItem Content="Aggressive" Tag="2"/>
@@ -2657,10 +2668,10 @@
                                                   HorizontalAlignment="Stretch"
                                                   Style="{StaticResource ModernComboBoxStyle}"
                                                   KeyDown="CpuAdvancedCombo_KeyDown">
+                                            <!-- On Lunar Lake only Auto (default) and Only E-Cores are useful/safe:
+                                                 Prefer P/E are hard to verify and Only-P can't park the LP-E island
+                                                 without stalling the system. Kept Tag values (0, 4) unchanged. -->
                                             <ComboBoxItem Content="Auto (default)" Tag="0" IsSelected="True"/>
-                                            <ComboBoxItem Content="Prefer P-Cores" Tag="1"/>
-                                            <ComboBoxItem Content="Prefer E-Cores" Tag="2"/>
-                                            <ComboBoxItem Content="Only P-Cores" Tag="3"/>
                                             <ComboBoxItem Content="Only E-Cores" Tag="4"/>
                                         </ComboBox>
                                     </StackPanel>
@@ -3234,8 +3245,10 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Game Detection Card -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- Game Detection Card — [HIDDEN: Game-Bar-only redesign] detection is hardcoded
+                             to Xbox Game Bar (+ RTSS); these toggles are ignored. Kept (Collapsed) so the
+                             ProfileMatchByExe/ProfileGamesOnly property bindings stay intact. -->
+                        <Border Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -3577,33 +3590,29 @@
                         </muxc:Expander>
 
                         <TextBlock Text="Setup &amp; Onboarding" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,4,0,2"/>
-                        <TextBlock Text="ClawTweaks needs four small tools. One click checks what's present and installs anything missing."
+                        <TextBlock Text="ClawTweaks needs a few small tools. One click checks what's present and installs anything missing."
                                    FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
                         <!-- Step 1: Required tools — one button runs the proven check/installer for all four -->
                         <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,4,0,0">
                             <StackPanel>
                                 <TextBlock Text="1. Install required tools" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                                <TextBlock Text="These four tools power ClawTweaks' core features. The button checks what's already present and installs only what's missing (via winget)."
+                                <TextBlock Text="usbip-win2 (the default emulation driver) has its own download button at the top. „Check &amp; install tools“ at the bottom installs everything that's still missing in one go."
                                            FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
 
-                                <Button x:Name="OnbRunSetupBtn" Content="Check &amp; install tools"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                        Style="{StaticResource ModernButtonStyle}" FontSize="13" Padding="10,8"
-                                        Click="OnbRunSetup_Click"/>
-                                <!-- Live progress: spinner + text while the (winget) setup runs in the background -->
-                                <StackPanel x:Name="OnbSetupProgressPanel" Orientation="Horizontal" Margin="0,6,0,0" Visibility="Collapsed">
-                                    <ProgressRing x:Name="OnbSetupSpinner" IsActive="False" Width="16" Height="16"
-                                                  Foreground="#5B8DEF" VerticalAlignment="Top" Margin="0,1,8,0"/>
-                                    <TextBlock x:Name="OnbSetupProgress" Text="" FontSize="11" Foreground="#AAAAAA"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
+                                <!-- usbip-win2 FIRST: VIIPER backend driver. Not on winget → own download button
+                                     (downloaded signed Inno-Setup installer, runs silently). -->
+                                <Grid Margin="0,2,0,0">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="OnbUsbipStatus" Text="usbip-win2: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                    <Button x:Name="OnbUsbipInstallBtn" Grid.Column="1" Content="Install usbip-win2"
+                                            Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                            Click="OnbUsbipInstall_Click"/>
+                                </Grid>
+                                <TextBlock Text="USB/IP kernel driver powering the default VIIPER controller emulation (button remapping, gyro-as-stick, Mouse Mode). Downloads + installs the official signed driver silently — needs internet once, reboot afterwards."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,8"/>
 
                                 <!-- Read-only per-tool status (refreshed after the run) + what each tool does -->
-                                <TextBlock x:Name="OnbViGEmStatus"  Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888" Margin="0,10,0,0"/>
-                                <TextBlock Text="Virtual Xbox controller driver. Required for the whole controller emulation: button remapping (M1/M2, MSI buttons), gyro-as-stick and Mouse Mode."
-                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
-
                                 <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..."  FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
                                 <TextBlock Text="Hides the Claw's built-in controller while emulation runs, so games see only the virtual pad — prevents double input."
                                            FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
@@ -3616,7 +3625,21 @@
                                 <TextBlock Text="Kernel sensor driver. Exposes CPU/GPU power and temperature to the overlay — without it the power readout stays at 0 W."
                                            FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
 
-                                <TextBlock Text="All are official, signed third-party drivers/tools, installed from their vendors via winget. Individual install / download buttons live under System → Debug → Driver dependencies."
+                                <!-- One-click group install MOVED to the bottom (below PawnIO). Backend-aware:
+                                     PawnIO/HidHide/RTSS always, plus usbip when VIIPER / ViGEm when Legacy. -->
+                                <Button x:Name="OnbRunSetupBtn" Content="Check &amp; install tools"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                        Style="{StaticResource ModernButtonStyle}" FontSize="13" Padding="10,8" Margin="0,12,0,0"
+                                        Click="OnbRunSetup_Click"/>
+                                <!-- Live progress: spinner + text while the setup runs in the background -->
+                                <StackPanel x:Name="OnbSetupProgressPanel" Orientation="Horizontal" Margin="0,6,0,0" Visibility="Collapsed">
+                                    <ProgressRing x:Name="OnbSetupSpinner" IsActive="False" Width="16" Height="16"
+                                                  Foreground="#5B8DEF" VerticalAlignment="Top" Margin="0,1,8,0"/>
+                                    <TextBlock x:Name="OnbSetupProgress" Text="" FontSize="11" Foreground="#AAAAAA"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+
+                                <TextBlock Text="HidHide, RTSS and PawnIO are official, signed third-party tools installed via winget; usbip-win2 is the signed vendor driver, downloaded on demand. Individual install / download buttons live under System → Debug → Driver dependencies."
                                            FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,10,0,0"/>
                             </StackPanel>
                         </Border>
@@ -3642,6 +3665,17 @@
                                     <TextBlock x:Name="OnbEmulationStatus" Text="Controller emulation: off" FontSize="11" Foreground="#888888" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <Button x:Name="OnbEmulationBtn" Grid.Column="1" Content="Enable" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbEmulationEnable_Click"/>
                                 </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Legacy (ViGEm) — the old emulation backend, only relevant if you switch off VIIPER.
+                             Not needed by default and does NOT gate onboarding while VIIPER is active. -->
+                        <Border Background="#15151F" BorderBrush="#33333F" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="Legacy (ViGEm)" FontSize="13" FontWeight="SemiBold" Foreground="#AAAAAA"/>
+                                <TextBlock Text="ViGEmBus is the old controller-emulation driver. The default backend is now VIIPER (usbip-win2), so ViGEm is optional — only install it if you switch the backend to Legacy under System → Debug. It does not affect onboarding completion while VIIPER is active."
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,6"/>
+                                <TextBlock x:Name="OnbViGEmStatus" Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -4601,10 +4635,16 @@
                                             Margin="0,8,0,0">
                                         <StackPanel>
                                             <TextBlock Text="⚠ usbip-win2 required" FontSize="13" FontWeight="SemiBold" Foreground="#FFC107"/>
-                                            <TextBlock Text="VIIPER emulation needs the usbip-win2 kernel driver. Install it once, reboot, then come back here."
+                                            <TextBlock Text="VIIPER emulation needs the usbip-win2 kernel driver. Download + install the signed driver, reboot, then come back here."
                                                        FontSize="11" Foreground="#CCCCCC" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                                            <Button x:Name="UsbipInstallCardBtn"
+                                                    Content="Install usbip-win2"
+                                                    Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                    HorizontalAlignment="Left"
+                                                    Click="OnbUsbipInstall_Click"/>
                                             <HyperlinkButton x:Name="UsbipInstallLink"
-                                                             Content="Open usbip-win2 releases"
+                                                             Margin="0,4,0,0"
+                                                             Content="Or open usbip-win2 releases"
                                                              NavigateUri="https://github.com/vadimgrn/usbip-win2/releases"/>
                                         </StackPanel>
                                     </Border>
@@ -4616,19 +4656,48 @@
                                             <TextBlock Text="Driver dependencies"
                                                        FontSize="11"
                                                        Foreground="#AAAAAA"/>
-                                            <TextBlock Text="ViGEmBus powers virtual controllers. HidHide avoids double-input from stock controllers."
+                                            <TextBlock Text="usbip-win2 powers the default VIIPER controller emulation; ViGEmBus is the legacy alternative. HidHide avoids double-input from stock controllers."
                                                        FontSize="11"
                                                        Foreground="#888888"
                                                        TextWrapping="Wrap"
                                                        Margin="0,2,0,0"/>
 
+                                            <!-- usbip-win2 (VIIPER backend driver, downloaded signed installer) -->
+                                            <Grid Margin="0,8,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="DebugUsbipStatusText"
+                                                           Text="usbip-win2: Checking..."
+                                                           FontSize="11"
+                                                           Foreground="#888888"
+                                                           VerticalAlignment="Center"/>
+                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                    <Button x:Name="DebugUsbipInstallButton"
+                                                            Content="Install usbip-win2"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="DebugUsbipInstall_Click"/>
+                                                    <Button x:Name="DebugUsbipUninstallButton"
+                                                            Content="Uninstall"
+                                                            IsEnabled="False"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11"
+                                                            Padding="10,4"
+                                                            Click="DebugUsbipUninstall_Click"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- ViGEmBus (LEGACY backend driver) -->
                                             <Grid Margin="0,8,0,0">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock x:Name="ControllerEmulationViGEmBusStatusText"
-                                                           Text="ViGEmBus: Checking..."
+                                                           Text="ViGEmBus (legacy): Checking..."
                                                            FontSize="11"
                                                            Foreground="#888888"
                                                            VerticalAlignment="Center"/>
@@ -7528,6 +7597,29 @@
                                                        Foreground="#CCCCCC"/>
                                             <ToggleSwitch x:Name="ViiperSwapRumbleMotorsToggle"
                                                           Grid.Column="1"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          IsOn="False"/>
+                                        </Grid>
+
+                                        <!-- Experimental: auto-swap a non-Xbox device to xbox360 while the Game Bar is open -->
+                                        <Grid Margin="0,12,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Auto-switch to Xbox in Game Bar (experimental)"
+                                                           FontSize="13"
+                                                           Foreground="#CCCCCC"/>
+                                                <TextBlock Text="When a non-Xbox device (e.g. DualShock 4) is emulated, temporarily present it as an Xbox 360 pad while the Game Bar is open so the overlay navigates cleanly (some pads spam the right trigger). Swaps back on close. Briefly disconnects the virtual controller — a running game may notice."
+                                                           FontSize="11"
+                                                           Foreground="#888888"
+                                                           TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                            <ToggleSwitch x:Name="ViiperGameBarAutoXboxSwapToggle"
+                                                          Grid.Column="1"
+                                                          VerticalAlignment="Center"
                                                           Style="{StaticResource ModernToggleStyle}"
                                                           IsOn="False"/>
                                         </Grid>

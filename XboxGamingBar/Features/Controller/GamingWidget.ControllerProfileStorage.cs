@@ -131,6 +131,58 @@ namespace XboxGamingBar
             }
 
             Logger.Info($"Saved controller profile: {profileName}, LightMode={profile.LightMode}, Color=#{profile.LightColorR:X2}{profile.LightColorG:X2}{profile.LightColorB:X2}, Brightness={profile.LightBrightness}");
+
+            // [DISABLED — Game-Bar-only redesign] Step 1b controller-profile path sync.
+            // if (profileName.StartsWith("Game_", StringComparison.Ordinal))
+            //     SendControllerProfileGamesToHelper();
+        }
+
+        // Step 1b separators - must match SettingsManager.SetControllerProfileGames on the helper side.
+        private const char ControllerProfileGamesEntrySep = '\n';
+        private const char ControllerProfileGamesFieldSep = '\t';
+
+        /// <summary>
+        /// Builds the helper payload mapping each per-game controller profile's EXE path to its stored
+        /// game name. One entry per line, "&lt;exePath&gt;\t&lt;gameName&gt;". Profiles without a stored
+        /// GameExePath (e.g. very old ones) are skipped - they fall back to title detection.
+        /// </summary>
+        private string BuildControllerProfileGamesPayload()
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                const string prefix = "ControllerProfile_Game_";
+                foreach (var kv in ApplicationData.Current.LocalSettings.Containers)
+                {
+                    if (!kv.Key.StartsWith(prefix, StringComparison.Ordinal)) continue;
+                    var name = kv.Key.Substring(prefix.Length);
+                    if (string.IsNullOrEmpty(name)) continue;
+                    var exe = kv.Value.Values.TryGetValue("GameExePath", out var exeObj) ? exeObj as string : null;
+                    if (string.IsNullOrEmpty(exe)) continue;
+                    // Tab/newline never occur in an exe path or game name; skip any pathological entry.
+                    if (exe.IndexOf(ControllerProfileGamesEntrySep) >= 0 || exe.IndexOf(ControllerProfileGamesFieldSep) >= 0) continue;
+                    if (name.IndexOf(ControllerProfileGamesEntrySep) >= 0 || name.IndexOf(ControllerProfileGamesFieldSep) >= 0) continue;
+                    if (sb.Length > 0) sb.Append(ControllerProfileGamesEntrySep);
+                    sb.Append(exe).Append(ControllerProfileGamesFieldSep).Append(name);
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"BuildControllerProfileGamesPayload: {ex.Message}"); }
+            return sb.ToString();
+        }
+
+        /// <summary>Pushes the controller-profile path-&gt;name map to the helper (Step 1b).</summary>
+        internal async void SendControllerProfileGamesToHelper()
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+                string payload = BuildControllerProfileGamesPayload();
+                var msg = new Windows.Foundation.Collections.ValueSet { { "ControllerProfilePaths", payload } };
+                await App.SendMessageAsync(msg);
+                int count = string.IsNullOrEmpty(payload) ? 0 : payload.Split(ControllerProfileGamesEntrySep).Length;
+                Logger.Info($"Sent ControllerProfilePaths to helper ({count} per-game controller profile path(s))");
+            }
+            catch (Exception ex) { Logger.Warn($"SendControllerProfileGamesToHelper: {ex.Message}"); }
         }
 
         private ButtonMapping LoadButtonMapping(ApplicationDataContainer container, string key)
@@ -1795,6 +1847,9 @@ namespace XboxGamingBar
                     RefreshSavedProfilesList();
 
                 Logger.Info($"ClearPerGameControllerProfile: deactivated + removed per-game controller profile for '{currentGameName}'");
+
+                // [DISABLED — Game-Bar-only redesign] Step 1b controller-profile path sync.
+                // SendControllerProfileGamesToHelper();
             }
             catch (Exception ex)
             {
