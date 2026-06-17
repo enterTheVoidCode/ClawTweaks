@@ -8,11 +8,19 @@
 ## What's new
 
 ### Overlay
-- **New default font: Bahnschrift.** The RTSS overlay now ships with **Bahnschrift** (replacing Cascadia Mono) as the default — cleaner, included with Windows 10/11, and it **live-reloads** when you change it (a brief overlay blink, only on an actual font change). Applies to all presets (see the Full and Horizontal preset screenshots).
+- **New default font: Bahnschrift.** The RTSS overlay now ships with **Bahnschrift** (replacing Cascadia Mono) as the default — cleaner, included with Windows 10/11, and it **live-reloads** when you change it (a brief overlay blink, only on an actual font change). Applies to all presets.
 - Part of the larger overlay rework: a dedicated **TDP block** (live watts + PL1/PL2) and **per-core P/E clock** readouts in the Full preset.
+
+![New default overlay font – Bahnschrift](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift.png)
+
+| Full preset | Horizontal preset |
+|---|---|
+| ![Bahnschrift – Full preset](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift_Full_Preset.png) | ![Bahnschrift – Horizontal preset](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift_Horizontal_Preset.png) |
 
 ### Lighting
 - **LED on/off Quick Settings tile (MSI Claw).** Toggle the controller LED **off and back on** straight from Quick Settings — off dims the LED to zero brightness, on restores your last saved colour. No need to open the System tab.
+
+![New Quick Settings tile – toggle LED on/off](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/New%20Tile%20Toggle%20LED%20on%20or%20off.png)
 
 ### Controller
 - **Viiper (USB/IP) controller backend for the MSI Claw — experimental.** An alternative virtual-controller path with **live device-type hot-swap** (e.g. Xbox 360 / DS4), plus boot-time optimisation so it comes up faster.
