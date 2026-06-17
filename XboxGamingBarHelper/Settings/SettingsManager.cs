@@ -1,4 +1,6 @@
-﻿using XboxGamingBarHelper.Core;
+﻿using System;
+using System.Collections.Generic;
+using XboxGamingBarHelper.Core;
 
 namespace XboxGamingBarHelper.Settings
 {
@@ -17,6 +19,40 @@ namespace XboxGamingBarHelper.Settings
         public static SettingsManager GetInstance()
         {
             return instance;
+        }
+
+        // Step 1b: EXE-path → stable game name for per-game CONTROLLER profiles. These live widget-side
+        // (LocalSettings containers) and are NOT in the performance GameProfiles dict, so the widget
+        // pushes a flat (path, name) list here. SystemManager.TryMatchProfileByPath consults it so a
+        // controller-only game is also detected by path with a stable identity (not the window title).
+        private volatile IReadOnlyDictionary<string, string> controllerProfileGames =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public IReadOnlyDictionary<string, string> ControllerProfileGames => controllerProfileGames;
+
+        /// <summary>
+        /// Replace the controller-profile path-to-name map from the widget's serialized payload.
+        /// One entry per line; fields tab-separated: "&lt;exePath&gt;\t&lt;gameName&gt;". Tab and
+        /// newline never occur in an exe path or game name, so no escaping is needed. Must match
+        /// GamingWidget.BuildControllerProfileGamesPayload on the widget side.
+        /// </summary>
+        public void SetControllerProfileGames(string serialized)
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrEmpty(serialized))
+            {
+                foreach (var entry in serialized.Split('\n'))
+                {
+                    var trimmed = entry.Trim('\r');
+                    if (string.IsNullOrEmpty(trimmed)) continue;
+                    var parts = trimmed.Split('\t');
+                    if (parts.Length == 2 && !string.IsNullOrEmpty(parts[0]) && !string.IsNullOrEmpty(parts[1]))
+                        map[parts[0]] = parts[1];
+                }
+            }
+            controllerProfileGames = map;
+            Logger.Info($"ControllerProfileGames updated: {map.Count} per-game controller profile path(s)");
+            foreach (var kv in map)
+                Logger.Info($"  ctrlProfile: \"{kv.Value}\" -> {kv.Key}");
         }
 
         private readonly AutoStartRTSSProperty autoStartRTSS;
@@ -114,6 +150,12 @@ namespace XboxGamingBarHelper.Settings
             get { return viiperSwapRumbleMotors; }
         }
 
+        private readonly ViiperGameBarAutoXboxSwapProperty viiperGameBarAutoXboxSwap;
+        public ViiperGameBarAutoXboxSwapProperty ViiperGameBarAutoXboxSwap
+        {
+            get { return viiperGameBarAutoXboxSwap; }
+        }
+
         private readonly ViiperRumbleIntensityProperty viiperRumbleIntensity;
         public ViiperRumbleIntensityProperty ViiperRumbleIntensity
         {
@@ -192,6 +234,7 @@ namespace XboxGamingBarHelper.Settings
             viiperSteamSubDevice = new ViiperSteamSubDeviceProperty(this);
             viiperGuideButtonMode = new ViiperGuideButtonModeProperty(this);
             viiperSwapRumbleMotors = new ViiperSwapRumbleMotorsProperty(this);
+            viiperGameBarAutoXboxSwap = new ViiperGameBarAutoXboxSwapProperty(this);
             viiperRumbleIntensity = new ViiperRumbleIntensityProperty(this);
             viiperMirrorLightbarToStick = new ViiperMirrorLightbarToStickProperty(this);
             viiperStickGyroEnabled = new ViiperStickGyroEnabledProperty(this);

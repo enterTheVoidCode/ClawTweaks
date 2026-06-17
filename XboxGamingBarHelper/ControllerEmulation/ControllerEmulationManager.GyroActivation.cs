@@ -170,7 +170,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     stickGyroBiasEstimator.BiasYDegPerSec,
                     stickGyroBiasEstimator.BiasZDegPerSec)
                 : "bias=uncal";
-            Logger.Info($"CE forwarding stats: {seconds:F1}s iters={iters} okXInput={okX} okLegionHid={okHid} fail={fail} mode={mode} source={srcPath} physIdx={physIdx} virtIdx={virtIdx} gyroMerged={gMerged} gyroGateOff={gGateOff} gyroNoSample={gNoSample} {biasField}");
+            Logger.Debug($"CE forwarding stats: {seconds:F1}s iters={iters} okXInput={okX} okLegionHid={okHid} fail={fail} mode={mode} source={srcPath} physIdx={physIdx} virtIdx={virtIdx} gyroMerged={gMerged} gyroGateOff={gGateOff} gyroNoSample={gNoSample} {biasField}");
 
             forwardingStatsLastEmitTicksUtc = nowUtc;
             forwardingIterations = 0;

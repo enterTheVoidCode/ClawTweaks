@@ -61,7 +61,10 @@ namespace XboxGamingBar
 
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
-                bool backendOn = emulationBackend.Value;
+                // The picker must reflect the *running* VIIPER pad, not just the backend selection:
+                // show it only when VIIPER is the active backend AND controller emulation is actually
+                // enabled. In HW-controller mode (emulation off) there is no virtual pad to configure.
+                bool backendOn = emulationBackend.Value && (controllerEmulationEnabled?.Value == true);
 
                 // The Controller Emulation card body (gyro / remaps / mouse mode) is backend-INDEPENDENT
                 // on the Claw — those settings are processed in ClawButtonMonitor before the submit point,

@@ -315,6 +315,48 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Bubbling KeyDown that fires only when a Down/Up press reached the page UNHANDLED (i.e. no
+        /// per-control handler moved focus — typically the bottom/top element of a tab). It swallows the
+        /// default UWP XYFocus move ONLY when that move would jump BACKWARD (Down landing on something not
+        /// strictly below, or Up on something not strictly above) — exactly the unwanted "jump to top".
+        /// Forward moves are left intact, so normal navigation still works; the Y button remains the way
+        /// to jump to the tabs. Uses FindNextFocusableElement only to DECIDE (not to move), so its known
+        /// flakiness here can at worst leave focus put (the user can press Y).
+        /// </summary>
+        private void GamingWidget_KeyDown_SuppressJump(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Handled) return; // a per-control handler already moved focus — nothing to suppress
+            bool down = e.Key == VirtualKey.GamepadDPadDown || e.Key == VirtualKey.Down;
+            bool up = e.Key == VirtualKey.GamepadDPadUp || e.Key == VirtualKey.Up;
+            if (!down && !up) return;
+
+            try
+            {
+                var cur = FocusManager.GetFocusedElement() as FrameworkElement;
+                if (cur == null) return;
+
+                var dir = down ? FocusNavigationDirection.Down : FocusNavigationDirection.Up;
+                var next = FocusManager.FindNextFocusableElement(dir) as FrameworkElement;
+                if (next == null) { e.Handled = true; return; } // nothing in that direction → don't let it wrap
+
+                double curY = ElementTopOnPage(cur);
+                double nextY = ElementTopOnPage(next);
+                // Down must land strictly below; Up must land strictly above. Anything else = a backward
+                // jump → suppress it (stay put).
+                bool backwardJump = down ? (nextY <= curY + 1) : (nextY >= curY - 1);
+                if (backwardJump) e.Handled = true;
+            }
+            catch { /* best-effort; never break key handling */ }
+        }
+
+        /// <summary>Top Y of an element in this page's coordinate space (for jump-direction checks).</summary>
+        private double ElementTopOnPage(FrameworkElement fe)
+        {
+            try { return fe.TransformToVisual(this).TransformPoint(new Windows.Foundation.Point(0, 0)).Y; }
+            catch { return 0; }
+        }
+
+        /// <summary>
         /// Explicitly focuses an XYFocusUp/Down target (a DependencyObject from a XAML binding).
         /// Returns true only if a focusable, enabled Control target was actually focused.
         /// This is the reliable mechanism on-device — TryMoveFocus does not navigate correctly here.

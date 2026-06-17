@@ -1309,6 +1309,7 @@ namespace XboxGamingBarHelper
                 settingsManager.ViiperSteamSubDevice,
                 settingsManager.ViiperGuideButtonMode,
                 settingsManager.ViiperSwapRumbleMotors,
+                settingsManager.ViiperGameBarAutoXboxSwap,
                 settingsManager.ViiperRumbleIntensity,
                 settingsManager.ViiperMirrorLightbarToStick,
                 settingsManager.ViiperStickGyroEnabled,

@@ -99,6 +99,49 @@ namespace XboxGamingBar
         private static Windows.UI.Core.CoreDispatcher appModeDispatcher = null;
         private static readonly Size AppModeWindowSize = new Size(480, 940);
 
+        // True while the current window is the standalone "app mode" window (not the Game Bar widget).
+        // The helper reads this (via AppModeWindowState notifications) to TOGGLE the window: the
+        // "Open ClawTweaks Window" action closes it on a second press instead of re-launching.
+        public static bool IsStandaloneAppMode { get; private set; }
+
+        /// <summary>
+        /// Closes the standalone app-mode window on request (helper sends Function.CloseAppModeWindow
+        /// for the toggle). No-op if no app-mode window is open. Notifies the helper it's closed.
+        /// </summary>
+        public static void CloseStandaloneAppModeWindow()
+        {
+            var cw = appModeCoreWindow;
+            var disp = appModeDispatcher;
+            IsStandaloneAppMode = false;
+            if (cw == null || disp == null) return;
+            appModeCoreWindow = null;
+            appModeDispatcher = null;
+            Logger.Info("Closing standalone app-mode window on helper toggle request.");
+            _ = disp.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            {
+                try { cw.Close(); } catch (Exception ex) { Logger.Warn($"App-mode toggle close failed: {ex.Message}"); }
+            });
+            NotifyAppModeWindowState(false);
+        }
+
+        /// <summary>Best-effort notify the helper of the standalone app-mode window's open/closed state.</summary>
+        internal static void NotifyAppModeWindowState(bool opened)
+        {
+            try
+            {
+                if (!IsConnected) return;
+                var msg = new Shared.IPC.PipeMessage
+                {
+                    Command = Shared.Enums.Command.Set,
+                    Function = Shared.Enums.Function.AppModeWindowState,
+                    Content = opened ? "true" : "false"
+                };
+                _ = SendMessageAsync(msg.ToValueSet());
+                Logger.Info($"Notified helper: app-mode window {(opened ? "opened" : "closed")}");
+            }
+            catch (Exception ex) { Logger.Warn($"NotifyAppModeWindowState failed: {ex.Message}"); }
+        }
+
         // Track the active GamingWidget instance to prevent multiple instances from handling messages
         private static GamingWidget activeGamingWidget = null;
         private static readonly object activeWidgetLock = new object();
@@ -116,6 +159,8 @@ namespace XboxGamingBar
             if (ReferenceEquals(cw, exclude)) return; // the standalone window is being reused as the widget host
             appModeCoreWindow = null;
             appModeDispatcher = null;
+            IsStandaloneAppMode = false;
+            NotifyAppModeWindowState(false);
             Logger.Info("Closing standalone app-mode window — Game Bar is taking over the widget.");
             _ = disp.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
             {
@@ -429,6 +474,7 @@ namespace XboxGamingBar
                             {
                                 appModeCoreWindow = null;
                                 appModeDispatcher = null;
+                                IsStandaloneAppMode = false;
                             }
                         }
                         catch (Exception ex)
@@ -550,6 +596,7 @@ namespace XboxGamingBar
                 {
                     appModeCoreWindow = Window.Current?.CoreWindow;
                     appModeDispatcher = Window.Current?.Dispatcher;
+                    IsStandaloneAppMode = true;   // enables the helper-side open/close toggle
                     ApplicationView.GetForCurrentView()?.TryResizeView(AppModeWindowSize);
                     Window.Current.Closed -= AppModeWindow_Closed;
                     Window.Current.Closed += AppModeWindow_Closed;
@@ -566,6 +613,8 @@ namespace XboxGamingBar
                 appModeCoreWindow = null;
                 appModeDispatcher = null;
             }
+            IsStandaloneAppMode = false;
+            NotifyAppModeWindowState(false); // keep the helper's toggle state in sync (manual close too)
             try { Window.Current.Closed -= AppModeWindow_Closed; } catch { }
         }
 

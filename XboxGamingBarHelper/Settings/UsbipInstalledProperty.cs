@@ -50,39 +50,59 @@ namespace XboxGamingBarHelper.Settings
             }
         }
 
+        // Driver binaries the usbip-win2 MSI drops into System32\drivers. Unlike the service
+        // *registry keys* (which can linger after an uninstall, even across a reboot — the cause of
+        // the "uninstalled but still detected" false positive), these files are removed by a clean
+        // uninstall, so they are a far more reliable install/uninstall signal.
+        private static readonly string[] DriverFileNames = new[]
+        {
+            "usbip2_ude.sys",
+            "usbip2_filter.sys",
+        };
+
         private static bool Detect()
         {
-            // Any one of these signals is enough. We're intentionally permissive so partial
-            // installs or newer release builds (which might rename one service) still pass.
-            //
-            // Diagnostic note: registry-key existence proves the service is *registered*, not
-            // *running*. Walk every signal (don't short-circuit) and log each at Info level so
-            // production logs show which detection paths fired and the runtime state of any
-            // services we find. A service registered but Stopped/Disabled is a strong hint
-            // that VIIPER's USBIP client side isn't actually wired up — see issue #79
-            // vvalente30, where "no input from VIIPER" coincided with no visibility into
-            // whether the USBIP driver was loaded.
+            // Strictness rationale: a registry key under Services\<name> proves the service is
+            // *registered*, NOT installed-and-present — such keys survive an uninstall (sometimes
+            // even past a reboot) and made detection report "installed" for a removed driver. So we
+            // DO NOT treat a bare registry key as a positive. We trust only signals that a clean
+            // uninstall actually clears:
+            //   1. the CLI binary (Program Files\USBip\usbip.exe),
+            //   2. the driver .sys files in System32\drivers,
+            //   3. a service the SCM reports as actually *Running* (driver loaded right now).
+            // Every probed signal is logged at Info so a future false positive/negative is
+            // diagnosable straight from the production log.
             bool found = false;
             try
             {
+                foreach (var path in BinaryPaths)
+                {
+                    bool exists = File.Exists(path);
+                    Logger.Info($"usbip-win2 probe: binary '{path}' exists={exists}");
+                    if (exists) found = true;
+                }
+
+                string driversDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.System), "drivers");
+                foreach (var file in DriverFileNames)
+                {
+                    string full = Path.Combine(driversDir, file);
+                    bool exists = File.Exists(full);
+                    Logger.Info($"usbip-win2 probe: driver '{full}' exists={exists}");
+                    if (exists) found = true;
+                }
+
                 foreach (var name in ServiceKeyNames)
                 {
                     using (var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + name))
                     {
-                        if (key != null)
-                        {
-                            string state = QueryServiceState(name);
-                            Logger.Info($"usbip-win2 service registered: '{name}' state={state}");
-                            found = true;
-                        }
-                    }
-                }
-                foreach (var path in BinaryPaths)
-                {
-                    if (File.Exists(path))
-                    {
-                        Logger.Info($"usbip-win2 binary present: {path}");
-                        found = true;
+                        if (key == null) continue;
+                        string state = QueryServiceState(name);
+                        // Registered key alone is NOT trusted (lingers post-uninstall). Count only
+                        // when SCM reports the service is genuinely Running (driver loaded).
+                        bool running = state != null && state.StartsWith("Running", StringComparison.OrdinalIgnoreCase);
+                        Logger.Info($"usbip-win2 probe: service '{name}' state={state} counted={running}");
+                        if (running) found = true;
                     }
                 }
             }
@@ -90,6 +110,7 @@ namespace XboxGamingBarHelper.Settings
             {
                 Logger.Warn($"UsbipInstalled detection failed: {ex.Message}");
             }
+            Logger.Info($"usbip-win2 detection result: installed={found}");
             return found;
         }
 

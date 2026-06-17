@@ -143,6 +143,22 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
+        /// usbip-win2 uninstall (VIIPER backend driver). It registers an MSI ARP entry; the exact
+        /// DisplayName has varied across releases, so try a few patterns. A reboot may be required to
+        /// fully unload the driver. Returns true if an uninstaller was launched.
+        /// </summary>
+        public static bool UninstallUsbip()
+        {
+            foreach (string pattern in new[] { "usbip-win2", "usbip2", "USBip", "usbip" })
+            {
+                if (UninstallViaArp(pattern))
+                    return true;
+            }
+            Logger.Warn("usbip-win2: no matching ARP uninstall entry found");
+            return false;
+        }
+
+        /// <summary>
         /// RTSS uninstall: RTSS keeps running (our own RTSSManager relaunches it via AutoStartRTSS)
         /// and its NSIS uninstaller aborts while the app is running. Suppress the relaunch, kill
         /// RTSS + its EncoderServer, then run the uninstaller silently (NSIS /S).

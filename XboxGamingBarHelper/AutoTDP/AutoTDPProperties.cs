@@ -25,7 +25,7 @@ namespace XboxGamingBarHelper.AutoTDP
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
-            Logger.Info($"AutoTDP enabled: {Value}");
+            Logger.Debug($"AutoTDP enabled: {Value}");
 
             if (!Value)
             {

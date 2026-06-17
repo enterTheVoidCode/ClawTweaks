@@ -1310,6 +1310,7 @@ namespace XboxGamingBar
         private readonly ViiperStringComboProperty viiperSteamSubDevice;
         private readonly ViiperStringComboProperty viiperGuideButtonMode;
         private readonly ViiperSwapRumbleMotorsProperty viiperSwapRumbleMotors;
+        private readonly ViiperGameBarAutoXboxSwapProperty viiperGameBarAutoXboxSwap;
         private readonly ViiperMirrorLightbarToStickProperty viiperMirrorLightbarToStick;
         private readonly ViiperStickGyroEnabledProperty viiperStickGyroEnabled;
         private readonly ViiperRumbleIntensityProperty viiperRumbleIntensity;
@@ -1324,12 +1325,14 @@ namespace XboxGamingBar
         private readonly InstallViGEmBusProperty installViGEmBus;
         private readonly HidHideInstalledProperty hidHideInstalled;
         private readonly InstallHidHideProperty installHidHide;
+        private readonly InstallUsbipProperty installUsbip;
         // Setup/Dependencies tool action triggers (helper runs install/uninstall elevated, pushes status back)
         private readonly ToolTriggerProperty installRTSS;
         private readonly ToolTriggerProperty uninstallViGEm;
         private readonly ToolTriggerProperty uninstallHidHide;
         private readonly ToolTriggerProperty uninstallRTSS;
         private readonly ToolTriggerProperty uninstallPawnIO;
+        private readonly ToolTriggerProperty uninstallUsbip;
         private readonly ToolTriggerProperty runToolSetup;
         // In-app update (Onboarding): query the latest releases (Get) + install a chosen one (Set).
         private readonly WidgetProperty<string> appReleases;
@@ -1735,6 +1738,11 @@ namespace XboxGamingBar
             // exactly one tab — without it, holding a trigger would cycle tabs continuously.
             this.PreviewKeyDown += GamingWidget_PreviewKeyDown;
             this.PreviewKeyUp += GamingWidget_PreviewKeyUp;
+            // Bubbling KeyDown (fires only for UNHANDLED Down/Up that reached the page): swallow the
+            // default XYFocus "jump" so the bottom element of any tab never wraps/jumps back to the top
+            // (and top never jumps to the bottom). Legitimate per-control focus moves set Handled, so
+            // this never fires for them; Y already jumps to the tabs. See GamingWidget_KeyDown_SuppressJump.
+            this.KeyDown += GamingWidget_KeyDown_SuppressJump;
             // Clear any latched LT/RT "held" state whenever the widget regains focus.
             // HidHide CyclePort during emulation setup can hide the physical pad while
             // a trigger was physically pressed; the KeyUp never arrives so the widget
@@ -2069,6 +2077,7 @@ namespace XboxGamingBar
             viiperSteamSubDevice = new ViiperStringComboProperty("legion-go", Shared.Enums.Function.Viiper_SteamSubDevice, ViiperSteamSubDeviceComboBox, this);
             viiperGuideButtonMode = new ViiperStringComboProperty("Native", Shared.Enums.Function.Viiper_GuideButtonMode, ViiperGuideButtonModeComboBox, this);
             viiperSwapRumbleMotors = new ViiperSwapRumbleMotorsProperty(ViiperSwapRumbleMotorsToggle, this);
+            viiperGameBarAutoXboxSwap = new ViiperGameBarAutoXboxSwapProperty(ViiperGameBarAutoXboxSwapToggle, this);
             viiperMirrorLightbarToStick = new ViiperMirrorLightbarToStickProperty(ViiperMirrorLightbarToStickToggle, this);
             viiperStickGyroEnabled = new ViiperStickGyroEnabledProperty(ViiperStickGyroEnabledToggle, this);
             viiperRumbleIntensity = new ViiperRumbleIntensityProperty(100, ViiperRumbleIntensitySlider, this);
@@ -2089,8 +2098,10 @@ namespace XboxGamingBar
             if (ViiperGuideButtonModeComboBox != null)
                 ViiperGuideButtonModeComboBox.SelectionChanged += (s, e) => UpdateViiperLegionLDisabledHint();
             // Show USBIP install card only when VIIPER toggle is on AND driver is missing
-            emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); UpdateViiperLegionLDisabledHint(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); };
-            usbipInstalled.PropertyChanged += (s, e) => UpdateUsbipCardVisibility();
+            // The active backend changes which primary tool gates onboarding (usbip vs ViGEm), so
+            // re-evaluate the onboarding badge/completion on a backend switch too.
+            emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); UpdateViiperLegionLDisabledHint(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); RefreshOnboardingState(); };
+            usbipInstalled.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateOnboardingUsbip(usbipInstalled.Value); };
             // Show Steam sub-device picker only when a Steam device type is selected
             viiperDeviceType.PropertyChanged += (s, e) => { UpdateViiperConfigVisibility(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); };
             controllerEmulationMode.PropertyChanged += (s, e) => UpdateQuickSettingsTileStates();
@@ -2102,11 +2113,13 @@ namespace XboxGamingBar
             installViGEmBus = new InstallViGEmBusProperty(this);
             hidHideInstalled = new HidHideInstalledProperty(this);
             installHidHide = new InstallHidHideProperty(this);
+            installUsbip = new InstallUsbipProperty(this);
             installRTSS = new ToolTriggerProperty(this, Function.InstallRTSS);
             uninstallViGEm = new ToolTriggerProperty(this, Function.UninstallViGEm);
             uninstallHidHide = new ToolTriggerProperty(this, Function.UninstallHidHide);
             uninstallRTSS = new ToolTriggerProperty(this, Function.UninstallRTSS);
             uninstallPawnIO = new ToolTriggerProperty(this, Function.UninstallPawnIO);
+            uninstallUsbip = new ToolTriggerProperty(this, Function.UninstallUsbip);
             runToolSetup = new ToolTriggerProperty(this, Function.RunToolSetup);
             appReleases = new WidgetProperty<string>("", null, Function.ListAppReleases);
             installAppRelease = new ToolTriggerProperty(this, Function.InstallAppRelease);
@@ -2367,6 +2380,7 @@ namespace XboxGamingBar
                 viiperSteamSubDevice,
                 viiperGuideButtonMode,
                 viiperSwapRumbleMotors,
+                viiperGameBarAutoXboxSwap,
                 viiperRumbleIntensity,
                 viiperMirrorLightbarToStick,
                 viiperStickGyroEnabled,
@@ -2381,11 +2395,13 @@ namespace XboxGamingBar
                 installViGEmBus,
                 hidHideInstalled,
                 installHidHide,
+                installUsbip,
                 installRTSS,
                 uninstallViGEm,
                 uninstallHidHide,
                 uninstallRTSS,
                 uninstallPawnIO,
+                uninstallUsbip,
                 runToolSetup,
                 testControllerVibration,
                 emulateXboxGuide,
@@ -2745,7 +2761,12 @@ namespace XboxGamingBar
             // Controller emulation enable/disable is a dependency-gate input — recompute the gate
             // when the helper confirms the state (async), not just on the local toggle handler.
             if (controllerEmulationEnabled != null)
+            {
                 controllerEmulationEnabled.PropertyChanged += QuickSettingsProperty_Changed;
+                // The VIIPER device picker shows only while emulation is actually running, so
+                // recompute its visibility when emulation is toggled on/off.
+                controllerEmulationEnabled.PropertyChanged += (s, e) => UpdateViiperConfigVisibility();
+            }
             // DeviceDisplayName drives isMsiClaw detection in ShouldSkipTile — re-evaluate tiles when it arrives.
             if (deviceDisplayName != null)
             {
@@ -4325,6 +4346,9 @@ namespace XboxGamingBar
             App.RegisterActiveGamingWidget(this);
             Logger.Info("Registered as active widget for pipe communication");
 
+            // [DISABLED — Game-Bar-only redesign] Step 1b controller-profile path sync.
+            // SendControllerProfileGamesToHelper();
+
             // Hide the connection banner early - the pipe is connected and UI is already visible.
             // Property sync happens in the background; no need to show "Reconnecting" during it.
             await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
@@ -4539,6 +4563,17 @@ namespace XboxGamingBar
                     // Right Stick section never appears. Call once explicitly so the section
                     // shows on first connect when applicable.
                     UpdateViiperStickGyroSectionVisibility();
+
+                    // And the VIIPER device-type picker in the Controller Status card
+                    // (ViiperDeviceConfigPanel): VIIPER is now the default backend, so the helper's
+                    // value matches the widget default (true) and NO PropertyChanged fires — the
+                    // picker would stay Collapsed and the user couldn't switch controller variants.
+                    // Refresh it explicitly on connect so it appears whenever VIIPER is active.
+                    UpdateViiperConfigVisibility();
+
+                    // If this is the standalone "app mode" window, tell the helper it's open so the
+                    // "Open ClawTweaks Window" action toggles (a second press closes it).
+                    if (App.IsStandaloneAppMode) App.NotifyAppModeWindowState(true);
 
                     Logger.Info("[PIPE] Inside dispatcher - post-sync UI updates complete");
                 });

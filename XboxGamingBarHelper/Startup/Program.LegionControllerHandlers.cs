@@ -67,49 +67,49 @@ namespace XboxGamingBarHelper
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionButtonY1",
                     cur => cur.LegionButtonY1 = legionManager.LegionButtonY1.Value,
-                    glo => glo.LegionButtonY1 = legionManager.LegionButtonY1.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionButtonY1 = legionManager.LegionButtonY1.Value);
             }
             else if (sender == legionManager?.LegionButtonY2)
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionButtonY2",
                     cur => cur.LegionButtonY2 = legionManager.LegionButtonY2.Value,
-                    glo => glo.LegionButtonY2 = legionManager.LegionButtonY2.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionButtonY2 = legionManager.LegionButtonY2.Value);
             }
             else if (sender == legionManager?.LegionButtonY3)
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionButtonY3",
                     cur => cur.LegionButtonY3 = legionManager.LegionButtonY3.Value,
-                    glo => glo.LegionButtonY3 = legionManager.LegionButtonY3.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionButtonY3 = legionManager.LegionButtonY3.Value);
             }
             else if (sender == legionManager?.LegionButtonM1)
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionButtonM1",
                     cur => cur.LegionButtonM1 = legionManager.LegionButtonM1.Value,
-                    glo => glo.LegionButtonM1 = legionManager.LegionButtonM1.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionButtonM1 = legionManager.LegionButtonM1.Value);
             }
             else if (sender == legionManager?.LegionButtonM2)
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionButtonM2",
                     cur => cur.LegionButtonM2 = legionManager.LegionButtonM2.Value,
-                    glo => glo.LegionButtonM2 = legionManager.LegionButtonM2.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionButtonM2 = legionManager.LegionButtonM2.Value);
             }
             else if (sender == legionManager?.LegionButtonM3)
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionButtonM3",
                     cur => cur.LegionButtonM3 = legionManager.LegionButtonM3.Value,
-                    glo => glo.LegionButtonM3 = legionManager.LegionButtonM3.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionButtonM3 = legionManager.LegionButtonM3.Value);
             }
             else if (sender == legionManager?.LegionButtonDesktop)
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionButtonDesktop",
                     cur => cur.LegionButtonDesktop = legionManager.LegionButtonDesktop.Value,
-                    glo => glo.LegionButtonDesktop = legionManager.LegionButtonDesktop.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionButtonDesktop = legionManager.LegionButtonDesktop.Value);
             }
             else if (sender == legionManager?.LegionButtonPage)
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionButtonPage",
                     cur => cur.LegionButtonPage = legionManager.LegionButtonPage.Value,
-                    glo => glo.LegionButtonPage = legionManager.LegionButtonPage.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionButtonPage = legionManager.LegionButtonPage.Value);
             }
             // Gyro settings
             else if (sender == legionManager?.LegionGyroActivationButton)
@@ -222,7 +222,7 @@ namespace XboxGamingBarHelper
             {
                 RouteProfileSave(saveButtonsToProfile, "LegionGamepadMapping",
                     cur => cur.LegionGamepadMapping = legionManager.LegionGamepadMapping.Value,
-                    glo => glo.LegionGamepadMapping = legionManager.LegionGamepadMapping.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionGamepadMapping = legionManager.LegionGamepadMapping.Value);
             }
             // Nintendo layout — device-wide by default so a per-game toggle doesn't sit on top of
             // a stale True in GlobalProfile that then reappears after every reboot.
@@ -230,19 +230,19 @@ namespace XboxGamingBarHelper
             {
                 RouteProfileSave(ProfileSaveFlagsState.NintendoLayout, "LegionNintendoLayout",
                     cur => cur.LegionNintendoLayout = legionManager.LegionNintendoLayout.Value,
-                    glo => glo.LegionNintendoLayout = legionManager.LegionNintendoLayout.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionNintendoLayout = legionManager.LegionNintendoLayout.Value);
             }
             else if (sender == legionManager?.LegionVibration)
             {
                 RouteProfileSave(ProfileSaveFlagsState.Vibration, "LegionVibration",
                     cur => cur.LegionVibration = legionManager.LegionVibration.Value,
-                    glo => glo.LegionVibration = legionManager.LegionVibration.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionVibration = legionManager.LegionVibration.Value);
             }
             else if (sender == legionManager?.LegionVibrationMode)
             {
                 RouteProfileSave(ProfileSaveFlagsState.Vibration, "LegionVibrationMode",
                     cur => cur.LegionVibrationMode = legionManager.LegionVibrationMode.Value,
-                    glo => glo.LegionVibrationMode = legionManager.LegionVibrationMode.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionVibrationMode = legionManager.LegionVibrationMode.Value);
             }
             else if (sender == legionManager?.LegionVibrationIntensity)
             {
@@ -276,31 +276,31 @@ namespace XboxGamingBarHelper
             {
                 RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionLightMode",
                     cur => cur.LegionLightMode = legionManager.LegionLightMode.Value,
-                    glo => glo.LegionLightMode = legionManager.LegionLightMode.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionLightMode = legionManager.LegionLightMode.Value);
             }
             else if (sender == legionManager?.LegionLightColor)
             {
                 RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionLightColor",
                     cur => cur.LegionLightColor = legionManager.LegionLightColor.Value,
-                    glo => glo.LegionLightColor = legionManager.LegionLightColor.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionLightColor = legionManager.LegionLightColor.Value);
             }
             else if (sender == legionManager?.LegionLightBrightness)
             {
                 RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionLightBrightness",
                     cur => cur.LegionLightBrightness = legionManager.LegionLightBrightness.Value,
-                    glo => glo.LegionLightBrightness = legionManager.LegionLightBrightness.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionLightBrightness = legionManager.LegionLightBrightness.Value);
             }
             else if (sender == legionManager?.LegionLightSpeed)
             {
                 RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionLightSpeed",
                     cur => cur.LegionLightSpeed = legionManager.LegionLightSpeed.Value,
-                    glo => glo.LegionLightSpeed = legionManager.LegionLightSpeed.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionLightSpeed = legionManager.LegionLightSpeed.Value);
             }
             else if (sender == legionManager?.LegionPowerLight)
             {
                 RouteProfileSave(ProfileSaveFlagsState.Lighting, "LegionPowerLight",
                     cur => cur.LegionPowerLight = legionManager.LegionPowerLight.Value,
-                    glo => glo.LegionPowerLight = legionManager.LegionPowerLight.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.LegionPowerLight = legionManager.LegionPowerLight.Value);
             }
         }
 

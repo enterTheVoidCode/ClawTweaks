@@ -60,7 +60,7 @@ namespace XboxGamingBarHelper
             // the per-game profile. Pre-flag baseline: always wrote to CurrentProfile.
             RouteProfileSave(ProfileSaveFlagsState.CPUState, "CPUState",
                 cur => { cur.MaxCPUState = powerManager.MaxCPUState.Value; cur.MinCPUState = powerManager.MinCPUState.Value; },
-                glo => { glo.MaxCPUState = powerManager.MaxCPUState.Value; glo.MinCPUState = powerManager.MinCPUState.Value; });
+                (ref Shared.Data.GameProfile glo) => { glo.MaxCPUState = powerManager.MaxCPUState.Value; glo.MinCPUState = powerManager.MinCPUState.Value; });
         }
 
         private static void SystemManager_ResumeFromSleep(object sender)
@@ -106,7 +106,7 @@ namespace XboxGamingBarHelper
             // profile. Pre-flag baseline: always wrote to CurrentProfile.
             RouteProfileSave(ProfileSaveFlagsState.CPUBoost, "CPUBoost",
                 cur => cur.CPUBoost = powerManager.CPUBoost,
-                glo => glo.CPUBoost = powerManager.CPUBoost);
+                (ref Shared.Data.GameProfile glo) => glo.CPUBoost = powerManager.CPUBoost);
         }
 
         private static void CPUEPP_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -130,7 +130,7 @@ namespace XboxGamingBarHelper
             // Pre-flag baseline: always wrote to CurrentProfile.
             RouteProfileSave(ProfileSaveFlagsState.CPUEPP, "CPUEPP",
                 cur => cur.CPUEPP = powerManager.CPUEPP,
-                glo => glo.CPUEPP = powerManager.CPUEPP);
+                (ref Shared.Data.GameProfile glo) => glo.CPUEPP = powerManager.CPUEPP);
         }
 
         // ===== CPU advanced (ToothNClaw port): Boost mode, scheduling policy, P/E max freq =====
@@ -142,7 +142,7 @@ namespace XboxGamingBarHelper
 
             RouteProfileSave(ProfileSaveFlagsState.CpuAdvanced, "CpuBoostMode",
                 cur => cur.CpuBoostMode = powerManager.CpuBoostMode,
-                glo => glo.CpuBoostMode = powerManager.CpuBoostMode);
+                (ref Shared.Data.GameProfile glo) => glo.CpuBoostMode = powerManager.CpuBoostMode);
         }
 
         private static void SchedulingPolicy_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -152,7 +152,7 @@ namespace XboxGamingBarHelper
 
             RouteProfileSave(ProfileSaveFlagsState.CpuAdvanced, "ProcessorSchedulingPolicy",
                 cur => cur.ProcessorSchedulingPolicy = powerManager.SchedulingPolicy,
-                glo => glo.ProcessorSchedulingPolicy = powerManager.SchedulingPolicy);
+                (ref Shared.Data.GameProfile glo) => glo.ProcessorSchedulingPolicy = powerManager.SchedulingPolicy);
         }
 
         private static void MaxCoreFreq_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -163,7 +163,7 @@ namespace XboxGamingBarHelper
             // Both P and E core freq are captured together (single CpuAdvanced flag).
             RouteProfileSave(ProfileSaveFlagsState.CpuAdvanced, "MaxCoreFreq",
                 cur => { cur.MaxPCoreFreqMHz = powerManager.MaxPCoreFreq; cur.MaxECoreFreqMHz = powerManager.MaxECoreFreq; },
-                glo => { glo.MaxPCoreFreqMHz = powerManager.MaxPCoreFreq; glo.MaxECoreFreqMHz = powerManager.MaxECoreFreq; });
+                (ref Shared.Data.GameProfile glo) => { glo.MaxPCoreFreqMHz = powerManager.MaxPCoreFreq; glo.MaxECoreFreqMHz = powerManager.MaxECoreFreq; });
         }
 
         // ===== Intel Display (IGCL): adaptive sharpness + saturation =====
@@ -183,7 +183,7 @@ namespace XboxGamingBarHelper
                     cur.IntelDisplayBrightness = intelGpuManager.IntelDisplayBrightness;
                     cur.IntelDisplayGamma      = intelGpuManager.IntelDisplayGamma;
                 },
-                glo =>
+                (ref Shared.Data.GameProfile glo) =>
                 {
                     glo.IntelAdaptiveSharpness = intelGpuManager.IntelAdaptiveSharpness;
                     glo.IntelColorSaturation   = intelGpuManager.IntelColorSaturation;

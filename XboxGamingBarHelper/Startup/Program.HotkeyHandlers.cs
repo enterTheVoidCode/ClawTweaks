@@ -284,6 +284,46 @@ namespace XboxGamingBarHelper
         ///     brings itself to the foreground if already running).
         ///   - XboxApp: launches the Xbox (Game Pass) app via its AppsFolder AUMID.
         /// </summary>
+        // Tracks whether the standalone "app mode" ClawTweaks window is currently open (reported by the
+        // widget via Function.AppModeWindowState). Drives the toggle below.
+        private static volatile bool _appModeWindowOpen;
+
+        /// <summary>Updates the tracked app-mode window open/closed state (from the widget notification).</summary>
+        internal static void SetAppModeWindowOpen(bool open)
+        {
+            _appModeWindowOpen = open;
+            Logger.Info($"App-mode window state: {(open ? "open" : "closed")}");
+        }
+
+        /// <summary>
+        /// Toggle for the "Open ClawTweaks Window" action / front MSI button: if the standalone app-mode
+        /// window is open, ask the widget to close it; otherwise launch it. Pessimistically flips the
+        /// tracked state on close so a missed notification can't wedge the toggle.
+        /// </summary>
+        internal static void ToggleClawTweaksWindow()
+        {
+            if (_appModeWindowOpen)
+            {
+                Logger.Info("ToggleClawTweaksWindow: window open → requesting close");
+                _appModeWindowOpen = false;
+                try
+                {
+                    SendPipeMessage(new Shared.IPC.PipeMessage
+                    {
+                        Command = Shared.Enums.Command.Set,
+                        Function = Shared.Enums.Function.CloseAppModeWindow,
+                        Content = "close"
+                    });
+                }
+                catch (Exception ex) { Logger.Warn($"ToggleClawTweaksWindow close failed: {ex.Message}"); }
+            }
+            else
+            {
+                Logger.Info("ToggleClawTweaksWindow: window closed → launching");
+                LaunchLauncher("ClawTweaksWindow");
+            }
+        }
+
         internal static async void LaunchLauncher(string which)
         {
             try
@@ -686,8 +726,8 @@ namespace XboxGamingBarHelper
                             case 42: // XboxApp
                                 LaunchLauncher("XboxApp");
                                 break;
-                            case 43: // OpenClawTweaksWindow — standalone app-mode window (GameBar alternative)
-                                LaunchLauncher("ClawTweaksWindow");
+                            case 43: // OpenClawTweaksWindow — toggle the standalone app-mode window (GameBar alternative)
+                                ToggleClawTweaksWindow();
                                 break;
                             case 30: // MediaNextTrack
                                 ExecuteKeyboardShortcut("MEDIA_NEXT_TRACK");

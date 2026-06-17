@@ -84,6 +84,16 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Toggle: helper asks the standalone app-mode window to close (second press of the
+                // "Open ClawTweaks Window" action / front MSI button).
+                if (message.TryGetValue("Function", out object closeFuncObj) &&
+                    Convert.ToInt32(closeFuncObj) == (int)Shared.Enums.Function.CloseAppModeWindow)
+                {
+                    Logger.Info("CloseAppModeWindow request received from helper via pipe");
+                    App.CloseStandaloneAppModeWindow();
+                    return;
+                }
+
                 // Check for Quick Metrics push from helper
                 if (message.TryGetValue("Function", out object qmFuncObj) &&
                     Convert.ToInt32(qmFuncObj) == (int)Shared.Enums.Function.QuickMetrics)

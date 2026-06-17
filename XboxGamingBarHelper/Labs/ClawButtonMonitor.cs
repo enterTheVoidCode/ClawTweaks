@@ -1896,7 +1896,7 @@ namespace XboxGamingBarHelper.Labs
                 bool ok = SharedHidWrite(dev.DevicePath, report);
                 if (ok)
                 {
-                    Logger.Info($"ClawButtonMonitor: rumble written large={large}->{scaledLarge} small={small}->{scaledSmall} (intensity={(int)(intensity * 100)}%, len={outLen})");
+                    Logger.Debug($"ClawButtonMonitor: rumble written large={large}->{scaledLarge} small={small}->{scaledSmall} (intensity={(int)(intensity * 100)}%, len={outLen})");
                 }
                 else
                 {

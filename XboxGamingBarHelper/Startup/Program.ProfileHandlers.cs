@@ -110,8 +110,15 @@ namespace XboxGamingBarHelper
         // Routes a setting save to CurrentProfile (per-game capture) when saveToProfile is true,
         // else to GlobalProfile (treat as device-wide). Caller supplies a setter action for each
         // target; the target's own setter handles the equality check and debounced Save().
+        // GameProfile is a STRUCT, so the global branch must mutate the real field by ref and persist
+        // it — passing GlobalProfile by value to an Action mutated a throwaway copy that was never
+        // saved, so every "save to global" via this path was silently lost (root cause of the P/E
+        // freq cap that "couldn't be cleared": editing global while a game/Steam BPM was active wrote
+        // to nowhere, leaving the old cap in global.xml to be re-applied on game-end and boot).
+        private delegate void GlobalProfileMutator(ref Shared.Data.GameProfile profile);
+
         private static void RouteProfileSave(bool saveToProfile, string settingName,
-            Action<Profile.GameProfileProperty> onCurrent, Action<Shared.Data.GameProfile> onGlobal)
+            Action<Profile.GameProfileProperty> onCurrent, GlobalProfileMutator onGlobal)
         {
             if (saveToProfile)
             {
@@ -121,7 +128,10 @@ namespace XboxGamingBarHelper
             else
             {
                 Logger.Info($"Saving {settingName} to global (per-game capture disabled)");
-                onGlobal(profileManager.GlobalProfile);
+                var g = profileManager.GlobalProfile;   // local copy of the struct
+                onGlobal(ref g);                          // mutate by ref
+                profileManager.GlobalProfile = g;         // write the updated struct back to the field
+                g.Save();                                 // persist to global.xml (+ cache)
             }
         }
 
@@ -174,46 +184,46 @@ namespace XboxGamingBarHelper
             {
                 RouteProfileSave(saveToProfile, "AutoTDPEnabled",
                     cur => cur.AutoTDPEnabled = autoTDPManager.Enabled.Value,
-                    glo => glo.AutoTDPEnabled = autoTDPManager.Enabled.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.AutoTDPEnabled = autoTDPManager.Enabled.Value);
             }
             else if (sender == autoTDPManager.TargetFPS)
             {
                 RouteProfileSave(saveToProfile, "AutoTDPTargetFPS",
                     cur => cur.AutoTDPTargetFPS = autoTDPManager.TargetFPS.Value,
-                    glo => glo.AutoTDPTargetFPS = autoTDPManager.TargetFPS.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.AutoTDPTargetFPS = autoTDPManager.TargetFPS.Value);
             }
             else if (sender == autoTDPManager.MinTDP)
             {
                 RouteProfileSave(saveToProfile, "AutoTDPMinTDP",
                     cur => cur.AutoTDPMinTDP = autoTDPManager.MinTDP.Value,
-                    glo => glo.AutoTDPMinTDP = autoTDPManager.MinTDP.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.AutoTDPMinTDP = autoTDPManager.MinTDP.Value);
             }
             else if (sender == autoTDPManager.MaxTDP)
             {
                 RouteProfileSave(saveToProfile, "AutoTDPMaxTDP",
                     cur => cur.AutoTDPMaxTDP = autoTDPManager.MaxTDP.Value,
-                    glo => glo.AutoTDPMaxTDP = autoTDPManager.MaxTDP.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.AutoTDPMaxTDP = autoTDPManager.MaxTDP.Value);
             }
             else if (sender == autoTDPManager.UseMLMode)
             {
                 // Legacy: sync UseMLMode to profile for backwards compatibility
                 RouteProfileSave(saveToProfile, "AutoTDPUseMLMode",
                     cur => cur.AutoTDPUseMLMode = autoTDPManager.UseMLMode.Value,
-                    glo => glo.AutoTDPUseMLMode = autoTDPManager.UseMLMode.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.AutoTDPUseMLMode = autoTDPManager.UseMLMode.Value);
             }
             else if (sender == autoTDPManager.ControllerType)
             {
                 RouteProfileSave(saveToProfile, "AutoTDPControllerType",
                     cur => { cur.AutoTDPControllerType = autoTDPManager.ControllerType.Value;
                              cur.AutoTDPUseMLMode = autoTDPManager.ControllerType.Value > 0; },
-                    glo => { glo.AutoTDPControllerType = autoTDPManager.ControllerType.Value;
+                    (ref Shared.Data.GameProfile glo) => { glo.AutoTDPControllerType = autoTDPManager.ControllerType.Value;
                              glo.AutoTDPUseMLMode = autoTDPManager.ControllerType.Value > 0; });
             }
             else if (sender == autoTDPManager.PauseWhenUnfocused)
             {
                 RouteProfileSave(saveToProfile, "AutoTDPPauseWhenUnfocused",
                     cur => cur.AutoTDPPauseWhenUnfocused = autoTDPManager.PauseWhenUnfocused.Value,
-                    glo => glo.AutoTDPPauseWhenUnfocused = autoTDPManager.PauseWhenUnfocused.Value);
+                    (ref Shared.Data.GameProfile glo) => glo.AutoTDPPauseWhenUnfocused = autoTDPManager.PauseWhenUnfocused.Value);
             }
         }
 
@@ -364,7 +374,7 @@ namespace XboxGamingBarHelper
             var profile = profileManager.CurrentProfile;
             var profileName = profile.GameId.Name;
 
-            Logger.Info($"Applying AutoTDP settings from profile: {profileName}");
+            Logger.Debug($"Applying AutoTDP settings from profile: {profileName}");
 
             // Apply AutoTDP settings from profile
             // Use ForceSetValue for Enabled to ensure the pipe message is ALWAYS sent to the widget.
@@ -793,7 +803,7 @@ namespace XboxGamingBarHelper
             // always wrote to CurrentProfile regardless of flag.
             RouteProfileSave(ProfileSaveFlagsState.TDP, "TDP",
                 cur => cur.TDP = performanceManager.TDP,
-                glo => glo.TDP = performanceManager.TDP);
+                (ref Shared.Data.GameProfile glo) => glo.TDP = performanceManager.TDP);
 
             // Persist the user's GLOBAL TDP so the helper can re-apply it on its OWN startup
             // (PerformanceManager.ApplyPersistedStartupTdp), independent of the widget — fixes the
@@ -848,7 +858,7 @@ namespace XboxGamingBarHelper
             // the change goes to GlobalProfile, not the per-game profile.
             RouteProfileSave(ProfileSaveFlagsState.TDP, "TDPBoostEnabled",
                 cur => cur.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value,
-                glo => glo.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value);
+                (ref Shared.Data.GameProfile glo) => glo.TDPBoostEnabled = performanceManager.TDPBoostEnabled.Value);
         }
 
         // ── Intel IGCL FPS tier — mutual exclusion with RTSS FPS limit ──────────────────────────────
@@ -938,7 +948,7 @@ namespace XboxGamingBarHelper
                 }
                 RouteProfileSave(ProfileSaveFlagsState.FPSLimit, "FPSLimit",
                     cur => { cur.FPSLimit = newLimit; cur.FpsCapMode = 0; },
-                    glo => { glo.FPSLimit = newLimit; glo.FpsCapMode = 0; });
+                    (ref Shared.Data.GameProfile glo) => { glo.FPSLimit = newLimit; glo.FpsCapMode = 0; });
             }
 
             // Update OSD cap-hint on FPS display (RTSS mode, isIntel=false)
@@ -988,7 +998,7 @@ namespace XboxGamingBarHelper
             {
                 RouteProfileSave(ProfileSaveFlagsState.FPSLimit, "IntelFpsTier",
                     cur => { cur.IntelFpsTier = newTier; cur.FpsCapMode = capMode; },
-                    glo => { glo.IntelFpsTier = newTier; glo.FpsCapMode = capMode; });
+                    (ref Shared.Data.GameProfile glo) => { glo.IntelFpsTier = newTier; glo.FpsCapMode = capMode; });
             }
 
             // Update OSD cap-hint on FPS display (Intel mode; convert tier to fps)

@@ -386,7 +386,7 @@ namespace XboxGamingBarHelper.AutoTDP
         {
             if (learnedTDPStore != null)
             {
-                Logger.Info("AutoTDPManager: Flushing learned TDP data");
+                Logger.Debug("AutoTDPManager: Flushing learned TDP data");
                 learnedTDPStore.Save();
             }
         }

@@ -298,7 +298,7 @@ namespace XboxGamingBarHelper
                 case 40: LaunchLauncher("SteamBigPicture"); break;
                 case 41: LaunchLauncher("Playnite"); break;
                 case 42: LaunchLauncher("XboxApp"); break;
-                case 43: LaunchLauncher("ClawTweaksWindow"); break; // OpenClawTweaksWindow — standalone app-mode window
+                case 43: ToggleClawTweaksWindow(); break; // OpenClawTweaksWindow — toggle the standalone app-mode window
                 case 30: SendKeyboardShortcutViaInputInjector("MEDIA_NEXT_TRACK"); break;
                 case 31: SendKeyboardShortcutViaInputInjector("MEDIA_PREV_TRACK"); break;
                 case 32: SendKeyboardShortcutViaInputInjector("MEDIA_PLAY_PAUSE"); break;
@@ -995,6 +995,12 @@ namespace XboxGamingBarHelper
                 bool wasForeground = _lastGameBarForeground;
                 _lastGameBarForeground = nowForeground;
 
+                // Experimental opt-in (independent of RB auto-nav): swap a non-Xbox VIIPER device
+                // to xbox360 while the Game Bar is open so the overlay navigates cleanly, and back
+                // on close. Runs on BOTH edges, so it must come before the rising-edge-only return.
+                if (nowForeground != wasForeground)
+                    HandleViiperGameBarAutoXboxSwap(nowForeground);
+
                 // Only act on the rising edge (Game Bar just opened).
                 if (!(nowForeground && !wasForeground)) return;
 
@@ -1043,6 +1049,79 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Warn($"[GameBarAutoNav] handler threw: {ex.Message}");
+            }
+        }
+
+        // True while the Game-Bar-open Xbox swap is in effect, so the matching close-swap restores
+        // the user's device exactly once (and rapid foreground flicker doesn't thrash the USB bus).
+        private static volatile bool _viiperGameBarXboxSwapActive;
+
+        /// <summary>
+        /// Experimental opt-in: when a NON-Xbox VIIPER device is emulated, hot-swap it to xbox360
+        /// while the Xbox Game Bar is open so the overlay navigates cleanly (some non-Xbox pads spam
+        /// the right trigger to the Game Bar), then swap back to the user's selected type on close.
+        /// Off by default. Only fires when controller emulation is active, External Gamepad Mode is
+        /// OFF, and a non-xbox360 device is actually mounted. The USBIP swap (~1–2 s) runs off-thread.
+        /// </summary>
+        private static void HandleViiperGameBarAutoXboxSwap(bool gameBarOpening)
+        {
+            try
+            {
+                if (settingsManager?.ViiperGameBarAutoXboxSwap?.Value != true) return; // opt-in only
+                if (!_viiperBackendActive) return;
+
+                Labs.ClawButtonMonitor monitor;
+                lock (clawButtonMonitorLock) monitor = clawButtonMonitor;
+                if (monitor == null) return;
+
+                if (gameBarOpening)
+                {
+                    if (_viiperGameBarXboxSwapActive) return; // already swapped for this open
+
+                    if (!monitor.IsRunning)
+                    {
+                        Logger.Info("[ViiperGBSwap] skip open: controller emulation not active");
+                        return;
+                    }
+                    bool externalActive;
+                    lock (_externalGamepadLock) externalActive = _externalGamepadModeActive;
+                    if (externalActive)
+                    {
+                        Logger.Info("[ViiperGBSwap] skip open: External Gamepad Mode active");
+                        return;
+                    }
+                    string active = monitor.ViiperActiveDeviceType;
+                    if (!monitor.ViiperMounted || string.IsNullOrEmpty(active) || active == "xbox360")
+                    {
+                        Logger.Info($"[ViiperGBSwap] skip open: no non-xbox device mounted (mounted={monitor.ViiperMounted}, type={active ?? "null"})");
+                        return;
+                    }
+
+                    _viiperGameBarXboxSwapActive = true;
+                    Logger.Info($"[ViiperGBSwap] Game Bar opened — swapping {active} -> xbox360 for clean overlay navigation");
+                    Task.Run(() =>
+                    {
+                        try { monitor.SwitchViiperDeviceType("xbox360", 0, 0); }
+                        catch (Exception ex) { Logger.Warn($"[ViiperGBSwap] open swap threw: {ex.Message}"); }
+                    });
+                }
+                else
+                {
+                    if (!_viiperGameBarXboxSwapActive) return; // nothing we swapped to restore
+                    _viiperGameBarXboxSwapActive = false;
+
+                    ResolveViiperDeviceTarget(out string type, out ushort vid, out ushort pid);
+                    Logger.Info($"[ViiperGBSwap] Game Bar closed — restoring VIIPER device to {type}");
+                    Task.Run(() =>
+                    {
+                        try { monitor.SwitchViiperDeviceType(type, vid, pid); }
+                        catch (Exception ex) { Logger.Warn($"[ViiperGBSwap] restore swap threw: {ex.Message}"); }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[ViiperGBSwap] handler threw: {ex.Message}");
             }
         }
 
@@ -1419,7 +1498,14 @@ namespace XboxGamingBarHelper
                     // Xbox controller fed from the very same submit point (see ClawButtonMonitor.Viiper.cs).
                     // Only when a virtual pad is actually wanted (mountVigem); External Gamepad Mode
                     // wants no virtual pad at all. When VIIPER owns the pad, ViGEm stays suppressed.
-                    bool useViiper = _viiperBackendActive && mountVigem;
+                    // VIIPER is the default backend, but it requires usbip-win2. When the driver is
+                    // not (yet) installed, auto-fall back to ViGEm so a default-VIIPER install never
+                    // leaves a dead controller. The user installs usbip via Onboarding, then VIIPER
+                    // takes over on the next enable.
+                    bool usbipReady = settingsManager?.UsbipInstalled?.Value == true;
+                    bool useViiper = _viiperBackendActive && mountVigem && usbipReady;
+                    if (_viiperBackendActive && mountVigem && !usbipReady)
+                        Logger.Info("MSIClaw: VIIPER backend requested but usbip-win2 is not installed → falling back to ViGEm");
                     monitor.SetSuppressVigem(!mountVigem || useViiper);
                     monitor.SetViiperEnabled(useViiper);
                     if (useViiper)

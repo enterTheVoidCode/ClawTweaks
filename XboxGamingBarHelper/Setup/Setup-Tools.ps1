@@ -184,8 +184,10 @@ if (Test-PawnIOWorking) {
 }
 }
 
-# ViGEmBus
-if (Test-ShouldRun 'vigem') {
+# ViGEmBus — LEGACY emulation backend. The default backend is now VIIPER (usbip-win2), so ViGEm is
+# NOT part of the one-click "all" run anymore. It is installed only when explicitly requested via the
+# per-tool button (-Only vigem). This prevents re-installing ViGEm on devices running VIIPER.
+if ($Only -ieq 'vigem') {
 Write-Host ""
 Write-Host "       Checking ViGEmBus (virtual controller driver)..." -ForegroundColor Gray
 if (Test-ViGEmInstalled) {

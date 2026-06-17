@@ -44,7 +44,8 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             float watt = performanceManager.CPUWattage?.Value ?? -1f;
             string wattText = watt >= 0 ? $"{(int)Math.Round(watt)}W " : "";
 
-            string plText = pl2 > 0 ? $"PL1:{pl1}W PL2:{pl2}W" : $"PL1:{pl1}W";
+            // PL1/PL2 grouped in parentheses next to the live package power, e.g. "TDP 9W (PL1:25W PL2:26W)".
+            string plText = pl2 > 0 ? $"(PL1:{pl1}W PL2:{pl2}W)" : $"(PL1:{pl1}W)";
             return $"<C={labelColor}>TDP<C={tc}> {wattText}{plText}<C={tc}>";
         }
     }

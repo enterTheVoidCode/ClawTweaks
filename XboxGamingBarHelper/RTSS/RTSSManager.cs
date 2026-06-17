@@ -175,7 +175,8 @@ namespace XboxGamingBarHelper.RTSS
             osdItemTDPLimits.SetPerformanceManager(performanceManager);
             osdItemCPU = new OSDItemCPU(performanceManager.CPUUsage, performanceManager.CPUClock, performanceManager.CPUWattage, performanceManager.CPUTemperature);
             osdItemCPU.SetPerformanceManager(performanceManager);
-            osdItemCPUCores = new OSDItemCPUCores(performanceManager.PCoreClocks, performanceManager.ECoreClocks);
+            osdItemCPUCores = new OSDItemCPUCores(performanceManager.PCoreClocks, performanceManager.ECoreClocks,
+                                                 performanceManager.PCoreLoads, performanceManager.ECoreLoads);
             osdItemBlank1 = new OSDItemBlankLine("Blank1");
             osdItemBlank2 = new OSDItemBlankLine("Blank2");
             osdItemBlank3 = new OSDItemBlankLine("Blank3");

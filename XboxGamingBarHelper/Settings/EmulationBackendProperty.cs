@@ -20,10 +20,14 @@ namespace XboxGamingBarHelper.Settings
 
         private static bool LoadFromSettings()
         {
-            // Experimental: read the stored backend. Default Legacy (ViGEm) when unset.
-            // The widget exposes this only behind the debug menu.
-            return LocalSettingsHelper.TryGetValue<int>(SettingsKey, out var stored)
-                   && stored == (int)EmulationBackend.Viiper;
+            // VIIPER is now the default backend. When the key is unset (fresh install or
+            // post-factory-reset), default to VIIPER (true). An explicit stored value is honoured
+            // either way, so a user who deliberately picked Legacy keeps Legacy.
+            // Note: the start path auto-falls back to ViGEm when usbip-win2 is missing, so a
+            // VIIPER default never leaves a dead controller (see Program.MSIClaw.cs).
+            if (LocalSettingsHelper.TryGetValue<int>(SettingsKey, out var stored))
+                return stored == (int)EmulationBackend.Viiper;
+            return true; // default: VIIPER
         }
 
         private void SaveToSettings()

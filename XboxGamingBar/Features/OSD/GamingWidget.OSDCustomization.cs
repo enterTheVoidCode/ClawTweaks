@@ -812,6 +812,66 @@ namespace XboxGamingBar
             }
         }
 
+        // \u2500\u2500 Controller navigation for the expanded Overlay (OSD customization) panel \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        // ComboBoxes / ToggleSwitches swallow D-pad keys, so we move focus explicitly through an ordered
+        // list (same approach as the CPU combos). The opacity slider is handled separately via XYFocus
+        // (sliders swallow arrows; the global PreviewKeyDown redirects them through XYFocusUp/Down).
+        private Windows.UI.Xaml.Controls.Control[] OsdPanelNavOrder()
+        {
+            return new Windows.UI.Xaml.Controls.Control[]
+            {
+                OSDColumnsComboBox, OSDTextSizeComboBox, OSDFontComboBox,
+                OSDTextColorDynamicCheckBox, OSDLabelColorDefaultCheckBox,
+                OSDOpacitySlider, OSDPositionShiftToggle, FrametimeGraphPinnedToggle
+            };
+        }
+
+        private bool MoveOsdPanelFocus(Windows.UI.Xaml.Controls.Control current, int dir)
+        {
+            var order = OsdPanelNavOrder();
+            int idx = Array.IndexOf(order, current);
+            if (idx < 0) return false;
+            for (int next = idx + dir; next >= 0 && next < order.Length; next += dir)
+            {
+                var t = order[next];
+                if (t != null && t.IsEnabled && t.Visibility == Visibility.Visible)
+                    return t.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+            }
+            return false;
+        }
+
+        // Shared KeyDown for the OSD panel combos/checkboxes/toggles (NOT the slider \u2014 it uses XYFocus).
+        private void OsdPanelNav_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (sender is Windows.UI.Xaml.Controls.ComboBox cb && cb.IsDropDownOpen) return; // open dropdown owns keys
+            var current = sender as Windows.UI.Xaml.Controls.Control;
+            if (current == null) return;
+
+            if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                // Move to the next control; at the last one leave it UNHANDLED so the global
+                // jump-suppressor keeps focus put (no wrap to the top).
+                if (MoveOsdPanelFocus(current, +1)) e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                if (!MoveOsdPanelFocus(current, -1))
+                    OSDCustomizeExpandButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard); // top \u2192 back to the expand toggle
+                e.Handled = true;
+            }
+        }
+
+        // Overlay expand toggle: Down enters the panel (when expanded) or continues to the CPU card.
+        private void OSDCustomizeExpandButton_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.Down && e.Key != Windows.System.VirtualKey.GamepadDPadDown) return;
+            if (isOSDCustomizeExpanded && OSDColumnsComboBox != null)
+                OSDColumnsComboBox.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+            else
+                CpuBoostModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+            e.Handled = true;
+        }
+
         private void OSDOpacitySlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
         {
             if (isLoadingOSDConfig) return;

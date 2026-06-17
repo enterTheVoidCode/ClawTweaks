@@ -443,6 +443,8 @@
         Viiper_GyroAxisMapY,                       // string - IMU Y channel mapping (same options)
         Viiper_GyroAxisMapZ,                       // string - IMU Z channel mapping (same options)
         Viiper_StickGyroEnabled,                   // bool  - master enable for the Gyro → Right Stick processor on no-native-motion targets (default true)
+        Viiper_GameBarAutoXboxSwap,                // bool  - experimental opt-in: hot-swap a non-xbox VIIPER device to xbox360 while the Game Bar is open (back on close)
+        InstallUsbip,                              // string - trigger to install the bundled usbip-win2 MSI (write "install" to trigger)
 
         // MSI Claw — OEM software toggle
         MsiCenterActive,                           // bool - MSI Center M running (true) / stopped (false); write to toggle
@@ -481,6 +483,7 @@
         UninstallHidHide,            // string - trigger to uninstall HidHide (ARP, else kernel service)
         UninstallRTSS,               // string - trigger to uninstall RTSS (ARP)
         UninstallPawnIO,             // string - trigger to uninstall PawnIO (ARP)
+        UninstallUsbip,              // string - trigger to uninstall usbip-win2 (ARP)
 
         // MSI Claw — stepless controller vibration intensity (Controller tab; global + per-game).
         // Scales the rumble report sent to the physical Claw by ClawButtonMonitor (0 = off, 100 = full).
@@ -525,5 +528,9 @@
         // first two, so usually 3). On Game Bar open the helper taps RB (position-1) times on the
         // virtual controller to hop onto ClawTweaks, then D-pad down into the tabs. Widget→helper.
         GameBarWidgetPosition,       // int - 1-based widget-bar position of ClawTweaks (default 3)
+
+        // Standalone "app mode" window toggle (Open ClawTweaks Window action / front MSI button).
+        AppModeWindowState,          // bool - widget→helper: app-mode window opened (true) / closed (false)
+        CloseAppModeWindow,          // string - helper→widget trigger: close the standalone app-mode window
     }
 }

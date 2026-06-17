@@ -183,6 +183,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Setup\ToolSetupRunner.cs" />
+    <Compile Include="Setup\UsbipInstaller.cs" />
     <Compile Include="Devices\MSIClaw\MsiOverBoost.cs" />
     <EmbeddedResource Include="Setup\Setup-Tools.ps1">
       <LogicalName>XboxGamingBarHelper.Setup.Setup-Tools.ps1</LogicalName>
@@ -213,6 +214,7 @@
     <Compile Include="Performance\Sensors\BatteryRemainingTimeSensor.cs" />
     <Compile Include="Performance\Sensors\CPUClockSensor.cs" />
     <Compile Include="Performance\Sensors\CPUCoreClockSensor.cs" />
+    <Compile Include="Performance\Sensors\CPUCoreLoadSensor.cs" />
     <Compile Include="Performance\Sensors\CPUTemperatureSensor.cs" />
     <Compile Include="Performance\Sensors\VRMTemperatureSensor.cs" />
     <Compile Include="Performance\Sensors\CPUUsageSensor.cs" />
@@ -352,6 +354,7 @@
     <Compile Include="Settings\ViiperSteamSubDeviceProperty.cs" />
     <Compile Include="Settings\ViiperGuideButtonModeProperty.cs" />
     <Compile Include="Settings\ViiperSwapRumbleMotorsProperty.cs" />
+    <Compile Include="Settings\ViiperGameBarAutoXboxSwapProperty.cs" />
     <Compile Include="Settings\ViiperRumbleIntensityProperty.cs" />
     <Compile Include="Settings\ViiperMirrorLightbarToStickProperty.cs" />
     <Compile Include="Settings\ViiperStickGyroEnabledProperty.cs" />

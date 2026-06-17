@@ -1289,7 +1289,7 @@ namespace XboxGamingBarHelper
                 var now = DateTime.Now;
                 if ((now - lastFocusWidgetTime).TotalMilliseconds < FocusWidgetDebounceMs)
                 {
-                    Logger.Debug("Labs: Focus widget debounced (rapid press ignored)");
+                    Logger.Info("Labs: Focus widget debounced (rapid press ignored)");
                     return;
                 }
                 lastFocusWidgetTime = now;
@@ -1304,33 +1304,59 @@ namespace XboxGamingBarHelper
                 }
 
                 // Open Game Bar (required for widget activation)
+                bool wasConnected = IsPipeConnected;
                 SendKeyboardShortcutViaInputInjector("Win+G");
-                Logger.Info("Labs: Sent Win+G to open Game Bar");
+                Logger.Info($"Labs: Sent Win+G to open Game Bar (pipe already connected: {wasConnected})");
 
-                // Delay to ensure Game Bar is fully open and widget is ready
+                // Give the Game Bar shell a moment to come up.
                 await Task.Delay(200);
 
-                // Send focus command to widget via Named Pipes (works when running elevated)
-                if (IsPipeConnected)
+                // First Game Bar open after a reboot: the widget process is only now starting
+                // and has NOT connected its pipe yet, so the single +200ms focus attempt used to
+                // be silently dropped (IsPipeConnected==false) — the user then had to press RB by
+                // hand. Every later open already had a live, connected widget, hence the
+                // inconsistency. Poll for the pipe instead of firing once: a slower first jump is
+                // acceptable, a missing one is not.
+                const int focusMaxWaitMs = 5000;   // generous: cold widget launch after reboot
+                const int focusPollMs = 120;
+                int waited = 200;
+                while (!IsPipeConnected && waited < focusMaxWaitMs)
                 {
-                    var pipeMsg = new Shared.IPC.PipeMessage
-                    {
-                        Command = Shared.Enums.Command.Set,
-                        Function = Shared.Enums.Function.Labs_FocusWidget
-                    };
-                    if (SendPipeMessage(pipeMsg))
-                    {
-                        Logger.Info("Labs: Sent focus widget command via Named Pipe");
-                    }
-                    else
-                    {
-                        Logger.Warn("Labs: Failed to send focus widget command via Named Pipe");
-                    }
+                    await Task.Delay(focusPollMs);
+                    waited += focusPollMs;
                 }
-                else
+
+                if (!IsPipeConnected)
                 {
-                    Logger.Warn("Labs: Cannot send focus widget command - no pipe connection available");
+                    Logger.Warn($"Labs: Cannot send focus widget command - pipe never connected within {focusMaxWaitMs}ms");
+                    return;
                 }
+
+                // If we had to wait for a fresh connection, let the widget finish its
+                // OnPipeConnectedAsync init before activating it (ActivateAsync no-ops on a
+                // half-initialized widget). Already-connected opens skip this and stay snappy.
+                if (!wasConnected)
+                {
+                    Logger.Info($"Labs: widget pipe connected after {waited}ms (cold open); settling before focus");
+                    await Task.Delay(400);
+                }
+
+                // Send the focus command, with one short retry in case the very first send races
+                // the widget becoming fully ready.
+                var pipeMsg = new Shared.IPC.PipeMessage
+                {
+                    Command = Shared.Enums.Command.Set,
+                    Function = Shared.Enums.Function.Labs_FocusWidget
+                };
+                bool sent = SendPipeMessage(pipeMsg);
+                if (!sent)
+                {
+                    await Task.Delay(200);
+                    sent = IsPipeConnected && SendPipeMessage(pipeMsg);
+                }
+                Logger.Info(sent
+                    ? $"Labs: Sent focus widget command via Named Pipe (waited {waited}ms)"
+                    : "Labs: Failed to send focus widget command via Named Pipe");
             }
             catch (Exception ex)
             {

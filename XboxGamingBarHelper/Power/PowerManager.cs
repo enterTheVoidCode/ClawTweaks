@@ -288,8 +288,38 @@ namespace XboxGamingBarHelper.Power
             WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_LONG_THREAD_POLICY, threadPolicy);
             WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_SHORT_THREAD_POLICY, shortThreadPolicy);
 
+            // Core parking per efficiency class. On Lunar Lake the legacy het policy above is largely
+            // overridden by Intel Thread Director / HGS, so Only-P / Only-E only become *visible* when
+            // we additionally PARK the opposite core class. Other modes restore both classes (unpark).
+            ApplySchedulingCoreParking(ref scheme, ref subgroup, mode);
+
             Logger.Info($"Set Scheduling Policy to {mode} ({name}) [{policy},{threadPolicy},{shortThreadPolicy}].");
             PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+        }
+
+        /// <summary>
+        /// Core-parking helper for the scheduling policy. On Lunar Lake (Claw) only the per-class-1
+        /// knob (<c>…MAX_CORES_1</c>) parks cleanly — it parks the P cores (Class 1), which is exactly
+        /// what "Only E-Core" wants. The base <c>…MAX_CORES</c> GUID does NOT behave as a clean
+        /// "Class 0 only" lever here: pinning it to 0 % effectively stalls the whole CPU (parking the
+        /// LP-E low-power island, which "OS containment" keeps almost everything on, freezes the system
+        /// → confirmed on device: "Only P" parked everything and stuttered). So we ONLY park for
+        /// "Only E-Core"; "Only P-Core" and the others leave parking released and rely on the
+        /// heterogeneous bias policy alone. Caller commits via PowerSetActiveScheme.
+        /// </summary>
+        private static void ApplySchedulingCoreParking(ref Guid scheme, ref Guid subgroup, int mode)
+        {
+            // Only-E (mode 4) parks the P cores (Class 1). Every other mode releases all parking.
+            bool parkPCores = (mode == 4);
+
+            WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_CORE_PARKING_MAX_CORES_1, parkPCores ? 0u : 100u);
+            WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_CORE_PARKING_MIN_CORES_1, 0u);
+            // Always keep the base/global knob fully released — pinning it parks the LP-E island and
+            // stalls the system (see summary above).
+            WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_CORE_PARKING_MAX_CORES, 100u);
+            WriteAcDc(ref scheme, ref subgroup, PowerGuids.GUID_PROCESSOR_CORE_PARKING_MIN_CORES, 0u);
+
+            Logger.Info($"Scheduling core-parking for mode {mode}: parkPCores(Class1)={parkPCores} (Only-P/others: bias-only, no parking).");
         }
 
         /// <summary>
@@ -496,6 +526,27 @@ namespace XboxGamingBarHelper.Power
 
             Logger.Info($"Set CPU Clock limit {(isAC ? "AC" : "DC")} {(isSecondary ? "secondary" : "primary")} to {mhzValue}MHz");
             PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+        }
+
+        /// <summary>
+        /// Reads the configured max-frequency cap (AC) in MHz from the active scheme. secondary=true →
+        /// P-core (PROCFREQMAX1), false → E-core/all (PROCFREQMAX). Returns 0 when unlimited/unset.
+        /// Used by the OSD to show the active P/E cap. Cheap (a single powrprof read).
+        /// </summary>
+        public static int GetCpuFreqCapMHz(bool secondary)
+        {
+            try
+            {
+                Guid scheme = GetActiveScheme();
+                Guid subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
+                Guid setting = secondary
+                    ? PowerGuids.GUID_PROCESSOR_FREQUENCY_LIMIT1
+                    : PowerGuids.GUID_PROCESSOR_FREQUENCY_LIMIT;
+                if (PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out uint v) == 0)
+                    return (int)v;
+            }
+            catch { }
+            return 0;
         }
 
         /// <summary>

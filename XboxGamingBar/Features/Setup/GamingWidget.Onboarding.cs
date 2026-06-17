@@ -27,25 +27,43 @@ namespace XboxGamingBar
         // item is only re-ordered on an actual complete/incomplete transition.
         private bool? _onbLayoutComplete = null;
 
-        // All four tools present. ViGEm/HidHide come from the cached install states (their property
-        // Value is unreliable — status arrives via a Command.Get response). RTSS/PawnIO use .Value,
-        // which IS set via the property push/sync path.
-        private bool OnbAllToolsInstalled =>
-            _gateVigemInstalled
-            && _gateHidHideInstalled
-            && (rtssInstalled?.Value == true)
-            && (pawnIOInstalled?.Value == true);
+        // Required tools present. The "primary emulation" tool depends on the active backend:
+        // VIIPER needs usbip-win2, Legacy ViGEm needs ViGEmBus. The other class is then optional
+        // (e.g. with VIIPER active, a missing ViGEm must NOT keep onboarding "open"). HidHide/
+        // RTSS/PawnIO are always required. ViGEm/HidHide come from cached install states (their
+        // property Value is unreliable — status arrives via a Command.Get response); usbip/RTSS/
+        // PawnIO use .Value, which IS set via the property push/sync path.
+        private bool OnbAllToolsInstalled
+        {
+            get
+            {
+                bool viiper = emulationBackend?.Value == true;
+                bool primaryEmu = viiper ? (usbipInstalled?.Value == true) : _gateVigemInstalled;
+                return primaryEmu
+                    && _gateHidHideInstalled
+                    && (rtssInstalled?.Value == true)
+                    && (pawnIOInstalled?.Value == true);
+            }
+        }
 
         // Cached ViGEm / HidHide install states (set by Update*InstalledUI). See OnbAllToolsInstalled.
         private bool _gateVigemInstalled;
         private bool _gateHidHideInstalled;
 
         // "Reported" flags: true once the helper has actually told us each tool's real install state.
-        // Until ALL four are known, RefreshOnboardingState shows the *persisted* last-known completion
-        // state instead of assuming "incomplete" — otherwise the yellow badge flashed on every start for
-        // users who long finished onboarding (gates default to false until the helper confirms).
-        private bool _onbVigemReported, _onbHidHideReported, _onbRtssReported, _onbPawnReported;
-        private bool OnbToolStatesKnown => _onbVigemReported && _onbHidHideReported && _onbRtssReported && _onbPawnReported;
+        // Until ALL required tools are known, RefreshOnboardingState shows the *persisted* last-known
+        // completion state instead of assuming "incomplete" — otherwise the yellow badge flashed on
+        // every start for users who long finished onboarding (gates default to false until confirmed).
+        private bool _onbVigemReported, _onbHidHideReported, _onbRtssReported, _onbPawnReported, _onbUsbipReported;
+        private bool OnbToolStatesKnown
+        {
+            get
+            {
+                bool viiper = emulationBackend?.Value == true;
+                bool primaryKnown = viiper ? _onbUsbipReported : _onbVigemReported;
+                return primaryKnown && _onbHidHideReported && _onbRtssReported && _onbPawnReported;
+            }
+        }
         private const string OnboardingCompleteKey = "Onboarding_Complete";
 
         // Called when the Onboarding tab becomes visible: render all rows from current state.
@@ -53,6 +71,7 @@ namespace XboxGamingBar
         {
             try
             {
+                UpdateOnboardingUsbip(usbipInstalled?.Value == true);
                 UpdateOnboardingViGEm(_gateVigemInstalled);
                 UpdateOnboardingHidHide(_gateHidHideInstalled);
                 UpdateOnboardingRtss(rtssInstalled?.Value == true);
@@ -70,6 +89,22 @@ namespace XboxGamingBar
             if (status == null) return;
             status.Text = installed ? $"{toolName}: Installed" : $"{toolName}: Not installed";
             status.Foreground = installed ? OnbGreenBrush : OnbGrayBrush;
+        }
+
+        // usbip-win2 row (VIIPER backend prerequisite). The Install button is offered when the
+        // driver is missing; the status doubles as the Legacy-vs-VIIPER primary-tool gate.
+        private void UpdateOnboardingUsbip(bool installed)
+        {
+            _onbUsbipReported = true;
+            SetOnbStatus(OnbUsbipStatus, "usbip-win2", installed);
+            if (OnbUsbipInstallBtn != null)
+            {
+                OnbUsbipInstallBtn.Content = installed ? "Installed" : "Install usbip-win2";
+                OnbUsbipInstallBtn.IsEnabled = !installed;
+            }
+            // Keep the System → Debug → Driver dependencies row in sync (status + Install/Uninstall).
+            SetDebugToolRow(DebugUsbipStatusText, DebugUsbipInstallButton, DebugUsbipUninstallButton, "usbip-win2", "Install usbip-win2", installed);
+            RefreshOnboardingState();
         }
 
         private void UpdateOnboardingViGEm(bool installed)
@@ -312,6 +347,18 @@ namespace XboxGamingBar
             catch { }
         }
 
+        // --- usbip-win2 install (VIIPER prerequisite): triggers the bundled-MSI install on the helper ---
+        private void OnbUsbipInstall_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("Onboarding: installing bundled usbip-win2");
+                if (OnbUsbipInstallBtn != null) { OnbUsbipInstallBtn.Content = "Installing…"; OnbUsbipInstallBtn.IsEnabled = false; }
+                installUsbip?.TriggerInstall();
+            }
+            catch (Exception ex) { Logger.Warn($"Onboarding usbip install failed: {ex.Message}"); }
+        }
+
         // --- Step 2: disable MSI Center M (optional hint) ---
         private void OnbMsiCenterDisable_Click(object sender, RoutedEventArgs e)
         {
@@ -373,6 +420,17 @@ namespace XboxGamingBar
         {
             if (DebugRtssUninstallButton != null) { DebugRtssUninstallButton.Content = "Uninstalling..."; DebugRtssUninstallButton.IsEnabled = false; }
             uninstallRTSS?.Trigger("uninstall");
+        }
+
+        private void DebugUsbipInstall_Click(object sender, RoutedEventArgs e)
+        {
+            if (DebugUsbipInstallButton != null) { DebugUsbipInstallButton.Content = "Installing..."; DebugUsbipInstallButton.IsEnabled = false; }
+            installUsbip?.TriggerInstall();
+        }
+        private void DebugUsbipUninstall_Click(object sender, RoutedEventArgs e)
+        {
+            if (DebugUsbipUninstallButton != null) { DebugUsbipUninstallButton.Content = "Uninstalling..."; DebugUsbipUninstallButton.IsEnabled = false; }
+            uninstallUsbip?.Trigger("uninstall");
         }
 
         private void DebugPawnIOInstall_Click(object sender, RoutedEventArgs e)

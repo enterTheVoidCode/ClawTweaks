@@ -392,9 +392,13 @@ namespace XboxGamingBarHelper.Systems
 
             // Get profile detection settings
             var settings = SettingsManager.GetInstance();
-            bool preferExe = settings?.ProfileMatchByExe?.Value ?? false;
+            // Game-Bar-only redesign: the "Game Detection" UI (Prefer executable / Games only) is gone.
+            // Hardcode to Game-Bar behaviour — preferExe=false so a Game-Bar game keeps its window-title
+            // identity (existing profiles stay matched); gamesOnly=true so only games count. The
+            // ProfileMatchByExe/ProfileGamesOnly properties stay (synced) but are intentionally ignored.
+            bool preferExe = false;
             var customGamePathProperty = settings?.ProfileCustomGamePath;
-            bool gamesOnly = settings?.ProfileGamesOnly?.Value ?? true;
+            bool gamesOnly = true;
 
             // Periodic diagnostic logging to avoid spam but ensure visibility
             bool shouldLogDiagnostics = (DateTime.Now - _lastDiagnosticLogTime).TotalSeconds >= DIAGNOSTIC_LOG_INTERVAL_SECONDS;
@@ -407,6 +411,8 @@ namespace XboxGamingBarHelper.Systems
             // Helper: Get game name based on preferExe setting
             // When preferExe is true: use exe name if available, fall back to window title
             // When preferExe is false: use window title, fall back to exe name
+            // Game-Bar-only redesign: now used only for Game-Bar-tracked games, whose window title is
+            // the stable game title. (Step 2 NormalizeGameTitle removed — no longer needed.)
             string GetGameName(string path, string windowTitle)
             {
                 if (preferExe)
@@ -431,6 +437,24 @@ namespace XboxGamingBarHelper.Systems
                         return windowTitle;
                     return Path.GetFileNameWithoutExtension(path) ?? "";
                 }
+            }
+
+            // Game-Bar-only redesign: resolve the identity (name that keys profiles) for a
+            // Game-Bar-tracked game.
+            //   • Default → the Game Bar's DisplayName (stable; e.g. RetroArch's stays "RetroArch"
+            //     even after a core loads), falling back to the window title, then the exe name.
+            //   • RetroArch exception → the WINDOW TITLE, because the Game Bar only reports the
+            //     program ("RetroArch") while the title carries the core ("RetroArch Gambatte …"),
+            //     and the user wants per-core profiles. Falls back to DisplayName if the title is
+            //     momentarily empty.
+            string ResolveGameBarName(string path, string windowTitle, string displayName)
+            {
+                var exe = Path.GetFileNameWithoutExtension(path) ?? "";
+                if (exe.Equals("retroarch", StringComparison.OrdinalIgnoreCase))
+                    return !string.IsNullOrEmpty(windowTitle) ? windowTitle : displayName;
+                if (!string.IsNullOrEmpty(displayName)) return displayName;
+                if (!string.IsNullOrEmpty(windowTitle)) return windowTitle;
+                return exe;
             }
 
             try
@@ -475,8 +499,8 @@ namespace XboxGamingBarHelper.Systems
                 }
             }
 
-            // Check for custom game paths override first (blacklist doesn't apply to custom games)
-            if (customGamePathProperty != null)
+            // [DISABLED — Game-Bar-only redesign] custom-game-path override.
+            if (false && customGamePathProperty != null)
             {
                 foreach (var processWindow in ProcessWindows)
                 {
@@ -641,20 +665,18 @@ namespace XboxGamingBarHelper.Systems
                         }
                         else
                         {
-                            // Use actual window title (or exe name) for the game name, NOT trackedGame.DisplayName.
-                            // Xbox Game Bar's DisplayName comes from MSIX metadata and may contain punctuation
-                            // (e.g., "Hollow Knight: Silksong") that differs from the window title ("Hollow Knight Silksong").
-                            // Using DisplayName causes profile name mismatches between helper and widget.
-                            var gameName = GetGameName(mw.Path, mw.Title);
+                            // Game-Bar identity = DisplayName (stable), except RetroArch (window title
+                            // for per-core). See ResolveGameBarName.
+                            var gameName = ResolveGameBarName(mw.Path, mw.Title, trackedGame.DisplayName);
                             Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
                             return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
                         }
                     }
                     else
                     {
-                        // TrackedGame has FPS > 0, it's actively rendering - use it
-                        // Use actual window title for naming consistency (see comment above)
-                        var gameName = GetGameName(mw.Path, mw.Title);
+                        // TrackedGame has FPS > 0, it's actively rendering - use it.
+                        // Game-Bar identity = DisplayName (stable), except RetroArch (window title).
+                        var gameName = ResolveGameBarName(mw.Path, mw.Title, trackedGame.DisplayName);
                         Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
                         return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
                     }
@@ -719,20 +741,17 @@ namespace XboxGamingBarHelper.Systems
                     // For other apps, gamesOnly ON requires FPS > 0 to be considered a game.
                     bool hasFPS = fps > 0;
 
-                    // Check for existing profile - try both exe name and window title based on preferExe setting
-                    // If user created a profile for this app, trust it as a game regardless of gamesOnly setting
-                    var profileGameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
-                    if (Profiles.ContainsKey(new GameId(profileGameName, processWindow.Value.Path)))
-                    {
-                        // User-created profile is always trusted as a game - no FPS check needed
-                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has profile, use it (FPS={fps}).");
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, profileGameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
-                        continue;
-                    }
+                    // ── Game-Bar-only redesign ───────────────────────────────────────────────
+                    // A game is recognised ONLY via (a) the Xbox Game Bar (TrackedGame) or (b) RTSS
+                    // (FPS>0). All other detection logic — per-game profile-by-path (Step 1/1b),
+                    // "GamesOnly OFF -> any foreground app", and the emulator GameProcesses whitelist —
+                    // is disabled. Profiles are still APPLIED widget-side once a game is detected.
 
-                    // Fallback TrackedGame matching (if early return didn't find a match)
-                    // This uses the OLD matching logic which removes spaces and compares full display name
-                    // TrackedGame from Xbox Game Bar is always trusted as a game - no FPS check needed
+                    // [DISABLED Step 1/1b] profile-by-path detection:
+                    // if (TryMatchProfileByPath(processWindow.Value.Path, out var matchedProfileId)) { ... }
+
+                    // (a) Fallback TrackedGame matching (if the early-return block above didn't match a
+                    //     window). A game the Xbox Game Bar reports is trusted; no FPS needed.
                     if (trackedGame.IsValid())
                     {
                         bool matchesByTitle = !string.IsNullOrEmpty(processWindow.Value.Title) &&
@@ -743,58 +762,42 @@ namespace XboxGamingBarHelper.Systems
 
                         if (matchesByTitle || matchesByProcessName)
                         {
-                            // Use actual window title for naming consistency (not trackedGame.DisplayName)
-                            var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
-                            Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" matches TrackedGame \"{gameName}\" (byTitle={matchesByTitle}, byProcess={matchesByProcessName}, FPS={fps}).");
+                            // Game-Bar identity = DisplayName (stable), except RetroArch (window title).
+                            var gameName = ResolveGameBarName(processWindow.Value.Path, processWindow.Value.Title, trackedGame.DisplayName);
+                            Logger.Debug($"TrackedGame fallback match \"{gameName}\" at \"{processWindow.Value.Path}\" (FPS={fps}).");
                             possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
                             continue;
                         }
                     }
 
-                    // Check RTSS entry for FPS-based detection
+                    // (b) RTSS FPS-based detection: a window RTSS reports rendering frames is a game.
+                    //     Identity = EXE name (NO window title), per the Game-Bar-only redesign.
                     if (hasFPS)
                     {
-                        // App has FPS > 0, it's a game
-                        var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
-                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processWindow.Value.Path}\" named \"{processWindow.Value.ProcessName}\" has {fps} FPS, use it.");
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
-                        continue;
-                    }
-
-                    // When gamesOnly is OFF, any foreground app qualifies as a game
-                    // Also include the last focused app if:
-                    // 1. Game Bar is currently foreground, OR
-                    // 2. No window has focus detected (Game Bar overlay may not show in ProcessWindows)
-                    bool isLastFocusedApp = !string.IsNullOrEmpty(lastFocusedAppPath) &&
-                                            processPath.Equals(lastFocusedAppPath, StringComparison.OrdinalIgnoreCase);
-                    bool useLastFocused = isLastFocusedApp && (gameBarIsForeground || !ProcessWindows.Values.Any(pw => pw.IsForeground));
-
-                    if (!gamesOnly && (processWindow.Value.IsForeground || useLastFocused))
-                    {
-                        var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
-                        if (useLastFocused && !processWindow.Value.IsForeground)
+                        // Gap-bridge: if this very process was just published as a game (e.g. the Game
+                        // Bar dropped the RetroArch target for a tick), keep the last identity instead
+                        // of flickering to the bare exe name ("retroarch").
+                        var last = RunningGame != null ? RunningGame.Value : new RunningGame();
+                        string name;
+                        if (last.GameId.IsValid() && !string.IsNullOrEmpty(last.GameId.Path) &&
+                            last.GameId.Path.Equals(processWindow.Value.Path, StringComparison.OrdinalIgnoreCase))
                         {
-                            Logger.Info($"GamesOnly OFF: Last focused app \"{processWindow.Value.Title}\" at path \"{processWindow.Value.Path}\" treated as game (no foreground window detected).");
+                            name = last.GameId.Name;
                         }
                         else
                         {
-                            Logger.Info($"GamesOnly OFF: Foreground window \"{processWindow.Value.Title}\" at path \"{processWindow.Value.Path}\" treated as game.");
+                            name = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
+                            if (string.IsNullOrEmpty(name)) name = processWindow.Value.Title;
                         }
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground || useLastFocused));
+                        Logger.Debug($"RTSS FPS detection: \"{name}\" at \"{processWindow.Value.Path}\" has {fps} FPS.");
+                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, name, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
                         continue;
                     }
 
-                    // GameProcesses list (emulators) - always detect as games since they're explicitly whitelisted
-                    // These are known gaming applications that Xbox Game Bar doesn't recognize
-                    if (GameProcesses.Contains(processExecutable))
-                    {
-                        var gameName = GetGameName(processWindow.Value.Path, processWindow.Value.Title);
-                        Logger.Debug($"Found window \"{processWindow.Value.Title}\" running {(processWindow.Value.IsForeground ? "foreground" : "background")} process id {processWindow.Key} at path \"{processPath}\" named \"{processWindow.Value.ProcessName}\" in pre-defined list.");
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processPath, 0, processWindow.Value.IsForeground));
-                        continue;
-                    }
+                    // [DISABLED] "GamesOnly OFF -> any foreground app" and the emulator GameProcesses
+                    // whitelist. Nothing else counts as a game.
 
-                    Logger.Debug($"Window \"{processWindow.Value.Title}\" at path {processWindow.Value.Path} doesn't have profile nor FPS.");
+                    Logger.Debug($"Window \"{processWindow.Value.Title}\" at path {processWindow.Value.Path} is not a Game-Bar/RTSS game.");
                 }
             }
 
@@ -873,6 +876,43 @@ namespace XboxGamingBarHelper.Systems
             }
         }
 
+        /// <summary>
+        /// Step 1: match a running process to a stored per-game profile by EXE PATH only
+        /// (case-insensitive), ignoring the display name. Returns the profile's STORED GameId
+        /// (stable name + cached icon path) so the detected identity stays constant even while the
+        /// window title changes (e.g. a loader showing an incrementing "NN%"). This replaces the old
+        /// GameId(name, path) key lookup, whose name came from the volatile window title.
+        /// </summary>
+        // [DISABLED — Game-Bar-only redesign] Step 2 title normalization (NormalizeGameTitle /
+        // TrailingPercentRegex) and Step 1/1b path-matching (TryMatchProfileByPath) are no longer
+        // used: detection is Game Bar + RTSS only. Kept commented for easy revert.
+        //
+        // private static readonly System.Text.RegularExpressions.Regex TrailingPercentRegex =
+        //     new System.Text.RegularExpressions.Regex(@"\s*[\[(]?\s*\d{1,3}\s*%\s*[\])]?\s*$",
+        //         System.Text.RegularExpressions.RegexOptions.Compiled);
+        //
+        // private static string NormalizeGameTitle(string title)
+        // {
+        //     if (string.IsNullOrEmpty(title)) return title;
+        //     var stripped = TrailingPercentRegex.Replace(title, "");
+        //     stripped = stripped.TrimEnd(' ', '\t', '-', '|', ':', '–', '—');
+        //     return string.IsNullOrEmpty(stripped) ? title : stripped;
+        // }
+        //
+        // private bool TryMatchProfileByPath(string path, out GameId matchedId)
+        // {
+        //     matchedId = default;
+        //     if (string.IsNullOrEmpty(path)) return false;
+        //     if (Profiles != null)
+        //         foreach (var key in Profiles.Keys)
+        //             if (!string.IsNullOrEmpty(key.Path) && key.Path.Equals(path, StringComparison.OrdinalIgnoreCase))
+        //             { matchedId = key; return true; }
+        //     var ctrlMap = SettingsManager.GetInstance()?.ControllerProfileGames;
+        //     if (ctrlMap != null && ctrlMap.TryGetValue(path, out var ctrlName) && !string.IsNullOrEmpty(ctrlName))
+        //     { matchedId = new GameId(ctrlName, path); return true; }
+        //     return false;
+        // }
+
         public override void Update()
         {
             base.Update();
@@ -891,7 +931,7 @@ namespace XboxGamingBarHelper.Systems
                 {
                     if (currentRunningGame.GameId.IsValid())
                     {
-                        Logger.Info($"Detect new running game {currentRunningGame.GameId.Name}.");
+                        Logger.Info($"Detect new running game {currentRunningGame.GameId.Name}. (path={currentRunningGame.GameId.Path})");
 
                         // Try to get cached icon first (synchronous, fast)
                         var exePath = currentRunningGame.GameId.Path;

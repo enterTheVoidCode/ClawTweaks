@@ -9,8 +9,10 @@ namespace XboxGamingBar.Data
     /// </summary>
     internal class EmulationBackendProperty : WidgetToggleProperty
     {
+        // Default true (VIIPER) — cosmetic only, to avoid a brief Off→On toggle flash before the
+        // helper BatchSync arrives. The helper's EmulationBackendProperty remains source of truth.
         public EmulationBackendProperty(ToggleSwitch inUI, Page inOwner)
-            : base(false, Function.Settings_EmulationBackend, inUI, inOwner)
+            : base(true, Function.Settings_EmulationBackend, inUI, inOwner)
         {
         }
 

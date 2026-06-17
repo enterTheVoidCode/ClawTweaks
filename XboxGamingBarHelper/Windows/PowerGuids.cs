@@ -28,6 +28,15 @@ namespace XboxGamingBarHelper.Windows
         public static readonly Guid GUID_PROCESSOR_LONG_THREAD_POLICY = new Guid("93b8b6dc-0698-4d1c-9ee4-0644e900c85d");
         public static readonly Guid GUID_PROCESSOR_SHORT_THREAD_POLICY = new Guid("bae08b81-2d5e-4688-ad6a-13243356654b");
 
+        // Core parking max/min unparked cores (percentage). Per-efficiency-class variants (suffix "1"
+        // = Efficiency Class 1). On Lunar Lake: Class 0 = LP-E (Skymont) cores, Class 1 = P (Lion Cove)
+        // cores. Used to actually park the opposite class for Only-P/Only-E, since the legacy
+        // heterogeneous scheduling policy alone is overridden by Thread Director/HGS on Lunar Lake.
+        public static readonly Guid GUID_PROCESSOR_CORE_PARKING_MAX_CORES = new Guid("ea062031-0e34-4ff1-9b6d-eb1059334028"); // class 0
+        public static readonly Guid GUID_PROCESSOR_CORE_PARKING_MAX_CORES_1 = new Guid("ea062031-0e34-4ff1-9b6d-eb1059334029"); // class 1 (P)
+        public static readonly Guid GUID_PROCESSOR_CORE_PARKING_MIN_CORES = new Guid("0cc5b647-c1df-4637-891a-dec35c318583"); // class 0
+        public static readonly Guid GUID_PROCESSOR_CORE_PARKING_MIN_CORES_1 = new Guid("0cc5b647-c1df-4637-891a-dec35c318584"); // class 1 (P)
+
         // Energy Saver settings
         public static readonly Guid GUID_ENERGY_SAVER_SUBGROUP = new Guid("de830923-a562-41af-a086-e3a2c6bad2da");
         public static readonly Guid GUID_ENERGY_SAVER_BATTERY_THRESHOLD = new Guid("e69653ca-cf7f-4f05-aa73-cb833fa90ad4"); // 0=never, 100=always

@@ -237,6 +237,24 @@ namespace XboxGamingBarHelper
                         Logger.Warn($"FactoryReset: reset ControllerEmulationEnabled failed: {exCe.Message}");
                     }
 
+                    // Reset the emulation backend to the default (VIIPER). Same rationale as
+                    // ControllerEmulationEnabled above: the widget reset clears only the UWP store,
+                    // but the helper's LocalSettingsHelper fallback keeps "EmulationBackend" — so
+                    // without writing it back here a user who had switched to Legacy would stay on
+                    // Legacy after a factory reset. SetValue(true) also re-syncs the widget toggle
+                    // and _viiperBackendActive; the LocalSettingsHelper write is belt-and-braces in
+                    // case the value was already true (SetValue would then no-op).
+                    try
+                    {
+                        settingsManager?.EmulationBackend?.SetValue(true);
+                        Settings.LocalSettingsHelper.SetValue("EmulationBackend", (int)Shared.Enums.EmulationBackend.Viiper);
+                        Logger.Info("FactoryReset: EmulationBackend reset to VIIPER (default)");
+                    }
+                    catch (Exception exEb)
+                    {
+                        Logger.Warn($"FactoryReset: reset EmulationBackend failed: {exEb.Message}");
+                    }
+
                     FactoryResetGlobalControllerProfile();
                     SendPipeAck(pipeMsg.RequestId);
                     return;
@@ -263,6 +281,14 @@ namespace XboxGamingBarHelper
                     }
                     return;
                 }
+
+                // [DISABLED — Game-Bar-only redesign] Step 1b controller-profile path map receiver.
+                // if (pipeMsg.Extra.TryGetValue("ControllerProfilePaths", out object cppObj) && cppObj is string cppStr)
+                // {
+                //     try { settingsManager?.SetControllerProfileGames(cppStr); SendPipeAck(pipeMsg.RequestId); }
+                //     catch (Exception ex) { Logger.Error($"Pipe: ControllerProfilePaths parse failed: {ex.Message}"); SendPipeAck(pipeMsg.RequestId, false); }
+                //     return;
+                // }
 
                 // ── MSI Claw: LED color ──────────────────────────────────────────────────────
                 // Payload: "MsiLedColor" = "R,G,B" (comma-separated bytes 0-255)
@@ -467,12 +493,12 @@ namespace XboxGamingBarHelper
                         }
 
                         // Copy the most recent helper logs. Files rotate hourly (helper_yyyy-MM-dd_HH.log),
-                        // so the newest 3 cover the current session (~3h).
+                        // so the newest 24 cover roughly the last day of activity (NLog keeps ~3 days).
                         if (Directory.Exists(helperLogPath))
                         {
                             foreach (var log in Directory.GetFiles(helperLogPath, "helper_*.log")
                                 .OrderByDescending(f => File.GetLastWriteTime(f))
-                                .Take(3))
+                                .Take(24))
                             {
                                 var destPath = Path.Combine(helperFolder, Path.GetFileName(log));
                                 File.Copy(log, destPath, true);
@@ -484,12 +510,12 @@ namespace XboxGamingBarHelper
                             Logger.Warn($"Pipe: helper log dir not found: {helperLogPath}");
                         }
 
-                        // Copy the most recent widget logs (also rotate hourly).
+                        // Copy the most recent widget logs (also rotate hourly) — newest 24 ≈ last day.
                         if (Directory.Exists(widgetLogPath))
                         {
                             foreach (var log in Directory.GetFiles(widgetLogPath, "widget_*.log")
                                 .OrderByDescending(f => File.GetLastWriteTime(f))
-                                .Take(3))
+                                .Take(24))
                             {
                                 var destPath = Path.Combine(widgetFolder, Path.GetFileName(log));
                                 File.Copy(log, destPath, true);
@@ -1409,6 +1435,38 @@ namespace XboxGamingBarHelper
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true); // Acknowledge request started
                 }
+                // usbip-win2: Install request — install the bundled MSI (VIIPER backend prerequisite).
+                // Only when explicitly requested with a Set command and "install" content.
+                else if (functionValue == (int)Function.InstallUsbip)
+                {
+                    bool shouldInstall = request.Command == Shared.Enums.Command.Set && request.Content == "install";
+                    if (!shouldInstall)
+                    {
+                        Logger.Debug("Pipe: InstallUsbip - Ignoring non-install request (Get or empty content)");
+                        return;
+                    }
+
+                    Logger.Info("Pipe: usbip-win2 installation requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            int code = XboxGamingBarHelper.Setup.UsbipInstaller.Run();
+                            Logger.Info($"Pipe: usbip-win2 install finished (exit={code}); refreshing detection");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Error($"Pipe: usbip-win2 install failed: {ex.Message}");
+                        }
+
+                        // Re-detect + push the usbip status so the onboarding row/badge refreshes.
+                        // (A reboot is usually required before detection flips to true.)
+                        try { settingsManager?.UsbipInstalled?.Refresh(); }
+                        catch (Exception ex) { Logger.Warn($"Pipe: usbip status refresh failed: {ex.Message}"); }
+                    });
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true); // Acknowledge request started
+                }
                 // HidHide: Check installed status
                 else if (functionValue == (int)Function.HidHideInstalled)
                 {
@@ -1511,9 +1569,20 @@ namespace XboxGamingBarHelper
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true);
                 }
+                // Standalone app-mode window reports its open/closed state so the "Open ClawTweaks
+                // Window" action can toggle (second press closes it).
+                else if (functionValue == (int)Function.AppModeWindowState)
+                {
+                    if (request.Command != Shared.Enums.Command.Set) { return; }
+                    bool open = string.Equals(request.Content, "true", StringComparison.OrdinalIgnoreCase);
+                    SetAppModeWindowOpen(open);
+                }
                 // Onboarding: run the proven prerequisite check/installer (embedded Setup-Tools.ps1)
-                // which detects + installs all four required tools in one pass, then push each
-                // *Installed status so the onboarding rows + badge refresh.
+                // which detects + installs the common tools (PawnIO, HidHide, RTSS) in one pass, then
+                // installs the BACKEND-SPECIFIC emulation driver — usbip-win2 when VIIPER is active
+                // (the default), or the legacy ViGEmBus when the user has switched to Legacy. ViGEm is
+                // deliberately NOT installed in VIIPER mode. Finally push each *Installed status so the
+                // onboarding rows + badge refresh.
                 else if (functionValue == (int)Function.RunToolSetup)
                 {
                     if (request.Command != Shared.Enums.Command.Set || request.Content != "install") { return; }
@@ -1522,6 +1591,8 @@ namespace XboxGamingBarHelper
                     {
                         try
                         {
+                            // Common tools only (PawnIO/HidHide/RTSS); ViGEm is excluded from the "all"
+                            // run in Setup-Tools.ps1 and only installed on demand below for Legacy.
                             int code = XboxGamingBarHelper.Setup.ToolSetupRunner.Run();
                             Logger.Info($"Pipe: tool setup finished (exit={code}); pushing tool statuses");
                         }
@@ -1529,6 +1600,28 @@ namespace XboxGamingBarHelper
                         {
                             Logger.Error($"Pipe: tool setup run failed: {ex.Message}");
                         }
+
+                        // Backend-specific emulation driver: VIIPER → bundled usbip-win2 MSI;
+                        // Legacy → ViGEmBus (via the per-tool winget path). Never install both.
+                        bool viiperBackend = settingsManager?.EmulationBackend?.Value == true;
+                        try
+                        {
+                            if (viiperBackend)
+                            {
+                                int uc = XboxGamingBarHelper.Setup.UsbipInstaller.Run();
+                                Logger.Info($"Pipe: tool setup — VIIPER backend, usbip-win2 install (exit={uc})");
+                            }
+                            else
+                            {
+                                int vc = XboxGamingBarHelper.Setup.ToolSetupRunner.Run("vigem");
+                                Logger.Info($"Pipe: tool setup — Legacy backend, ViGEmBus install (exit={vc})");
+                            }
+                        }
+                        catch (Exception ex) { Logger.Error($"Pipe: tool setup emulation-driver install failed: {ex.Message}"); }
+
+                        // Re-detect + push usbip status (VIIPER prerequisite).
+                        try { settingsManager?.UsbipInstalled?.Refresh(); }
+                        catch (Exception ex) { Logger.Warn($"Pipe: usbip status refresh failed: {ex.Message}"); }
 
                         // Re-detect + push each tool's status (best-effort).
                         try
@@ -1569,6 +1662,23 @@ namespace XboxGamingBarHelper
                         bool installed = XboxGamingBarHelper.Labs.ViGEmBusHelper.IsInstalled();
                         SendPipeMessage(new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Set, Function = Function.ViGEmBusInstalled, Content = installed.ToString() });
                         Logger.Info($"Pipe: ViGEmBus uninstall complete, sent updated status: {installed}");
+                    });
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add("Content", true);
+                }
+                // usbip-win2: Uninstall request (VIIPER backend driver)
+                else if (functionValue == (int)Function.UninstallUsbip)
+                {
+                    if (request.Command != Shared.Enums.Command.Set || request.Content != "uninstall") { return; }
+                    Logger.Info("Pipe: usbip-win2 uninstall requested from widget");
+                    _ = Task.Run(() =>
+                    {
+                        try { XboxGamingBarHelper.Labs.ToolUninstaller.UninstallUsbip(); }
+                        catch (Exception ex) { Logger.Warn($"Pipe: usbip-win2 uninstall failed: {ex.Message}"); }
+                        // Push updated status (a reboot is usually required before detection flips).
+                        try { settingsManager?.UsbipInstalled?.Refresh(); }
+                        catch (Exception ex) { Logger.Warn($"Pipe: usbip status refresh failed: {ex.Message}"); }
+                        Logger.Info("Pipe: usbip-win2 uninstall complete");
                     });
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true);
