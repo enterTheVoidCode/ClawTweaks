@@ -45,7 +45,8 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
             string wattText = watt >= 0 ? $"{(int)Math.Round(watt)}W " : "";
 
             // PL1/PL2 grouped in parentheses next to the live package power, e.g. "TDP 9W (PL1:25W PL2:26W)".
-            string plText = pl2 > 0 ? $"(PL1:{pl1}W PL2:{pl2}W)" : $"(PL1:{pl1}W)";
+            // The live watt value stays full size; the PL1/PL2 hint is secondary → rendered smaller (75%).
+            string plText = pl2 > 0 ? $"<S=75>(PL1:{pl1}W PL2:{pl2}W)<S>" : $"<S=75>(PL1:{pl1}W)<S>";
             return $"<C={labelColor}>TDP<C={tc}> {wattText}{plText}<C={tc}>";
         }
     }

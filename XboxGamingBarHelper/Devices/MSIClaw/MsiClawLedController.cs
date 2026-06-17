@@ -49,8 +49,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         // ── Public API ────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Sets all controller LED zones to a uniform solid RGB color.
-        /// Brightness is fixed at 100 (max) — the user controls color via the widget.
+        /// Sets all controller LED zones to a uniform solid RGB color at the given brightness.
         ///
         /// Mirrors HC ClawA1M.SetLedColor(SolidColor): both MainColor and SecondaryColor
         /// are set to the same value, producing uniform lighting across all nine zones.
@@ -58,8 +57,9 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         /// <param name="r">Red   0–255</param>
         /// <param name="g">Green 0–255</param>
         /// <param name="b">Blue  0–255</param>
+        /// <param name="brightness">0–100. 0 turns the LED off (used by the LED on/off tile).</param>
         /// <returns>true on success, false if device not found or write fails.</returns>
-        public static bool TrySetLedColor(byte r, byte g, byte b)
+        public static bool TrySetLedColor(byte r, byte g, byte b, byte brightness = 100)
         {
             try
             {
@@ -95,11 +95,11 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
                 Logger.Info($"[MsiClawLed] FW=0x{fwVersion:X3} → RGB addr [{add1:X2},{add2:X2}]" +
                             (exactMatch ? "" : $" (nearest match, dist={bestDist})"));
 
-                byte[] msg = BuildRgbPacket(r, g, b, brightness: 100, addr1: add1, addr2: add2);
+                byte[] msg = BuildRgbPacket(r, g, b, brightness: Math.Min((byte)100, brightness), addr1: add1, addr2: add2);
                 using (HidStream stream = device.Open())
                     stream.Write(msg);
 
-                Logger.Info($"[MsiClawLed] LED set R={r} G={g} B={b}");
+                Logger.Info($"[MsiClawLed] LED set R={r} G={g} B={b} Brightness={brightness}");
                 return true;
             }
             catch (Exception ex)

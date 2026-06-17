@@ -68,6 +68,15 @@ namespace XboxGamingBarHelper.RTSS
             DecimalPlaces = decimalPlaces;
         }
 
+        public OSDItemValue(float value, string unit, string prefix, OSDValueType valueType, int decimalPlaces)
+        {
+            Value = value;
+            Unit = unit;
+            Prefix = prefix;
+            ValueType = valueType;
+            DecimalPlaces = decimalPlaces;
+        }
+
         public string FormattedValue => DecimalPlaces > 0
             ? Value.ToString($"F{DecimalPlaces}")
             : Math.Floor(Value).ToString();

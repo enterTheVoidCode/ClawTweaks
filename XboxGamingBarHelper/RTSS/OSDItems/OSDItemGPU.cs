@@ -41,11 +41,16 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
                 osdItems.Add(new OSDItemValue(gpuClockSensor.Value, "MHz", OSDValueType.Speed));
             }
 
+            // Full preset (level 4) only: GPU power draw in parentheses right after the frequency,
+            // e.g. "(6 W)". On Intel SoC this is LHM's "GPU Power" sensor.
+            if (osdLevel == 4 && gpuWattageSensor != null && gpuWattageSensor.Value >= 0)
+            {
+                // Secondary info → rendered smaller (75%, same ratio as the FPS "ms"), reset with <S>.
+                osdItems.Add(new OSDItemValue(gpuWattageSensor.Value, " W)<S>", "<S=75>(", OSDValueType.Wattage));
+            }
+
             if (gpuTemperatureSensor.Value >= 0)
                 osdItems.Add(new OSDItemValue(gpuTemperatureSensor.Value, "C", OSDValueType.Temperature));
-
-            // GPU wattage commented out per user request — CPU TDP is more meaningful on SoC devices
-            // osdItems.Add(new OSDItemValue(gpuWattageSensor.Value, "W", OSDValueType.Wattage));
 
             return osdItems;
         }

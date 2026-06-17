@@ -7,10 +7,13 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
     /// <summary>
     /// Persists the user's chosen MSI Claw LED color helper-side, so the helper can re-apply it on
     /// its own at startup — independently of the widget (which may not be connected yet right after a
-    /// reboot). Stored as "R,G,B" in LocalState.
+    /// reboot). Stored as "R,G,B" or "R,G,B,Brightness" (brightness 0-100; 0 = LED off) in LocalState.
     ///
     /// The presence of this file is the single source of truth for "the user has chosen a custom LED
     /// color". When it is absent the helper must NOT touch the LED at all and leave whatever MSI set.
+    ///
+    /// Brightness MUST be persisted here too — otherwise the LED on/off tile's "off" state (brightness
+    /// 0) is lost on reboot and the helper re-applies the saved colour at full brightness (white/bright).
     /// </summary>
     internal static class MsiLedColorStore
     {
@@ -39,14 +42,14 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             return Path.Combine(localState, fileName);
         }
 
-        /// <summary>Persists the user's chosen color. Called whenever the widget pushes a new color.</summary>
-        public static void Save(byte r, byte g, byte b)
+        /// <summary>Persists the user's chosen color and brightness. Called whenever the widget pushes a new color.</summary>
+        public static void Save(byte r, byte g, byte b, byte brightness = 100)
         {
             try
             {
                 string path = ResolvePath();
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, $"{r},{g},{b}");
+                File.WriteAllText(path, $"{r},{g},{b},{Math.Min((byte)100, brightness)}");
             }
             catch (Exception ex)
             {
@@ -55,22 +58,30 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         }
 
         /// <summary>
-        /// Loads the user's stored color. Returns false when no custom color was ever saved — in which
-        /// case the LED must be left untouched.
+        /// Loads the user's stored color and brightness. Returns false when no custom color was ever
+        /// saved — in which case the LED must be left untouched. Brightness defaults to 100 for legacy
+        /// "R,G,B" files written before brightness was persisted.
         /// </summary>
-        public static bool TryLoad(out byte r, out byte g, out byte b)
+        public static bool TryLoad(out byte r, out byte g, out byte b, out byte brightness)
         {
             r = g = b = 0;
+            brightness = 100;
             try
             {
                 string path = ResolvePath();
                 if (!File.Exists(path)) return false;
 
                 string[] parts = File.ReadAllText(path).Trim().Split(',');
-                return parts.Length == 3
-                    && byte.TryParse(parts[0].Trim(), out r)
-                    && byte.TryParse(parts[1].Trim(), out g)
-                    && byte.TryParse(parts[2].Trim(), out b);
+                if (parts.Length < 3
+                    || !byte.TryParse(parts[0].Trim(), out r)
+                    || !byte.TryParse(parts[1].Trim(), out g)
+                    || !byte.TryParse(parts[2].Trim(), out b))
+                    return false;
+
+                // Optional 4th field = brightness (0-100). Legacy 3-field files → default 100.
+                if (parts.Length >= 4 && byte.TryParse(parts[3].Trim(), out byte br))
+                    brightness = Math.Min((byte)100, br);
+                return true;
             }
             catch (Exception ex)
             {

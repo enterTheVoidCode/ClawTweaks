@@ -291,23 +291,28 @@ namespace XboxGamingBarHelper
                 // }
 
                 // ── MSI Claw: LED color ──────────────────────────────────────────────────────
-                // Payload: "MsiLedColor" = "R,G,B" (comma-separated bytes 0-255)
+                // Payload: "MsiLedColor" = "R,G,B" or "R,G,B,Brightness" (bytes; brightness 0-100,
+                // default 100 when absent — 0 turns the LED off for the LED on/off tile).
                 if (pipeMsg.Extra.TryGetValue("MsiLedColor", out object ledColorObj) && ledColorObj is string ledColorStr)
                 {
                     try
                     {
                         var parts = ledColorStr.Split(',');
-                        if (parts.Length == 3
+                        if (parts.Length >= 3
                             && byte.TryParse(parts[0].Trim(), out byte lr)
                             && byte.TryParse(parts[1].Trim(), out byte lg)
                             && byte.TryParse(parts[2].Trim(), out byte lb))
                         {
-                            bool ok = Devices.MSIClaw.MsiClawLedController.TrySetLedColor(lr, lg, lb);
-                            // Persist as the user's chosen color so the helper can re-apply it on its
-                            // own at the next startup (red → green-on-ready → this color). Its presence
-                            // is also what authorises the helper to drive the LED at all.
-                            Devices.MSIClaw.MsiLedColorStore.Save(lr, lg, lb);
-                            Logger.Info($"Pipe: MsiLedColor R={lr} G={lg} B={lb} → ok={ok}");
+                            byte lbright = 100;
+                            if (parts.Length >= 4 && byte.TryParse(parts[3].Trim(), out byte parsedBright))
+                                lbright = Math.Min((byte)100, parsedBright);
+                            bool ok = Devices.MSIClaw.MsiClawLedController.TrySetLedColor(lr, lg, lb, lbright);
+                            // Persist colour AND brightness so the helper can re-apply the exact state on
+                            // its own at the next startup. Brightness MUST be stored — otherwise the LED
+                            // on/off tile's "off" state (brightness 0) is lost on reboot and the LED comes
+                            // back at full brightness. Its presence also authorises the helper to drive the LED.
+                            Devices.MSIClaw.MsiLedColorStore.Save(lr, lg, lb, lbright);
+                            Logger.Info($"Pipe: MsiLedColor R={lr} G={lg} B={lb} Brightness={lbright} → ok={ok}");
                             SendPipeAck(pipeMsg.RequestId, ok);
                         }
                         else

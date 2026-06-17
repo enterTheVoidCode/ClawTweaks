@@ -40,13 +40,22 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         /// </summary>
         public static void SignalHelperStarting()
         {
-            if (!MsiLedColorStore.TryLoad(out byte r, out byte g, out byte b)) return; // no custom colour → leave MSI's
+            if (!MsiLedColorStore.TryLoad(out byte r, out byte g, out byte b, out byte brightness)) return; // no custom colour → leave MSI's
             int token = Interlocked.Increment(ref _token);
+
+            // Saved state is "off" (LED on/off tile) → no red loading flash, just put the LED off and
+            // keep it off (retry until the HID is reachable). Skipping the red avoids a visible flash
+            // before going dark, and preserves the tile's off state across reboots.
+            if (brightness == 0)
+            {
+                _ = ApplyWithRetryAsync(r, g, b, brightness, "helper start — saved state is off", token);
+                return;
+            }
 
             if (!MsiLedColorStore.LoadBootCycle())
             {
                 // Cycle off: no flash, just the user's colour (retry until the HID is ready).
-                _ = ApplyWithRetryAsync(r, g, b, "helper start — cycle off, applying saved colour", token);
+                _ = ApplyWithRetryAsync(r, g, b, brightness, "helper start — cycle off, applying saved colour", token);
                 return;
             }
 
@@ -58,7 +67,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
                 {
                     await Task.Delay(LoadingTimeoutMs).ConfigureAwait(false);
                     if (token != Volatile.Read(ref _token)) return; // controller-ready took over
-                    await ApplyWithRetryAsync(r, g, b, "helper start — no controller-ready within timeout, restoring saved colour", token).ConfigureAwait(false);
+                    await ApplyWithRetryAsync(r, g, b, brightness, "helper start — no controller-ready within timeout, restoring saved colour", token).ConfigureAwait(false);
                 }
                 catch (Exception ex) { Logger.Debug($"[MsiLedBoot] loading safety-net failed: {ex.Message}"); }
             });
@@ -72,11 +81,12 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         /// </summary>
         public static void SignalControllerReady()
         {
-            if (!MsiLedColorStore.TryLoad(out byte r, out byte g, out byte b)) return;
+            if (!MsiLedColorStore.TryLoad(out byte r, out byte g, out byte b, out byte brightness)) return;
+            if (brightness == 0) return;                   // saved state is off → already applied (off) at start, no red shown
             if (!MsiLedColorStore.LoadBootCycle()) return; // cycle off → colour already on, don't re-set
 
             int token = Interlocked.Increment(ref _token);
-            _ = ApplyWithRetryAsync(r, g, b, "controller ready — applying saved colour", token);
+            _ = ApplyWithRetryAsync(r, g, b, brightness, "controller ready — applying saved colour", token);
         }
 
         /// <summary>Single best-effort colour set (no retry) — for the transient red loading flash.</summary>
@@ -90,25 +100,25 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         /// Applies a colour, retrying while the command-HID is unavailable (typical during the mount).
         /// Aborts early if a newer sequence superseded this one (token changed).
         /// </summary>
-        private static async Task<bool> ApplyWithRetryAsync(byte r, byte g, byte b, string reason, int token)
+        private static async Task<bool> ApplyWithRetryAsync(byte r, byte g, byte b, byte brightness, string reason, int token)
         {
             for (int i = 1; i <= ApplyRetries; i++)
             {
                 if (token != Volatile.Read(ref _token)) return false; // superseded by a newer signal
-                if (TrySet(r, g, b))
+                if (TrySet(r, g, b, brightness))
                 {
-                    Logger.Info($"[MsiLedBoot] LED → R={r} G={g} B={b} ({reason}) → ok=True (attempt {i})");
+                    Logger.Info($"[MsiLedBoot] LED → R={r} G={g} B={b} Brightness={brightness} ({reason}) → ok=True (attempt {i})");
                     return true;
                 }
                 await Task.Delay(ApplyRetryGapMs).ConfigureAwait(false);
             }
-            Logger.Warn($"[MsiLedBoot] LED → R={r} G={g} B={b} ({reason}) → failed after {ApplyRetries} attempts (command-HID stayed unavailable)");
+            Logger.Warn($"[MsiLedBoot] LED → R={r} G={g} B={b} Brightness={brightness} ({reason}) → failed after {ApplyRetries} attempts (command-HID stayed unavailable)");
             return false;
         }
 
-        private static bool TrySet(byte r, byte g, byte b)
+        private static bool TrySet(byte r, byte g, byte b, byte brightness = 100)
         {
-            try { return MsiClawLedController.TrySetLedColor(r, g, b); }
+            try { return MsiClawLedController.TrySetLedColor(r, g, b, brightness); }
             catch (Exception ex) { Logger.Debug($"[MsiLedBoot] set colour threw: {ex.Message}"); return false; }
         }
     }

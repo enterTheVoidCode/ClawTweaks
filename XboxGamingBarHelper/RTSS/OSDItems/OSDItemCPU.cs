@@ -10,16 +10,18 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
         private HardwareSensor cpuClockSensor;
         private HardwareSensor cpuWattageSensor;
         private HardwareSensor cpuTemperatureSensor;
+        private HardwareSensor cpuVoltageSensor;
 
         private bool showClock = false;
         private PerformanceManager performanceManager;
 
-        public OSDItemCPU(HardwareSensor cpuUsageSensor, HardwareSensor cpuClockSensor, HardwareSensor cpuWattageSensor, HardwareSensor cpuTemperatureSensor) : base("CPU", "CPU", Color.Turquoise)
+        public OSDItemCPU(HardwareSensor cpuUsageSensor, HardwareSensor cpuClockSensor, HardwareSensor cpuWattageSensor, HardwareSensor cpuTemperatureSensor, HardwareSensor cpuVoltageSensor = null) : base("CPU", "CPU", Color.Turquoise)
         {
             this.cpuWattageSensor = cpuWattageSensor;
             this.cpuUsageSensor = cpuUsageSensor;
             this.cpuClockSensor = cpuClockSensor;
             this.cpuTemperatureSensor = cpuTemperatureSensor;
+            this.cpuVoltageSensor = cpuVoltageSensor;
         }
 
         public void SetShowClock(bool show)
@@ -48,6 +50,12 @@ namespace XboxGamingBarHelper.RTSS.OSDItems
 
             if (cpuTemperatureSensor.Value >= 0)
                 osdItems.Add(new OSDItemValue(cpuTemperatureSensor.Value, "C", OSDValueType.Temperature));
+
+            // Full preset (level 4) only: aggregate Vcore in parentheses right after the temperature,
+            // e.g. "(0.72V)". LHM's "CPU Core" voltage sensor.
+            // Secondary info → rendered smaller (75%, same ratio as the FPS "ms"), reset with <S>.
+            if (osdLevel == 4 && cpuVoltageSensor != null && cpuVoltageSensor.Value >= 0)
+                osdItems.Add(new OSDItemValue(cpuVoltageSensor.Value, "V)<S>", "<S=75>(", OSDValueType.None, 2));
 
             return osdItems;
         }

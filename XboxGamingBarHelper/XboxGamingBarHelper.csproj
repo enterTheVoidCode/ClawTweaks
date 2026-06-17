@@ -219,6 +219,7 @@
     <Compile Include="Performance\Sensors\VRMTemperatureSensor.cs" />
     <Compile Include="Performance\Sensors\CPUUsageSensor.cs" />
     <Compile Include="Performance\Sensors\CPUWattageSensor.cs" />
+    <Compile Include="Performance\Sensors\CPUVoltageSensor.cs" />
     <Compile Include="Performance\Sensors\GPUClockSensor.cs" />
     <Compile Include="Performance\Sensors\GPUTemperatureSensor.cs" />
     <Compile Include="Performance\Sensors\GPUUsageSensor.cs" />

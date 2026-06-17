@@ -2050,8 +2050,8 @@
                                                Style="{StaticResource CardTitleStyle}"
                                                Margin="0,0,0,8"/>
 
-                                    <!-- Columns -->
-                                    <Grid Margin="0,0,0,8">
+                                    <!-- Columns (hidden — Full overlay is fixed to a 1-column vertical list) -->
+                                    <Grid Margin="0,0,0,8" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -2285,8 +2285,8 @@
                                                 ValueChanged="OSDOpacitySlider_ValueChanged"/>
                                     </StackPanel>
 
-                                    <!-- Position Shift Toggle (OLED burn-in protection) -->
-                                    <Grid Margin="0,4,0,8">
+                                    <!-- Position Shift Toggle (OLED burn-in protection) — hidden -->
+                                    <Grid Margin="0,4,0,8" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -2302,8 +2302,8 @@
                                                       Toggled="OSDPositionShiftToggle_Toggled"/>
                                     </Grid>
 
-                                    <!-- Frametime Graph Pinned Toggle -->
-                                    <Grid Margin="0,4,0,8">
+                                    <!-- Frametime Graph Pinned Toggle — hidden -->
+                                    <Grid Margin="0,4,0,8" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
@@ -2613,10 +2613,6 @@
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="CPU" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
-                                            <Border Background="#33FF3B30" BorderBrush="#FF3B30" BorderThickness="1"
-                                                    CornerRadius="4" Padding="5,1,5,1" VerticalAlignment="Center">
-                                                <TextBlock Text="EXPERIMENTAL" FontSize="9" FontWeight="SemiBold" Foreground="#FF6B60"/>
-                                            </Border>
                                         </StackPanel>
                                         <TextBlock Text="Boost mode, scheduling policy and P/E core max frequency."
                                                    Style="{StaticResource CardCaptionStyle}"
@@ -9388,7 +9384,7 @@
                                     <Border Background="#1E2A3E" BorderBrush="#3D5A80" BorderThickness="1" CornerRadius="6" Padding="12">
                                         <StackPanel>
                                             <TextBlock Text="VIIPER Device" FontSize="13" FontWeight="SemiBold" Foreground="#4AB3F4"/>
-                                            <TextBlock Text="Active backend: VIIPER (USBIP). Changes take effect immediately (hot-swap)." FontSize="11" Foreground="#888888" Margin="0,2,0,10" TextWrapping="Wrap"/>
+                                            <TextBlock Text="Active backend: VIIPER (USBIP). Changes take effect immediately (hot-swap). Note: any virtual device other than Xbox 360 can cause problems due to Game Bar incompatibilities — please test it and report back with feedback." FontSize="11" Foreground="#888888" Margin="0,2,0,10" TextWrapping="Wrap"/>
 
                                             <TextBlock Text="Virtual device" FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,4"/>
                                             <ComboBox x:Name="ViiperDeviceTypeComboBox" HorizontalAlignment="Stretch">

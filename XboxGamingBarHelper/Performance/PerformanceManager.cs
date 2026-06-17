@@ -118,11 +118,14 @@ namespace XboxGamingBarHelper.Performance
         // actual core count never match a sensor and stay -1 (N/A) → omitted by the OSD item.
         public CPUCoreClockSensor[] PCoreClocks { get; }
         public CPUCoreClockSensor[] ECoreClocks { get; }
-        // Per-core load (%) — same hybrid names as the clocks, SensorType.Load. For the Full OSD preset.
-        public CPUCoreLoadSensor[] PCoreLoads { get; }
-        public CPUCoreLoadSensor[] ECoreLoads { get; }
+        // Per-core load (%). LHM names the per-core LOAD sensors FLAT — "CPU Core #1".."CPU Core #N"
+        // across all physical cores (NOT the hybrid "P-Core #/E-Core #" naming it uses for the per-core
+        // Clock sensors). On Intel hybrid SKUs the P-cores enumerate first (CPU Core #1..#nP), then the
+        // E-cores; the OSD maps these flat slots to the P/E clusters by position. For the Full preset.
+        public CPUCoreLoadSensor[] CoreLoads { get; }
         public CPUWattageSensor CPUWattage { get ; }
         public CPUTemperatureSensor CPUTemperature { get; }
+        public CPUVoltageSensor CPUVoltage { get; }   // aggregate Vcore — Full OSD preset only
         public VRMTemperatureSensor VRMTemperature { get; }
 
         public GPUUsageSensor GPUUsage { get; }
@@ -485,18 +488,20 @@ namespace XboxGamingBarHelper.Performance
             // Register up to 8 P-cores and 8 E-cores; unused slots simply never match a sensor.
             PCoreClocks = new CPUCoreClockSensor[8];
             ECoreClocks = new CPUCoreClockSensor[8];
-            PCoreLoads = new CPUCoreLoadSensor[8];
-            ECoreLoads = new CPUCoreLoadSensor[8];
+            // Flat per-core LOAD slots "CPU Core #1".."CPU Core #16" (covers up to 16 physical cores).
+            // LHM uses this flat naming for Load (unlike the hybrid clock names) — see CoreLoads doc.
+            CoreLoads = new CPUCoreLoadSensor[16];
             for (int i = 0; i < 8; i++)
             {
                 PCoreClocks[i] = new CPUCoreClockSensor($"P-Core #{i + 1}");
                 ECoreClocks[i] = new CPUCoreClockSensor($"E-Core #{i + 1}");
-                PCoreLoads[i] = new CPUCoreLoadSensor($"P-Core #{i + 1}");
-                ECoreLoads[i] = new CPUCoreLoadSensor($"E-Core #{i + 1}");
             }
+            for (int i = 0; i < CoreLoads.Length; i++)
+                CoreLoads[i] = new CPUCoreLoadSensor($"CPU Core #{i + 1}");
             CPUUsage = new CPUUsageSensor();
             CPUWattage = new CPUWattageSensor();
             CPUTemperature = new CPUTemperatureSensor();
+            CPUVoltage = new CPUVoltageSensor();
             VRMTemperature = new VRMTemperatureSensor();
             GPUUsage = new GPUUsageSensor();
             GPUClock = new GPUClockSensor();
@@ -523,6 +528,7 @@ namespace XboxGamingBarHelper.Performance
                 CPUUsage,
                 CPUWattage,
                 CPUTemperature,
+                CPUVoltage,
                 VRMTemperature,
                 GPUUsage,
                 GPUClock,
@@ -545,8 +551,7 @@ namespace XboxGamingBarHelper.Performance
             };
             hardwareSensors.AddRange(PCoreClocks);
             hardwareSensors.AddRange(ECoreClocks);
-            hardwareSensors.AddRange(PCoreLoads);
-            hardwareSensors.AddRange(ECoreLoads);
+            hardwareSensors.AddRange(CoreLoads);
 
             // RyzenAdj initialization deferred - WinRing0 no longer bundled
             // Use PawnIO for TDP control instead (anti-cheat compatible)
