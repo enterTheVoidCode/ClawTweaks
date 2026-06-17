@@ -53,10 +53,10 @@ namespace XboxGamingBar
             // Levels 1-3 are fixed presets (not user-editable). Level 4 (Full) is what "Items to Display"
             // configures, and it defaults to EVERYTHING on — users remove what they don't want / reorder.
             // ControllerBattery + AutoTDP are Legion-only and intentionally not offered on the Claw.
-            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false } } },
-            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false } } },
-            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "CPUCores", false }, { "GPU", true },  { "GPUClock", true },  { "TDPLimits", true },  { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false } } },
-            { 4, new Dictionary<string, bool> { { "AppName", true },  { "FPS", true },  { "FrametimeGraph", true },  { "Blank1", true },  { "GPU", true },  { "CPU", true },  { "CPUClock", true },  { "CPUCores", true },  { "Blank2", true },  { "Memory", true },  { "Blank3", true },  { "VRAM", true },  { "TDPLimits", true },  { "Battery", true },  { "GPUClock", true },  { "Blank4", true },  { "Time", true } } }
+            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
+            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
+            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "CPUCores", false }, { "GPU", true },  { "GPUClock", true },  { "TDPLimits", true },  { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
+            { 4, new Dictionary<string, bool> { { "AppName", true },  { "FPS", true },  { "FrametimeGraph", true },  { "Blank1", true },  { "GPU", true },  { "Blank5", true },  { "CPU", true },  { "CPUClock", true },  { "CPUCores", true },  { "Blank2", true },  { "Memory", true },  { "Blank3", true },  { "VRAM", true },  { "TDPLimits", true },  { "Battery", true },  { "GPUClock", true },  { "Blank4", true },  { "Time", true } } }
         };
 
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
@@ -83,10 +83,10 @@ namespace XboxGamingBar
         // Per-level item order (list of item IDs in display order)
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
-            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4" } },
-            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4" } },
-            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "VRAM", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4" } },
-            { 4, new List<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "CPU", "CPUClock", "CPUCores", "Blank2", "TDPLimits", "Blank3", "Memory", "VRAM", "Battery", "GPUClock", "Blank4", "Time" } }
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" } },
+            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" } },
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "VRAM", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" } },
+            { 4, new List<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "Blank5", "CPU", "CPUClock", "CPUCores", "Blank2", "TDPLimits", "Blank3", "Memory", "VRAM", "Battery", "GPUClock", "Blank4", "Time" } }
         };
 
         // Per-level item label colors (DEFAULT = use global text color)
@@ -117,7 +117,8 @@ namespace XboxGamingBar
             { "Blank1", "---------------- Blank 1 --------------" },
             { "Blank2", "---------------- Blank 2 --------------" },
             { "Blank3", "---------------- Blank 3 --------------" },
-            { "Blank4", "---------------- Blank 4 --------------" }
+            { "Blank4", "---------------- Blank 4 --------------" },
+            { "Blank5", "---------------- Blank 5 --------------" }
         };
 
         // Observable collection for OSD items UI
@@ -582,7 +583,7 @@ namespace XboxGamingBar
                 // One-time reset: bump this whenever we ship a new default OSD layout so existing users
                 // get the new defaults instead of their stale saved config. All OSD_* keys are wiped;
                 // the rest of this method then finds nothing stored and keeps the new in-memory defaults.
-                const int CurrentOsdConfigVersion = 4;
+                const int CurrentOsdConfigVersion = 5;
                 int storedOsdVersion = (settings.Values.TryGetValue("OSD_ConfigVersion", out var osdVerObj) && osdVerObj is int osdVer) ? osdVer : 0;
                 if (storedOsdVersion < CurrentOsdConfigVersion)
                 {
@@ -592,7 +593,7 @@ namespace XboxGamingBar
                     Logger.Info($"OSD config reset to v{CurrentOsdConfigVersion} defaults (was v{storedOsdVersion}) — stale OSD settings wiped");
                 }
 
-                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4" };
+                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" };
 
                 foreach (var level in new[] { 1, 2, 3, 4 })
                 {
@@ -865,8 +866,9 @@ namespace XboxGamingBar
         private void OSDCustomizeExpandButton_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key != Windows.System.VirtualKey.Down && e.Key != Windows.System.VirtualKey.GamepadDPadDown) return;
-            if (isOSDCustomizeExpanded && OSDColumnsComboBox != null)
-                OSDColumnsComboBox.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+            // Columns is hidden now, so enter the panel at the first visible control (Overlay Size).
+            if (isOSDCustomizeExpanded && OSDTextSizeComboBox != null)
+                OSDTextSizeComboBox.Focus(Windows.UI.Xaml.FocusState.Keyboard);
             else
                 CpuBoostModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
             e.Handled = true;

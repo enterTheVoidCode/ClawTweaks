@@ -24,6 +24,7 @@ namespace XboxGamingBar
     {
         // ── LocalSettings keys ──────────────────────────────────────────────────────
         private const string MsiLedColorKey         = "MsiClaw_LedColor";       // "R,G,B"
+        private const string MsiLedBrightnessKey    = "MsiClaw_LedBrightness";  // int 0..100 (0 = LED off)
         private const string MsiLedBootCycleKey     = "MsiClaw_LedBootCycle";   // bool (startup red→green→colour)
         private const string MsiChargeLimitEnabledKey = "MsiClaw_ChargeLimitOn";  // bool
         private const string MsiChargeLimitPercentKey = "MsiClaw_ChargeLimitPct"; // int 20..100
@@ -214,12 +215,51 @@ namespace XboxGamingBar
 
         private void ApplyAndSaveLedColor(Color c)
         {
-            // Persist
-            ApplicationData.Current.LocalSettings.Values[MsiLedColorKey]
-                = $"{c.R},{c.G},{c.B}";
+            // Persist color. Picking a color implies the LED should be visible, so reset brightness
+            // to full (turns it back on if the LED on/off tile had set it to 0).
+            ApplicationData.Current.LocalSettings.Values[MsiLedColorKey] = $"{c.R},{c.G},{c.B}";
+            SetMsiLedBrightness(100);
 
-            // Send to helper
-            _ = SendMsiLedColorAsync(c.R, c.G, c.B);
+            // Send to helper at full brightness.
+            _ = SendMsiLedColorAsync(c.R, c.G, c.B, 100);
+
+            // Setting a colour re-enables the LED, so the on/off tile must flip back to "on".
+            UpdateQuickSettingsTileStates();
+        }
+
+        // ── MSI Claw LED on/off (drives the LED quick-settings tile) ─────────────────────
+        // The MSI Claw LED has no brightness slider; the tile turns it off (brightness 0) and back
+        // on (brightness 100, last saved color) via the same MsiLedColor pipe path.
+        internal int GetMsiLedBrightness()
+        {
+            var s = ApplicationData.Current.LocalSettings.Values;
+            if (s.TryGetValue(MsiLedBrightnessKey, out var v) && v is int i) return Math.Max(0, Math.Min(100, i));
+            return 100; // default on
+        }
+
+        private void SetMsiLedBrightness(int brightness)
+        {
+            ApplicationData.Current.LocalSettings.Values[MsiLedBrightnessKey] = Math.Max(0, Math.Min(100, brightness));
+        }
+
+        internal bool IsMsiLedOn() => GetMsiLedBrightness() > 0;
+
+        /// <summary>Turns the MSI Claw LED on (full, last saved color) or off (brightness 0).</summary>
+        internal void ApplyMsiLedOnOff(bool on)
+        {
+            byte r = 255, g = 255, b = 255;
+            var s = ApplicationData.Current.LocalSettings.Values;
+            if (s.TryGetValue(MsiLedColorKey, out var colorObj) && colorObj is string colorStr)
+            {
+                var parts = colorStr.Split(',');
+                if (parts.Length >= 3
+                    && byte.TryParse(parts[0], out var pr) && byte.TryParse(parts[1], out var pg) && byte.TryParse(parts[2], out var pb))
+                { r = pr; g = pg; b = pb; }
+            }
+            int brightness = on ? 100 : 0;
+            SetMsiLedBrightness(brightness);
+            _ = SendMsiLedColorAsync(r, g, b, brightness);
+            Logger.Info($"[MsiLed] LED tile → {(on ? "ON (100%)" : "OFF (0%)")}");
         }
 
         /// <summary>
@@ -244,29 +284,30 @@ namespace XboxGamingBar
                 if (!(s.TryGetValue(MsiLedColorKey, out var colorObj) && colorObj is string colorStr)) return;
 
                 var parts = colorStr.Split(',');
-                if (parts.Length == 3
+                if (parts.Length >= 3
                     && byte.TryParse(parts[0], out byte r)
                     && byte.TryParse(parts[1], out byte g)
                     && byte.TryParse(parts[2], out byte b))
                 {
-                    _ = SendMsiLedColorAsync(r, g, b);
+                    _ = SendMsiLedColorAsync(r, g, b, GetMsiLedBrightness());
                     Logger.Info($"[MsiLed] Re-pushed stored color on connect R={r} G={g} B={b}");
                 }
             }
             catch (Exception ex) { Logger.Warn($"[MsiLed] ResendMsiLedColorToHelper: {ex.Message}"); }
         }
 
-        private async Task SendMsiLedColorAsync(byte r, byte g, byte b)
+        private async Task SendMsiLedColorAsync(byte r, byte g, byte b, int brightness = 100)
         {
             try
             {
                 if (!App.IsConnected) return;
+                int bright = Math.Max(0, Math.Min(100, brightness));
                 var msg = new Windows.Foundation.Collections.ValueSet
                 {
-                    { "MsiLedColor", $"{r},{g},{b}" }
+                    { "MsiLedColor", $"{r},{g},{b},{bright}" }
                 };
                 await App.SendMessageAsync(msg);
-                Logger.Info($"[MsiLed] Sent color R={r} G={g} B={b}");
+                Logger.Info($"[MsiLed] Sent color R={r} G={g} B={b} Brightness={bright}");
             }
             catch (Exception ex) { Logger.Warn($"[MsiLed] Send failed: {ex.Message}"); }
         }

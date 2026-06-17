@@ -864,11 +864,19 @@ namespace XboxGamingBar
                     boostTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
                 }
 
-                // LED lighting tile — on when RGB brightness > 0.
+                // LED lighting tile — on when RGB brightness > 0. MSI Claw uses its own LED path.
                 if (qsTileMap.TryGetValue("LedToggle", out var ledTile) && ledTile.TileButton != null)
                 {
-                    int brightness = legionLightBrightness?.Value ?? (int)(LegionBrightnessSlider?.Value ?? 0);
-                    bool on = brightness > 0;
+                    bool on;
+                    if (IsMsiClawDevice())
+                    {
+                        on = IsMsiLedOn();
+                    }
+                    else
+                    {
+                        int brightness = legionLightBrightness?.Value ?? (int)(LegionBrightnessSlider?.Value ?? 0);
+                        on = brightness > 0;
+                    }
                     ledTile.StateText.Text = on ? "On" : "Off";
                     ledTile.StateText.Foreground = on ? accentForeground : offForeground;
                     ledTile.TileButton.Background = on ? tileOnBrush : tileOffBrush;

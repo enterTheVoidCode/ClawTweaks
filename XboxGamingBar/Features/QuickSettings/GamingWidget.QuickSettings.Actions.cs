@@ -1143,6 +1143,16 @@ namespace XboxGamingBar
         /// </summary>
         private void ToggleLedLighting()
         {
+            // MSI Claw: the LED has its own path (MsiLedColor) — toggle brightness 0/100 there.
+            // The Legion brightness slider does not drive the Claw LED.
+            if (IsMsiClawDevice())
+            {
+                bool turnOn = !IsMsiLedOn();
+                ApplyMsiLedOnOff(turnOn);
+                UpdateQuickSettingsTileStates();
+                return;
+            }
+
             if (LegionBrightnessSlider == null) return;
 
             int current = (int)LegionBrightnessSlider.Value;
