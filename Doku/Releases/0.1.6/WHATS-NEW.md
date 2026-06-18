@@ -39,7 +39,6 @@
 - **Game-Bar-based detection.** Game detection now relies on the **Xbox Game Bar** (plus RTSS), instead of window-name heuristics. More reliable, far less log churn. **RetroArch** keeps a per-core exception so per-core profiles still work.
 
 ### Fixes & polish
-- **Reliable Left-MSI focus jump** on the **first** Game Bar open after a reboot (previously missed the first open).
 - **CPU section redesign / UI cleanup**, plus a fix for **CPU frequency-cap persistence** and dropdown sync.
 - **Quieter logs** — rumble, AutoTDP and controller-forwarding stats moved to Debug; log export widened for diagnostics.
 
