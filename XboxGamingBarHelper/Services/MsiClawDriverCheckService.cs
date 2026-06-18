@@ -146,7 +146,13 @@ namespace XboxGamingBarHelper.Services
                 try { controllerFw = XboxGamingBarHelper.Devices.MSIClaw.MsiClawLedController.TryGetControllerFirmwareVersion(); }
                 catch (Exception ex) { Logger.Debug($"Controller FW read failed: {ex.Message}"); }
 
-                result.Drivers = MergeAndApplyPrecedence(manifestEntries, index, controllerFw);
+                // Intel's official driver catalog (same data the DSA uses) for automatic
+                // "latest WHQL" detection per Intel component. Best-effort: null on failure.
+                List<IntelDsaCatalogService.CatalogEntry> intelCatalog = null;
+                try { intelCatalog = await IntelDsaCatalogService.LoadAsync(); }
+                catch (Exception ex) { Logger.Debug($"Intel catalog load failed: {ex.Message}"); }
+
+                result.Drivers = MergeAndApplyPrecedence(manifestEntries, index, controllerFw, intelCatalog);
                 Logger.Info($"MsiClawDriverCheck: model={result.ModelCode}, BIOS={result.BiosVersion}, " +
                             $"manifest={manifestEntries.Count}, total rows={result.Drivers.Count}, live={result.LiveFetchSucceeded}");
             }
@@ -285,14 +291,15 @@ namespace XboxGamingBarHelper.Services
         /// into an Intel domain are dropped (code-side guard for the precedence
         /// rule; the manifest should not contain them in the first place).
         /// </summary>
-        private static List<MsiDriverEntry> MergeAndApplyPrecedence(List<MsiDriverEntry> manifestEntries, DriverMatchUtil.InstalledIndex index, string controllerFw)
+        private static List<MsiDriverEntry> MergeAndApplyPrecedence(List<MsiDriverEntry> manifestEntries, DriverMatchUtil.InstalledIndex index, string controllerFw, List<IntelDsaCatalogService.CatalogEntry> intelCatalog)
         {
             var output = new List<MsiDriverEntry>();
 
-            // 1) Intel domain rows from installed PnP drivers (DriverProviderName = Intel*),
-            //    enriched with the curated "latest" version from intel-scope manifest entries.
+            // 1) Intel domain rows from installed PnP devices, with "latest" from the
+            //    Intel DSA catalog (precise hardware-ID match) and the curated manifest
+            //    as fallback.
             var intelManifest = manifestEntries.Where(e => e.ProviderScope == "intel").ToList();
-            output.AddRange(BuildIntelRows(index, intelManifest));
+            output.AddRange(BuildIntelRows(intelManifest, intelCatalog));
 
             // 2) MSI manifest rows for gaps Intel doesn't own.
             foreach (var e in manifestEntries)
@@ -342,77 +349,130 @@ namespace XboxGamingBarHelper.Services
         private const string IntelArcGraphicsUrl =
             "https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html";
 
-        // Intel domains we surface as one representative row each. Latest version
-        // is intentionally unknown (status stays Unknown) — the user gets the
-        // newest from the linked Intel page / DSA.
-        private static readonly (string Label, string Category, string[] Tokens, string Url)[] _intelDomains =
+        // Intel domains we surface as one row each. RowCategory = display category;
+        // CatalogCategory = Intel DSA catalog Components.Category; DeviceClasses = the
+        // Win32_PnPSignedDriver DeviceClass values that belong to this domain;
+        // Keywords = manifest-fallback matching; DefaultUrl = deep-link when no catalog
+        // page is known.
+        private static readonly (string Label, string RowCategory, string CatalogCategory, string[] DeviceClasses, string[] Keywords, string DefaultUrl)[] _intelDomains =
         {
-            ("Intel Arc Grafik", "Graphics",  new[] { "graphics", "display", "arc", "iris", "gpu" }, IntelArcGraphicsUrl),
-            ("Intel Wi-Fi",      "Network",   new[] { "wifi", "wireless", "wlan" },                  IntelDsaUrl),
-            ("Intel Bluetooth",  "Bluetooth", new[] { "bluetooth" },                                 IntelDsaUrl),
-            ("Intel Chipsatz",   "Chipset",   new[] { "chipset", "smbus", "lpc", "host", "dram" },   IntelDsaUrl),
+            ("Intel Arc Grafik", "Graphics",  "Graphics",  new[] { "DISPLAY" },   new[] { "graphics", "display", "arc", "iris", "gpu" }, IntelArcGraphicsUrl),
+            ("Intel Wi-Fi",      "Network",   "Wireless",  new[] { "NET" },       new[] { "wifi", "wireless", "wlan", "killer" },        IntelDsaUrl),
+            ("Intel Bluetooth",  "Bluetooth", "Bluetooth", new[] { "BLUETOOTH" }, new[] { "bluetooth" },                                 IntelDsaUrl),
         };
 
-        private static List<MsiDriverEntry> BuildIntelRows(DriverMatchUtil.InstalledIndex index, List<MsiDriverEntry> intelManifest)
+        private sealed class IntelDev
+        {
+            public string Name;
+            public string Version;
+            public string HwId;
+            public string DeviceClass;
+        }
+
+        /// <summary>Installed Intel devices (display/net/bluetooth) with their hardware
+        /// ID + driver version, for catalog matching.</summary>
+        private static List<IntelDev> QueryIntelDevices()
+        {
+            var list = new List<IntelDev>();
+            try
+            {
+                using var s = new ManagementObjectSearcher(
+                    "SELECT DeviceName, DriverVersion, DriverProviderName, HardWareID, DeviceID, DeviceClass FROM Win32_PnPSignedDriver WHERE DriverVersion IS NOT NULL");
+                foreach (ManagementObject o in s.Get())
+                {
+                    var provider = (o["DriverProviderName"]?.ToString() ?? "");
+                    if (provider.IndexOf("Intel", StringComparison.OrdinalIgnoreCase) < 0) continue;
+                    var cls = (o["DeviceClass"]?.ToString() ?? "").Trim();
+                    string hw = o["HardWareID"] as string;
+                    if (string.IsNullOrWhiteSpace(hw)) hw = o["DeviceID"]?.ToString();
+                    list.Add(new IntelDev
+                    {
+                        Name = (o["DeviceName"]?.ToString() ?? "").Trim(),
+                        Version = (o["DriverVersion"]?.ToString() ?? "").Trim(),
+                        HwId = (hw ?? "").Trim(),
+                        DeviceClass = cls,
+                    });
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"QueryIntelDevices failed: {ex.Message}"); }
+            return list;
+        }
+
+        /// <summary>
+        /// Builds one row per Intel domain (Graphics/Wi-Fi/Bluetooth). "Latest" comes
+        /// from the Intel DSA catalog matched by hardware ID (precise, automatic); if
+        /// the catalog is unavailable, falls back to a curated manifest intel entry;
+        /// otherwise the version is unknown and the button just opens the Intel page.
+        /// </summary>
+        private static List<MsiDriverEntry> BuildIntelRows(List<MsiDriverEntry> intelManifest, List<IntelDsaCatalogService.CatalogEntry> catalog)
         {
             var rows = new List<MsiDriverEntry>();
-            var intelDrivers = index.Drivers
-                .Where(d => (d.DriverProviderName ?? "").StartsWith("Intel", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            if (intelDrivers.Count == 0) return rows;
+            var devices = QueryIntelDevices();
+            if (devices.Count == 0) return rows;
 
             foreach (var dom in _intelDomains)
             {
-                DriverMatchUtil.InstalledDriver best = null;
-                foreach (var d in intelDrivers)
+                var devs = devices.Where(d => dom.DeviceClasses.Any(c => string.Equals(c, d.DeviceClass, StringComparison.OrdinalIgnoreCase))).ToList();
+                if (devs.Count == 0) continue;
+
+                MsiDriverEntry row = null;
+
+                // Preferred: catalog match by hardware ID → exact latest WHQL version.
+                foreach (var d in devs)
                 {
-                    if (!dom.Tokens.Any(t => d.NameTokens.Contains(t))) continue;
-                    // Prefer the highest version within the domain (newest sub-component).
-                    if (best == null ||
-                        DriverMatchUtil.CompareVersions(best.DriverVersion, d.DriverVersion) == DriverUpdateStatus.UpdateAvailable)
+                    var hit = IntelDsaCatalogService.FindLatest(catalog, dom.CatalogCategory, new[] { d.HwId });
+                    if (hit == null) continue;
+                    row = new MsiDriverEntry
                     {
-                        best = d;
-                    }
+                        Name = dom.Label,
+                        Category = dom.RowCategory,
+                        ProviderScope = "intel",
+                        Version = hit.Version,
+                        InstalledVersion = d.Version,
+                        UpdateStatus = DriverMatchUtil.CompareVersions(d.Version, hit.Version),
+                        Action = "deeplink",
+                        DownloadUrl = !string.IsNullOrWhiteSpace(hit.PageUrl) ? hit.PageUrl : dom.DefaultUrl,
+                        MatchedDeviceName = d.Name,
+                        MatchedProvider = "Intel (DSA catalog)",
+                    };
+                    break;
                 }
-                if (best == null) continue;
 
-                // Curated "latest" for this Intel domain from the manifest (intel-scope
-                // entry whose category/name/hints overlap the domain tokens). When set,
-                // we compare installed (PnP) vs this latest WHQL version so the row is
-                // flagged UpdateAvailable and counts toward the "N updates" tile —
-                // end users get notified automatically. No manifest entry → Unknown.
-                var m = intelManifest?.FirstOrDefault(e => IntelManifestMatchesDomain(dom.Tokens, e));
-                string latest = m?.Version ?? "";
-                string url = !string.IsNullOrWhiteSpace(m?.DownloadUrl) ? m.DownloadUrl : dom.Url;
-                var status = string.IsNullOrWhiteSpace(latest)
-                    ? DriverUpdateStatus.Unknown
-                    : DriverMatchUtil.CompareVersions(best.DriverVersion, latest);
-
-                rows.Add(new MsiDriverEntry
+                // Fallback: curated manifest entry, else unknown.
+                if (row == null)
                 {
-                    Name = dom.Label,
-                    Category = dom.Category,
-                    ProviderScope = "intel",
-                    Version = latest,
-                    InstalledVersion = best.DriverVersion,
-                    UpdateStatus = status,
-                    Action = "deeplink",
-                    DownloadUrl = url,
-                    Severity = m?.Severity ?? "",
-                    ReleaseDate = m?.ReleaseDate ?? "",
-                    MatchedDeviceName = best.DeviceName ?? "",
-                    MatchedProvider = best.DriverProviderName ?? "",
-                });
+                    var d = devs[0];
+                    var man = intelManifest?.FirstOrDefault(e => IntelManifestMatchesDomain(dom.Keywords, e));
+                    string latest = man?.Version ?? "";
+                    row = new MsiDriverEntry
+                    {
+                        Name = dom.Label,
+                        Category = dom.RowCategory,
+                        ProviderScope = "intel",
+                        Version = latest,
+                        InstalledVersion = d.Version,
+                        UpdateStatus = string.IsNullOrWhiteSpace(latest)
+                            ? DriverUpdateStatus.Unknown
+                            : DriverMatchUtil.CompareVersions(d.Version, latest),
+                        Action = "deeplink",
+                        DownloadUrl = !string.IsNullOrWhiteSpace(man?.DownloadUrl) ? man.DownloadUrl : dom.DefaultUrl,
+                        Severity = man?.Severity ?? "",
+                        ReleaseDate = man?.ReleaseDate ?? "",
+                        MatchedDeviceName = d.Name,
+                        MatchedProvider = "Intel",
+                    };
+                }
+                rows.Add(row);
             }
             return rows;
         }
 
         /// <summary>True when a manifest intel entry belongs to the given Intel domain
-        /// (its category/name/hints share a token with the domain's token set).</summary>
-        private static bool IntelManifestMatchesDomain(string[] domainTokens, MsiDriverEntry e)
+        /// (its category/name/hints share a keyword).</summary>
+        private static bool IntelManifestMatchesDomain(string[] keywords, MsiDriverEntry e)
         {
             string hay = ((e.Category ?? "") + " " + (e.Name ?? "") + " " + string.Join(" ", e.PnpMatchHints ?? new List<string>())).ToLowerInvariant();
-            return domainTokens.Any(t => hay.Contains(t));
+            return keywords.Any(t => hay.Contains(t));
         }
 
         private enum DriverDomain { Intel, Msi }

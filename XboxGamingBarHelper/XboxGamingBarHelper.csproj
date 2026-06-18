@@ -257,6 +257,7 @@
     <Compile Include="Services\LenovoDriverCheckService.cs" />
     <Compile Include="Services\DriverMatchUtil.cs" />
     <Compile Include="Services\MsiClawDriverCheckService.cs" />
+    <Compile Include="Services\IntelDsaCatalogService.cs" />
     <Compile Include="Services\GoTweaksUpdateService.cs" />
     <Compile Include="Services\ScheduledTaskService.cs" />
     <Compile Include="Services\SystemRestoreService.cs" />
