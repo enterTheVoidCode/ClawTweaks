@@ -13,27 +13,27 @@
 - **Viiper boot rumble fix** — vibration now arms reliably after a reboot without needing an emulation re-toggle.
 - Switching to a non-Xbox virtual pad now shows a quick warning (Game Bar compatibility) with **Stay on Xbox 360 / Switch / Switch + Auto-Xbox** — all controller-navigable.
 
-![VIIPER controller backend and device hot-swap](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/b33ad1b43a6ee55c45dc39d4c5ca45fc158f9499/Doku/Releases/0.1.6/NewViiper%20Controller.png)
+<img alt="VIIPER controller backend and device hot-swap" src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/b33ad1b43a6ee55c45dc39d4c5ca45fc158f9499/Doku/Releases/0.1.6/NewViiper%20Controller.png" width="360" />
 
 ### Quick Settings
 - **New Power tile.** A red **Power** tile in Quick Settings opens a controller-navigable menu with **Power Off, Reboot, Sleep, Hibernate** and **Reboot to BIOS**. Every action runs forced and immediate — no graceful "please wait" shutdown delay.
 
-![New Power tile – power options menu](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/b33ad1b43a6ee55c45dc39d4c5ca45fc158f9499/Doku/Releases/0.1.6/New%20Tile%20Power%20Options.png)
+<img alt="New Power tile – power options menu" src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/b33ad1b43a6ee55c45dc39d4c5ca45fc158f9499/Doku/Releases/0.1.6/New%20Tile%20Power%20Options.png" width="360" />
 
 ### Overlay
 - **New default font: Bahnschrift.** The RTSS overlay now ships with **Bahnschrift** (replacing Cascadia Mono) as the default — cleaner, included with Windows 10/11, and it **live-reloads** when you change it (a brief overlay blink, only on an actual font change). Applies to all presets.
 - Part of the larger overlay rework: a dedicated **TDP block** (live watts + PL1/PL2) and **per-core P/E clock** readouts in the Full preset.
 
-![New default overlay font – Bahnschrift](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift.png)
+<img alt="New default overlay font – Bahnschrift" src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift.png" width="360" />
 
 | Full preset | Horizontal preset |
 |---|---|
-| ![Bahnschrift – Full preset](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift_Full_Preset.png) | ![Bahnschrift – Horizontal preset](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift_Horizontal_Preset.png) |
+| <img alt="Bahnschrift – Full preset" src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift_Full_Preset.png" width="320" /> | <img alt="Bahnschrift – Horizontal preset" src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/Overlay_New_Default_Font__Bahnschrift_Horizontal_Preset.png" width="320" /> |
 
 ### Lighting
 - **LED on/off Quick Settings tile (MSI Claw).** Toggle the controller LED **off and back on** straight from Quick Settings — off dims the LED to zero brightness, on restores your last saved colour. No need to open the System tab.
 
-![New Quick Settings tile – toggle LED on/off](https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/New%20Tile%20Toggle%20LED%20on%20or%20off.png)
+<img alt="New Quick Settings tile – toggle LED on/off" src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/19f6d00c95f9932580ebeedcd5a95191ff661b29/Doku/Releases/0.1.6/New%20Tile%20Toggle%20LED%20on%20or%20off.png" width="360" />
 
 ### Game detection
 - **Game-Bar-based detection.** Game detection now relies on the **Xbox Game Bar** (plus RTSS), instead of window-name heuristics. More reliable, far less log churn. **RetroArch** keeps a per-core exception so per-core profiles still work.
