@@ -2078,6 +2078,9 @@ namespace XboxGamingBar
             viiperGuideButtonMode = new ViiperStringComboProperty("Native", Shared.Enums.Function.Viiper_GuideButtonMode, ViiperGuideButtonModeComboBox, this);
             viiperSwapRumbleMotors = new ViiperSwapRumbleMotorsProperty(ViiperSwapRumbleMotorsToggle, this);
             viiperGameBarAutoXboxSwap = new ViiperGameBarAutoXboxSwapProperty(ViiperGameBarAutoXboxSwapToggle, this);
+            // Warn (controller-navigable dialog) before switching the virtual device to a non-Xbox-360
+            // type, since those can upset the Game Bar. See ConfirmViiperDeviceSwitchAsync.
+            viiperDeviceType.ConfirmChangeAsync = ConfirmViiperDeviceSwitchAsync;
             viiperMirrorLightbarToStick = new ViiperMirrorLightbarToStickProperty(ViiperMirrorLightbarToStickToggle, this);
             viiperStickGyroEnabled = new ViiperStickGyroEnabledProperty(ViiperStickGyroEnabledToggle, this);
             viiperRumbleIntensity = new ViiperRumbleIntensityProperty(100, ViiperRumbleIntensitySlider, this);

@@ -2,6 +2,7 @@ using System;
 using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
+using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 
 namespace XboxGamingBar
@@ -96,5 +97,68 @@ namespace XboxGamingBar
         // Track whether the user had the Controller Emulation card expanded so that we can
         // restore the expanded body after switching backends.
         private bool LastCardExpandedBeforeHide;
+
+        private static string ViiperDeviceFriendlyName(string tag)
+        {
+            switch (tag)
+            {
+                case "dualshock4":    return "DualShock 4";
+                case "dualsenseedge": return "DualSense Edge";
+                case "xboxelite2":    return "Xbox Elite 2";
+                case "steam-generic": return "Steam Controller";
+                case "switchpro":     return "Switch Pro";
+                default:              return tag;
+            }
+        }
+
+        /// <summary>
+        /// Confirmation gate for the VIIPER virtual device-type picker (wired via
+        /// ViiperStringComboProperty.ConfirmChangeAsync). Switching to any non-Xbox-360 type can upset
+        /// the Xbox Game Bar, so warn first. Uses the native <see cref="ContentDialog"/> so it is fully
+        /// controller-navigable (D-pad between buttons, A confirms, B = cancel), with focus defaulting
+        /// to "stay on Xbox 360". Three outcomes:
+        ///   • Close (default focus) — stay on Xbox 360 (returns false → combo reverts, no switch).
+        ///   • Primary — switch anyway.
+        ///   • Secondary — switch AND enable "auto-switch to Xbox in Game Bar" (experimental).
+        /// Switching back TO xbox360 never warns.
+        /// </summary>
+        private async System.Threading.Tasks.Task<bool> ConfirmViiperDeviceSwitchAsync(string oldValue, string newValue)
+        {
+            if (newValue == "xbox360") return true;
+
+            string name = ViiperDeviceFriendlyName(newValue);
+            var dialog = new ContentDialog
+            {
+                Title = "Non-Xbox controller type",
+                Content = $"Switching the virtual controller to {name} can cause problems in the Xbox Game Bar "
+                        + "(e.g. right-trigger spamming or overlay navigation issues). In games it usually works fine.\n\n"
+                        + "Xbox 360 is the most compatible type for the Game Bar.",
+                CloseButtonText = "Stay on Xbox 360",
+                PrimaryButtonText = "Switch anyway",
+                SecondaryButtonText = "Switch + Auto-Xbox",
+                DefaultButton = ContentDialogButton.Close
+            };
+
+            try
+            {
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                    return true; // switch, leave the auto-swap toggle untouched
+                if (result == ContentDialogResult.Secondary)
+                {
+                    // Experimental: also turn on "auto-switch to Xbox while the Game Bar is open" so the
+                    // overlay stays usable. Setting IsOn fires the toggle's handler → pushes to helper.
+                    if (ViiperGameBarAutoXboxSwapToggle != null && !ViiperGameBarAutoXboxSwapToggle.IsOn)
+                        ViiperGameBarAutoXboxSwapToggle.IsOn = true;
+                    return true;
+                }
+                return false; // Close / default → stay on Xbox 360
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ConfirmViiperDeviceSwitchAsync: dialog failed ({ex.Message}) — proceeding with switch");
+                return true; // never block the user on a dialog error
+            }
+        }
     }
 }

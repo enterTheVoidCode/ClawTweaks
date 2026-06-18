@@ -864,6 +864,15 @@ namespace XboxGamingBar
                     boostTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
                 }
 
+                // Power tile — always "power button" red. It opens a power menu (sleep/reboot/...),
+                // it's not a toggle, so there is no on/off state to show.
+                if (qsTileMap.TryGetValue("Power", out var powerTile) && powerTile.TileButton != null)
+                {
+                    powerTile.TileButton.Background = new Windows.UI.Xaml.Media.SolidColorBrush(
+                        Windows.UI.Color.FromArgb(0x5E, 0xC4, 0x2B, 0x1C)); // subtle, mostly-transparent power red
+                    if (powerTile.StateText != null) powerTile.StateText.Text = "";
+                }
+
                 // LED lighting tile — on when RGB brightness > 0. MSI Claw uses its own LED path.
                 if (qsTileMap.TryGetValue("LedToggle", out var ledTile) && ledTile.TileButton != null)
                 {
