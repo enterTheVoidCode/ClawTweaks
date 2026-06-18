@@ -5,6 +5,7 @@
   <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases"><img src="https://img.shields.io/github/downloads/enterTheVoidCode/ClawTweaks/total?label=Downloads&color=22C55E" alt="Downloads"></a>
   <a href="https://github.com/enterTheVoidCode/ClawTweaks/wiki"><img src="https://img.shields.io/badge/Wiki%20%26%20FAQ-Read%20the%20docs-2563EB?logo=readthedocs&logoColor=white" alt="Wiki & FAQ"></a>
   <a href="https://discord.com/channels/1513953677390512329/1513953677390512332"><img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://ko-fi.com/rifflash"><img src="https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-F59E0B" alt="License: AGPLv3"></a>
 </p>
 
