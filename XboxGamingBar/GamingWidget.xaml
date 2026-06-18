@@ -5144,22 +5144,32 @@
                                                       Toggled="AutoUpdateCheckToggle_Toggled"/>
                                     </Grid>
 
+                                    <!-- Ko-fi donation QR code -->
+                                    <StackPanel HorizontalAlignment="Center" Margin="0,0,0,10">
+                                        <Border Background="#FFFFFF" CornerRadius="6" Padding="8" HorizontalAlignment="Center">
+                                            <Image Source="ms-appx:///Assets/kofi-qr.png"
+                                                   Width="150" Height="150"
+                                                   Stretch="Uniform"/>
+                                        </Border>
+                                        <TextBlock Text="Scan to support on Ko-fi"
+                                                   FontSize="11"
+                                                   Foreground="#888888"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,6,0,0"/>
+                                    </StackPanel>
+
                                     <!-- Donate Button -->
                                     <Button x:Name="DonateButton"
                                             Click="DonateButton_Click"
                                             HorizontalAlignment="Stretch"
                                             HorizontalContentAlignment="Center"
                                             Padding="12,8"
-                                            Background="#252525"
-                                            Foreground="#666666"
+                                            Background="#13A1B8"
+                                            Foreground="#FFFFFF"
                                             FontSize="14"
-                                            CornerRadius="4"
-                                            IsEnabled="False">
+                                            CornerRadius="4">
                                         <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
                                             <TextBlock Text="Support Development - Donate" VerticalAlignment="Center"/>
-                                            <Border Background="#333333" CornerRadius="3" Padding="5,2" VerticalAlignment="Center">
-                                                <TextBlock Text="Coming Soon" FontSize="11" Foreground="#888888"/>
-                                            </Border>
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
