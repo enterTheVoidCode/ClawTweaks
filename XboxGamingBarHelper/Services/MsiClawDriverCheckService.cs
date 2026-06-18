@@ -289,8 +289,10 @@ namespace XboxGamingBarHelper.Services
         {
             var output = new List<MsiDriverEntry>();
 
-            // 1) Intel domain rows from installed PnP drivers (DriverProviderName = Intel*).
-            output.AddRange(BuildIntelRows(index));
+            // 1) Intel domain rows from installed PnP drivers (DriverProviderName = Intel*),
+            //    enriched with the curated "latest" version from intel-scope manifest entries.
+            var intelManifest = manifestEntries.Where(e => e.ProviderScope == "intel").ToList();
+            output.AddRange(BuildIntelRows(index, intelManifest));
 
             // 2) MSI manifest rows for gaps Intel doesn't own.
             foreach (var e in manifestEntries)
@@ -351,7 +353,7 @@ namespace XboxGamingBarHelper.Services
             ("Intel Chipsatz",   "Chipset",   new[] { "chipset", "smbus", "lpc", "host", "dram" },   IntelDsaUrl),
         };
 
-        private static List<MsiDriverEntry> BuildIntelRows(DriverMatchUtil.InstalledIndex index)
+        private static List<MsiDriverEntry> BuildIntelRows(DriverMatchUtil.InstalledIndex index, List<MsiDriverEntry> intelManifest)
         {
             var rows = new List<MsiDriverEntry>();
             var intelDrivers = index.Drivers
@@ -373,22 +375,44 @@ namespace XboxGamingBarHelper.Services
                     }
                 }
                 if (best == null) continue;
+
+                // Curated "latest" for this Intel domain from the manifest (intel-scope
+                // entry whose category/name/hints overlap the domain tokens). When set,
+                // we compare installed (PnP) vs this latest WHQL version so the row is
+                // flagged UpdateAvailable and counts toward the "N updates" tile —
+                // end users get notified automatically. No manifest entry → Unknown.
+                var m = intelManifest?.FirstOrDefault(e => IntelManifestMatchesDomain(dom.Tokens, e));
+                string latest = m?.Version ?? "";
+                string url = !string.IsNullOrWhiteSpace(m?.DownloadUrl) ? m.DownloadUrl : dom.Url;
+                var status = string.IsNullOrWhiteSpace(latest)
+                    ? DriverUpdateStatus.Unknown
+                    : DriverMatchUtil.CompareVersions(best.DriverVersion, latest);
+
                 rows.Add(new MsiDriverEntry
                 {
                     Name = dom.Label,
                     Category = dom.Category,
                     ProviderScope = "intel",
-                    Version = "",                       // latest unknown by design
+                    Version = latest,
                     InstalledVersion = best.DriverVersion,
-                    UpdateStatus = DriverUpdateStatus.Unknown,
+                    UpdateStatus = status,
                     Action = "deeplink",
-                    DownloadUrl = dom.Url,
-                    Severity = "",
+                    DownloadUrl = url,
+                    Severity = m?.Severity ?? "",
+                    ReleaseDate = m?.ReleaseDate ?? "",
                     MatchedDeviceName = best.DeviceName ?? "",
                     MatchedProvider = best.DriverProviderName ?? "",
                 });
             }
             return rows;
+        }
+
+        /// <summary>True when a manifest intel entry belongs to the given Intel domain
+        /// (its category/name/hints share a token with the domain's token set).</summary>
+        private static bool IntelManifestMatchesDomain(string[] domainTokens, MsiDriverEntry e)
+        {
+            string hay = ((e.Category ?? "") + " " + (e.Name ?? "") + " " + string.Join(" ", e.PnpMatchHints ?? new List<string>())).ToLowerInvariant();
+            return domainTokens.Any(t => hay.Contains(t));
         }
 
         private enum DriverDomain { Intel, Msi }
