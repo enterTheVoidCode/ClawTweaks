@@ -1,5 +1,5 @@
 {
-  "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks. Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. NUR MSI-eigene Eintraege (Firmware, BIOS, MSI-spezifisch) pflegen - Intel-Treiber (GPU/WiFi/BT/Chipsatz) werden automatisch erkannt und per Intel-DSA-Deeplink delegiert (Praezedenz: Intel ist bei Ueberschneidung immer aktueller). downloadUrl MUSS auf download.msi.com oder download-2.msi.com zeigen (Whitelist). .zip-Dateien werden heruntergeladen aber NIE automatisch gestartet (nur .exe/.msi) - fuer Firmware/BIOS daher sicher.",
+  "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks. Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. MSI-Eintraege (Firmware, BIOS, MSI-spezifisch): action=install laedt von download.msi.com (Whitelist). Intel-Eintraege (providerScope=intel): liefern die NEUESTE (WHQL-)Version fuer die automatisch erkannte Intel-Zeile - der Helper vergleicht installiert (PnP) vs. diese 'version' und meldet 'Update verfuegbar' (Update-Kachel). 'version' bei neuem WHQL-Release aktualisieren (~1x/Monat); action=deeplink (oeffnet die Intel-Seite). .zip-Dateien werden heruntergeladen aber NIE automatisch gestartet (nur .exe/.msi) - fuer Firmware/BIOS sicher.",
   "schemaVersion": 1,
   "updatedUtc": "2026-06-18",
   "devices": [
@@ -46,6 +46,19 @@
           "deviceIdMatch": "",
           "action": "install",
           "_comment": "Installierte Version aus der Uninstall-Registry (DisplayName 'MSI Center M'). .zip -> Download, danach manuell entpacken/installieren."
+        },
+        {
+          "name": "Intel Arc Grafik",
+          "category": "Graphics",
+          "providerScope": "intel",
+          "version": "32.0.101.8826",
+          "releaseDate": "2026-06-03",
+          "downloadUrl": "https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html",
+          "severity": "recommended",
+          "pnpMatchHints": ["graphics", "arc"],
+          "deviceIdMatch": "",
+          "action": "deeplink",
+          "_comment": "providerScope=intel: 'version' = neueste WHQL (hier 32.0.101.8826, 2026-06-03). Helper liest die installierte GPU-Treiberversion aus PnP und meldet bei aelterer Version 'Update verfuegbar'. Bei jedem neuen Intel-WHQL nur 'version'+'releaseDate' aktualisieren. action bleibt deeplink (Intel gated Direkt-Downloads + monatliche Releases) -> Button oeffnet die Arc-Downloadseite (ID 785597, stabil)."
         }
       ]
     }
