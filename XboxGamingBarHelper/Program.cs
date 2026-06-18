@@ -1690,6 +1690,42 @@ namespace XboxGamingBarHelper
                     Logger.Info("Startup driver probe skipped (user disabled 'Check for driver updates on start')");
                 }
             }
+            // MSI Claw: same fire-and-forget startup probe, but via the MSI/Intel
+            // hybrid service (curated manifest + PnP + Intel-DSA). Gated on the
+            // WMI vendor check so it never runs on non-MSI hardware. Shares the
+            // same "DriverCheckOnStart" opt-out as the Lenovo probe above.
+            else if (Services.MsiClawDriverCheckService.IsClawHardware())
+            {
+                bool checkOnStart = true;
+                try
+                {
+                    if (Settings.LocalSettingsHelper.TryGetValue<bool>("DriverCheckOnStart", out var persisted))
+                        checkOnStart = persisted;
+                }
+                catch { }
+
+                if (checkOnStart)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var result = await Services.MsiClawDriverCheckService.CheckAsync();
+                            int updateCount = result?.Drivers?.Count(d => d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable) ?? 0;
+                            Logger.Info($"Startup Claw driver probe complete — {updateCount} update(s) available out of {result?.Drivers?.Count ?? 0} total");
+                            PushDriverUpdatesAvailable(updateCount);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Startup Claw driver probe failed: {ex.Message}");
+                        }
+                    });
+                }
+                else
+                {
+                    Logger.Info("Startup Claw driver probe skipped (user disabled 'Check for driver updates on start')");
+                }
+            }
 
             // CLAWTWEAKS: Self-update check disabled — points at corando98/GoTweaks on GitHub
             // which shows an "update available" badge for ClawTweaks because GoTweaks

@@ -798,10 +798,40 @@ namespace XboxGamingBarHelper
                             if (forceObj is bool fb) force = fb;
                             else if (forceObj is string fs) bool.TryParse(fs, out force);
                         }
-                        var probe = (!force && Services.LenovoDriverCheckService.LastResult != null)
-                            ? Services.LenovoDriverCheckService.LastResult
-                            : await Services.LenovoDriverCheckService.CheckAsync();
-                        var json = probe.ToJson();
+                        // Device dispatch: on an MSI Claw use the MSI/Intel hybrid
+                        // service (curated manifest + PnP + Intel-DSA deep-links),
+                        // otherwise the Lenovo catalog service. Response key is the
+                        // same so the widget renders both without changes.
+                        string json;
+                        if (Services.MsiClawDriverCheckService.IsClawHardware())
+                        {
+                            var probe = (!force && Services.MsiClawDriverCheckService.LastResult != null)
+                                ? Services.MsiClawDriverCheckService.LastResult
+                                : await Services.MsiClawDriverCheckService.CheckAsync();
+                            json = probe.ToJson();
+                            Logger.Info($"Pipe: CheckDriverUpdates (Claw) — model={probe.ModelCode}, BIOS={probe.BiosVersion}, live={probe.LiveFetchSucceeded}, count={probe.Drivers.Count}");
+                            foreach (var d in probe.Drivers)
+                            {
+                                if (d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable)
+                                    Logger.Info($"  Driver flagged update: name='{d.Name}', category='{d.Category}', installed='{d.InstalledVersion}', latest='{d.Version}', scope='{d.ProviderScope}'");
+                            }
+                        }
+                        else
+                        {
+                            var probe = (!force && Services.LenovoDriverCheckService.LastResult != null)
+                                ? Services.LenovoDriverCheckService.LastResult
+                                : await Services.LenovoDriverCheckService.CheckAsync();
+                            json = probe.ToJson();
+                            Logger.Info($"Pipe: CheckDriverUpdates — MT={probe.MachineTypeCode}, BIOS={probe.BiosVersion}, live={probe.LiveFetchSucceeded}, count={probe.Drivers.Count}");
+                            // Log each entry flagged UpdateAvailable so we can debug "up to date
+                            // but flagged outdated" reports without Device Manager screenshots.
+                            foreach (var d in probe.Drivers)
+                            {
+                                if (d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable)
+                                    Logger.Info($"  Driver flagged update: name='{d.Name}', category='{d.Category}', installed='{d.InstalledVersion}', catalog='{d.Version}', matchedDevice='{d.MatchedDeviceName}', matchedProvider='{d.MatchedProvider}', matchScore={d.MatchScore}");
+                            }
+                        }
+
                         var response = new global::Windows.Foundation.Collections.ValueSet
                         {
                             { "DriverUpdateResult", json },
@@ -811,22 +841,6 @@ namespace XboxGamingBarHelper
                             var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
                             responseMsg.RequestId = pipeMsg.RequestId;
                             pipeServer.SendMessage(responseMsg.ToJson());
-                        }
-                        Logger.Info($"Pipe: CheckDriverUpdates — MT={probe.MachineTypeCode}, BIOS={probe.BiosVersion}, live={probe.LiveFetchSucceeded}, count={probe.Drivers.Count}");
-
-                        // Log each entry flagged UpdateAvailable so we can debug "up to date but
-                        // flagged outdated" reports without round-tripping with the user for
-                        // Device Manager screenshots. Catalog version is the raw multi-vendor
-                        // string; installed is whatever PnP reported on the matched driver.
-                        // matchedDevice/matchedProvider/matchScore expose the fuzzy-match
-                        // pick so wrong-driver matches (e.g. "AMD Chipset Driver" matching
-                        // some other AMD-prefixed PnP entry) surface in the log directly.
-                        foreach (var d in probe.Drivers)
-                        {
-                            if (d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable)
-                            {
-                                Logger.Info($"  Driver flagged update: name='{d.Name}', category='{d.Category}', installed='{d.InstalledVersion}', catalog='{d.Version}', matchedDevice='{d.MatchedDeviceName}', matchedProvider='{d.MatchedProvider}', matchScore={d.MatchScore}");
-                            }
                         }
                     }
                     catch (Exception ex)
@@ -973,7 +987,9 @@ namespace XboxGamingBarHelper
                                 if (trimmed.Length > 0) urls.Add(trimmed);
                             }
                         }
-                        batchResult = await Services.LenovoDriverCheckService.BatchInstallAsync(urls);
+                        batchResult = Services.MsiClawDriverCheckService.IsClawHardware()
+                            ? await Services.MsiClawDriverCheckService.BatchInstallAsync(urls)
+                            : await Services.LenovoDriverCheckService.BatchInstallAsync(urls);
                     }
                     catch (Exception ex)
                     {
@@ -1008,7 +1024,9 @@ namespace XboxGamingBarHelper
                         {
                             installUrl = urlObj?.ToString();
                         }
-                        resultJson = await Services.LenovoDriverCheckService.InstallDriverAsync(installUrl);
+                        resultJson = Services.MsiClawDriverCheckService.IsClawHardware()
+                            ? await Services.MsiClawDriverCheckService.InstallDriverAsync(installUrl)
+                            : await Services.LenovoDriverCheckService.InstallDriverAsync(installUrl);
                     }
                     catch (Exception ex)
                     {
