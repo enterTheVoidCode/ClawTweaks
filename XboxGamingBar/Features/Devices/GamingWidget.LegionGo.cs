@@ -463,9 +463,9 @@ namespace XboxGamingBar
                         if (isDeepLink && !string.IsNullOrWhiteSpace(downloadUrl))
                         {
                             // Deep-link rows always show a button that opens a page
-                            // (Intel DSA for Intel rows, MSI support otherwise).
+                            // (Intel download page / DSA for Intel rows, MSI support otherwise).
                             installLabel = string.Equals(scope, "intel", StringComparison.OrdinalIgnoreCase)
-                                ? "Intel DSA" : "Open page";
+                                ? "Intel-Treiber" : "Open page";
                             installVis = Windows.UI.Xaml.Visibility.Visible;
                         }
                         items.Add(new DriverDisplay
