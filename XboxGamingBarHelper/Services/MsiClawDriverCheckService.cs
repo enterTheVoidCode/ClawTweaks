@@ -333,14 +333,22 @@ namespace XboxGamingBarHelper.Services
                 .ToList();
         }
 
+        // Intel-specific download pages. The page IDs are stable across driver
+        // releases (only the file changes), so deep-linking to them always lands
+        // on the newest version — no manifest churn. Graphics gets the dedicated
+        // Arc/Iris Xe page; the rest fall back to the DSA auto-detect page.
+        private const string IntelArcGraphicsUrl =
+            "https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html";
+
         // Intel domains we surface as one representative row each. Latest version
-        // is intentionally unknown (status stays Unknown) — the user checks via DSA.
-        private static readonly (string Label, string Category, string[] Tokens)[] _intelDomains =
+        // is intentionally unknown (status stays Unknown) — the user gets the
+        // newest from the linked Intel page / DSA.
+        private static readonly (string Label, string Category, string[] Tokens, string Url)[] _intelDomains =
         {
-            ("Intel Grafik",     "Graphics",  new[] { "graphics", "display", "arc", "iris", "gpu" }),
-            ("Intel Wi-Fi",      "Network",   new[] { "wifi", "wireless", "wlan" }),
-            ("Intel Bluetooth",  "Bluetooth", new[] { "bluetooth" }),
-            ("Intel Chipsatz",   "Chipset",   new[] { "chipset", "smbus", "lpc", "host", "dram" }),
+            ("Intel Arc Grafik", "Graphics",  new[] { "graphics", "display", "arc", "iris", "gpu" }, IntelArcGraphicsUrl),
+            ("Intel Wi-Fi",      "Network",   new[] { "wifi", "wireless", "wlan" },                  IntelDsaUrl),
+            ("Intel Bluetooth",  "Bluetooth", new[] { "bluetooth" },                                 IntelDsaUrl),
+            ("Intel Chipsatz",   "Chipset",   new[] { "chipset", "smbus", "lpc", "host", "dram" },   IntelDsaUrl),
         };
 
         private static List<MsiDriverEntry> BuildIntelRows(DriverMatchUtil.InstalledIndex index)
@@ -374,7 +382,7 @@ namespace XboxGamingBarHelper.Services
                     InstalledVersion = best.DriverVersion,
                     UpdateStatus = DriverUpdateStatus.Unknown,
                     Action = "deeplink",
-                    DownloadUrl = IntelDsaUrl,
+                    DownloadUrl = dom.Url,
                     Severity = "",
                     MatchedDeviceName = best.DeviceName ?? "",
                     MatchedProvider = best.DriverProviderName ?? "",
