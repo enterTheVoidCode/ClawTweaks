@@ -578,9 +578,9 @@ namespace XboxGamingBar
                 if (App.IsConnected)
                 {
                     var message = new Windows.Foundation.Collections.ValueSet();
-                    message.Add("LaunchUrl", "https://paypal.me/corando98");
+                    message.Add("LaunchUrl", "https://ko-fi.com/rifflash#checkoutModal");
                     await App.SendMessageAsync(message);
-                    Logger.Info("Sent LaunchUrl request to helper");
+                    Logger.Info("Sent LaunchUrl request to helper (Ko-fi donate)");
                 }
                 else
                 {
