@@ -109,6 +109,34 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             }
         }
 
+        /// <summary>
+        /// Reads the controller firmware version from the HID device descriptor
+        /// (bcdDevice / <see cref="HidDevice.ReleaseNumberBcd"/>) — the same value
+        /// the LED code uses to pick the RGB write address (HC's
+        /// Firmware = device.Attributes.Version). Returns it as a human-readable
+        /// dotted string, e.g. bcd 0x0308 → "3.08", 0x0211 → "2.11".
+        /// Returns null when no Claw HID device is present or the read fails.
+        /// Used by the driver-update card to show the installed controller FW.
+        /// </summary>
+        public static string TryGetControllerFirmwareVersion()
+        {
+            try
+            {
+                HidDevice device = MSIClawHidController.FindClawHidDeviceInternal();
+                if (device == null) return null;
+                int bcd = device.ReleaseNumberBcd;
+                if (bcd <= 0) return null;
+                // bcdDevice is BCD-encoded: high byte = major, low byte = minor,
+                // each shown in its hex form so 0x0163 reads as "1.63".
+                return $"{(bcd >> 8) & 0xFF:X}.{bcd & 0xFF:X2}";
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[MsiClawLed] TryGetControllerFirmwareVersion failed: {ex.Message}");
+                return null;
+            }
+        }
+
         // ── Private helpers ───────────────────────────────────────────────────────
 
         /// <summary>

@@ -139,7 +139,14 @@ namespace XboxGamingBarHelper.Services
                     result.LiveFetchSucceeded = false;
                 }
 
-                result.Drivers = MergeAndApplyPrecedence(manifestEntries, index);
+                // Controller firmware version from the HID descriptor (bcdDevice) —
+                // the same read the LED code uses (ported from HC). Lets the
+                // firmware row show the actually-installed version.
+                string controllerFw = null;
+                try { controllerFw = XboxGamingBarHelper.Devices.MSIClaw.MsiClawLedController.TryGetControllerFirmwareVersion(); }
+                catch (Exception ex) { Logger.Debug($"Controller FW read failed: {ex.Message}"); }
+
+                result.Drivers = MergeAndApplyPrecedence(manifestEntries, index, controllerFw);
                 Logger.Info($"MsiClawDriverCheck: model={result.ModelCode}, BIOS={result.BiosVersion}, " +
                             $"manifest={manifestEntries.Count}, total rows={result.Drivers.Count}, live={result.LiveFetchSucceeded}");
             }
@@ -278,7 +285,7 @@ namespace XboxGamingBarHelper.Services
         /// into an Intel domain are dropped (code-side guard for the precedence
         /// rule; the manifest should not contain them in the first place).
         /// </summary>
-        private static List<MsiDriverEntry> MergeAndApplyPrecedence(List<MsiDriverEntry> manifestEntries, DriverMatchUtil.InstalledIndex index)
+        private static List<MsiDriverEntry> MergeAndApplyPrecedence(List<MsiDriverEntry> manifestEntries, DriverMatchUtil.InstalledIndex index, string controllerFw)
         {
             var output = new List<MsiDriverEntry>();
 
@@ -295,9 +302,22 @@ namespace XboxGamingBarHelper.Services
                     continue;
                 }
 
-                // Fill installed version + status from the local snapshot. For
-                // download entries this drives the up-to-date/update badge; for
-                // deep-link entries (BIOS) it still shows what's installed.
+                // Controller/EC firmware: the installed version isn't a PnP driver
+                // version — read it from the HID descriptor (bcdDevice) like the LED
+                // code does. A HID deviceIdMatch (or a Firmware category) marks the row.
+                bool isControllerFw = (e.DeviceIdMatch ?? "").StartsWith("HID", StringComparison.OrdinalIgnoreCase)
+                                      || string.Equals(e.Category, "Firmware", StringComparison.OrdinalIgnoreCase);
+                if (isControllerFw && !string.IsNullOrWhiteSpace(controllerFw))
+                {
+                    e.InstalledVersion = controllerFw;
+                    e.UpdateStatus = DriverMatchUtil.CompareVersions(controllerFw, e.Version);
+                    output.Add(e);
+                    continue;
+                }
+
+                // Everything else: fill installed version + status from the local
+                // snapshot. For download entries this drives the up-to-date/update
+                // badge; for deep-link entries (BIOS) it still shows what's installed.
                 var m = DriverMatchUtil.MatchEntry(e.Name, e.Category, e.Version, index);
                 e.InstalledVersion = m.InstalledVersion;
                 e.MatchedDeviceName = m.MatchedDeviceName ?? "";
