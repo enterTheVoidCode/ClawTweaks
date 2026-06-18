@@ -9,17 +9,17 @@
       "models": ["MS-1T52", "MS-1T42", "MS-1T41"],
       "drivers": [
         {
-          "name": "Intel ME Firmware (Update Tool)",
+          "name": "BIOS / UEFI",
           "category": "BIOS/UEFI",
           "providerScope": "msi",
-          "version": "ME2005.1628(LNL)",
-          "releaseDate": "2026-04-28",
-          "downloadUrl": "https://download.msi.com/bos_exe/nb/Intel%20ME%20Update%20Tool_ME2005.1628(LNL).zip",
+          "version": "E1T52IMS.112",
+          "releaseDate": "",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T52IMS.112.zip",
           "severity": "recommended",
-          "pnpMatchHints": ["management", "engine"],
+          "pnpMatchHints": [],
           "deviceIdMatch": "",
           "action": "install",
-          "_comment": "Intel Management Engine Firmware, von MSI verteilt (Intel DSA bietet ME-FW nicht an). .zip -> wird heruntergeladen, nicht auto-gestartet. Installierte Version per Fuzzy-Match (Intel(R) Management Engine Interface) - kann von der ME-FW-Nummer abweichen."
+          "_comment": "System-BIOS (MS-1T52). Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T52IMS.113)."
         },
         {
           "name": "MSI Controller-Firmware",
