@@ -98,6 +98,9 @@ namespace XboxGamingBar
                             case "Profile":
                                 TogglePerGameProfile();
                                 break;
+                            case "Power":
+                                ShowPowerDropdown(button);
+                                break;
                             case "Overlay":
                                 if (_isControllerTriggered) CyclePerformanceOverlay();
                                 else ShowOverlayDropdown(button);
@@ -684,6 +687,63 @@ namespace XboxGamingBar
             }
 
             flyout.ShowAt(anchor);
+        }
+
+        /// <summary>
+        /// Power tile: opens a controller-navigable MenuFlyout (upward) with the system power actions,
+        /// each with a Fluent (Segoe MDL2) icon. The flyout opens above the tile and is traversed from
+        /// the bottom up, so the list is ordered Power Off → … → Reboot to BIOS to keep the most-used
+        /// (Power Off, Reboot) where the cursor lands first. Each runs forced/immediate on the helper
+        /// (see ExecutePowerAction).
+        /// </summary>
+        private void ShowPowerDropdown(Button anchor)
+        {
+            var flyout = new MenuFlyout { Placement = FlyoutPlacementMode.Top };
+
+            // (label, action, Segoe MDL2 glyph). Order reversed vs. the visual list because the
+            // upward flyout is navigated bottom-up on the controller.
+            var entries = new (string Label, string Action, string Glyph)[]
+            {
+                ("Power Off",      "poweroff",  ""), // PowerButton
+                ("Reboot",         "reboot",    ""), // UpdateRestore (restart)
+                ("Sleep",          "sleep",     ""), // QuietHours (crescent moon)
+                ("Hibernate",      "hibernate", ""), // Save (state written to disk)
+                ("Reboot to BIOS", "bios",      ""), // Settings (firmware)
+            };
+
+            foreach (var entry in entries)
+            {
+                string act = entry.Action;
+                var item = new MenuFlyoutItem
+                {
+                    Text = entry.Label,
+                    Icon = new FontIcon { Glyph = entry.Glyph, FontSize = 14 }
+                };
+                item.Click += (s, ev) => SendPowerActionAsync(act);
+                flyout.Items.Add(item);
+            }
+
+            flyout.ShowAt(anchor);
+        }
+
+        /// <summary>Sends a forced power action to the helper, which owns the actual shutdown/suspend.</summary>
+        private async void SendPowerActionAsync(string action)
+        {
+            try
+            {
+                if (!App.IsConnected)
+                {
+                    Logger.Warn($"Power action '{action}' ignored — no helper connection");
+                    return;
+                }
+                var message = new Windows.Foundation.Collections.ValueSet { { "PowerAction", action } };
+                await App.SendMessageAsync(message);
+                Logger.Info($"Sent PowerAction '{action}' to helper");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"SendPowerActionAsync('{action}'): {ex.Message}");
+            }
         }
 
         /// <summary>

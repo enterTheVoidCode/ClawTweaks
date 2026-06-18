@@ -1090,10 +1090,16 @@ namespace XboxGamingBarHelper
                         Logger.Info("[ViiperGBSwap] skip open: External Gamepad Mode active");
                         return;
                     }
+                    // Gate on the user's SELECTED type as well as the mounted one. If the user picked
+                    // xbox360 (or nothing), never engage — this also covers the race where a just-
+                    // selected xbox360 hasn't finished its hot-swap yet, so the Game Bar must not swap
+                    // an Xbox 360 controller.
+                    string selected = settingsManager?.ViiperDeviceType?.Value;
                     string active = monitor.ViiperActiveDeviceType;
-                    if (!monitor.ViiperMounted || string.IsNullOrEmpty(active) || active == "xbox360")
+                    if (string.IsNullOrEmpty(selected) || selected == "xbox360"
+                        || !monitor.ViiperMounted || string.IsNullOrEmpty(active) || active == "xbox360")
                     {
-                        Logger.Info($"[ViiperGBSwap] skip open: no non-xbox device mounted (mounted={monitor.ViiperMounted}, type={active ?? "null"})");
+                        Logger.Info($"[ViiperGBSwap] skip open: Xbox 360 selected/mounted (selected={selected ?? "null"}, mounted={monitor.ViiperMounted}, type={active ?? "null"})");
                         return;
                     }
 
@@ -1111,6 +1117,14 @@ namespace XboxGamingBarHelper
                     _viiperGameBarXboxSwapActive = false;
 
                     ResolveViiperDeviceTarget(out string type, out ushort vid, out ushort pid);
+                    if (type == "xbox360")
+                    {
+                        // User's selection is xbox360 (e.g. they switched to it while the Game Bar was
+                        // open) — the device is already xbox360 from the open-swap, so there is nothing
+                        // to restore. Skip the no-op swap (and its USB churn) entirely.
+                        Logger.Info("[ViiperGBSwap] Game Bar closed — selection is Xbox 360, nothing to restore");
+                        return;
+                    }
                     Logger.Info($"[ViiperGBSwap] Game Bar closed — restoring VIIPER device to {type}");
                     Task.Run(() =>
                     {

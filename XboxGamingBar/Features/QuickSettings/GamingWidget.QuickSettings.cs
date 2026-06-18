@@ -302,6 +302,7 @@ namespace XboxGamingBar
             // AddTileDefinition("EPP", "EPP", "\uE83E", order: order++);  // removed: AMD EPP \u2014 Intel uses HWP/EPP differently, no direct slider
             // AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);  // removed: AMD-only feature
             AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);   // moved before CPU Boost
+            AddTileDefinition("Power", "Power", "\uE7E8", order: order++);       // power menu (sleep/reboot/...)
             AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
 
             // Row 3 - Display

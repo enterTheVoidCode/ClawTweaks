@@ -49,18 +49,42 @@ namespace XboxGamingBar.Data
             }
         }
 
-        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        /// <summary>
+        /// Optional confirmation gate (oldValue, newValue) → proceed? Set by the owner for selectors
+        /// that need a user prompt before committing (e.g. the VIIPER device-type warning for non-Xbox
+        /// types). When it returns false the combo is reverted to the current Value WITHOUT pushing a
+        /// change — so a cancelled choice never triggers a real device hot-swap. Only fires for genuine
+        /// user selections (helper syncs update Value first, so tagString == Value and we early-out).
+        /// </summary>
+        public Func<string, string, System.Threading.Tasks.Task<bool>> ConfirmChangeAsync;
+
+        private bool _reverting;
+
+        private async void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (_reverting) return; // re-entry from our own revert below
             var selectedItem = UI.SelectedItem as ComboBoxItem;
-            if (selectedItem != null)
+            if (selectedItem == null) return;
+            var tagString = selectedItem.Tag as string;
+            if (tagString == null || tagString == Value) return;
+
+            if (ConfirmChangeAsync != null)
             {
-                var tagString = selectedItem.Tag as string;
-                if (tagString != null && tagString != Value)
+                bool proceed;
+                try { proceed = await ConfirmChangeAsync(Value, tagString); }
+                catch (Exception ex) { Logger.Warn($"{Function} confirm gate threw: {ex.Message}"); proceed = true; }
+                if (!proceed)
                 {
-                    Logger.Info($"{Function} combo updated to {tagString}.");
-                    SetValue(tagString);
+                    // User cancelled — snap the combo back to the current Value without pushing.
+                    _reverting = true;
+                    try { SyncSelectedIndexFromValue(); }
+                    finally { _reverting = false; }
+                    return;
                 }
             }
+
+            Logger.Info($"{Function} combo updated to {tagString}.");
+            SetValue(tagString);
         }
 
         protected override async void NotifyPropertyChanged(string propertyName = "")

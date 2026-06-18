@@ -200,6 +200,23 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Handle PowerAction request (Power tile): forced/immediate sleep/hibernate/reboot/
+                // poweroff/bios. See ExecutePowerAction (Program.PowerActions.cs).
+                if (pipeMsg.Extra.TryGetValue("PowerAction", out object powerValue) && powerValue is string powerAction)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: PowerAction request received: {powerAction}");
+                        SendPipeAck(pipeMsg.RequestId); // ack BEFORE acting — reboot/shutdown kills the pipe
+                        ExecutePowerAction(powerAction);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: Failed to execute power action '{powerAction}': {ex.Message}");
+                    }
+                    return;
+                }
+
                 // Handle factory reset: the widget clears its own package data but the helper's
                 // global controller profile (gyro etc.) lives in the helper's own profile store
                 // (global.xml) and would otherwise survive — leaving gyro active after a reset.
