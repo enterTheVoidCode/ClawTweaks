@@ -69,6 +69,7 @@ namespace XboxGamingBar
                 LegionScrollViewer.Visibility = Visibility.Collapsed;
                 GPDScrollViewer.Visibility = Visibility.Collapsed;
                 SystemScrollViewer.Visibility = Visibility.Collapsed;
+                if (DriverScrollViewer != null) DriverScrollViewer.Visibility = Visibility.Collapsed;
                 if (OnboardingScrollViewer != null) OnboardingScrollViewer.Visibility = Visibility.Collapsed;
                 // TriggerScrollViewer.Visibility = Visibility.Collapsed;  // Hotkeys tab hidden
 
@@ -160,6 +161,13 @@ namespace XboxGamingBar
                         SystemScrollViewer.Visibility = Visibility.Visible;
                         SystemScrollViewer.ChangeView(null, 0, null, true);
                         RequestControllerEmulationDriverStatus();
+                        break;
+                    case "Drivers":
+                        if (DriverScrollViewer != null)
+                        {
+                            DriverScrollViewer.Visibility = Visibility.Visible;
+                            DriverScrollViewer.ChangeView(null, 0, null, true);
+                        }
                         break;
                     case "Onboarding":
                         if (OnboardingScrollViewer != null)

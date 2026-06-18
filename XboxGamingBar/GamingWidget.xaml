@@ -629,6 +629,14 @@
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
+                    <RadioButton x:Name="DriverNavItem" Tag="Drivers" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Drivers">
+                        <RadioButton.Content>
+                            <!-- Tools / wrench (Segoe Fluent Icons "Repair", E90F) — driver & firmware updates -->
+                            <Viewbox Width="18" Height="18" VerticalAlignment="Center">
+                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE90F;"/>
+                            </Viewbox>
+                        </RadioButton.Content>
+                    </RadioButton>
                     <!-- Collapsed/legacy tabs (kept for code-behind compatibility, never shown) -->
                     <RadioButton x:Name="GraphicsNavItem" Tag="AMD" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Graphics">
                         <RadioButton.Content>
@@ -4253,142 +4261,6 @@
                         <!-- Program Actions + URL Actions were moved up into the "Customize Tiles and
                              Hotkeys" panel (Quick Settings tab), just above "Show Metrics Row". -->
 
-                        <!-- MSI Claw Driver Updates Card -->
-                        <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
-                        <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="MSI Claw Driver Updates" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Driver &amp; firmware updates (MSI + Intel)"
-                                                   Style="{StaticResource CardCaptionStyle}"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="DriverUpdatesExpandToggle"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  VerticalAlignment="Center"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="DriverUpdatesExpandToggle_Click">
-                                        <FontIcon x:Name="DriverUpdatesExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-                                <StackPanel x:Name="DriverUpdatesContent" Visibility="Collapsed" Spacing="10" Margin="0,12,0,0">
-                                    <!-- Machine info -->
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Machine type" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DriverUpdatesMachineType" Text="—" FontSize="13" Foreground="#E0E0E0"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Model" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
-                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DriverUpdatesModel" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Installed BIOS" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
-                                        <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DriverUpdatesBios" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
-                                    </Grid>
-
-                                    <!-- Actions row -->
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button x:Name="DriverUpdatesCheckButton"
-                                                Content="Check for updates"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesCheckButton_Click"/>
-                                        <Button x:Name="DriverUpdatesUpdateAllButton"
-                                                Content="Update all"
-                                                Visibility="Collapsed"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesUpdateAllButton_Click"/>
-                                        <Button x:Name="DriverUpdatesOpenPageButton"
-                                                Content="Open MSI driver page"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesOpenPageButton_Click"/>
-                                    </StackPanel>
-
-                                    <TextBlock x:Name="DriverUpdatesStatusText"
-                                               Text="Tap 'Check for updates' to scan installed driver versions."
-                                               FontSize="11"
-                                               Foreground="#888888"
-                                               TextWrapping="Wrap"/>
-
-                                    <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
-                                              Content="Show utilities and diagnostics"
-                                              IsChecked="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
-                                              Unchecked="DriverUpdatesShowUtilitiesCheckbox_Changed"/>
-
-                                    <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
-                                              Content="Check for driver updates on start"
-                                              IsChecked="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
-                                              Unchecked="DriverUpdatesUpdateOnStartCheckbox_Changed"/>
-                                    <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
-                                              Content="Hide driver-update banner on Quick tab"
-                                              IsChecked="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesHideBannerCheckbox_Changed"
-                                              Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
-
-                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
-                                                    <StackPanel>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
-                                                            <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
-                                                            </Border>
-                                                        </Grid>
-                                                        <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
-                                                            <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
-                                                        </TextBlock>
-                                                        <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
-                                                            <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
-                                                        </TextBlock>
-                                                        <Grid Margin="0,4,0,0">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
-                                                            <Button Grid.Column="1"
-                                                                    Content="{Binding InstallButtonLabel}"
-                                                                    Tag="{Binding DownloadUrl}"
-                                                                    Visibility="{Binding InstallButtonVisibility}"
-                                                                    Style="{StaticResource ModernButtonStyle}"
-                                                                    FontSize="11"
-                                                                    Padding="10,4"
-                                                                    Click="DriverInstallButton_Click"/>
-                                                        </Grid>
-                                                    </StackPanel>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Debug Card (Collapsible) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -5149,6 +5021,128 @@
                             </StackPanel>
                         </Border>
 
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- DRIVERS TAB (MSI + Intel driver/firmware updates) -->
+                <ScrollViewer x:Name="DriverScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+                        <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
+                        <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="MSI Claw Driver Updates" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Driver &amp; firmware updates (MSI + Intel)"
+                                               Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <StackPanel x:Name="DriverUpdatesContent" Visibility="Visible" Spacing="10" Margin="0,12,0,0">
+                                    <!-- Machine info -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="130"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Model" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock Grid.Row="0" Grid.Column="1" x:Name="DriverUpdatesModel" Text="—" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Installed BIOS" FontSize="13" Foreground="#AAAAAA" Margin="0,4,0,0"/>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" x:Name="DriverUpdatesBios" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
+                                    </Grid>
+
+                                    <!-- Actions row -->
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button x:Name="DriverUpdatesCheckButton"
+                                                Content="Check for updates"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesCheckButton_Click"/>
+                                        <Button x:Name="DriverUpdatesUpdateAllButton"
+                                                Content="Update all"
+                                                Visibility="Collapsed"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesUpdateAllButton_Click"/>
+                                        <Button x:Name="DriverUpdatesOpenPageButton"
+                                                Content="Open MSI driver page"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesOpenPageButton_Click"/>
+                                    </StackPanel>
+
+                                    <TextBlock x:Name="DriverUpdatesStatusText"
+                                               Text="Tap 'Check for updates' to scan installed driver versions."
+                                               FontSize="11"
+                                               Foreground="#888888"
+                                               TextWrapping="Wrap"/>
+
+                                    <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
+                                              Content="Show utilities and diagnostics"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
+                                              Unchecked="DriverUpdatesShowUtilitiesCheckbox_Changed"/>
+
+                                    <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
+                                              Content="Check for driver updates on start"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
+                                              Unchecked="DriverUpdatesUpdateOnStartCheckbox_Changed"/>
+                                    <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
+                                              Content="Hide driver-update banner on Quick tab"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesHideBannerCheckbox_Changed"
+                                              Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
+
+                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
+                                                    <StackPanel>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
+                                                            <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
+                                                            </Border>
+                                                        </Grid>
+                                                        <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
+                                                        </TextBlock>
+                                                        <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
+                                                        </TextBlock>
+                                                        <Grid Margin="0,4,0,0">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
+                                                            <Button Grid.Column="1"
+                                                                    Content="{Binding InstallButtonLabel}"
+                                                                    Tag="{Binding DownloadUrl}"
+                                                                    Visibility="{Binding InstallButtonVisibility}"
+                                                                    Style="{StaticResource ModernButtonStyle}"
+                                                                    FontSize="11"
+                                                                    Padding="10,4"
+                                                                    Click="DriverInstallButton_Click"/>
+                                                        </Grid>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 

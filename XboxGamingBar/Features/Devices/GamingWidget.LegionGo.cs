@@ -269,16 +269,9 @@ namespace XboxGamingBar
             }
         }
 
-        // ---- Driver Updates (Lenovo) --------------------------------------------------
-
-        private void DriverUpdatesExpandToggle_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-        {
-            if (DriverUpdatesContent == null || DriverUpdatesExpandIcon == null) return;
-            bool expand = DriverUpdatesExpandToggle?.IsChecked == true;
-            DriverUpdatesContent.Visibility = expand ? Visibility.Visible : Visibility.Collapsed;
-            // \uE70E = chevron down (collapsed), \uE70D = chevron up (expanded)
-            DriverUpdatesExpandIcon.Glyph = expand ? "\uE70E" : "\uE70D";
-        }
+        // ---- Driver Updates (MSI Claw + Intel; Lenovo path shares the same renderer) ----
+        // The card lives in its own always-expanded "Drivers" tab now, so there is no
+        // expand toggle.
 
         private async void DriverUpdatesCheckButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
@@ -404,7 +397,6 @@ namespace XboxGamingBar
                 bool GetBool(string name) =>
                     root.TryGetValue(name, out var v) && v.ValueType == Windows.Data.Json.JsonValueType.Boolean && v.GetBoolean();
 
-                string mt = GetStr("machineTypeCode");
                 string model = GetStr("model");
                 string modelVersion = GetStr("modelVersion");
                 string bios = GetStr("biosVersion");
@@ -419,7 +411,6 @@ namespace XboxGamingBar
                     ? "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support"
                     : "https://pcsupport.lenovo.com/";
                 _lastDriverPageUrl = string.IsNullOrEmpty(pageUrl) ? defaultPage : pageUrl;
-                if (DriverUpdatesMachineType != null) DriverUpdatesMachineType.Text = string.IsNullOrEmpty(mt) ? "—" : mt;
                 if (DriverUpdatesModel != null)
                 {
                     string modelText = string.IsNullOrEmpty(model) ? (string.IsNullOrEmpty(modelVersion) ? "—" : modelVersion) : model;
@@ -1002,12 +993,24 @@ namespace XboxGamingBar
                 return;
             }
 
-            // MSI Claw deep-link rows (Intel drivers via DSA, MSI BIOS page) open
-            // the URL in the browser instead of downloading + launching an installer.
+            // MSI Claw deep-link rows (Intel drivers via the Intel page/DSA, MSI BIOS
+            // page) open the URL in the browser instead of downloading + launching an
+            // installer. Detect via the row flag AND, as a robust fallback, via the
+            // host: installers are only ever served from the download CDNs, so any
+            // intel.com / www.msi.com page URL is a deep-link to open.
             var displayItem = button.DataContext as DriverDisplay;
-            if (displayItem != null && displayItem.IsDeepLink)
+            bool isDeepLink = (displayItem != null && displayItem.IsDeepLink)
+                || url.IndexOf("intel.com", StringComparison.OrdinalIgnoreCase) >= 0
+                || url.IndexOf("www.msi.com", StringComparison.OrdinalIgnoreCase) >= 0
+                || url.IndexOf("support.lenovo.com", StringComparison.OrdinalIgnoreCase) >= 0;
+            if (isDeepLink)
             {
-                try { await Windows.System.Launcher.LaunchUriAsync(new Uri(url)); }
+                try
+                {
+                    bool ok = await Windows.System.Launcher.LaunchUriAsync(new Uri(url));
+                    if (!ok && DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = "Couldn't open the browser for that link.";
+                }
                 catch (Exception ex) { Logger.Warn($"Driver deep-link open failed: {ex.Message}"); }
                 return;
             }
