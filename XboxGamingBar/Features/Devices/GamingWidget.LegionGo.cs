@@ -410,10 +410,15 @@ namespace XboxGamingBar
                 string bios = GetStr("biosVersion");
                 string pageUrl = GetStr("driverPageUrl");
                 bool isLenovo = GetBool("isLenovo");
+                bool isMsiClaw = GetBool("isMsiClaw");
+                bool supported = isLenovo || isMsiClaw;
                 bool liveFetch = GetBool("liveFetchSucceeded");
                 string error = GetStr("errorMessage");
 
-                _lastDriverPageUrl = string.IsNullOrEmpty(pageUrl) ? "https://pcsupport.lenovo.com/" : pageUrl;
+                string defaultPage = isMsiClaw
+                    ? "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support"
+                    : "https://pcsupport.lenovo.com/";
+                _lastDriverPageUrl = string.IsNullOrEmpty(pageUrl) ? defaultPage : pageUrl;
                 if (DriverUpdatesMachineType != null) DriverUpdatesMachineType.Text = string.IsNullOrEmpty(mt) ? "—" : mt;
                 if (DriverUpdatesModel != null)
                 {
@@ -422,12 +427,12 @@ namespace XboxGamingBar
                 }
                 if (DriverUpdatesBios != null) DriverUpdatesBios.Text = string.IsNullOrEmpty(bios) ? "—" : bios;
 
-                if (!isLenovo)
+                if (!supported)
                 {
                     if (DriverUpdatesStatusText != null)
                         DriverUpdatesStatusText.Text = string.IsNullOrEmpty(error)
-                            ? "This feature only works on Lenovo devices."
-                            : $"Not a Lenovo device: {error}";
+                            ? "This feature only works on Lenovo Legion and MSI Claw devices."
+                            : $"Unsupported device: {error}";
                     if (DriverUpdatesList != null) DriverUpdatesList.Visibility = Visibility.Collapsed;
                     return;
                 }
@@ -450,7 +455,19 @@ namespace XboxGamingBar
                             statusCode = (int)usVal.GetNumber();
                         string installed = GetD("installedVersion");
                         string downloadUrl = GetD("downloadUrl");
+                        // MSI Claw extras: providerScope ("msi"/"intel") + action
+                        // ("install"/"deeplink"). On Lenovo these are empty/absent.
+                        string scope = GetD("providerScope");
+                        bool isDeepLink = string.Equals(GetD("action"), "deeplink", StringComparison.OrdinalIgnoreCase);
                         var (installLabel, installVis) = InstallButtonForStatus(statusCode, downloadUrl);
+                        if (isDeepLink && !string.IsNullOrWhiteSpace(downloadUrl))
+                        {
+                            // Deep-link rows always show a button that opens a page
+                            // (Intel DSA for Intel rows, MSI support otherwise).
+                            installLabel = string.Equals(scope, "intel", StringComparison.OrdinalIgnoreCase)
+                                ? "Intel DSA" : "Open page";
+                            installVis = Windows.UI.Xaml.Visibility.Visible;
+                        }
                         items.Add(new DriverDisplay
                         {
                             Name = GetD("name"),
@@ -464,6 +481,8 @@ namespace XboxGamingBar
                             StatusColor = StatusColorFor(statusCode),
                             InstallButtonLabel = installLabel,
                             InstallButtonVisibility = installVis,
+                            ProviderScope = scope,
+                            IsDeepLink = isDeepLink,
                         });
                     }
                 }
@@ -504,11 +523,15 @@ namespace XboxGamingBar
                     }
                     else if (liveFetch)
                     {
-                        DriverUpdatesStatusText.Text = "Lenovo returned no drivers for this machine type.";
+                        DriverUpdatesStatusText.Text = isMsiClaw
+                            ? "No catalog entries for this model. Use Open page to browse MSI support / Intel DSA."
+                            : "Lenovo returned no drivers for this machine type.";
                     }
                     else
                     {
-                        DriverUpdatesStatusText.Text = "Lenovo's live driver list is unreachable. Use Open Lenovo driver page to browse on lenovo.com.";
+                        DriverUpdatesStatusText.Text = isMsiClaw
+                            ? "Driver catalog unreachable. Use Open page to browse MSI support / Intel DSA."
+                            : "Lenovo's live driver list is unreachable. Use Open Lenovo driver page to browse on lenovo.com.";
                     }
                 }
             }
@@ -539,6 +562,10 @@ namespace XboxGamingBar
             public string InstallButtonLabel { get; set; }
             /// <summary>Visibility of the Install/Update button — hidden when the driver is up-to-date or has no download URL.</summary>
             public Windows.UI.Xaml.Visibility InstallButtonVisibility { get; set; }
+            /// <summary>MSI Claw only: "msi" | "intel". Empty on Lenovo.</summary>
+            public string ProviderScope { get; set; }
+            /// <summary>MSI Claw only: true when the row's button opens a URL (Intel DSA / MSI page) instead of downloading+installing.</summary>
+            public bool IsDeepLink { get; set; }
         }
 
         // Cached full driver list so the "Show utilities and diagnostics"
@@ -677,8 +704,7 @@ namespace XboxGamingBar
                         DriverUpdatesHideBannerCheckbox.IsChecked = hideBanner;
 
                     bool visible = count > 0
-                                   && legionGoDetected != null
-                                   && legionGoDetected.Value
+                                   && ((legionGoDetected?.Value == true) || IsMsiClawDevice())
                                    && !hideBanner;
                     QuickDriverUpdatesTile.Visibility = visible
                         ? Windows.UI.Xaml.Visibility.Visible
@@ -725,6 +751,8 @@ namespace XboxGamingBar
         private bool IsUpdateAllCandidate(DriverDisplay d)
         {
             if (d == null) return false;
+            // Deep-link rows (MSI Claw: Intel DSA / MSI page) are never batch-installed.
+            if (d.IsDeepLink) return false;
             // Status label is set by StatusLabelFor — "Update" is the
             // UpdateAvailable case, "Install" is NotInstalled, "Up to date"
             // is UpToDate, "Unknown" otherwise.
@@ -971,6 +999,16 @@ namespace XboxGamingBar
             {
                 if (DriverUpdatesStatusText != null)
                     DriverUpdatesStatusText.Text = "No download URL for that driver.";
+                return;
+            }
+
+            // MSI Claw deep-link rows (Intel drivers via DSA, MSI BIOS page) open
+            // the URL in the browser instead of downloading + launching an installer.
+            var displayItem = button.DataContext as DriverDisplay;
+            if (displayItem != null && displayItem.IsDeepLink)
+            {
+                try { await Windows.System.Launcher.LaunchUriAsync(new Uri(url)); }
+                catch (Exception ex) { Logger.Warn($"Driver deep-link open failed: {ex.Message}"); }
                 return;
             }
 

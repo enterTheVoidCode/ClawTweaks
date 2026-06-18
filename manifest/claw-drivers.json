@@ -1,0 +1,40 @@
+{
+  "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks. Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. NUR MSI-eigene Eintraege (Firmware, BIOS, MSI-spezifisch) pflegen - Intel-Treiber (GPU/WiFi/BT/Chipsatz) werden automatisch erkannt und per Intel-DSA-Deeplink delegiert (Praezedenz: Intel ist bei Ueberschneidung immer aktueller). downloadUrl MUSS auf download.msi.com oder download-2.msi.com zeigen (Whitelist). BIOS-Flasher NIE mit action=install (kein Auto-Launch) - immer deeplink oder download-only.",
+  "schemaVersion": 1,
+  "updatedUtc": "2026-06-18",
+  "devices": [
+    {
+      "deviceType": 40,
+      "_deviceComment": "40 = MSIClaw. models[] leer/weggelassen = gilt fuer alle Claw-Modelle.",
+      "models": ["MS-1T52", "MS-1T42", "MS-1T41"],
+      "drivers": [
+        {
+          "name": "BIOS / UEFI",
+          "category": "BIOS/UEFI",
+          "providerScope": "msi",
+          "version": "",
+          "releaseDate": "",
+          "downloadUrl": "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support",
+          "severity": "recommended",
+          "pnpMatchHints": [],
+          "deviceIdMatch": "",
+          "action": "deeplink",
+          "_comment": "BIOS-Version wird gegen Win32_BIOS verglichen, sobald 'version' (z.B. 'E1T52IMS.xxx' oder 'RRCN16WW'-Stil) gepflegt ist. action MUSS deeplink bleiben - BIOS-Flasher niemals automatisch starten (Akku/Strom-Risiko)."
+        },
+        {
+          "name": "MSI Controller-Firmware",
+          "category": "Firmware",
+          "providerScope": "msi",
+          "version": "",
+          "releaseDate": "",
+          "downloadUrl": "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support",
+          "severity": "optional",
+          "pnpMatchHints": ["claw", "controller", "gamepad"],
+          "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
+          "action": "deeplink",
+          "_comment": "Controller-/EC-Firmware-Version ist per WMI/HID noch NICHT zuverlaessig auslesbar (offener Spike). Bis dahin als deeplink fuehren; sobald ein FW-Read verifiziert ist, kann hier 'version' gepflegt und ggf. action=install mit einer download.msi.com-URL gesetzt werden."
+        }
+      ]
+    }
+  ]
+}
