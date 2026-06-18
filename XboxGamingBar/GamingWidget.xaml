@@ -4264,7 +4264,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="MSI Claw Driver Updates" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="MSI driver support coming soon"
+                                        <TextBlock Text="Driver &amp; firmware updates (MSI + Intel)"
                                                    Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="DriverUpdatesExpandToggle"
@@ -4279,27 +4279,6 @@
                                     </ToggleButton>
                                 </Grid>
                                 <StackPanel x:Name="DriverUpdatesContent" Visibility="Collapsed" Spacing="10" Margin="0,12,0,0">
-                                    <!-- Coming soon notice -->
-                                    <Border Background="#1A2A1A" CornerRadius="4" Padding="10">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0"
-                                                       Text="&#xE946;"
-                                                       FontFamily="Segoe MDL2 Assets"
-                                                       FontSize="16"
-                                                       Foreground="#4CAF50"
-                                                       VerticalAlignment="Top"
-                                                       Margin="0,2,8,0"/>
-                                            <TextBlock Grid.Column="1"
-                                                       Text="MSI Claw driver update support is not yet implemented. This feature will be enabled in a future update."
-                                                       Foreground="#A0D4A0"
-                                                       FontSize="12"
-                                                       TextWrapping="Wrap"/>
-                                        </Grid>
-                                    </Border>
                                     <!-- Machine info -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -4319,28 +4298,25 @@
                                         <TextBlock Grid.Row="2" Grid.Column="1" x:Name="DriverUpdatesBios" Text="—" FontSize="13" Foreground="#E0E0E0" Margin="0,4,0,0"/>
                                     </Grid>
 
-                                    <!-- Actions row (disabled — MSI support not yet implemented) -->
+                                    <!-- Actions row -->
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <Button x:Name="DriverUpdatesCheckButton"
                                                 Content="Check for updates"
-                                                IsEnabled="False"
                                                 Style="{StaticResource ModernButtonStyle}"
                                                 Click="DriverUpdatesCheckButton_Click"/>
                                         <Button x:Name="DriverUpdatesUpdateAllButton"
                                                 Content="Update all"
                                                 Visibility="Collapsed"
-                                                IsEnabled="False"
                                                 Style="{StaticResource ModernButtonStyle}"
                                                 Click="DriverUpdatesUpdateAllButton_Click"/>
                                         <Button x:Name="DriverUpdatesOpenPageButton"
                                                 Content="Open MSI driver page"
-                                                IsEnabled="False"
                                                 Style="{StaticResource ModernButtonStyle}"
                                                 Click="DriverUpdatesOpenPageButton_Click"/>
                                     </StackPanel>
 
                                     <TextBlock x:Name="DriverUpdatesStatusText"
-                                               Text="MSI driver support not yet available."
+                                               Text="Tap 'Check for updates' to scan installed driver versions."
                                                FontSize="11"
                                                Foreground="#888888"
                                                TextWrapping="Wrap"/>
@@ -4348,7 +4324,6 @@
                                     <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
                                               Content="Show utilities and diagnostics"
                                               IsChecked="False"
-                                              IsEnabled="False"
                                               FontSize="12"
                                               Foreground="#AAAAAA"
                                               Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
@@ -4357,7 +4332,6 @@
                                     <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
                                               Content="Check for driver updates on start"
                                               IsChecked="False"
-                                              IsEnabled="False"
                                               FontSize="12"
                                               Foreground="#AAAAAA"
                                               Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
@@ -4365,7 +4339,6 @@
                                     <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
                                               Content="Hide driver-update banner on Quick tab"
                                               IsChecked="False"
-                                              IsEnabled="False"
                                               FontSize="12"
                                               Foreground="#AAAAAA"
                                               Checked="DriverUpdatesHideBannerCheckbox_Changed"
