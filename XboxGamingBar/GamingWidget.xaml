@@ -6304,6 +6304,8 @@
                                             ValueChanged="ClawTweaksWidgetPosition_ValueChanged"/>
                                     <TextBlock Text="Default 1 = off (no auto-jump). Microsoft occupies the first two slots, so ClawTweaks is usually #3 — set this to your actual slot and on Game Bar open we tap RB (position − 1) times to land on it, then D-pad down into the tabs."
                                                Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                    <TextBlock Text="Note: the auto-jump does not run on the very first Game Bar open after a reboot (the overlay is still warming up) — use it from the second open on, or hop with RB manually that first time."
+                                               Foreground="#C0A050" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                   </StackPanel>
                                 </Border>
 
@@ -7593,29 +7595,6 @@
                                                        Foreground="#CCCCCC"/>
                                             <ToggleSwitch x:Name="ViiperSwapRumbleMotorsToggle"
                                                           Grid.Column="1"
-                                                          Style="{StaticResource ModernToggleStyle}"
-                                                          IsOn="False"/>
-                                        </Grid>
-
-                                        <!-- Experimental: auto-swap a non-Xbox device to xbox360 while the Game Bar is open -->
-                                        <Grid Margin="0,12,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Auto-switch to Xbox in Game Bar (experimental)"
-                                                           FontSize="13"
-                                                           Foreground="#CCCCCC"/>
-                                                <TextBlock Text="When a non-Xbox device (e.g. DualShock 4) is emulated, temporarily present it as an Xbox 360 pad while the Game Bar is open so the overlay navigates cleanly (some pads spam the right trigger). Swaps back on close. Briefly disconnects the virtual controller — a running game may notice."
-                                                           FontSize="11"
-                                                           Foreground="#888888"
-                                                           TextWrapping="Wrap"
-                                                           Margin="0,2,0,0"/>
-                                            </StackPanel>
-                                            <ToggleSwitch x:Name="ViiperGameBarAutoXboxSwapToggle"
-                                                          Grid.Column="1"
-                                                          VerticalAlignment="Center"
                                                           Style="{StaticResource ModernToggleStyle}"
                                                           IsOn="False"/>
                                         </Grid>
@@ -9409,6 +9388,31 @@
                                                     <ComboBoxItem Content="Zotac Zone" Tag="zotac-zone"/>
                                                 </ComboBox>
                                             </StackPanel>
+
+                                            <!-- Experimental: auto-swap a non-Xbox device to xbox360 while the Game Bar is open.
+                                                 Relocated here from the (Claw-hidden) ViiperEmulationContent panel so it is
+                                                 actually reachable; property wiring (viiperGameBarAutoXboxSwap) is unchanged. -->
+                                            <Grid Margin="0,12,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="Auto-switch to Xbox in Game Bar (experimental)"
+                                                               FontSize="13"
+                                                               Foreground="#CCCCCC"/>
+                                                    <TextBlock Text="When a non-Xbox device (e.g. DualShock 4) is emulated, temporarily present it as an Xbox 360 pad while the Game Bar is open so the overlay navigates cleanly (some pads spam the right trigger). Swaps back on close. Briefly disconnects the virtual controller — a running game may notice."
+                                                               FontSize="11"
+                                                               Foreground="#888888"
+                                                               TextWrapping="Wrap"
+                                                               Margin="0,2,0,0"/>
+                                                </StackPanel>
+                                                <ToggleSwitch x:Name="ViiperGameBarAutoXboxSwapToggle"
+                                                              Grid.Column="1"
+                                                              VerticalAlignment="Center"
+                                                              Style="{StaticResource ModernToggleStyle}"
+                                                              IsOn="False"/>
+                                            </Grid>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
