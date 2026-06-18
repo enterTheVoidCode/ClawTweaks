@@ -104,6 +104,8 @@ Ein konfigurierbares Performance-Overlay – kompakt oder detailliert.
 
 <br/>
 
+> **Nur für Bestands-User von vor 0.1.6:** Diese Transition betrifft ausschließlich User, die ClawTweaks **vor Version 0.1.6** erstmals installiert haben. **Ab 0.1.6 ist VIIPER standardmäßig aktiv** — wer neu installiert, muss nichts tun. Nur wer von einer älteren Version (z. B. 0.1.5 oder 0.1.4) kommt, muss den Umstieg **aktiv** wie unten beschrieben durchführen.
+
 VIIPER ist das neue virtuelle Controller-Backend von ClawTweaks. Statt wie bisher über **ViGEm** läuft der virtuelle Controller über **USB/IP** (`usbip-win2`). Vorteile: der Gerätetyp (Xbox 360, DualShock 4, DualSense Edge, Switch Pro …) lässt sich **im laufenden Betrieb umschalten** (Hot-Swap), und in vielen Fällen ist VIIPER stabiler als ViGEm. Diese Anleitung zeigt den Umstieg Schritt für Schritt.
 
 > **Hinweis:** VIIPER ist noch experimentell und benötigt `usbip-win2`. Ist es nicht installiert, fällt ClawTweaks automatisch auf ViGEm zurück, sodass nie ein toter Controller entsteht. Für die **Xbox Game Bar** ist der **Xbox-360-Typ** am verträglichsten — andere Typen können dort Probleme machen (siehe Schritt 4 & 5).
