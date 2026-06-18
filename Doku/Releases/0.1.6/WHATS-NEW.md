@@ -93,8 +93,3 @@ Then finish the first-time setup:
 ### Fixes & polish
 - **CPU section redesign / UI cleanup**, plus a fix for **CPU frequency-cap persistence** and dropdown sync.
 - **Quieter logs** — rumble, AutoTDP and controller-forwarding stats moved to Debug; log export widened for diagnostics.
-
----
-
-> [!NOTE]
-> **Assets:** before publishing, attach **both** the bare `XboxGamingBarPackage_…_x64.msix` (in-app / manual update) **and** the installer **ZIP** (new-user offline install).
