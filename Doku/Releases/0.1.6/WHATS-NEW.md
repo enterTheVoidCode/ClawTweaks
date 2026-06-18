@@ -1,7 +1,59 @@
 # ClawTweaks 0.1.6 (Preview)
 
+> **📍 Center M needed as a base** — ClawTweaks is designed to completely disable/hide Center M (with one click). But Center M is needed — mostly for OEM button and controller virtualization support. If you are coming from 3rd-party Center M replacements, make sure to uninstall everything and re-install Center M properly.
+
 > [!WARNING]
 > **Experimental preview build.** Pre-release for testing the items below — expect rough edges. Feedback welcome, especially on the Viiper controller backend and game detection.
+
+---
+
+## Installation
+
+### 🟢 Already running ClawTweaks? → just update (no certificate step)
+The certificate is **already trusted** on your device, so you only need the **`XboxGamingBarPackage_…_x64.msix`** asset below — **not** the full ZIP.
+
+Download just that `.msix`, double-click it → **Install**.
+
+---
+
+### 🟠 First time on this device? → full install
+New users install the signing certificate **once**, then the app. No PowerShell, no typing — just a couple of double-clicks.
+
+1. **Extract the whole ZIP** to a folder (right-click the ZIP → **Extract All…**). Keep all the files together.
+2. **Trust the certificate — first install only, once per device:** double-click **`XboxGamingBarPackage_…_x64.cer`** → **Install Certificate…** → choose **Local Machine** → **Next** (approve the admin prompt) → **Place all certificates in the following store** → **Browse…** → **Trusted People** → **OK** → **Next** → **Finish**. You'll see *"The import was successful."*
+4. **Install the app:** double-click **`XboxGamingBarPackage_…_x64.msix`** → the Windows **App Installer** window opens → click **Install**. *(If Windows offers to fetch required framework components, let it.)*
+5. **Wait until the Game Bar opens** on its own, and approve the background **UAC** prompt if it appears.
+
+Then finish the first-time setup:
+
+6. Locate and position the ClawTweaks widget on the left side.
+7. On first launch an **Onboarding** tab appears as the second tab — download all the tools ClawTweaks needs, one by one. Once all are installed, the Onboarding tab moves to the far right.
+8. Disable MSI Center M in the Main tab to unlock all features.
+9. Enable Virtual Controller & Mouse in the Controls tab.
+10. By default you switch between **Mouse** and **Controller** mode with the **Left MSI front button**.
+
+<details>
+<summary><b>Alternative: one-shot installer script</b> — use this only if the double-click install above complains about missing framework packages</summary>
+
+<br>
+
+`Install.ps1` installs the certificate **and** every framework dependency in one go:
+
+1. In the extracted folder, open a terminal **in that folder**: right-click an empty spot → **Open in Terminal** (or open **Windows PowerShell** from the Start menu).
+2. Paste this line and press **Enter**:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\Install.ps1
+   ```
+   *The `-ExecutionPolicy Bypass` part only applies to this one run and changes nothing permanently.*
+
+</details>
+
+> [!NOTE]
+> **No controller input?** If nothing on the controller works and the left stick only moves the mouse cursor, the MSI Claw's hardware mouse/controller switch is in mouse mode. Hold the **Start** button for at least **3 seconds** to switch it back to controller mode.
+>
+> **Doubled inputs with controller emulation active?** In **Steam**, check whether the **Xbox controller driver with extended feature support** is installed (Steam → Settings → Controller) and **remove / disable it**. That driver fights with ClawTweaks' virtual controller and causes doubled inputs.
+>
+> **Reordering widgets:** remove and re-add them in the desired sequence to change their order.
 
 ---
 
@@ -43,9 +95,6 @@
 - **Quieter logs** — rumble, AutoTDP and controller-forwarding stats moved to Debug; log export widened for diagnostics.
 
 ---
-
-## Installation
-See the standard ClawTweaks install steps (certificate once for new devices, then the `.msix`; existing users just take the `.msix`). Full instructions are in the release description template.
 
 > [!NOTE]
 > **Assets:** before publishing, attach **both** the bare `XboxGamingBarPackage_…_x64.msix` (in-app / manual update) **and** the installer **ZIP** (new-user offline install).
