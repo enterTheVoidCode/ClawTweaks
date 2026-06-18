@@ -32,7 +32,7 @@
           "pnpMatchHints": ["claw", "controller", "gamepad"],
           "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
           "action": "deeplink",
-          "_comment": "Controller-/EC-Firmware-Version ist per WMI/HID noch NICHT zuverlaessig auslesbar (offener Spike). Bis dahin als deeplink fuehren; sobald ein FW-Read verifiziert ist, kann hier 'version' gepflegt und ggf. action=install mit einer download.msi.com-URL gesetzt werden."
+          "_comment": "Installierte Controller-FW-Version wird automatisch aus dem HID-Descriptor (bcdDevice, z.B. 0x308 -> '3.08') gelesen (MsiClawLedController.TryGetControllerFirmwareVersion, portiert aus HC) - die Zeile zeigt also die echte installierte Version. 'version' = neueste FW pflegen, damit der Update-Status berechnet wird; action bleibt deeplink (Firmware nie auto-installieren), sobald eine download.msi.com-URL bekannt ist optional auf install setzen."
         }
       ]
     }
