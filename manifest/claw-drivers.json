@@ -1,5 +1,5 @@
 {
-  "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks. Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. NUR MSI-eigene Eintraege (Firmware, BIOS, MSI-spezifisch) pflegen - Intel-Treiber (GPU/WiFi/BT/Chipsatz) werden automatisch erkannt und per Intel-DSA-Deeplink delegiert (Praezedenz: Intel ist bei Ueberschneidung immer aktueller). downloadUrl MUSS auf download.msi.com oder download-2.msi.com zeigen (Whitelist). BIOS-Flasher NIE mit action=install (kein Auto-Launch) - immer deeplink oder download-only.",
+  "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks. Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. NUR MSI-eigene Eintraege (Firmware, BIOS, MSI-spezifisch) pflegen - Intel-Treiber (GPU/WiFi/BT/Chipsatz) werden automatisch erkannt und per Intel-DSA-Deeplink delegiert (Praezedenz: Intel ist bei Ueberschneidung immer aktueller). downloadUrl MUSS auf download.msi.com oder download-2.msi.com zeigen (Whitelist). .zip-Dateien werden heruntergeladen aber NIE automatisch gestartet (nur .exe/.msi) - fuer Firmware/BIOS daher sicher.",
   "schemaVersion": 1,
   "updatedUtc": "2026-06-18",
   "devices": [
@@ -9,30 +9,43 @@
       "models": ["MS-1T52", "MS-1T42", "MS-1T41"],
       "drivers": [
         {
-          "name": "BIOS / UEFI",
+          "name": "Intel ME Firmware (Update Tool)",
           "category": "BIOS/UEFI",
           "providerScope": "msi",
-          "version": "",
-          "releaseDate": "",
-          "downloadUrl": "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support",
+          "version": "ME2005.1628(LNL)",
+          "releaseDate": "2026-04-28",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/Intel%20ME%20Update%20Tool_ME2005.1628(LNL).zip",
           "severity": "recommended",
-          "pnpMatchHints": [],
+          "pnpMatchHints": ["management", "engine"],
           "deviceIdMatch": "",
-          "action": "deeplink",
-          "_comment": "BIOS-Version wird gegen Win32_BIOS verglichen, sobald 'version' (z.B. 'E1T52IMS.xxx' oder 'RRCN16WW'-Stil) gepflegt ist. action MUSS deeplink bleiben - BIOS-Flasher niemals automatisch starten (Akku/Strom-Risiko)."
+          "action": "install",
+          "_comment": "Intel Management Engine Firmware, von MSI verteilt (Intel DSA bietet ME-FW nicht an). .zip -> wird heruntergeladen, nicht auto-gestartet. Installierte Version per Fuzzy-Match (Intel(R) Management Engine Interface) - kann von der ME-FW-Nummer abweichen."
         },
         {
           "name": "MSI Controller-Firmware",
           "category": "Firmware",
           "providerScope": "msi",
-          "version": "",
-          "releaseDate": "",
-          "downloadUrl": "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support",
-          "severity": "optional",
+          "version": "2.29",
+          "releaseDate": "2026-04-21",
+          "downloadUrl": "https://download.msi.com/archive/frm_exe/nb/MSI%20Controller%20FW%20Updater_2604_1601.zip",
+          "severity": "recommended",
           "pnpMatchHints": ["claw", "controller", "gamepad"],
           "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
-          "action": "deeplink",
-          "_comment": "Installierte Controller-FW-Version wird automatisch aus dem HID-Descriptor (bcdDevice, z.B. 0x308 -> '3.08') gelesen (MsiClawLedController.TryGetControllerFirmwareVersion, portiert aus HC) - die Zeile zeigt also die echte installierte Version. 'version' = neueste FW pflegen, damit der Update-Status berechnet wird; action bleibt deeplink (Firmware nie auto-installieren), sobald eine download.msi.com-URL bekannt ist optional auf install setzen."
+          "action": "install",
+          "_comment": "Installierte Controller-FW-Version wird automatisch aus dem HID-Descriptor (bcdDevice, z.B. 0x229 -> '2.29') gelesen (MsiClawLedController.TryGetControllerFirmwareVersion, portiert aus HC). Vergleich gegen 'version' (neueste FW) ergibt den Update-Status. .zip -> Download ohne Auto-Start (Firmware nie auto-flashen)."
+        },
+        {
+          "name": "MSI Center M",
+          "category": "Software",
+          "providerScope": "msi",
+          "version": "2.0.2605.1501",
+          "releaseDate": "2026-05-29",
+          "downloadUrl": "https://download.msi.com/uti_exe/nb/MSI%20Center%20M%20Installer_2.0.2605.1501_2.0.2605.1501_0x88a161f2.zip",
+          "severity": "optional",
+          "pnpMatchHints": ["center"],
+          "deviceIdMatch": "",
+          "action": "install",
+          "_comment": "Installierte Version aus der Uninstall-Registry (DisplayName 'MSI Center M'). .zip -> Download, danach manuell entpacken/installieren."
         }
       ]
     }
