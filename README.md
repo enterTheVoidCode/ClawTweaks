@@ -25,7 +25,7 @@ A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [
 > | Other MSI Claw models | Not tested / not supported |
 >
 > **The installer will abort with an error message if run on an unsupported device.**
-> **Before installing GTW - MSI Center M must be installed and running on your device**
+> **Before installing CTW - MSI Center M must be installed and running on your device**
 >
 
 > **📍 Center M needed as a base** — ClawTweaks is designed to completely disable/hide Center M (with one click). But Center is needed - Mostly for OEM Button and controller virtualization support. If you are coming from 3rd party Center M Replacements make sure to unistall everything and re-install center M properly.
