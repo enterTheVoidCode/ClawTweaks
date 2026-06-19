@@ -917,6 +917,46 @@ namespace XboxGamingBarHelper
 
                 // Persists the user's "Check for updates on start" preference
                 // for the GoTweaks self-update probe. Mirrors SetDriverCheckOnStart.
+                // Persist the user's opt-in for the third-party modded Wi-Fi driver.
+                if (pipeMsg.Extra.ContainsKey("SetUseModdedWifi"))
+                {
+                    try
+                    {
+                        bool val = false;
+                        if (pipeMsg.Extra.TryGetValue("SetUseModdedWifi", out var v))
+                        {
+                            if (v is bool b) val = b;
+                            else if (v is string s) bool.TryParse(s, out val);
+                        }
+                        Settings.LocalSettingsHelper.SetValue("UseModdedWifiDriver", val);
+                        Logger.Info($"Pipe: SetUseModdedWifi = {val}");
+                    }
+                    catch (Exception ex) { Logger.Warn($"Pipe: SetUseModdedWifi threw: {ex.Message}"); }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
+                // Assisted install of the modded Wi-Fi driver: download + extract + open
+                // the folder (the user runs Setup.bat themselves).
+                if (pipeMsg.Extra.ContainsKey("InstallModdedWifi"))
+                {
+                    string resultJson;
+                    try { resultJson = await Services.MsiClawDriverCheckService.InstallModdedWifiAsync(); }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: InstallModdedWifi threw: {ex.Message}");
+                        resultJson = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
+                    }
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet { { "ModdedWifiInstallResult", resultJson } };
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
                 if (pipeMsg.Extra.ContainsKey("SetGoTweaksCheckOnStart"))
                 {
                     try

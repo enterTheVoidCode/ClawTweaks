@@ -55,6 +55,18 @@ namespace XboxGamingBarHelper.Services
         private static MsiDriverUpdateResult _lastResult;
         public static MsiDriverUpdateResult LastResult => _lastResult;
 
+        // Optional modded Wi-Fi driver (theboss619), parsed from the manifest.
+        private static ModdedWifiInfo _moddedWifi;
+        internal sealed class ModdedWifiInfo { public string Name = ""; public string Version = ""; public string Url = ""; public string ThreadUrl = ""; }
+
+        /// <summary>User opt-in (persisted) for the third-party modded Wi-Fi driver.</summary>
+        public static bool IsModdedWifiEnabled()
+        {
+            try { if (XboxGamingBarHelper.Settings.LocalSettingsHelper.TryGetValue<bool>("UseModdedWifiDriver", out var v)) return v; }
+            catch { }
+            return false;
+        }
+
         // Cached hardware-family check used by the pipe dispatcher to route
         // driver-update requests to this service (vs. the Lenovo one). One WMI
         // read, memoised — the manufacturer doesn't change at runtime.
@@ -235,6 +247,21 @@ namespace XboxGamingBarHelper.Services
             using var doc = JsonDocument.Parse(body);
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return entries;
+
+            // Optional top-level modded Wi-Fi driver (theboss619). The attachment URL
+            // changes on each release and the forum thread can't be auto-scraped, so it
+            // lives in the manifest for easy updates without an app rebuild.
+            if (root.TryGetProperty("moddedWifi", out var mw) && mw.ValueKind == JsonValueKind.Object)
+            {
+                _moddedWifi = new ModdedWifiInfo
+                {
+                    Name = GetJsonString(mw, "name") ?? "Modded Wi-Fi driver",
+                    Version = GetJsonString(mw, "version") ?? "",
+                    Url = GetJsonString(mw, "url") ?? "",
+                    ThreadUrl = GetJsonString(mw, "threadUrl") ?? "",
+                };
+            }
+
             if (!root.TryGetProperty("devices", out var devices) || devices.ValueKind != JsonValueKind.Array)
                 return entries;
 
@@ -434,6 +461,27 @@ namespace XboxGamingBarHelper.Services
                 var devs = devices.Where(d => dom.DeviceClasses.Any(c => string.Equals(c, d.DeviceClass, StringComparison.OrdinalIgnoreCase))).ToList();
                 if (devs.Count == 0) continue;
 
+                // Modded Wi-Fi (opt-in): replace the stock Wi-Fi row with the modded one,
+                // skipping the stock catalog comparison (no false "update"/"unknown").
+                if (string.Equals(dom.RowCategory, "Network", StringComparison.OrdinalIgnoreCase)
+                    && IsModdedWifiEnabled() && _moddedWifi != null && !string.IsNullOrWhiteSpace(_moddedWifi.Url))
+                {
+                    rows.Add(new MsiDriverEntry
+                    {
+                        Name = string.IsNullOrWhiteSpace(_moddedWifi.Name) ? "Wi-Fi (modded driver)" : _moddedWifi.Name,
+                        Category = "Network",
+                        ProviderScope = "modded",
+                        InstalledVersion = devs[0].Version,
+                        Version = _moddedWifi.Version,
+                        UpdateStatus = DriverUpdateStatus.Unknown,
+                        Action = "moddedwifi",
+                        DownloadUrl = _moddedWifi.Url,
+                        MatchedDeviceName = devs[0].Name,
+                        MatchedProvider = "theboss619 (modded)",
+                    });
+                    continue;
+                }
+
                 MsiDriverEntry row = null;
 
                 // Preferred: catalog match by hardware ID → exact latest WHQL version.
@@ -582,6 +630,79 @@ namespace XboxGamingBarHelper.Services
                    ",\"downloaded\":" + downloaded +
                    ",\"launched\":" + launched +
                    ",\"message\":\"Launched " + launched + " of " + urls.Count + " installers.\"}";
+        }
+
+        /// <summary>
+        /// Assisted install of the third-party modded Wi-Fi driver (theboss619):
+        /// downloads the manifest-configured TechPowerUp zip, extracts it, and opens
+        /// the folder containing Setup.bat so the USER runs it themselves (it installs
+        /// a root certificate + the driver). We deliberately do NOT auto-run the .bat.
+        /// </summary>
+        public static async Task<string> InstallModdedWifiAsync()
+        {
+            var mw = _moddedWifi;
+            if (mw == null || string.IsNullOrWhiteSpace(mw.Url))
+                return "{\"success\":false,\"message\":\"No modded Wi-Fi driver URL configured in the manifest.\"}";
+
+            Uri uri;
+            try { uri = new Uri(mw.Url); }
+            catch { return "{\"success\":false,\"message\":\"Invalid modded Wi-Fi URL.\"}"; }
+            string host = uri.Host.ToLowerInvariant();
+            if (uri.Scheme != "https" || !(host == "www.techpowerup.com" || host == "techpowerup.com"))
+                return "{\"success\":false,\"message\":\"Host not allowed: " + uri.Host + "\"}";
+
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ClawModdedWifi");
+            try
+            {
+                if (System.IO.Directory.Exists(dir)) System.IO.Directory.Delete(dir, true);
+                System.IO.Directory.CreateDirectory(dir);
+            }
+            catch (Exception ex) { return "{\"success\":false,\"message\":\"Temp dir: " + ex.Message.Replace("\"", "'") + "\"}"; }
+
+            string zipPath = System.IO.Path.Combine(dir, "modded-wifi.zip");
+            try
+            {
+                using (var req = new HttpRequestMessage(HttpMethod.Get, mw.Url))
+                {
+                    // TechPowerUp serves the attachment to a browser-like request.
+                    req.Headers.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                    req.Headers.TryAddWithoutValidation("Referer", "https://www.techpowerup.com/forums/");
+                    using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    if (!resp.IsSuccessStatusCode)
+                        return "{\"success\":false,\"message\":\"Download HTTP " + (int)resp.StatusCode + "\"}";
+                    using (var src = await resp.Content.ReadAsStreamAsync())
+                    using (var dst = System.IO.File.Create(zipPath))
+                        await src.CopyToAsync(dst);
+                }
+            }
+            catch (Exception ex) { return "{\"success\":false,\"message\":\"Download failed: " + ex.Message.Replace("\"", "'") + "\"}"; }
+
+            string extractDir = System.IO.Path.Combine(dir, "extracted");
+            try { System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, extractDir); }
+            catch (Exception ex) { return "{\"success\":false,\"message\":\"Extract failed: " + ex.Message.Replace("\"", "'") + "\"}"; }
+
+            // Open the folder that holds Setup.bat (assisted: the user runs it).
+            string openDir = extractDir;
+            try
+            {
+                var setup = System.IO.Directory.GetFiles(extractDir, "Setup.bat", System.IO.SearchOption.AllDirectories).FirstOrDefault();
+                if (!string.IsNullOrEmpty(setup)) openDir = System.IO.Path.GetDirectoryName(setup);
+            }
+            catch { }
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = "\"" + openDir + "\"",
+                    UseShellExecute = false,
+                });
+            }
+            catch (Exception ex) { Logger.Warn($"Open modded folder failed: {ex.Message}"); }
+
+            Logger.Info($"Modded Wi-Fi: downloaded + extracted to {openDir}");
+            string safe = openDir.Replace("\\", "\\\\").Replace("\"", "'");
+            return "{\"success\":true,\"message\":\"Downloaded and extracted. Run Setup.bat in the opened folder (installs the theboss619 certificate + driver).\",\"path\":\"" + safe + "\"}";
         }
 
         private static async Task<(string path, string error)> DownloadToTempAsync(string url)

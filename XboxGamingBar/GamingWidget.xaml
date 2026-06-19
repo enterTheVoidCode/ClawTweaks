@@ -5098,6 +5098,13 @@
                                               Foreground="#AAAAAA"
                                               Checked="DriverUpdatesHideBannerCheckbox_Changed"
                                               Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
+                                    <CheckBox x:Name="DriverUpdatesModdedWifiCheckbox"
+                                              Content="Use modded Wi-Fi driver (theboss619) — at your own risk"
+                                              IsChecked="False"
+                                              FontSize="12"
+                                              Foreground="#AAAAAA"
+                                              Checked="DriverUpdatesModdedWifiCheckbox_Changed"
+                                              Unchecked="DriverUpdatesModdedWifiCheckbox_Changed"/>
 
                                     <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
                                         <ItemsControl.ItemTemplate>
