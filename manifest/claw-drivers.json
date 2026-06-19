@@ -1,7 +1,14 @@
 {
   "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks. Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. MSI-Eintraege (Firmware, BIOS, MSI-spezifisch): action=install laedt von download.msi.com (Whitelist). Intel-Eintraege (providerScope=intel): liefern die NEUESTE (WHQL-)Version fuer die automatisch erkannte Intel-Zeile - der Helper vergleicht installiert (PnP) vs. diese 'version' und meldet 'Update verfuegbar' (Update-Kachel). 'version' bei neuem WHQL-Release aktualisieren (~1x/Monat); action=deeplink (oeffnet die Intel-Seite). .zip-Dateien werden heruntergeladen aber NIE automatisch gestartet (nur .exe/.msi) - fuer Firmware/BIOS sicher.",
   "schemaVersion": 1,
-  "updatedUtc": "2026-06-18",
+  "updatedUtc": "2026-06-19",
+  "_moddedWifiComment": "Optional: Drittanbieter-Modded-WiFi-Treiber (theboss619). url = aktueller TechPowerUp-Anhang (aendert sich pro Release; im ersten Post des Threads). Wird nur genutzt, wenn der User den Toggle 'Use modded Wi-Fi driver' aktiviert. Bei neuem Release nur 'url' (und optional 'version') aktualisieren.",
+  "moddedWifi": {
+    "name": "Intel Ultra Killer Wi-Fi (modded, theboss619)",
+    "version": "",
+    "url": "https://www.techpowerup.com/forums/attachments/intel-r-ultra-killer-r-wi-fi-ax1xx-ax2xx-ax4xx-ax16xx-be2xx-be17xxi-zip.445340/",
+    "threadUrl": "https://www.techpowerup.com/forums/threads/intel-ax1xx-ax2xx-ax4xx-ax16xx-be2xx-be17xx-intel-modded-wi-fi-driver-with-intel%C2%AE-killer%E2%84%A2-features.326229/"
+  },
   "devices": [
     {
       "deviceType": 40,
