@@ -476,13 +476,21 @@ namespace XboxGamingBar
                         // MSI Claw extras: providerScope ("msi"/"intel") + action
                         // ("install"/"deeplink"). On Lenovo these are empty/absent.
                         string scope = GetD("providerScope");
-                        bool isDeepLink = string.Equals(GetD("action"), "deeplink", StringComparison.OrdinalIgnoreCase);
+                        string action = GetD("action");
+                        bool isDeepLink = string.Equals(action, "deeplink", StringComparison.OrdinalIgnoreCase);
+                        bool isModded = string.Equals(action, "moddedwifi", StringComparison.OrdinalIgnoreCase);
                         var (installLabel, installVis) = InstallButtonForStatus(statusCode, downloadUrl);
                         if (isDeepLink && !string.IsNullOrWhiteSpace(downloadUrl))
                         {
                             // Deep-link rows always show a button that opens a page
                             // (Intel download page / DSA for Intel rows, MSI support otherwise).
                             installLabel = "Open page";
+                            installVis = Windows.UI.Xaml.Visibility.Visible;
+                        }
+                        if (isModded)
+                        {
+                            // Modded Wi-Fi: assisted install (download + open folder).
+                            installLabel = "Get driver";
                             installVis = Windows.UI.Xaml.Visibility.Visible;
                         }
                         items.Add(new DriverDisplay
@@ -500,6 +508,7 @@ namespace XboxGamingBar
                             InstallButtonVisibility = installVis,
                             ProviderScope = scope,
                             IsDeepLink = isDeepLink,
+                            IsModdedWifi = isModded,
                         });
                     }
                 }
@@ -516,6 +525,14 @@ namespace XboxGamingBar
                     var persisted = DriverUpdatesShowUtilities;
                     if ((DriverUpdatesShowUtilitiesCheckbox.IsChecked == true) != persisted)
                         DriverUpdatesShowUtilitiesCheckbox.IsChecked = persisted;
+                }
+
+                // Sync the modded-Wi-Fi toggle without triggering its re-check handler.
+                if (DriverUpdatesModdedWifiCheckbox != null)
+                {
+                    _isLoadingUpdatePreferenceCheckboxes = true;
+                    try { DriverUpdatesModdedWifiCheckbox.IsChecked = DriverUpdatesUseModdedWifi; }
+                    finally { _isLoadingUpdatePreferenceCheckboxes = false; }
                 }
 
                 ApplyDriverFilters();
@@ -583,6 +600,8 @@ namespace XboxGamingBar
             public string ProviderScope { get; set; }
             /// <summary>MSI Claw only: true when the row's button opens a URL (Intel DSA / MSI page) instead of downloading+installing.</summary>
             public bool IsDeepLink { get; set; }
+            /// <summary>MSI Claw only: true for the modded Wi-Fi row — its button triggers the assisted modded-driver install.</summary>
+            public bool IsModdedWifi { get; set; }
         }
 
         // Cached full driver list so the "Show utilities and diagnostics"
@@ -609,6 +628,7 @@ namespace XboxGamingBar
         // first-install users still see the banner after startup probe.
         private const string DriverUpdatesUpdateOnStartKey = "DriverUpdates_UpdateOnStart";
         private const string DriverUpdatesHideBannerKey    = "DriverUpdates_HideBanner";
+        private const string DriverUpdatesModdedWifiKey    = "DriverUpdates_ModdedWifi";
 
         private static bool GetBoolSetting(string key, bool defaultValue)
         {
@@ -638,6 +658,35 @@ namespace XboxGamingBar
         {
             get => GetBoolSetting(DriverUpdatesHideBannerKey, false);
             set => SetBoolSetting(DriverUpdatesHideBannerKey, value);
+        }
+        private bool DriverUpdatesUseModdedWifi
+        {
+            get => GetBoolSetting(DriverUpdatesModdedWifiKey, false);
+            set => SetBoolSetting(DriverUpdatesModdedWifiKey, value);
+        }
+
+        private async void DriverUpdatesModdedWifiCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (_isLoadingUpdatePreferenceCheckboxes) return;
+            if (DriverUpdatesModdedWifiCheckbox == null) return;
+            bool on = DriverUpdatesModdedWifiCheckbox.IsChecked == true;
+            DriverUpdatesUseModdedWifi = on;
+            try
+            {
+                if (App.IsConnected)
+                {
+                    var req = new Windows.Foundation.Collections.ValueSet();
+                    req.Add("SetUseModdedWifi", on);
+                    await App.SendMessageAsync(req);
+                    // Re-check so the Wi-Fi row switches between stock and modded.
+                    var check = new Windows.Foundation.Collections.ValueSet();
+                    check.Add("CheckDriverUpdates", true);
+                    var resp = await App.SendMessageAsync(check);
+                    if (resp != null && resp.TryGetValue("DriverUpdateResult", out var po) && po is string p)
+                        RenderDriverUpdateResult(p);
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"SetUseModdedWifi forward failed: {ex.Message}"); }
         }
 
         private async void DriverUpdatesUpdateOnStartCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
@@ -1025,6 +1074,43 @@ namespace XboxGamingBar
             // host: installers are only ever served from the download CDNs, so any
             // intel.com / www.msi.com page URL is a deep-link to open.
             var displayItem = button.DataContext as DriverDisplay;
+
+            // Modded Wi-Fi row: assisted install — helper downloads + extracts + opens
+            // the folder; the user runs Setup.bat themselves.
+            if (displayItem != null && displayItem.IsModdedWifi)
+            {
+                if (!App.IsConnected)
+                {
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = "Helper not connected — can't download.";
+                    return;
+                }
+                string lbl = button.Content?.ToString() ?? "Get driver";
+                button.IsEnabled = false;
+                button.Content = "Downloading…";
+                try
+                {
+                    var req = new Windows.Foundation.Collections.ValueSet();
+                    req.Add("InstallModdedWifi", true);
+                    var resp = await App.SendMessageAsync(req);
+                    string message = "Downloaded — run Setup.bat in the opened folder.";
+                    if (resp != null && resp.TryGetValue("ModdedWifiInstallResult", out var po) && po is string p
+                        && Windows.Data.Json.JsonObject.TryParse(p, out var mroot))
+                    {
+                        string msg = mroot.TryGetValue("message", out var m) && m.ValueType == Windows.Data.Json.JsonValueType.String ? m.GetString() : "";
+                        if (!string.IsNullOrWhiteSpace(msg)) message = msg;
+                    }
+                    if (DriverUpdatesStatusText != null) DriverUpdatesStatusText.Text = message;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"InstallModdedWifi failed: {ex.Message}");
+                    if (DriverUpdatesStatusText != null) DriverUpdatesStatusText.Text = $"Modded Wi-Fi download failed: {ex.Message}";
+                }
+                finally { button.Content = lbl; button.IsEnabled = true; }
+                return;
+            }
+
             bool isDeepLink = (displayItem != null && displayItem.IsDeepLink)
                 || url.IndexOf("intel.com", StringComparison.OrdinalIgnoreCase) >= 0
                 || url.IndexOf("www.msi.com", StringComparison.OrdinalIgnoreCase) >= 0
