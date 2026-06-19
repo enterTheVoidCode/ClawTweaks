@@ -67,6 +67,64 @@ namespace XboxGamingBarHelper.Services
             return false;
         }
 
+        /// <summary>Time since the last successful driver check (auto or manual), or
+        /// null if never checked. Used by the startup probe to throttle itself.</summary>
+        public static TimeSpan? TimeSinceLastCheck()
+        {
+            try
+            {
+                if (XboxGamingBarHelper.Settings.LocalSettingsHelper.TryGetValue<string>("LastDriverCheckUtc", out var s)
+                    && DateTimeOffset.TryParse(s, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+                    return DateTimeOffset.UtcNow - dt;
+            }
+            catch { }
+            return null;
+        }
+
+        // -------- Per-driver mute (scoped to the current latest version) --------
+
+        /// <summary>Stable mute key for a (name, latest-version) pair. MUST match the
+        /// widget's composition so a mute set in the UI is recognised here.</summary>
+        public static string IgnoreKey(string name, string version)
+            => ((name ?? "").Trim() + "|" + (version ?? "").Trim()).ToLowerInvariant();
+
+        public static HashSet<string> ReadIgnoreSet()
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                if (XboxGamingBarHelper.Settings.LocalSettingsHelper.TryGetValue<string>("DriverIgnoreSet", out var s) && !string.IsNullOrWhiteSpace(s))
+                    foreach (var line in s.Split('\n')) { var t = line.Trim(); if (t.Length > 0) set.Add(t); }
+            }
+            catch { }
+            return set;
+        }
+
+        /// <summary>Re-applies the current mute set to a result's rows. Cheap — called
+        /// on every cached serve so a freshly-toggled mute shows without a live re-check.</summary>
+        public static void ApplyMutes(MsiDriverUpdateResult r)
+        {
+            if (r?.Drivers == null) return;
+            var muted = ReadIgnoreSet();
+            foreach (var d in r.Drivers)
+                d.Ignored = muted.Count > 0 && muted.Contains(IgnoreKey(d.Name, d.Version));
+        }
+
+        /// <summary>Adds/removes a mute key (the widget passes the composed key).</summary>
+        public static void SetIgnore(string key, bool ignored)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return;
+            try
+            {
+                var set = ReadIgnoreSet();
+                if (ignored) set.Add(key.Trim().ToLowerInvariant());
+                else set.Remove(key.Trim().ToLowerInvariant());
+                XboxGamingBarHelper.Settings.LocalSettingsHelper.SetValue("DriverIgnoreSet", string.Join("\n", set));
+                Logger.Info($"Driver mute set updated ({(ignored ? "mute" : "unmute")} '{key}') -> {set.Count} muted");
+            }
+            catch (Exception ex) { Logger.Warn($"SetIgnore failed: {ex.Message}"); }
+        }
+
         // Cached hardware-family check used by the pipe dispatcher to route
         // driver-update requests to this service (vs. the Lenovo one). One WMI
         // read, memoised — the manufacturer doesn't change at runtime.
@@ -165,8 +223,18 @@ namespace XboxGamingBarHelper.Services
                 catch (Exception ex) { Logger.Debug($"Intel catalog load failed: {ex.Message}"); }
 
                 result.Drivers = MergeAndApplyPrecedence(manifestEntries, index, controllerFw, intelCatalog);
+
+                // Apply the user's per-driver mutes (scoped to the current latest
+                // version): a muted row stays visible but is flagged Ignored so it
+                // drops out of the update count + "Update all". A newer version has a
+                // different key, so the mute auto-expires when an update ships.
+                ApplyMutes(result);
                 Logger.Info($"MsiClawDriverCheck: model={result.ModelCode}, BIOS={result.BiosVersion}, " +
                             $"manifest={manifestEntries.Count}, total rows={result.Drivers.Count}, live={result.LiveFetchSucceeded}");
+
+                // Stamp the last successful check so the startup probe can throttle
+                // itself (manual checks count too, resetting the timer).
+                try { XboxGamingBarHelper.Settings.LocalSettingsHelper.SetValue("LastDriverCheckUtc", DateTime.UtcNow.ToString("o")); } catch { }
             }
             catch (Exception ex)
             {
@@ -841,6 +909,9 @@ namespace XboxGamingBarHelper.Services
         public string MatchedDeviceName { get; set; } = "";
         public string MatchedProvider { get; set; } = "";
         public int MatchScore { get; set; }
+        /// <summary>True when the user muted this update for its current latest version
+        /// (excluded from the update count + "Update all"; reappears when a newer version ships).</summary>
+        public bool Ignored { get; set; }
 
         // Manifest-only hints (not serialised to the widget).
         [JsonIgnore] public string DeviceIdMatch { get; set; } = "";

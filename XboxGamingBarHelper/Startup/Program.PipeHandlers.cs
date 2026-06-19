@@ -808,6 +808,7 @@ namespace XboxGamingBarHelper
                             var probe = (!force && Services.MsiClawDriverCheckService.LastResult != null)
                                 ? Services.MsiClawDriverCheckService.LastResult
                                 : await Services.MsiClawDriverCheckService.CheckAsync();
+                            Services.MsiClawDriverCheckService.ApplyMutes(probe); // reflect freshly-toggled mutes on cached serves
                             json = probe.ToJson();
                             Logger.Info($"Pipe: CheckDriverUpdates (Claw) — model={probe.ModelCode}, BIOS={probe.BiosVersion}, live={probe.LiveFetchSucceeded}, count={probe.Drivers.Count}");
                             foreach (var d in probe.Drivers)
@@ -954,6 +955,25 @@ namespace XboxGamingBarHelper
                         responseMsg.RequestId = pipeMsg.RequestId;
                         pipeServer.SendMessage(responseMsg.ToJson());
                     }
+                    return;
+                }
+
+                // Mute/unmute a single driver update for its current latest version.
+                if (pipeMsg.Extra.ContainsKey("SetDriverIgnore"))
+                {
+                    try
+                    {
+                        string key = pipeMsg.Extra["SetDriverIgnore"]?.ToString();
+                        bool ignored = false;
+                        if (pipeMsg.Extra.TryGetValue("IgnoreState", out var v))
+                        {
+                            if (v is bool b) ignored = b;
+                            else if (v is string s) bool.TryParse(s, out ignored);
+                        }
+                        Services.MsiClawDriverCheckService.SetIgnore(key, ignored);
+                    }
+                    catch (Exception ex) { Logger.Warn($"Pipe: SetDriverIgnore threw: {ex.Message}"); }
+                    SendPipeAck(pipeMsg.RequestId);
                     return;
                 }
 

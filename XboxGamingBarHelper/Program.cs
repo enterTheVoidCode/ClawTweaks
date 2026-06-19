@@ -1710,8 +1710,22 @@ namespace XboxGamingBarHelper
                     {
                         try
                         {
+                            // Run well after the important startup work (controller
+                            // emulation, hardware init) so the probe never competes with
+                            // it — purely background, fire-and-forget.
+                            await Task.Delay(TimeSpan.FromSeconds(45));
+
+                            // Throttle: auto-check at most every 3 days. A manual
+                            // "Check for updates" also stamps the timer, so it resets.
+                            var since = Services.MsiClawDriverCheckService.TimeSinceLastCheck();
+                            if (since.HasValue && since.Value < TimeSpan.FromDays(3))
+                            {
+                                Logger.Info($"Startup Claw driver probe skipped (last check {since.Value.TotalHours:F0}h ago, < 3 days)");
+                                return;
+                            }
+
                             var result = await Services.MsiClawDriverCheckService.CheckAsync();
-                            int updateCount = result?.Drivers?.Count(d => d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable) ?? 0;
+                            int updateCount = result?.Drivers?.Count(d => d.UpdateStatus == Services.DriverUpdateStatus.UpdateAvailable && !d.Ignored) ?? 0;
                             Logger.Info($"Startup Claw driver probe complete — {updateCount} update(s) available out of {result?.Drivers?.Count ?? 0} total");
                             PushDriverUpdatesAvailable(updateCount);
                         }
