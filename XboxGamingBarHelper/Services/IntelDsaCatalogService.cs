@@ -78,18 +78,23 @@ namespace XboxGamingBarHelper.Services
             _loaded = true;
             try
             {
-                byte[] zipBytes = TryReadLocalCache();
-                if (zipBytes == null)
+                // Primary: a fresh fetch from Intel's data CDN (~150 KB). This is
+                // authoritative and current — the local DSA cache can be stale for a
+                // locale the user doesn't view (e.g. data-en.zip months old while
+                // data-de.zip is current), which would surface wrong "latest" versions.
+                byte[] zipBytes = null;
+                try
                 {
-                    Logger.Info("Intel catalog: no local DSA cache, fetching from dsadata.intel.com");
                     using var resp = await _http.GetAsync(DataCdnUrl);
-                    if (!resp.IsSuccessStatusCode)
-                    {
-                        Logger.Info($"Intel catalog: CDN returned HTTP {(int)resp.StatusCode}");
-                        return _cache;
-                    }
-                    zipBytes = await resp.Content.ReadAsByteArrayAsync();
+                    if (resp.IsSuccessStatusCode) zipBytes = await resp.Content.ReadAsByteArrayAsync();
+                    else Logger.Info($"Intel catalog: CDN returned HTTP {(int)resp.StatusCode}");
                 }
+                catch (Exception ex) { Logger.Info($"Intel catalog: CDN fetch failed ({ex.Message}); trying local cache"); }
+
+                // Fallback (offline): the NEWEST local DSA cache by modified date.
+                if (zipBytes == null) zipBytes = TryReadNewestLocalCache();
+
+                if (zipBytes == null) { Logger.Info("Intel catalog: no source available"); return _cache; }
                 _cache = ParseCatalog(zipBytes);
                 Logger.Info($"Intel catalog loaded: {_cache?.Count ?? 0} component entries");
             }
@@ -100,13 +105,22 @@ namespace XboxGamingBarHelper.Services
             return _cache;
         }
 
-        private static byte[] TryReadLocalCache()
+        private static byte[] TryReadNewestLocalCache()
         {
-            foreach (var path in LocalCacheZips)
+            try
             {
-                try { if (File.Exists(path)) return File.ReadAllBytes(path); }
-                catch (Exception ex) { Logger.Debug($"Intel catalog local cache read failed ({path}): {ex.Message}"); }
+                var newest = LocalCacheZips
+                    .Where(File.Exists)
+                    .Select(p => new FileInfo(p))
+                    .OrderByDescending(fi => fi.LastWriteTimeUtc)
+                    .FirstOrDefault();
+                if (newest != null)
+                {
+                    Logger.Info($"Intel catalog: using local cache {newest.Name} ({newest.LastWriteTimeUtc:yyyy-MM-dd})");
+                    return File.ReadAllBytes(newest.FullName);
+                }
             }
+            catch (Exception ex) { Logger.Debug($"Intel catalog local cache read failed: {ex.Message}"); }
             return null;
         }
 
