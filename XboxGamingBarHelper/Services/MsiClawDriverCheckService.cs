@@ -275,6 +275,11 @@ namespace XboxGamingBarHelper.Services
                         DeviceIdMatch = GetJsonString(d, "deviceIdMatch") ?? "",
                         PnpMatchHints = GetJsonStringArray(d, "pnpMatchHints"),
                     };
+                    if (d.TryGetProperty("installedRegistry", out var reg) && reg.ValueKind == JsonValueKind.Object)
+                    {
+                        e.RegistryPath = GetJsonString(reg, "path") ?? "";
+                        e.RegistryValue = GetJsonString(reg, "value") ?? "";
+                    }
                     if (!string.IsNullOrWhiteSpace(e.Name)) entries.Add(e);
                 }
             }
@@ -308,6 +313,20 @@ namespace XboxGamingBarHelper.Services
                 if (ClassifyDomain(e.Category, e.Name) == DriverDomain.Intel)
                 {
                     Logger.Info($"Claw merge: dropping manifest entry '{e.Name}' (Intel domain - Intel wins)");
+                    continue;
+                }
+
+                // Registry-sourced installed version (e.g. MSI Center M stores it in
+                // HKLM\SOFTWARE\WOW6432Node\MSI\MSI Center M : Package_Version). Far more
+                // reliable than fuzzy-matching the uninstall registry for MSI software.
+                if (!string.IsNullOrWhiteSpace(e.RegistryPath) && !string.IsNullOrWhiteSpace(e.RegistryValue))
+                {
+                    string regVer = ReadRegistryValue(e.RegistryPath, e.RegistryValue);
+                    e.InstalledVersion = regVer ?? "";
+                    e.UpdateStatus = string.IsNullOrWhiteSpace(regVer)
+                        ? DriverUpdateStatus.NotInstalled
+                        : DriverMatchUtil.CompareVersions(regVer, e.Version);
+                    output.Add(e);
                     continue;
                 }
 
@@ -598,6 +617,28 @@ namespace XboxGamingBarHelper.Services
 
         // ------------------------------------------------------------------
 
+        private static string ReadRegistryValue(string path, string valueName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(path)) return null;
+                int slash = path.IndexOf('\\');
+                if (slash <= 0) return null;
+                string hive = path.Substring(0, slash).ToUpperInvariant();
+                string sub = path.Substring(slash + 1);
+                Microsoft.Win32.RegistryKey root;
+                switch (hive)
+                {
+                    case "HKLM": case "HKEY_LOCAL_MACHINE": root = Microsoft.Win32.Registry.LocalMachine; break;
+                    case "HKCU": case "HKEY_CURRENT_USER": root = Microsoft.Win32.Registry.CurrentUser; break;
+                    default: return null;
+                }
+                using (var k = root.OpenSubKey(sub))
+                    return k?.GetValue(valueName)?.ToString();
+            }
+            catch (Exception ex) { Logger.Debug($"ReadRegistryValue failed ({path}: {valueName}): {ex.Message}"); return null; }
+        }
+
         private static string GetJsonString(JsonElement obj, string name)
         {
             if (obj.ValueKind != JsonValueKind.Object) return null;
@@ -681,5 +722,10 @@ namespace XboxGamingBarHelper.Services
         // Manifest-only hints (not serialised to the widget).
         [JsonIgnore] public string DeviceIdMatch { get; set; } = "";
         [JsonIgnore] public List<string> PnpMatchHints { get; set; } = new List<string>();
+        // Optional: read the installed version from a registry value instead of the
+        // uninstall-registry fuzzy match (e.g. MSI Center M stores it under
+        // HKLM\SOFTWARE\WOW6432Node\MSI\MSI Center M : Package_Version).
+        [JsonIgnore] public string RegistryPath { get; set; } = "";
+        [JsonIgnore] public string RegistryValue { get; set; } = "";
     }
 }
