@@ -168,6 +168,9 @@ namespace XboxGamingBar
                             DriverScrollViewer.Visibility = Visibility.Visible;
                             DriverScrollViewer.ChangeView(null, 0, null, true);
                         }
+                        // Auto-populate from the cached startup-probe result so the user
+                        // doesn't have to press "Check for updates".
+                        EnsureDriverListLoaded();
                         break;
                     case "Onboarding":
                         if (OnboardingScrollViewer != null)

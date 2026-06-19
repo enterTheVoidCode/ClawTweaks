@@ -5076,13 +5076,6 @@
                                                Foreground="#888888"
                                                TextWrapping="Wrap"/>
 
-                                    <CheckBox x:Name="DriverUpdatesShowUtilitiesCheckbox"
-                                              Content="Show utilities and diagnostics"
-                                              IsChecked="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesShowUtilitiesCheckbox_Changed"
-                                              Unchecked="DriverUpdatesShowUtilitiesCheckbox_Changed"/>
 
                                     <CheckBox x:Name="DriverUpdatesUpdateOnStartCheckbox"
                                               Content="Check for driver updates on start"
@@ -5133,14 +5126,22 @@
                                                                 <ColumnDefinition Width="Auto"/>
                                                             </Grid.ColumnDefinitions>
                                                             <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
-                                                            <Button Grid.Column="1"
-                                                                    Content="{Binding InstallButtonLabel}"
-                                                                    Tag="{Binding DownloadUrl}"
-                                                                    Visibility="{Binding InstallButtonVisibility}"
-                                                                    Style="{StaticResource ModernButtonStyle}"
-                                                                    FontSize="11"
-                                                                    Padding="10,4"
-                                                                    Click="DriverInstallButton_Click"/>
+                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                                <Button Content="{Binding MuteButtonLabel}"
+                                                                        Tag="{Binding IgnoreKey}"
+                                                                        Visibility="{Binding MuteButtonVisibility}"
+                                                                        Style="{StaticResource ModernButtonStyle}"
+                                                                        FontSize="11"
+                                                                        Padding="10,4"
+                                                                        Click="DriverMuteButton_Click"/>
+                                                                <Button Content="{Binding InstallButtonLabel}"
+                                                                        Tag="{Binding DownloadUrl}"
+                                                                        Visibility="{Binding InstallButtonVisibility}"
+                                                                        Style="{StaticResource ModernButtonStyle}"
+                                                                        FontSize="11"
+                                                                        Padding="10,4"
+                                                                        Click="DriverInstallButton_Click"/>
+                                                            </StackPanel>
                                                         </Grid>
                                                     </StackPanel>
                                                 </Border>

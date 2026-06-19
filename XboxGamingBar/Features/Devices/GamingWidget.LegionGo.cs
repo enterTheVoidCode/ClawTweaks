@@ -493,6 +493,19 @@ namespace XboxGamingBar
                             installLabel = "Get driver";
                             installVis = Windows.UI.Xaml.Visibility.Visible;
                         }
+
+                        // Per-driver mute (scoped to the current latest version). Only
+                        // update rows can be muted; a muted row shows "Muted" + Unmute and
+                        // drops out of the count + Update all. Key MUST match the helper's.
+                        bool ignored = d.TryGetValue("ignored", out var igv)
+                            && igv.ValueType == Windows.Data.Json.JsonValueType.Boolean && igv.GetBoolean();
+                        string ignoreKey = (GetD("name").Trim() + "|" + GetD("version").Trim()).ToLowerInvariant();
+                        bool isUpdate = statusCode == 2; // UpdateAvailable
+                        string muteLabel = ignored ? "Unmute" : "Mute";
+                        var muteVis = (ignored || isUpdate)
+                            ? Windows.UI.Xaml.Visibility.Visible
+                            : Windows.UI.Xaml.Visibility.Collapsed;
+
                         items.Add(new DriverDisplay
                         {
                             Name = GetD("name"),
@@ -502,13 +515,20 @@ namespace XboxGamingBar
                             DownloadUrl = downloadUrl,
                             Severity = SeverityLabel(GetD("severity")),
                             InstalledVersion = string.IsNullOrWhiteSpace(installed) ? "—" : installed,
-                            StatusLabel = StatusLabelFor(statusCode),
-                            StatusColor = StatusColorFor(statusCode),
+                            StatusLabel = ignored ? "Muted" : StatusLabelFor(statusCode),
+                            StatusColor = ignored
+                                ? new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 90, 90, 90))
+                                : StatusColorFor(statusCode),
                             InstallButtonLabel = installLabel,
-                            InstallButtonVisibility = installVis,
+                            // Muted: hide the install/open action (only Unmute remains).
+                            InstallButtonVisibility = ignored ? Windows.UI.Xaml.Visibility.Collapsed : installVis,
                             ProviderScope = scope,
                             IsDeepLink = isDeepLink,
                             IsModdedWifi = isModded,
+                            IsIgnored = ignored,
+                            IgnoreKey = ignoreKey,
+                            MuteButtonLabel = muteLabel,
+                            MuteButtonVisibility = muteVis,
                         });
                     }
                 }
@@ -516,16 +536,6 @@ namespace XboxGamingBar
                 // Remember the full list so the utilities/diagnostics checkbox
                 // can filter it on the fly without another helper round-trip.
                 _allDriverDisplays = items;
-
-                // Restore checkbox state from LocalSettings (first render after
-                // widget startup) — no-op on later renders since the state
-                // already matches.
-                if (DriverUpdatesShowUtilitiesCheckbox != null)
-                {
-                    var persisted = DriverUpdatesShowUtilities;
-                    if ((DriverUpdatesShowUtilitiesCheckbox.IsChecked == true) != persisted)
-                        DriverUpdatesShowUtilitiesCheckbox.IsChecked = persisted;
-                }
 
                 // Sync the modded-Wi-Fi toggle without triggering its re-check handler.
                 if (DriverUpdatesModdedWifiCheckbox != null)
@@ -602,6 +612,14 @@ namespace XboxGamingBar
             public bool IsDeepLink { get; set; }
             /// <summary>MSI Claw only: true for the modded Wi-Fi row — its button triggers the assisted modded-driver install.</summary>
             public bool IsModdedWifi { get; set; }
+            /// <summary>MSI Claw only: muted for the current latest version (excluded from count + Update all).</summary>
+            public bool IsIgnored { get; set; }
+            /// <summary>Mute key (name|version) passed to the helper. Empty hides the mute button.</summary>
+            public string IgnoreKey { get; set; }
+            /// <summary>"Mute" / "Unmute".</summary>
+            public string MuteButtonLabel { get; set; }
+            /// <summary>Visible only for update rows (and currently-muted rows).</summary>
+            public Windows.UI.Xaml.Visibility MuteButtonVisibility { get; set; } = Windows.UI.Xaml.Visibility.Collapsed;
         }
 
         // Cached full driver list so the "Show utilities and diagnostics"
@@ -687,6 +705,52 @@ namespace XboxGamingBar
                 }
             }
             catch (Exception ex) { Logger.Warn($"SetUseModdedWifi forward failed: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Called when the Drivers tab opens. If the list isn't populated yet, asks
+        /// the helper for the result — this serves the cached startup-probe result
+        /// (no live re-check), so the user sees the drivers without pressing "Check".
+        /// </summary>
+        internal async void EnsureDriverListLoaded()
+        {
+            if (_allDriverDisplays != null && _allDriverDisplays.Count > 0) return;
+            try
+            {
+                if (!App.IsConnected) return;
+                var req = new Windows.Foundation.Collections.ValueSet();
+                req.Add("CheckDriverUpdates", true); // force=false → cached probe result
+                var resp = await App.SendMessageAsync(req);
+                if (resp != null && resp.TryGetValue("DriverUpdateResult", out var po) && po is string p)
+                    RenderDriverUpdateResult(p);
+            }
+            catch (Exception ex) { Logger.Warn($"EnsureDriverListLoaded failed: {ex.Message}"); }
+        }
+
+        /// <summary>Mute/unmute a single driver update for its current latest version.</summary>
+        private async void DriverMuteButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            var button = sender as Windows.UI.Xaml.Controls.Button;
+            if (button == null) return;
+            var key = button.Tag as string;
+            if (string.IsNullOrWhiteSpace(key)) return;
+            var dd = button.DataContext as DriverDisplay;
+            bool newState = !(dd != null && dd.IsIgnored); // toggle
+            try
+            {
+                if (!App.IsConnected) return;
+                var req = new Windows.Foundation.Collections.ValueSet();
+                req.Add("SetDriverIgnore", key);
+                req.Add("IgnoreState", newState);
+                await App.SendMessageAsync(req);
+                // Re-fetch (cached; helper re-applies mutes) + re-render so the row updates.
+                var check = new Windows.Foundation.Collections.ValueSet();
+                check.Add("CheckDriverUpdates", true);
+                var resp = await App.SendMessageAsync(check);
+                if (resp != null && resp.TryGetValue("DriverUpdateResult", out var po) && po is string p)
+                    RenderDriverUpdateResult(p);
+            }
+            catch (Exception ex) { Logger.Warn($"DriverMuteButton_Click failed: {ex.Message}"); }
         }
 
         private async void DriverUpdatesUpdateOnStartCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
@@ -819,15 +883,13 @@ namespace XboxGamingBar
             if (d == null) return false;
             // Deep-link rows (MSI Claw: Intel DSA / MSI page) are never batch-installed.
             if (d.IsDeepLink) return false;
+            // Muted rows are excluded from "Update all" + the count.
+            if (d.IsIgnored) return false;
             // Status label is set by StatusLabelFor — "Update" is the
             // UpdateAvailable case, "Install" is NotInstalled, "Up to date"
             // is UpToDate, "Unknown" otherwise.
             if (!string.Equals(d.StatusLabel, "Update", StringComparison.Ordinal)) return false;
             if (string.IsNullOrWhiteSpace(d.DownloadUrl)) return false;
-            // Respect the "Show utilities and diagnostics" checkbox: when
-            // unchecked we hide those categories + Tool from the list, so
-            // Update-all must hide them too.
-            if (!DriverUpdatesShowUtilities && _lowSignalDriverCategories.Contains(d.Category ?? "")) return false;
             return true;
         }
 
@@ -1013,39 +1075,19 @@ namespace XboxGamingBar
             }
         }
 
-        private void DriverUpdatesShowUtilitiesCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
-        {
-            if (_isLoadingUpdatePreferenceCheckboxes) return;
-            if (DriverUpdatesShowUtilitiesCheckbox == null) return;
-            DriverUpdatesShowUtilities = DriverUpdatesShowUtilitiesCheckbox.IsChecked == true;
-            ApplyDriverFilters();
-        }
-
         /// <summary>
-        /// Filters <see cref="_allDriverDisplays"/> by the utilities/diagnostics
-        /// checkbox and rebinds the visible list. Kept separate from the
-        /// parse path so the checkbox can toggle without re-hitting Lenovo.
+        /// Binds the driver list. The MSI Claw list is small (a handful of rows), so
+        /// there's no utilities/diagnostics filtering — every row is shown.
         /// </summary>
         private void ApplyDriverFilters()
         {
             if (DriverUpdatesList == null) return;
-            bool showUtilities = DriverUpdatesShowUtilities;
 
-            var visible = new System.Collections.Generic.List<DriverDisplay>();
-            foreach (var d in _allDriverDisplays)
-            {
-                if (!showUtilities && _lowSignalDriverCategories.Contains(d.Category ?? ""))
-                    continue;
-                visible.Add(d);
-            }
-
-            DriverUpdatesList.ItemsSource = visible;
-            DriverUpdatesList.Visibility = visible.Count > 0
+            DriverUpdatesList.ItemsSource = new System.Collections.Generic.List<DriverDisplay>(_allDriverDisplays);
+            DriverUpdatesList.Visibility = _allDriverDisplays.Count > 0
                 ? Windows.UI.Xaml.Visibility.Visible
                 : Windows.UI.Xaml.Visibility.Collapsed;
 
-            // Eligible-for-Update-all set tracks the same filter, so refresh
-            // the button + its count label whenever the filter flips.
             UpdateUpdateAllButtonVisibility();
         }
 
