@@ -44,8 +44,9 @@
           "severity": "optional",
           "pnpMatchHints": ["center"],
           "deviceIdMatch": "",
+          "installedRegistry": { "path": "HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M", "value": "Package_Version" },
           "action": "install",
-          "_comment": "Installierte Version aus der Uninstall-Registry (DisplayName 'MSI Center M'). .zip -> Download, danach manuell entpacken/installieren."
+          "_comment": "Installierte Version aus der Registry (MSI Center M legt sie unter HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M : Package_Version ab; zuverlaessiger als Uninstall-Fuzzy-Match). .zip -> Download, danach manuell entpacken/installieren."
         },
         {
           "name": "Intel Arc Grafik",
