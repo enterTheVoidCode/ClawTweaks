@@ -856,6 +856,44 @@ namespace XboxGamingBarHelper
                 // the checkbox flips; helper re-reads at next launch before
                 // scheduling the Lenovo probe, so flipping the box off keeps
                 // the helper from hitting pcsupport.lenovo.com on boot.
+                // Open an external URL in the user's default browser. The widget runs
+                // in the Xbox Game Bar AppContainer, where Launcher.LaunchUriAsync is
+                // unreliable (returns false / "couldn't open the browser"). The helper
+                // is full-trust, so it opens the link here — via explorer.exe so the
+                // browser starts at the user's (medium) integrity even though the helper
+                // is elevated. Only http/https is accepted.
+                if (pipeMsg.Extra.ContainsKey("OpenExternalUrl"))
+                {
+                    bool opened = false;
+                    try
+                    {
+                        string extUrl = pipeMsg.Extra["OpenExternalUrl"]?.ToString();
+                        if (!string.IsNullOrWhiteSpace(extUrl)
+                            && Uri.TryCreate(extUrl, UriKind.Absolute, out var extUri)
+                            && (extUri.Scheme == "http" || extUri.Scheme == "https"))
+                        {
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                            {
+                                FileName = "explorer.exe",
+                                Arguments = extUri.AbsoluteUri,
+                                UseShellExecute = false,
+                            });
+                            opened = true;
+                            Logger.Info($"Pipe: OpenExternalUrl -> {extUri.Host}");
+                        }
+                        else { Logger.Warn($"Pipe: OpenExternalUrl rejected: '{extUrl}'"); }
+                    }
+                    catch (Exception ex) { Logger.Warn($"Pipe: OpenExternalUrl threw: {ex.Message}"); }
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet { { "OpenExternalUrlResult", opened } };
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
                 if (pipeMsg.Extra.ContainsKey("SetDriverCheckOnStart"))
                 {
                     try

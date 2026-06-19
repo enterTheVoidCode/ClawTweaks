@@ -5027,7 +5027,7 @@
                 <!-- DRIVERS TAB (MSI + Intel driver/firmware updates) -->
                 <ScrollViewer x:Name="DriverScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
-                    <StackPanel Padding="16,8,16,16">
+                    <StackPanel Padding="12,6,12,10">
                         <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
                         <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
@@ -5036,7 +5036,7 @@
                                     <TextBlock Text="Driver &amp; firmware updates (MSI + Intel)"
                                                Style="{StaticResource CardCaptionStyle}"/>
                                 </StackPanel>
-                                <StackPanel x:Name="DriverUpdatesContent" Visibility="Visible" Spacing="10" Margin="0,12,0,0">
+                                <StackPanel x:Name="DriverUpdatesContent" Visibility="Visible" Spacing="6" Margin="0,8,0,0">
                                     <!-- Machine info -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -5102,7 +5102,7 @@
                                     <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
+                                                <Border Background="#1A1A2E" CornerRadius="4" Padding="8,6" Margin="0,3,0,0">
                                                     <StackPanel>
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>

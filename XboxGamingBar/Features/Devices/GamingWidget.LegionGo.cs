@@ -347,9 +347,11 @@ namespace XboxGamingBar
                 }
                 if (string.IsNullOrEmpty(url))
                 {
-                    url = "https://pcsupport.lenovo.com/";
+                    url = "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM";
                 }
-                await Windows.System.Launcher.LaunchUriAsync(new Uri(url));
+                bool ok = await OpenExternalUrlAsync(url);
+                if (!ok && DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = "Couldn't open the browser for that link.";
             }
             catch (Exception ex)
             {
@@ -357,6 +359,31 @@ namespace XboxGamingBar
                 if (DriverUpdatesStatusText != null)
                     DriverUpdatesStatusText.Text = $"Couldn't open browser: {ex.Message}";
             }
+        }
+
+        /// <summary>
+        /// Opens an external URL. The widget runs in the Game Bar AppContainer where
+        /// Launcher.LaunchUriAsync is unreliable (returns false), so we ask the
+        /// full-trust helper to open it (via explorer.exe → default browser at user
+        /// integrity). Falls back to the Launcher when the helper isn't connected.
+        /// </summary>
+        private async System.Threading.Tasks.Task<bool> OpenExternalUrlAsync(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return false;
+            try
+            {
+                if (App.IsConnected)
+                {
+                    var req = new Windows.Foundation.Collections.ValueSet();
+                    req.Add("OpenExternalUrl", url);
+                    var resp = await App.SendMessageAsync(req);
+                    if (resp != null && resp.TryGetValue("OpenExternalUrlResult", out var v) && v is bool b && b)
+                        return true;
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"OpenExternalUrl via helper failed: {ex.Message}"); }
+            try { return await Windows.System.Launcher.LaunchUriAsync(new Uri(url)); }
+            catch (Exception ex) { Logger.Warn($"LaunchUriAsync fallback failed: {ex.Message}"); return false; }
         }
 
         private string _lastDriverPageUrl;
@@ -408,7 +435,7 @@ namespace XboxGamingBar
                 string error = GetStr("errorMessage");
 
                 string defaultPage = isMsiClaw
-                    ? "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support"
+                    ? "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM"
                     : "https://pcsupport.lenovo.com/";
                 _lastDriverPageUrl = string.IsNullOrEmpty(pageUrl) ? defaultPage : pageUrl;
                 if (DriverUpdatesModel != null)
@@ -455,8 +482,7 @@ namespace XboxGamingBar
                         {
                             // Deep-link rows always show a button that opens a page
                             // (Intel download page / DSA for Intel rows, MSI support otherwise).
-                            installLabel = string.Equals(scope, "intel", StringComparison.OrdinalIgnoreCase)
-                                ? "Intel-Treiber" : "Open page";
+                            installLabel = "Open page";
                             installVis = Windows.UI.Xaml.Visibility.Visible;
                         }
                         items.Add(new DriverDisplay
@@ -1005,13 +1031,9 @@ namespace XboxGamingBar
                 || url.IndexOf("support.lenovo.com", StringComparison.OrdinalIgnoreCase) >= 0;
             if (isDeepLink)
             {
-                try
-                {
-                    bool ok = await Windows.System.Launcher.LaunchUriAsync(new Uri(url));
-                    if (!ok && DriverUpdatesStatusText != null)
-                        DriverUpdatesStatusText.Text = "Couldn't open the browser for that link.";
-                }
-                catch (Exception ex) { Logger.Warn($"Driver deep-link open failed: {ex.Message}"); }
+                bool ok = await OpenExternalUrlAsync(url);
+                if (!ok && DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = "Couldn't open the browser for that link.";
                 return;
             }
 

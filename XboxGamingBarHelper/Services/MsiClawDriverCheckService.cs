@@ -50,7 +50,7 @@ namespace XboxGamingBarHelper.Services
 
         // MSI Claw 8 AI+ support landing page (layer-1 fallback).
         private const string MsiSupportUrlDefault =
-            "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support";
+            "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM";
 
         private static MsiDriverUpdateResult _lastResult;
         public static MsiDriverUpdateResult LastResult => _lastResult;
@@ -356,7 +356,7 @@ namespace XboxGamingBarHelper.Services
         // page is known.
         private static readonly (string Label, string RowCategory, string CatalogCategory, string[] DeviceClasses, string[] Keywords, string DefaultUrl)[] _intelDomains =
         {
-            ("Intel Arc Grafik", "Graphics",  "Graphics",  new[] { "DISPLAY" },   new[] { "graphics", "display", "arc", "iris", "gpu" }, IntelArcGraphicsUrl),
+            ("Intel Arc Graphics", "Graphics",  "Graphics",  new[] { "DISPLAY" },   new[] { "graphics", "display", "arc", "iris", "gpu" }, IntelArcGraphicsUrl),
             ("Intel Wi-Fi",      "Network",   "Wireless",  new[] { "NET" },       new[] { "wifi", "wireless", "wlan", "killer" },        IntelDsaUrl),
             ("Intel Bluetooth",  "Bluetooth", "Bluetooth", new[] { "BLUETOOTH" }, new[] { "bluetooth" },                                 IntelDsaUrl),
         };
