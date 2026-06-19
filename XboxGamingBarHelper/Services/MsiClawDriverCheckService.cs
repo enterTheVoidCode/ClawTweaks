@@ -473,7 +473,9 @@ namespace XboxGamingBarHelper.Services
                         ProviderScope = "modded",
                         InstalledVersion = devs[0].Version,
                         Version = _moddedWifi.Version,
-                        UpdateStatus = DriverUpdateStatus.Unknown,
+                        UpdateStatus = string.IsNullOrWhiteSpace(_moddedWifi.Version)
+                            ? DriverUpdateStatus.Unknown
+                            : DriverMatchUtil.CompareVersions(devs[0].Version, _moddedWifi.Version),
                         Action = "moddedwifi",
                         DownloadUrl = _moddedWifi.Url,
                         MatchedDeviceName = devs[0].Name,
