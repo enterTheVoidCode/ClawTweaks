@@ -77,6 +77,21 @@ namespace XboxGamingBar
                 PawnIODebugTools.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
                 if (on) _ = UpdatePawnIOCpuInfo();
             }
+
+            // Show/hide the Intel thermal stack (IPF/DTT) diagnostic panel and refresh its status.
+            if (IntelThermalDebugTools != null)
+            {
+                IntelThermalDebugTools.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+                if (on) RequestIntelThermalStatus();
+            }
+
+            // Show/hide the fan max test (Full Blast / scaling check) panel.
+            if (FanMaxTestDebugTools != null)
+                FanMaxTestDebugTools.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+
+            // Show/hide the fan-override register probe panel.
+            if (FanProbeDebugTools != null)
+                FanProbeDebugTools.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private async Task UpdatePawnIOCpuInfo()
