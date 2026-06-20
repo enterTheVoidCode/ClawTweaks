@@ -491,7 +491,10 @@ namespace XboxGamingBarHelper.Systems
             }
 
             // Display label: DisplayName cut at the first '|' (emulator version junk), trimmed, capped to
-            // 13 chars. Cosmetic — identity/matching use the key (path / AumId / TitleId).
+            // Display label for the game — cut at first '|' (emulator title noise), trimmed.
+            // Must NOT be truncated: GameId.Name is used as the controller-profile storage key
+            // (ControllerProfile_Game_<name>) so truncation causes lookup mismatches for long names
+            // like "RESIDENT EVIL 2" (15 chars) that would become "RESIDENT EVIL".
             string ResolveGameBarName(string path, string windowTitle, string displayName)
             {
                 string raw = !string.IsNullOrEmpty(displayName) ? displayName
@@ -499,9 +502,7 @@ namespace XboxGamingBarHelper.Systems
                            : (Path.GetFileNameWithoutExtension(path) ?? "");
                 int cut = raw.IndexOf('|');
                 if (cut > 0) raw = raw.Substring(0, cut);
-                raw = raw.Trim();
-                if (raw.Length > 13) raw = raw.Substring(0, 13).Trim();
-                return raw;
+                return raw.Trim();
             }
 
             // RTSS: always read first — shared-memory read is cheap and both the fast path and the
