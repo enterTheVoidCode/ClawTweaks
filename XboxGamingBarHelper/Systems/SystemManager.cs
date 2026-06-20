@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading.Tasks;
 using Shared.Data;
 using XboxGamingBarHelper.Windows;
@@ -188,6 +189,14 @@ namespace XboxGamingBarHelper.Systems
         {
             get { return trackedGame; }
         }
+
+        // One-shot exe-path cache for the current Game Bar tracked game.
+        // Populated by TryResolveExeFromForeground() on first fast-path hit after a game change;
+        // cleared when the tracked game identity changes or becomes invalid.
+        // Allows GetRunningGame() to skip GetOpenWindows() on every 1s tick.
+        private string _cachedTrackedExePath;
+        private int _cachedTrackedPid = -1;
+        private string _lastTrackedCacheKey;
 
         private readonly ForegroundAppProperty foregroundApp;
         public ForegroundAppProperty ForegroundApp
@@ -495,6 +504,81 @@ namespace XboxGamingBarHelper.Systems
                 return raw;
             }
 
+            // RTSS: always read first — shared-memory read is cheap and both the fast path and the
+            // fallback window scan need FPS data. Moving it before GetOpenWindows lets the fast path
+            // use FPS without ever calling EnumWindows.
+            AppEntries.Clear();
+            if (RTSSHelper.IsRunning())
+            {
+                try
+                {
+                    var rtssEntries = OSD.GetAppEntries(AppFlags.MASK);
+                    Logger.Debug($"RTSS returned {rtssEntries.Length} app entries");
+                    foreach (var entry in rtssEntries)
+                    {
+                        Logger.Debug($"RTSS AppEntry: ProcessId={entry.ProcessId}, Name={entry.Name}, InstantaneousFrames={entry.InstantaneousFrames}");
+                        AppEntries[entry.ProcessId] = entry;
+                    }
+                }
+                catch (System.IO.FileNotFoundException)
+                {
+                    // RTSS.exe is running but hasn't mapped its shared-memory segment yet (startup
+                    // race) or was killed between IsRunning() and GetAppEntries. Transient.
+                    Logger.Debug("RTSS shared-memory segment not ready — game detection will retry next tick");
+                }
+                catch (Exception e)
+                {
+                    Logger.Error($"Can't connect to Rivatuner Statistics Server: {e}");
+                }
+            }
+            else
+            {
+                Logger.Debug("Rivatuner Statistics Server is not running, can't determine current game.");
+            }
+
+            // Cache invalidation: the exe-path cache belongs to one specific TrackedGame; clear it
+            // whenever the tracked game identity changes (or disappears).
+            string trackedCacheKey = trackedGame.IsValid()
+                ? (trackedGame.AumId ?? trackedGame.TitleId ?? trackedGame.DisplayName ?? "")
+                : "";
+            if (trackedCacheKey != _lastTrackedCacheKey)
+            {
+                _lastTrackedCacheKey = trackedCacheKey;
+                _cachedTrackedExePath = null;
+                _cachedTrackedPid = -1;
+                if (trackedGame.IsValid())
+                    Logger.Info($"[GameDetection] TrackedGame key changed → exe-cache cleared (key='{trackedCacheKey}')");
+            }
+
+            // Fast path: Game Bar has a tracked game → resolve exe path once via QueryFullProcessImageName
+            // on the current foreground PID (no EnumWindows). Returns immediately, skipping GetOpenWindows.
+            // Falls through to the full window scan when:
+            //   • exe resolution fails (UWP launch race, transient timing) — retried next tick
+            //   • cached game has FPS=0 but another process is rendering (game may have changed)
+            if (trackedGame.IsValid())
+            {
+                if (string.IsNullOrEmpty(_cachedTrackedExePath))
+                    TryResolveExeFromForeground(out _cachedTrackedExePath, out _cachedTrackedPid);
+
+                if (!string.IsNullOrEmpty(_cachedTrackedExePath))
+                {
+                    uint fps = AppEntries.TryGetValue(_cachedTrackedPid, out var fastAe)
+                               ? fastAe.InstantaneousFrames : 0;
+                    bool anotherIsRendering = fps == 0
+                        && AppEntries.Values.Any(e => e.InstantaneousFrames > 0);
+                    if (!anotherIsRendering)
+                    {
+                        var gameName = ResolveGameBarName(_cachedTrackedExePath, "", trackedGame.DisplayName);
+                        var gameKey  = ResolveGameKey(_cachedTrackedExePath, trackedGame.AumId, trackedGame.TitleId);
+                        Logger.Debug($"[GameDetection] Fast path: label='{gameName}' key='{gameKey}' exe='{_cachedTrackedExePath}' PID={_cachedTrackedPid} FPS={fps}");
+                        return new RunningGame(_cachedTrackedPid, gameName, gameKey, fps, true);
+                    }
+                    Logger.Info("[GameDetection] Fast path skipped: cached game FPS=0, another process rendering — falling through to window scan");
+                }
+            }
+
+            // Fallback: full window scan for non-Game-Bar games, emulators, UWP launch races,
+            // or when the FPS-conflict check forced a bypass of the fast path.
             try
             {
                 User32.GetOpenWindows(ProcessWindows);
@@ -549,44 +633,6 @@ namespace XboxGamingBarHelper.Systems
                         return new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, 0, processWindow.Value.IsForeground);
                     }
                 }
-            }
-
-            AppEntries.Clear();
-            AppEntry[] appEntries = Array.Empty<AppEntry>();
-            if (RTSSHelper.IsRunning())
-            {
-                try
-                {
-                    appEntries = OSD.GetAppEntries(AppFlags.MASK);
-                    Logger.Debug($"RTSS returned {appEntries.Length} app entries");
-                    foreach (var entry in appEntries)
-                    {
-                        Logger.Debug($"RTSS AppEntry: ProcessId={entry.ProcessId}, Name={entry.Name}, InstantaneousFrames={entry.InstantaneousFrames}");
-                    }
-                }
-                catch (System.IO.FileNotFoundException)
-                {
-                    // RTSS.exe is running but hasn't mapped its shared-memory
-                    // segment yet (startup race) OR it was just killed between
-                    // IsRunning() and GetAppEntries. Transient — we retry on
-                    // the next tick. Downgraded from Error to Debug so the
-                    // helper log isn't noisy on every reboot while the OSD
-                    // attaches.
-                    Logger.Debug("RTSS shared-memory segment not ready — game detection will retry next tick");
-                }
-                catch (Exception e)
-                {
-                    Logger.Error($"Can't connect to Rivatuner Statistics Server: {e}");
-                }
-            }
-            else
-            {
-                Logger.Debug("Rivatuner Statistics Server is not running, can't determine current game.");
-            }
-
-            foreach (var appEntry in appEntries)
-            {
-                AppEntries[appEntry.ProcessId] = appEntry;
             }
 
             Logger.Debug($"ProcessWindows count: {ProcessWindows.Count}, AppEntries count: {AppEntries.Count}");
@@ -1027,6 +1073,45 @@ namespace XboxGamingBarHelper.Systems
                     }
                 }
                 RunningGame.SetValue(currentRunningGame);
+            }
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool QueryFullProcessImageName(
+            IntPtr hProcess, int dwFlags, StringBuilder lpExeName, ref int lpdwSize);
+
+        private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+        // Resolves the exe path of the current foreground window via a single Win32 call.
+        // Much cheaper than GetOpenWindows() (EnumWindows over all windows); called once per game
+        // change to populate the fast-path cache.
+        private bool TryResolveExeFromForeground(out string exePath, out int pid)
+        {
+            exePath = null;
+            pid = -1;
+            try
+            {
+                pid = User32.GetForegroundProcessId();
+                if (pid <= 0) return false;
+                var hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+                if (hProcess == IntPtr.Zero) return false;
+                try
+                {
+                    var sb = new StringBuilder(1024);
+                    int size = sb.Capacity;
+                    if (!QueryFullProcessImageName(hProcess, 0, sb, ref size)) return false;
+                    string path = sb.ToString(0, size);
+                    if (path.IndexOf("GameBar", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+                    if (path.IndexOf("XboxGameBar", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+                    exePath = path;
+                    return true;
+                }
+                finally { CloseHandle(hProcess); }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[GameDetection] TryResolveExeFromForeground failed: {ex.Message}");
+                return false;
             }
         }
 
