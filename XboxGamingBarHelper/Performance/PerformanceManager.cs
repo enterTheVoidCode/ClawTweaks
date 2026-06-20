@@ -1437,8 +1437,12 @@ namespace XboxGamingBarHelper.Performance
                 // fan table entirely (re-applying our table does nothing while Sport is active). Comfort
                 // (0xC0) is the calmest active scenario, so the fan can follow our table while the TDP
                 // still holds. Single value → the shift no longer changes on AC/DC or per watts.
-                int shiftValue = 0xC0;
-                string label = "Comfort/None (active)";
+                // EC Sport cooling: Sport (0xC4) makes the EC run its own aggressive fan curve (cools
+                // well, never latches) at the cost of our software table being ignored. Comfort (0xC0)
+                // keeps the software table in control but caps fan aggressiveness. HC maps BestPerformance
+                // → Sport; we expose it as the "Cooling (EC Sport)" fan mode.
+                int shiftValue = _msiSportCooling ? 0xC4 : 0xC0;
+                string label = _msiSportCooling ? "Sport (EC cooling)" : "Comfort/None (active)";
 
                 // Only write when the scenario actually changes. Re-writing block 210 on every TDP
                 // apply (which happens often) makes the EC re-grab the fan with the scenario's own
@@ -1484,6 +1488,35 @@ namespace XboxGamingBarHelper.Performance
         // Last MSI power-shift value written to EC block 210. -1 = none yet. Used to avoid re-writing
         // the shift (and thereby re-triggering the EC's scenario fan) on every TDP apply.
         private int lastMsiShiftValue = -1;
+
+        // When true, the MSI power-shift scenario is Sport (0xC4) so the EC runs its own aggressive fan
+        // curve ("Cooling (EC Sport)" fan mode); when false, the calm Comfort scenario (0xC0).
+        private bool _msiSportCooling = false;
+
+        /// <summary>
+        /// Enable/disable "EC Sport cooling". On → power-shift Sport (0xC4): the EC drives its own
+        /// aggressive fan curve (cools well, never latches), overriding our software fan table. Off →
+        /// Comfort (0xC0): the software fan table is honoured again. 1:1 HC behaviour (BestPerformance→Sport).
+        /// </summary>
+        public void SetMsiSportCooling(bool enable)
+        {
+            try
+            {
+                if (_msiSportCooling == enable) return;
+                _msiSportCooling = enable;
+
+                const string scope = "root\\WMI";
+                const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
+                int shiftValue = enable ? 0xC4 : 0xC0;
+                bool ok = SetMsiCpuPowerLimit(scope, path, 210, shiftValue);
+                lastMsiShiftValue = shiftValue;
+                Logger.Info($"[MSIClaw] SetMsiSportCooling({enable}) → power-shift 0x{shiftValue:X2} (ok={ok})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[MSIClaw] SetMsiSportCooling failed: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// Replicates HC ClawA1M/A2VM.Open()'s runtime TDP unlock (once per helper run; the EC clears

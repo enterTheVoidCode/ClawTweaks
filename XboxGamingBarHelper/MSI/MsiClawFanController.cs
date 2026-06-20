@@ -41,6 +41,16 @@ namespace XboxGamingBarHelper.MSI
         public static readonly double[] Curve_Default    = { 0, 0, 0,  0,  2,  4, 14, 30, 50, 75,  97 };
         public static readonly double[] Curve_Aggressive = { 0, 0, 0,  3,  6, 10, 22, 40, 63, 85, 100 };
 
+        // "Cooling" (early-ramp): the EC table is temperature-indexed and only samples
+        // 0/20/40/50/60/80/90/100 °C — at idle/low load the fan speed comes ONLY from the 50/60 °C
+        // points. Quiet/Default keep 50-60 °C near silent, so the fan barely moves until ~80 °C and a
+        // game's fast heat-up overshoots into the EC's ~90 °C thermal-protection latch. This preset
+        // front-loads the 50-70 °C band so the fan is already spinning before the game pushes past 80,
+        // keeping temp under the ~85 °C latch threshold, while staying silent at <=40 °C (idle).
+        // Resulting EC table (x1.5): 50 °C->33, 60 °C->57, 80 °C->97, 90 °C->127, 100 °C->150.
+        //                                                 0  10  20  30  40  50  60  70  80  90  100 °C
+        public static readonly double[] Curve_Cooling    = { 0, 0, 0,  0,  3, 22, 38, 50, 65, 85, 100 };
+
         /// <summary>
         /// A2VM fan scale: the 0–100 % UI curve maps onto the full MSI EC range 0–150, so 100 % UI =
         /// MSI 150 = hardware max. This was 100 (≈67 % of HW max), which structurally capped software
@@ -87,9 +97,12 @@ namespace XboxGamingBarHelper.MSI
         }
 
         /// <summary>
-        /// Write a baseline hardware fan table for the given profile and return control to
-        /// the firmware (hardware mode). profileKey: "BetterBattery" | "BetterPerformance"
-        /// | "BestPerformance" (default: BetterPerformance).
+        /// Clean firmware hand-back: write a real baseline firmware fan table AND return control to the
+        /// firmware (hardware mode), clearing any forced full-speed override first. This is the robust
+        /// way to leave software fan mode — unlike a bare control-bit clear, it does NOT leave our last
+        /// (possibly quiet) software table in the EC. So even if the firmware keeps reading the data
+        /// block in hardware mode, it now reads a sane firmware curve instead of our leftover bytes.
+        /// profileKey: "BetterBattery" | "BetterPerformance" | "BestPerformance" (default: BetterPerformance).
         /// </summary>
         public static bool ApplyHardwareTable(string profileKey)
         {
@@ -100,9 +113,12 @@ namespace XboxGamingBarHelper.MSI
                 case "BestPerformance": table = LLFanTable_BestPerformance; break;
                 default:                table = LLFanTable_BetterPerformance; break;
             }
+            // Clear any leftover full-speed override (e.g. from the Full Blast diagnostic) so handing
+            // back to the firmware never leaves the fan pinned to max.
+            SetFanFullSpeed(false);
             SetFanTable(table);
             SetFanControl(false);  // hardware mode → firmware keeps control
-            Logger.Info($"MsiClawFanController: applied hardware fan table '{profileKey}' [{string.Join(",", table)}]");
+            Logger.Info($"MsiClawFanController: firmware hand-back — applied hardware fan table '{profileKey}' [{string.Join(",", table)}] (full-speed cleared)");
             return true;
         }
 
@@ -231,6 +247,41 @@ namespace XboxGamingBarHelper.MSI
             var parts = new string[n];
             for (int i = 0; i < n; i++) parts[i] = data[i].ToString();
             return string.Join(",", parts);
+        }
+
+        /// <summary>Reads the "full speed" override (block 152, bit 7). True = the EC is forcing the fan
+        /// to absolute max regardless of the curve table. Used by the diagnostics to compare our table
+        /// max (=150) against the EC's true full-speed ceiling.</summary>
+        public static bool ReadFullSpeedBit()
+        {
+            try
+            {
+                byte[] data = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Data", 152, 1, out bool ok);
+                return ok && data.Length > 0 && ((data[0] & (1 << 7)) != 0);
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"MsiClawFan.ReadFullSpeedBit: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>Diagnostic: write a raw byte to an EC data block (Set_Data). Used by the fan-override
+        /// probe to hunt for a proportional fan-duty register (e.g. block 152 low bits, or a sibling).</summary>
+        public static void WriteDataBlock(byte block, byte value)
+        {
+            byte[] pkg = new byte[32];
+            pkg[0] = block;
+            pkg[1] = value;
+            MsiClawWmi.Set(MsiClawWmi.Scope, MsiClawWmi.Path, "Set_Data", pkg);
+            Logger.Info($"MsiClawFan: WriteDataBlock({block}) = {value} (0x{value:X2})");
+        }
+
+        /// <summary>Diagnostic: read one byte from an EC data block (Get_Data). Returns -1 on failure.</summary>
+        public static int ReadDataBlock(byte block)
+        {
+            byte[] d = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Data", block, 1, out bool ok);
+            return (ok && d.Length > 0) ? d[0] : -1;
         }
 
         /// <summary>Forces the fan to full speed (block 152, bit 7).</summary>

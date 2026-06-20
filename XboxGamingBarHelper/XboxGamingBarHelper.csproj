@@ -328,6 +328,7 @@
     <Compile Include="Intel\FpsCapModeProperty.cs" />
     <Compile Include="Intel\KxExeService.cs" />
     <Compile Include="MSI\ServiceUtils.cs" />
+    <Compile Include="MSI\IntelThermalControl.cs" />
     <Compile Include="MSI\MsiClawWmi.cs" />
     <Compile Include="MSI\MsiClawFanController.cs" />
     <Compile Include="MSI\MsiCenterManager.cs" />

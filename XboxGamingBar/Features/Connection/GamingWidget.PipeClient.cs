@@ -129,6 +129,28 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes the Intel thermal stack (IPF/DTT) status for the experimental Fan-tab controls.
+                if (message.TryGetValue("IntelThermalStatus", out object intelThermalObj) && intelThermalObj is string intelThermalStatus)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnIntelThermalStatus(intelThermalStatus); }
+                        catch (Exception ex) { Logger.Error($"OnIntelThermalStatus dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // Helper pushes the fan-override probe read-back for the diagnostic register hunt.
+                if (message.TryGetValue("MsiFanRegStatus", out object fanRegObj) && fanRegObj is string fanRegStatus)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnFanRegStatus(fanRegStatus); }
+                        catch (Exception ex) { Logger.Error($"OnFanRegStatus dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper reports a resolved Left-MSI button click ("single"/"double") so the
                 // double-click settings UI can flash a detection indicator for fine-tuning.
                 if (message.TryGetValue("ClawClick", out object clawClickObj) && clawClickObj is string clawClick)

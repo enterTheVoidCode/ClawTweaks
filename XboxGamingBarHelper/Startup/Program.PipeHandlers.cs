@@ -166,6 +166,67 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Diagnostic fan-override probe: write a raw byte to an EC data block to hunt for a
+                // proportional fan-duty register. Content "block,value" (decimal).
+                if (pipeMsg.Extra.TryGetValue("MsiFanRegProbe", out object regProbeObj) && regProbeObj is string regProbeCmd)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: MsiFanRegProbe request received: '{regProbeCmd}'");
+                        var parts = regProbeCmd.Split(',');
+                        if (parts.Length == 2 && int.TryParse(parts[0], out int blk) && int.TryParse(parts[1], out int val))
+                            ProbeFanRegister(blk, val);
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiFanRegProbe failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // Diagnostic: force the EC full-speed override (block 152.7) on/off to compare our table
+                // max (=150) against the EC's true full-speed ceiling. "on"|"off".
+                if (pipeMsg.Extra.TryGetValue("MsiFanFullBlast", out object fullBlastObj) && fullBlastObj is string fullBlastCmd)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: MsiFanFullBlast request received: '{fullBlastCmd}'");
+                        SetMsiFanFullBlast(fullBlastCmd == "on");
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiFanFullBlast failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // Experimental: stop / start / query the Intel thermal stack (IPF/DTT) that owns the
+                // fan above the EC. "stop"|"start"|"status". Pushes back "IntelThermalStatus".
+                if (pipeMsg.Extra.TryGetValue("IntelThermalCmd", out object intelThermalObj) && intelThermalObj is string intelThermalCmd)
+                {
+                    try
+                    {
+                        Logger.Info($"Pipe: IntelThermalCmd request received: '{intelThermalCmd}'");
+                        switch (intelThermalCmd)
+                        {
+                            case "stop":  StopIntelThermal();  break;
+                            case "start": StartIntelThermal(); break;
+                            default:      ReportIntelThermalStatus(); break;
+                        }
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: IntelThermalCmd failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
                 // Handle launcher open request (Steam Big Picture / Playnite / Xbox app)
                 if (pipeMsg.Extra.TryGetValue("LaunchLauncher", out object launcherObj) && launcherObj is string launcherKey)
                 {

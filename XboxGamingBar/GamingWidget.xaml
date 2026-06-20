@@ -4761,6 +4761,121 @@
                                         </Border>
                                     </StackPanel>
 
+                                    <!-- Intel thermal tasks (DIAGNOSTIC ONLY, visible when Debug Tools enabled).
+                                         NOT a fix: on Lunar Lake the fan "panic" is an EC firmware latch that no
+                                         software lever releases (only a full shutdown does). Stopping the Intel
+                                         IPF/DTT tasks does not calm a latched fan and can make it worse. This is
+                                         kept purely to inspect / experiment with the Intel thermal stack state.
+                                         Note: disabling the TFN1 fan participant is unsupported on some OS builds,
+                                         so "Stop" may only stop the services there. -->
+                                    <StackPanel x:Name="IntelThermalDebugTools" Visibility="Collapsed" Margin="0,12,0,0">
+                                        <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <TextBlock Text="Intel thermal stack (IPF/DTT) — diagnostic only" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
+                                                <TextBlock Text="Does NOT fix the fan panic. The panic is an EC firmware latch that only a full shutdown clears. For investigation only — stopping these tasks can make a stuck fan worse." FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button x:Name="IntelThermalStopButton"
+                                                            Content="Stop Intel tasks"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11" Padding="10,4"
+                                                            Click="IntelThermalStopButton_Click"/>
+                                                    <Button x:Name="IntelThermalStartButton"
+                                                            Content="Start Intel tasks"
+                                                            Margin="8,0,0,0"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11" Padding="10,4"
+                                                            Click="IntelThermalStartButton_Click"/>
+                                                    <Button x:Name="IntelThermalRefreshButton"
+                                                            Content="Refresh"
+                                                            Margin="8,0,0,0"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11" Padding="10,4"
+                                                            Click="IntelThermalRefreshButton_Click"/>
+                                                </StackPanel>
+                                                <TextBlock x:Name="IntelThermalStatusText"
+                                                           Margin="0,8,0,0"
+                                                           FontSize="11" TextWrapping="Wrap"
+                                                           Foreground="#A0A0A0"
+                                                           Text="Press Refresh to read the Intel thermal stack status."/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Fan max test / scaling check (DIAGNOSTIC, visible when Debug Tools enabled).
+                                         Forces the EC full-speed override (block 152.7) so we can compare the real
+                                         fan RPM against our table max (100 % = EC byte 150). If Full Blast is clearly
+                                         louder / higher RPM than Aggressive@100 %, then 150 is NOT the absolute max
+                                         and our 0-100 % scaling tops out below the hardware ceiling. -->
+                                    <StackPanel x:Name="FanMaxTestDebugTools" Visibility="Collapsed" Margin="0,12,0,0">
+                                        <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <TextBlock Text="Fan max test (Full Blast) — diagnostic only" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
+                                                <TextBlock Text="Forces the EC full-speed override to check whether 100% (EC 150) is really the absolute fan max. Turn ON, wait a few seconds, Read RPM; compare with Aggressive@100%. Turn OFF afterwards." FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button x:Name="FanFullBlastOnButton"
+                                                            Content="Full Blast ON"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11" Padding="10,4"
+                                                            Click="FanFullBlastOnButton_Click"/>
+                                                    <Button x:Name="FanFullBlastOffButton"
+                                                            Content="Full Blast OFF"
+                                                            Margin="8,0,0,0"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11" Padding="10,4"
+                                                            Click="FanFullBlastOffButton_Click"/>
+                                                    <Button x:Name="FanReadRpmButton"
+                                                            Content="Read RPM"
+                                                            Margin="8,0,0,0"
+                                                            Style="{StaticResource ModernButtonStyle}"
+                                                            FontSize="11" Padding="10,4"
+                                                            Click="FanReadRpmButton_Click"/>
+                                                </StackPanel>
+                                                <TextBlock x:Name="FanFullBlastStatusText"
+                                                           Margin="0,8,0,0"
+                                                           FontSize="11" TextWrapping="Wrap"
+                                                           Foreground="#A0A0A0"
+                                                           Text="Press Read RPM to read the live fan speed."/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
+                                    <!-- Fan override probe (DIAGNOSTIC, visible when Debug Tools enabled).
+                                         Hunts for a PROPORTIONAL fan-duty register: writes a raw byte to an EC
+                                         data block (default 152) and reads it back. Sweep the slider and listen
+                                         for a level response between firmware-quiet and Full Blast. WARNING:
+                                         writing arbitrary EC blocks is experimental — keep to block 152 unless
+                                         you know what a block does. -->
+                                    <StackPanel x:Name="FanProbeDebugTools" Visibility="Collapsed" Margin="0,12,0,0">
+                                        <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
+                                            <StackPanel>
+                                                <TextBlock Text="Fan override probe — diagnostic only" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
+                                                <TextBlock Text="Writes a raw byte to an EC block (default 152) to find a proportional fan-duty register. Sweep + Write, then listen. Set value back to 0 when done." FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                                    <TextBlock Text="Block" FontSize="12" Foreground="#C0C0C0" VerticalAlignment="Center"/>
+                                                    <TextBox x:Name="FanProbeBlockText" Text="152" Width="56" Margin="8,0,0,0"/>
+                                                    <TextBlock Text="Value" FontSize="12" Foreground="#C0C0C0" VerticalAlignment="Center" Margin="16,0,0,0"/>
+                                                    <TextBlock x:Name="FanProbeValueLabel" Text="0 (0x00)" FontSize="12" Foreground="#4CAF50" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                                                </StackPanel>
+                                                <Slider x:Name="FanProbeValueSlider" Minimum="0" Maximum="255" Value="0"
+                                                        ValueChanged="FanProbeValueSlider_ValueChanged"/>
+                                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                    <Button Content="Write" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="FanProbeWriteButton_Click"/>
+                                                    <Button Content="152=0"   Margin="8,0,0,0" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="8,4" Click="FanProbeP0_Click"/>
+                                                    <Button Content="152=50"  Margin="6,0,0,0" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="8,4" Click="FanProbeP50_Click"/>
+                                                    <Button Content="152=100" Margin="6,0,0,0" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="8,4" Click="FanProbeP100_Click"/>
+                                                    <Button Content="152=150" Margin="6,0,0,0" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="8,4" Click="FanProbeP150_Click"/>
+                                                    <Button Content="0x80|40" Margin="6,0,0,0" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="8,4" Click="FanProbeEn40_Click"/>
+                                                    <Button Content="0x80|80" Margin="6,0,0,0" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="8,4" Click="FanProbeEn80_Click"/>
+                                                </StackPanel>
+                                                <TextBlock x:Name="FanProbeStatusText"
+                                                           Margin="0,8,0,0"
+                                                           FontSize="11" TextWrapping="Wrap"
+                                                           Foreground="#A0A0A0"
+                                                           Text="Write a value, then listen. Read-back confirms what landed in the EC."/>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+
                                     <!-- Update Status Text -->
                                     <TextBlock x:Name="UpdateStatusText"
                                                Text=""
@@ -5378,7 +5493,9 @@
                                                 <ComboBoxItem Content="Quiet" Tag="0"/>
                                                 <ComboBoxItem Content="Default" Tag="1" IsSelected="True"/>
                                                 <ComboBoxItem Content="Aggressive" Tag="2"/>
-                                                <ComboBoxItem Content="Custom" Tag="3"/>
+                                                <ComboBoxItem Content="Cooling (Early Ramp)" Tag="3"/>
+                                                <ComboBoxItem Content="Custom" Tag="4"/>
+                                                <ComboBoxItem Content="Cooling (EC Sport)" Tag="5"/>
                                             </ComboBox>
                                         </Grid>
 

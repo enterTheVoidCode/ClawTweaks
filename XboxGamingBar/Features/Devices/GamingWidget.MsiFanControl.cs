@@ -32,6 +32,10 @@ namespace XboxGamingBar
         private static readonly double[] MsiCurveQuiet      = { 0, 0, 0,  0,  0,  0,  8, 22, 40, 63,  87 };
         private static readonly double[] MsiCurveDefault    = { 0, 0, 0,  0,  2,  4, 14, 30, 50, 75,  97 };
         private static readonly double[] MsiCurveAggressive = { 0, 0, 0,  3,  6, 10, 22, 40, 63, 85, 100 };
+        // "Cooling" (early-ramp): front-loads the 50-70 °C band so the fan spins before a game heats
+        // past 80 °C, avoiding the EC ~90 °C thermal-protection latch. Must match Curve_Cooling in the
+        // helper (MsiClawFanController). Silent at <=40 °C.
+        private static readonly double[] MsiCurveCooling    = { 0, 0, 0,  0,  3, 22, 38, 50, 65, 85, 100 };
 
         private readonly double[] _msiFanCurve = (double[])MsiCurveDefault.Clone();
         private readonly Ellipse[] _msiFanPoints = new Ellipse[11];
@@ -70,7 +74,7 @@ namespace XboxGamingBar
                 var settings = ApplicationData.Current.LocalSettings;
                 bool enabled = settings.Values.TryGetValue(MsiFanEnabledKey, out var enObj) && enObj is bool b && b;
                 int preset = (settings.Values.TryGetValue(MsiFanPresetKey, out var pObj) && pObj is int p) ? p : 1;
-                if (preset < 0 || preset > 3) preset = 1;
+                if (preset < 0 || preset > 5) preset = 1;
 
                 // Restore the curve for the selected preset (custom from storage; presets from constants).
                 LoadCurveForPreset(preset);
@@ -93,7 +97,8 @@ namespace XboxGamingBar
         /// <summary>
         /// Applies the fan state the helper pushed on connect (authoritative). Updates the UI +
         /// the widget's cached keys without echoing back to the helper.
-        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled,0=Quiet,1=Default,2=Aggressive,3=Custom.
+        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled, 0=Quiet, 1=Default, 2=Aggressive,
+        /// 3=Cooling(early ramp), 4=Custom, 5=Cooling(EC Sport).
         /// </summary>
         internal void OnMsiFanState(string payload)
         {
@@ -103,7 +108,7 @@ namespace XboxGamingBar
             string curve = parts.Length > 1 ? parts[1] : "";
 
             bool enabled = value >= 0;
-            int preset = (value >= 0 && value <= 3) ? value : 1;
+            int preset = (value >= 0 && value <= 5) ? value : 1;
 
             _msiFanInitializing = true;
             try
@@ -111,7 +116,7 @@ namespace XboxGamingBar
                 var settings = ApplicationData.Current.LocalSettings;
                 settings.Values[MsiFanEnabledKey] = enabled;
                 if (value >= 0) settings.Values[MsiFanPresetKey] = preset;
-                if (value == 3 && !string.IsNullOrEmpty(curve))
+                if (value == 4 && !string.IsNullOrEmpty(curve))
                     settings.Values[MsiFanCurveKey] = curve;
 
                 LoadCurveForPreset(preset);
@@ -165,7 +170,9 @@ namespace XboxGamingBar
             {
                 case 0: src = MsiCurveQuiet; break;
                 case 2: src = MsiCurveAggressive; break;
-                case 3: src = LoadCustomCurveFromStorage() ?? MsiCurveDefault; break;
+                case 3: src = MsiCurveCooling; break;
+                case 4: src = LoadCustomCurveFromStorage() ?? MsiCurveDefault; break;
+                case 5: src = MsiCurveAggressive; break; // EC Sport: graph is a placeholder (the EC drives the fan)
                 default: src = MsiCurveDefault; break;
             }
             Array.Copy(src, _msiFanCurve, 11);
@@ -311,10 +318,10 @@ namespace XboxGamingBar
 
                 // A manual edit means the curve is now "Custom".
                 _msiFanInitializing = true;
-                try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 3; }
+                try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 4; }
                 finally { _msiFanInitializing = false; }
 
-                ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 3;
+                ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 4;
                 ApplicationData.Current.LocalSettings.Values[MsiFanCurveKey] = CurveToCsv();
 
                 if (MsiFanEnableToggle?.IsOn == true)
@@ -348,7 +355,7 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Sends the current fan state to the helper. For a built-in preset (0/1/2) sends the
-        /// preset index; for "Custom" (3) sends the full curve; disabled sends -1 (firmware).
+        /// preset index; for "Custom" (4) sends the full curve; disabled sends -1 (firmware).
         /// </summary>
         private async void SendMsiFanStateToHelper()
         {
@@ -366,7 +373,7 @@ namespace XboxGamingBar
                 }
 
                 int preset = MsiFanPresetComboBox?.SelectedIndex ?? 1;
-                if (preset == 3)
+                if (preset == 4)
                 {
                     SendMsiFanCurveToHelper();
                     return;
@@ -585,6 +592,15 @@ namespace XboxGamingBar
                 var ecParts = sections[0].Split(',');
                 bool controlOn = sections.Length > 1 && sections[1] == "1";
                 bool readOk = sections.Length > 2 && sections[2] == "1";
+                bool fullSpeed = sections.Length > 3 && sections[3] == "1";
+                int rpm = -1;
+                if (sections.Length > 4) int.TryParse(sections[4], out rpm);
+
+                // Measurement line for the scaling test: actual fan RPM + whether the EC full-speed
+                // override is engaged. Lets us compare our table max (100 % = EC 150) against true max.
+                string measure = (rpm >= 0 ? $"Fan: {rpm} RPM" : "Fan: n/a")
+                                 + $" · full-speed override: {(fullSpeed ? "ON" : "off")}";
+                if (FanFullBlastStatusText != null) FanFullBlastStatusText.Text = measure;
 
                 byte[] ec = new byte[8];
                 for (int i = 0; i < 8 && i < ecParts.Length; i++)
@@ -621,11 +637,196 @@ namespace XboxGamingBar
                     string why = !controlOn ? "control bit is OFF" : "EC values differ from the graph";
                     MsiFanCheckStatus.Text = $"⚠ Mismatch ({why}).\nEC: [{string.Join(",", ec)}]\nExpected: [{string.Join(",", expected)}]";
                 }
+
+                // Always show the live measurement so the EC check doubles as an RPM read-out.
+                MsiFanCheckStatus.Text += "\n" + measure;
             }
             catch (Exception ex)
             {
                 Logger.Error($"OnMsiFanStatus: {ex.Message}");
             }
+        }
+
+        // ── Experimental: Intel thermal stack (IPF/DTT) control ─────────────────────
+        // On Lunar Lake the Intel Innovation Platform Framework owns a fan participant above the EC
+        // and can latch the fan at max under sustained load. These let a tester stop the Intel
+        // thermal tasks (so the EC table is the sole fan owner) and start them again, with a status.
+
+        private void IntelThermalStopButton_Click(object sender, RoutedEventArgs e) => SendIntelThermalCmd("stop");
+        private void IntelThermalStartButton_Click(object sender, RoutedEventArgs e) => SendIntelThermalCmd("start");
+        private void IntelThermalRefreshButton_Click(object sender, RoutedEventArgs e) => RequestIntelThermalStatus();
+
+        /// <summary>Ask the helper for the current Intel thermal stack status (no state change).</summary>
+        internal void RequestIntelThermalStatus() => SendIntelThermalCmd("status");
+
+        private async void SendIntelThermalCmd(string cmd)
+        {
+            try
+            {
+                if (!App.IsConnected)
+                {
+                    if (IntelThermalStatusText != null)
+                    {
+                        IntelThermalStatusText.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 230, 120, 120));
+                        IntelThermalStatusText.Text = "Helper not connected.";
+                    }
+                    return;
+                }
+                if (cmd != "status" && IntelThermalStatusText != null)
+                {
+                    IntelThermalStatusText.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 160, 160, 160));
+                    IntelThermalStatusText.Text = cmd == "stop" ? "Stopping Intel thermal tasks…" : "Starting Intel thermal tasks…";
+                }
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "IntelThermalCmd", cmd } });
+                Logger.Info($"SendIntelThermalCmd: '{cmd}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"SendIntelThermalCmd('{cmd}'): {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Handles the helper's "IntelThermalStatus" push: "&lt;state&gt;|&lt;detail&gt;" where state is
+        /// running / stopped / partial / error. Running = normal (Intel owns the fan); stopped =
+        /// test mode (EC is the sole fan owner).
+        /// </summary>
+        internal void OnIntelThermalStatus(string payload)
+        {
+            try
+            {
+                if (IntelThermalStatusText == null || string.IsNullOrEmpty(payload)) return;
+
+                var sections = payload.Split(new[] { '|' }, 2);
+                string state = sections[0];
+                string detail = sections.Length > 1 ? sections[1] : "";
+
+                Windows.UI.Color color;
+                string label;
+                switch (state)
+                {
+                    case "running":
+                        color = Windows.UI.ColorHelper.FromArgb(255, 120, 190, 240); // blue: Intel active (normal)
+                        label = "Intel thermal tasks RUNNING (normal).";
+                        break;
+                    case "stopped":
+                        color = Windows.UI.ColorHelper.FromArgb(255, 240, 180, 80); // orange: test mode
+                        label = "Intel thermal tasks STOPPED — EC is the sole fan owner (test mode).";
+                        break;
+                    case "partial":
+                        color = Windows.UI.ColorHelper.FromArgb(255, 240, 180, 80);
+                        label = "Intel thermal tasks PARTIALLY running.";
+                        break;
+                    default:
+                        color = Windows.UI.ColorHelper.FromArgb(255, 230, 120, 120); // red
+                        label = "Could not read Intel thermal status.";
+                        break;
+                }
+
+                IntelThermalStatusText.Foreground = new SolidColorBrush(color);
+                IntelThermalStatusText.Text = string.IsNullOrEmpty(detail) ? label : $"{label}\n{detail}";
+
+                if (IntelThermalStopButton != null)  IntelThermalStopButton.IsEnabled  = state != "stopped";
+                if (IntelThermalStartButton != null) IntelThermalStartButton.IsEnabled = state != "running";
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"OnIntelThermalStatus: {ex.Message}");
+            }
+        }
+
+        // ── Diagnostic: fan max test (full-speed override) + RPM read ───────────────
+        // Compares our table max (100 % = EC byte 150) against the EC's true full-speed ceiling
+        // (block 152.7). If Full Blast is audibly/RPM-wise louder than Aggressive@100 %, then 150 is
+        // NOT the absolute max and our 0-100 % scaling tops out below the hardware ceiling.
+
+        private void FanFullBlastOnButton_Click(object sender, RoutedEventArgs e) => SendFanFullBlast("on");
+        private void FanFullBlastOffButton_Click(object sender, RoutedEventArgs e) => SendFanFullBlast("off");
+
+        /// <summary>Re-read EC fan status incl. live RPM (reuses the EC verify path).</summary>
+        private async void FanReadRpmButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!App.IsConnected) { if (FanFullBlastStatusText != null) FanFullBlastStatusText.Text = "Helper not connected."; return; }
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "MsiFanVerify", true } });
+            }
+            catch (Exception ex) { Logger.Error($"FanReadRpm: {ex.Message}"); }
+        }
+
+        private async void SendFanFullBlast(string cmd)
+        {
+            try
+            {
+                if (!App.IsConnected) { if (FanFullBlastStatusText != null) FanFullBlastStatusText.Text = "Helper not connected."; return; }
+                if (FanFullBlastStatusText != null)
+                    FanFullBlastStatusText.Text = cmd == "on"
+                        ? "Full Blast ON — wait a few seconds, then Read RPM."
+                        : "Full Blast off — wait a few seconds, then Read RPM.";
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "MsiFanFullBlast", cmd } });
+                Logger.Info($"SendFanFullBlast: '{cmd}'");
+            }
+            catch (Exception ex) { Logger.Error($"SendFanFullBlast('{cmd}'): {ex.Message}"); }
+        }
+
+        // ── Diagnostic: fan-override register probe ─────────────────────────────────
+        // Hunts for a PROPORTIONAL fan-duty register. The full-speed bit (152.7) proves a direct
+        // override exists; this writes raw bytes to a chosen EC block and reads them back so we can
+        // listen for a level response (between firmware-quiet and Full-Blast).
+
+        private void FanProbeValueSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (FanProbeValueLabel != null)
+            {
+                int v = (int)Math.Round(e.NewValue);
+                FanProbeValueLabel.Text = $"{v} (0x{v:X2})";
+            }
+        }
+
+        private void FanProbeWriteButton_Click(object sender, RoutedEventArgs e)
+        {
+            int block = 152;
+            if (FanProbeBlockText != null) int.TryParse(FanProbeBlockText.Text?.Trim(), out block);
+            int value = (int)Math.Round(FanProbeValueSlider?.Value ?? 0);
+            SendFanRegProbe(block, value);
+        }
+
+        // Quick presets on block 152 covering the key hypotheses (raw level vs. enable-bit+low7).
+        private void FanProbeP0_Click(object sender, RoutedEventArgs e)   => SendFanRegProbe(152, 0);
+        private void FanProbeP50_Click(object sender, RoutedEventArgs e)  => SendFanRegProbe(152, 50);
+        private void FanProbeP100_Click(object sender, RoutedEventArgs e) => SendFanRegProbe(152, 100);
+        private void FanProbeP150_Click(object sender, RoutedEventArgs e) => SendFanRegProbe(152, 150);
+        private void FanProbeEn40_Click(object sender, RoutedEventArgs e) => SendFanRegProbe(152, 0x80 | 40);
+        private void FanProbeEn80_Click(object sender, RoutedEventArgs e) => SendFanRegProbe(152, 0x80 | 80);
+
+        private async void SendFanRegProbe(int block, int value)
+        {
+            try
+            {
+                if (!App.IsConnected) { if (FanProbeStatusText != null) FanProbeStatusText.Text = "Helper not connected."; return; }
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "MsiFanRegProbe", $"{block},{value}" } });
+                Logger.Info($"SendFanRegProbe: block={block} value={value}");
+            }
+            catch (Exception ex) { Logger.Error($"SendFanRegProbe({block},{value}): {ex.Message}"); }
+        }
+
+        /// <summary>Handles "MsiFanRegStatus":"block|wrote|readback|rpm" — shows what landed in the EC.</summary>
+        internal void OnFanRegStatus(string payload)
+        {
+            try
+            {
+                if (FanProbeStatusText == null || string.IsNullOrEmpty(payload)) return;
+                var p = payload.Split('|');
+                string block = p.Length > 0 ? p[0] : "?";
+                string wrote = p.Length > 1 ? p[1] : "?";
+                string readback = p.Length > 2 ? p[2] : "?";
+                int rpm = -1; if (p.Length > 3) int.TryParse(p[3], out rpm);
+                int.TryParse(wrote, out int w);
+                int.TryParse(readback, out int r);
+                string rpmStr = rpm >= 0 ? $"{rpm} RPM" : "RPM n/a";
+                FanProbeStatusText.Text = $"block {block}: wrote {w} (0x{w:X2}), read back {r} (0x{r:X2}) · {rpmStr}";
+            }
+            catch (Exception ex) { Logger.Error($"OnFanRegStatus: {ex.Message}"); }
         }
 
         /// <summary>Color the selected point (yellow = selected, orange = grabbed); others blue.</summary>
@@ -654,10 +855,10 @@ namespace XboxGamingBar
         private void CommitMsiFanCustomEdit()
         {
             _msiFanInitializing = true;
-            try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 3; }
+            try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 4; }
             finally { _msiFanInitializing = false; }
 
-            ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 3;
+            ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 4;
             ApplicationData.Current.LocalSettings.Values[MsiFanCurveKey] = CurveToCsv();
             if (MsiFanEnableToggle?.IsOn == true)
                 SendMsiFanCurveToHelper();

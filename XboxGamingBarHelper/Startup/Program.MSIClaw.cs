@@ -317,7 +317,8 @@ namespace XboxGamingBarHelper
 
         /// <summary>
         /// Apply an MSI Claw fan command from the widget.
-        /// value: 0/1/2 = software preset (Quiet/Default/Aggressive); -1 = disable → firmware control.
+        /// value: 0/1/2/3 = software preset (Quiet/Default/Aggressive/Cooling); 4 = custom curve;
+        /// -1 = disable → firmware control.
         /// Persisted so it can be re-applied on startup (the EC resets across reboots).
         /// </summary>
         internal static void ApplyMsiFan(int value)
@@ -327,14 +328,34 @@ namespace XboxGamingBarHelper
                 Logger.Info($"ApplyMsiFan: value={value}");
                 Settings.LocalSettingsHelper.SetValue("MsiFan_Value", value);
 
-                if (value < 0)
+                // Any explicit fan-mode apply ends an auto-safety Sport override (the watcher may
+                // re-engage on the next tick if it is still hot and a curve mode is selected).
+                _autoSportActive = false;
+
+                // EC Sport cooling (mode 5): let the EC run its own aggressive fan curve via the Sport
+                // power-shift scenario (0xC4) — cools well, never latches. Any other mode restores the
+                // calm Comfort scenario (0xC0) so our software fan table is honoured again.
+                performanceManager?.SetMsiSportCooling(value == 5);
+                if (value == 5)
                 {
-                    MsiClawFanController.RestoreFirmwareControl();
+                    // Sport overrides the software table; put the fan in hardware mode so the EC's
+                    // aggressive curve drives it cleanly (and clear any full-speed override).
+                    MsiClawFanController.ApplyHardwareTable("BestPerformance");
                     return;
                 }
 
-                // 3 = custom curve stored as CSV; 0/1/2 = built-in presets.
-                if (value == 3)
+                if (value < 0)
+                {
+                    // Robust firmware hand-back: write a real firmware baseline table AND clear control
+                    // (instead of a bare control-bit clear that leaves our last software table behind).
+                    // This is the prerequisite for the "firmware owns the hot band" hybrid — it must
+                    // cleanly return to firmware cooling after any software curve was set.
+                    MsiClawFanController.ApplyHardwareTable("BetterPerformance");
+                    return;
+                }
+
+                // 4 = custom curve stored as CSV; 0/1/2/3 = built-in presets.
+                if (value == 4)
                 {
                     if (Settings.LocalSettingsHelper.TryGetValue<string>("MsiFan_Curve", out string csv)
                         && TryParseCurve(csv, out double[] custom))
@@ -354,6 +375,7 @@ namespace XboxGamingBarHelper
                 {
                     case 0:  curve = MsiClawFanController.Curve_Quiet;      break;
                     case 2:  curve = MsiClawFanController.Curve_Aggressive; break;
+                    case 3:  curve = MsiClawFanController.Curve_Cooling;    break;
                     default: curve = MsiClawFanController.Curve_Default;    break;
                 }
                 MsiClawFanController.ApplySoftwareCurve(curve);
@@ -377,6 +399,8 @@ namespace XboxGamingBarHelper
             {
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
                 if (value < 0) return; // firmware fan mode — don't fight it
+                if (value == 5) return; // EC Sport cooling — the EC owns the fan, nothing to re-assert
+                if (_autoSportActive) return; // auto-safety handed the fan to EC Sport — don't restore the curve
                 ApplyMsiFan(value);
                 Logger.Info($"[MSIClaw] Fan re-asserted after power-shift change (value={value})");
             }
@@ -385,19 +409,26 @@ namespace XboxGamingBarHelper
 
         /// <summary>
         /// Read the current EC fan table + control bit and push it back to the widget as
-        /// "MsiFanStatus":"b0,..,b7|controlBit|readOk" so the widget can verify against the graph.
+        /// "MsiFanStatus":"b0,..,b7|controlBit|readOk|fullSpeedBit|rpm" so the widget can verify against
+        /// the graph AND compare our table max (=150) with the EC's true full-speed ceiling. rpm = -1
+        /// when no fan sensor is available.
         /// </summary>
         internal static void ReportMsiFanStatus()
         {
             try
             {
                 bool ok = MsiClawFanController.ReadStatus(out byte[] table, out bool controlOn);
+                bool fullSpeed = MsiClawFanController.ReadFullSpeedBit();
+                int rpm = -1;
+                try { rpm = legionManager?.GetCpuFanSpeed() ?? -1; } catch { }
+
                 string csv = string.Join(",", table);
-                string json = $"{{\"MsiFanStatus\":\"{csv}|{(controlOn ? 1 : 0)}|{(ok ? 1 : 0)}\"}}";
+                string payload = $"{csv}|{(controlOn ? 1 : 0)}|{(ok ? 1 : 0)}|{(fullSpeed ? 1 : 0)}|{rpm}";
+                string json = $"{{\"MsiFanStatus\":\"{payload}\"}}";
                 if (pipeServer != null && pipeServer.IsConnected)
                 {
                     pipeServer.SendMessage(json);
-                    Logger.Info($"ReportMsiFanStatus: sent '{csv}|{(controlOn ? 1 : 0)}|{(ok ? 1 : 0)}'");
+                    Logger.Info($"ReportMsiFanStatus: sent '{payload}'");
                 }
                 else
                 {
@@ -407,6 +438,86 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Warn($"ReportMsiFanStatus failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>Force the EC full-speed override (block 152.7) on/off for the diagnostic max-fan test,
+        /// then push the refreshed status (incl. RPM) back to the widget.</summary>
+        internal static void SetMsiFanFullBlast(bool enable)
+        {
+            try
+            {
+                Logger.Info($"SetMsiFanFullBlast: {enable}");
+                MsiClawFanController.SetFanFullSpeed(enable);
+                ReportMsiFanStatus();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"SetMsiFanFullBlast({enable}) failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>Diagnostic fan-override probe: write a raw byte to an EC data block and read it back,
+        /// to hunt for a PROPORTIONAL fan-duty register (the full-speed bit 152.7 proves a direct override
+        /// exists; this looks for a level version). Pushes "MsiFanRegStatus":"block|wrote|readback|rpm".</summary>
+        internal static void ProbeFanRegister(int block, int value)
+        {
+            try
+            {
+                if (block < 0 || block > 255 || value < 0 || value > 255)
+                {
+                    Logger.Warn($"ProbeFanRegister: out of range block={block} value={value}");
+                    return;
+                }
+                MsiClawFanController.WriteDataBlock((byte)block, (byte)value);
+                int readback = MsiClawFanController.ReadDataBlock((byte)block);
+                int rpm = -1;
+                try { rpm = legionManager?.GetCpuFanSpeed() ?? -1; } catch { }
+
+                Logger.Info($"ProbeFanRegister: block={block} wrote={value} readback={readback} rpm={rpm}");
+                if (pipeServer != null && pipeServer.IsConnected)
+                    pipeServer.SendMessage($"{{\"MsiFanRegStatus\":\"{block}|{value}|{readback}|{rpm}\"}}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ProbeFanRegister({block},{value}) failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Push the Intel thermal stack (IPF/DTT) status to the widget as
+        /// "IntelThermalStatus":"&lt;state&gt;|&lt;detail&gt;" so the experimental Fan-tab controls can show
+        /// whether the Intel tasks are currently running. See <see cref="MSI.IntelThermalControl"/>.
+        /// </summary>
+        internal static void ReportIntelThermalStatus()
+        {
+            PushIntelThermalStatus(MSI.IntelThermalControl.GetStatusPayload());
+        }
+
+        /// <summary>Stop the Intel thermal stack (test mode), then push the resulting status.</summary>
+        internal static void StopIntelThermal()
+        {
+            PushIntelThermalStatus(MSI.IntelThermalControl.Stop());
+        }
+
+        /// <summary>Restore the Intel thermal stack, then push the resulting status.</summary>
+        internal static void StartIntelThermal()
+        {
+            PushIntelThermalStatus(MSI.IntelThermalControl.Start());
+        }
+
+        private static void PushIntelThermalStatus(string payload)
+        {
+            try
+            {
+                if (pipeServer == null || !pipeServer.IsConnected) { Logger.Warn("PushIntelThermalStatus: pipe not connected"); return; }
+                string escaped = (payload ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
+                pipeServer.SendMessage($"{{\"IntelThermalStatus\":\"{escaped}\"}}");
+                Logger.Info($"PushIntelThermalStatus: sent '{payload}'");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"PushIntelThermalStatus failed: {ex.Message}");
             }
         }
 
@@ -422,7 +533,7 @@ namespace XboxGamingBarHelper
             {
                 if (pipeServer == null || !pipeServer.IsConnected) return;
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
-                string curve = (value == 3 && Settings.LocalSettingsHelper.TryGetValue<string>("MsiFan_Curve", out string c)) ? c : "";
+                string curve = (value == 4 && Settings.LocalSettingsHelper.TryGetValue<string>("MsiFan_Curve", out string c)) ? c : "";
                 string json = $"{{\"MsiFanState\":\"{value}|{curve}\"}}";
                 pipeServer.SendMessage(json);
                 Logger.Info($"PushMsiFanStateToWidget: sent value={value} curve='{curve}'");
@@ -445,7 +556,7 @@ namespace XboxGamingBarHelper
                     return;
                 }
                 Settings.LocalSettingsHelper.SetValue("MsiFan_Curve", csv);
-                Settings.LocalSettingsHelper.SetValue("MsiFan_Value", 3); // 3 = custom
+                Settings.LocalSettingsHelper.SetValue("MsiFan_Value", 4); // 4 = custom
                 MsiClawFanController.ApplySoftwareCurve(curve);
             }
             catch (Exception ex)
@@ -598,6 +709,68 @@ namespace XboxGamingBarHelper
             }
         }
 
+        // ── Auto-safety: switch a software fan curve to EC Sport before the latch zone ──────
+        // A software fan curve (Comfort scenario) can only regulate the fan DOWN and under-cools
+        // under sustained load → the CPU overshoots into the EC's ~90 °C thermal-protection latch
+        // (unrecoverable without a shutdown). When the CPU crosses 78 °C while a curve preset is
+        // active, hand cooling to the EC's own aggressive curve (Sport 0xC4) which cools well and
+        // never latches. Per design we do NOT switch back on temperature — only when a game ends
+        // (RestoreFanAfterGame), so the fan stays competent for the whole session without flapping.
+        private const float AutoSportThresholdC = 78f;
+        private static bool _autoSportActive;
+        private static System.Threading.Timer _autoSportTimer;
+
+        private static void StartMsiFanAutoSportWatcher()
+        {
+            if (_autoSportTimer != null) return;
+            _autoSportTimer = new System.Threading.Timer(_ => MsiFanAutoSportTick(), null,
+                System.TimeSpan.FromSeconds(5), System.TimeSpan.FromSeconds(3));
+            Logger.Info("[MSIClaw] Fan auto-safety watcher started (Sport above 78 °C, restore on game end)");
+        }
+
+        private static void MsiFanAutoSportTick()
+        {
+            try
+            {
+                if (_autoSportActive) return; // already handed to EC Sport — wait for game end
+                int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
+                // Only protect software-curve modes (Comfort table). -1 = firmware (safe), 5 = already Sport.
+                if (value < 0 || value > 4) return;
+
+                float temp = performanceManager?.CPUTemperature?.Value ?? 0f;
+                if (temp >= AutoSportThresholdC)
+                {
+                    Logger.Info($"[MSIClaw] Fan auto-safety: CPU {temp:F0}°C ≥ {AutoSportThresholdC}°C in curve mode {value} → engaging EC Sport");
+                    EngageAutoSport();
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"MsiFanAutoSportTick: {ex.Message}"); }
+        }
+
+        /// <summary>Hand cooling to the EC's Sport scenario WITHOUT changing the user's saved fan mode,
+        /// so the original curve can be restored when the game ends.</summary>
+        private static void EngageAutoSport()
+        {
+            performanceManager?.SetMsiSportCooling(true);
+            MsiClawFanController.ApplyHardwareTable("BestPerformance"); // HW mode; EC Sport curve drives the fan
+            _autoSportActive = true;
+        }
+
+        /// <summary>Called when a game stops: if auto-safety handed cooling to EC Sport, restore the
+        /// user's saved fan curve (Comfort). No-op otherwise.</summary>
+        internal static void RestoreFanAfterGame()
+        {
+            try
+            {
+                if (!_autoSportActive) return;
+                _autoSportActive = false;
+                int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
+                Logger.Info($"[MSIClaw] Fan auto-safety: game ended → restoring saved fan mode {value} (Comfort)");
+                ApplyMsiFan(value); // sets SetMsiSportCooling(false) + re-applies the curve
+            }
+            catch (Exception ex) { Logger.Debug($"RestoreFanAfterGame: {ex.Message}"); }
+        }
+
         // Set once the fan-sensor probe has run, so we don't repeat the (potentially slow)
         // SuperIO/EC enumeration.
         private static bool _msiFanSensorsProbed;
@@ -692,6 +865,10 @@ namespace XboxGamingBarHelper
 
                 // Re-apply any saved custom fan curve (EC resets across reboots).
                 RestoreMsiFanOnStartup();
+
+                // Start the fan auto-safety watcher (Claw only): switch a software curve to EC Sport
+                // above 78 °C to dodge the EC thermal-protection latch; restore the curve on game end.
+                StartMsiFanAutoSportWatcher();
 
                 // Re-apply the saved battery charge limit if it was enabled (EC can reset on reboot).
                 RestoreMsiChargeLimitOnStartup();
