@@ -1880,6 +1880,10 @@ namespace XboxGamingBarHelper
                         Logger.Warn($"Manager {manager?.GetType().Name} Update() threw: {ex.Message}");
                     }
                 }
+
+                // MSI Claw fan auto-safety: check CPU temp against the Sport threshold once per loop
+                // tick (no separate timer — temp is already refreshed by PerformanceManager.Update above).
+                MsiFanAutoSportTick();
             }
 
             // Clean up heartbeat file before exiting

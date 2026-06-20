@@ -718,20 +718,22 @@ namespace XboxGamingBarHelper
         // (RestoreFanAfterGame), so the fan stays competent for the whole session without flapping.
         private const float AutoSportThresholdC = 78f;
         private static bool _autoSportActive;
-        private static System.Threading.Timer _autoSportTimer;
+        private static bool _msiFanAutoSportEnabled; // true on MSI Claw; gates the per-tick check
 
-        private static void StartMsiFanAutoSportWatcher()
+        // Enabled once from the Claw init. The actual check rides the existing 1s main loop
+        // (MsiFanAutoSportTick, called after the manager Update() pass) instead of a dedicated timer —
+        // no redundant poll, since PerformanceManager.Update already reads CPUTemperature every second.
+        private static void EnableMsiFanAutoSport()
         {
-            if (_autoSportTimer != null) return;
-            _autoSportTimer = new System.Threading.Timer(_ => MsiFanAutoSportTick(), null,
-                System.TimeSpan.FromSeconds(5), System.TimeSpan.FromSeconds(3));
-            Logger.Info("[MSIClaw] Fan auto-safety watcher started (Sport above 78 °C, restore on game end)");
+            _msiFanAutoSportEnabled = true;
+            Logger.Info("[MSIClaw] Fan auto-safety enabled (Sport above 78 °C, checked in the 1s main loop, restore on game end)");
         }
 
-        private static void MsiFanAutoSportTick()
+        internal static void MsiFanAutoSportTick()
         {
             try
             {
+                if (!_msiFanAutoSportEnabled) return; // not an MSI Claw (or not yet initialised)
                 if (_autoSportActive) return; // already handed to EC Sport — wait for game end
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
                 // Only protect software-curve modes (Comfort table). -1 = firmware (safe), 5 = already Sport.
@@ -866,9 +868,10 @@ namespace XboxGamingBarHelper
                 // Re-apply any saved custom fan curve (EC resets across reboots).
                 RestoreMsiFanOnStartup();
 
-                // Start the fan auto-safety watcher (Claw only): switch a software curve to EC Sport
-                // above 78 °C to dodge the EC thermal-protection latch; restore the curve on game end.
-                StartMsiFanAutoSportWatcher();
+                // Enable the fan auto-safety (Claw only): switch a software curve to EC Sport above
+                // 78 °C to dodge the EC thermal-protection latch; restore the curve on game end. The
+                // check runs in the existing 1s main loop (no separate timer / redundant poll).
+                EnableMsiFanAutoSport();
 
                 // Re-apply the saved battery charge limit if it was enabled (EC can reset on reboot).
                 RestoreMsiChargeLimitOnStartup();
