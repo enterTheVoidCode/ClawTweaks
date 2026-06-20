@@ -236,22 +236,47 @@ Cap the battery charge level to extend long-term battery lifespan.
 
 ## Installation
 
-1. Download the latest release and extract the **whole** ZIP to a folder (keep all files together).
-2. Open a PowerShell window in that folder (type `powershell` in the Explorer address bar and press Enter), then run:
+### 🟢 Already running ClawTweaks? → just update (no certificate step)
 
+The certificate is **already trusted** on your device, so you only need the **`XboxGamingBarPackage_…_x64.msix`** asset from the release — **not** the full ZIP.
+
+Download just that `.msix`, double-click it → **Install**.
+
+> You can also update straight from inside the app via the in-app updater.
+
+---
+
+### 🟠 First time on this device? → full install
+
+New users install the signing certificate **once**, then the app manually. No PowerShell, no typing — just a couple of double-clicks.
+
+1. **Extract the whole ZIP** to a folder (right-click the ZIP → **Extract All…**). Keep all the files together.
+2. **Trust the certificate — first install only, once per device:** double-click **`XboxGamingBarPackage_…_x64.cer`** → **Install Certificate…** → choose **Local Machine** → **Next** (approve the admin prompt) → **Place all certificates in the following store** → **Browse…** → **Trusted People** → **OK** → **Next** → **Finish**. You'll see *"The import was successful."*
+3. **Install the app:** double-click **`XboxGamingBarPackage_…_x64.msix`** → the Windows **App Installer** window opens → click **Install**. *(If Windows offers to fetch required framework components, let it.)*
+4. **Wait until the Game Bar opens** on its own, and approve the background **UAC** prompt if it appears.
+
+<details>
+<summary><b>Alternative: one-shot installer script</b> — use this only if the double-click install above complains about missing framework packages</summary>
+
+<br>
+
+`Install.ps1` installs the certificate **and** every framework dependency in one go:
+
+1. In the extracted folder, open a terminal **in that folder**: right-click an empty spot → **Open in Terminal** (or open **Windows PowerShell** from the Start menu).
+2. Paste this line and press **Enter**:
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\Install.ps1
    ```
-3. Approve the UAC prompt. That's it — the script trusts the bundled certificate and installs the package.
+   *The `-ExecutionPolicy Bypass` part only applies to this one run and changes nothing permanently.*
 
-> `-ExecutionPolicy Bypass` applies to **this one run only** — it does not change any system setting, so you do **not** need `Set-ExecutionPolicy`. It's required because Windows blocks downloaded `.ps1` scripts by default (so just double-clicking `Install.ps1` fails with *"running scripts is disabled on this system"*). A `READ-ME-FIRST.txt` with these steps is included in the ZIP.
+</details>
 
 ### Enable the Widget
 
 1. Open Xbox Game Bar (`Win + G`)
 2. Click the **Widgets** menu
 3. Find and enable **"Gaming"**
-4. Confirm UAC so that CTW can launch as admin afte reboot
+4. Confirm UAC so that CTW can launch as admin after reboot
 ---
 
 ## Requirements
