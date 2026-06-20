@@ -386,6 +386,18 @@ namespace XboxGamingBarHelper.Systems
         private const int DIAGNOSTIC_LOG_INTERVAL_SECONDS = 30;
         private int _gameDetectionCallCount = 0;
 
+        /// <summary>Compares two games by their stable KEY (GameId.Path = exe path or GB_&lt;titleId|aumId&gt;),
+        /// case-insensitive. Falls back to the display Name only when neither side has a key (none↔none).
+        /// This is what decides "is this a new game?" so a churning emulator title is not a new game.</summary>
+        private static bool GameKeysEqual(GameId a, GameId b)
+        {
+            bool aHasKey = !string.IsNullOrEmpty(a.Path);
+            bool bHasKey = !string.IsNullOrEmpty(b.Path);
+            if (aHasKey || bHasKey)
+                return string.Equals(a.Path, b.Path, StringComparison.OrdinalIgnoreCase);
+            return string.Equals(a.Name, b.Name, StringComparison.OrdinalIgnoreCase);
+        }
+
         private RunningGame GetRunningGame()
         {
             _gameDetectionCallCount++;
@@ -439,22 +451,48 @@ namespace XboxGamingBarHelper.Systems
                 }
             }
 
-            // Game-Bar-only redesign: resolve the identity (name that keys profiles) for a
-            // Game-Bar-tracked game.
-            //   • Default → the Game Bar's DisplayName (stable; e.g. RetroArch's stays "RetroArch"
-            //     even after a core loads), falling back to the window title, then the exe name.
-            //   • RetroArch exception → the WINDOW TITLE, because the Game Bar only reports the
-            //     program ("RetroArch") while the title carries the core ("RetroArch Gambatte …"),
-            //     and the user wants per-core profiles. Falls back to DisplayName if the title is
-            //     momentarily empty.
+            // Game-Bar-only redesign: KEY (identity for matching + change-detection) and display LABEL
+            // are SEPARATED.
+            //   • Key = the real exe path (Win32 / Steam / emulators) → stable across the emulator's
+            //     loaded content. For UWP / Microsoft Store / Xbox games (ApplicationFrameHost host or a
+            //     versioned WindowsApps path) the key is the Game Bar's stable "GB_<titleId|aumId>",
+            //     because their window path is shared (ApplicationFrameHost) or carries a version.
+            //   • Label = the Game Bar DisplayName, cut at the first '|' (emulators append
+            //     "| version | build") and capped — cosmetic only; matching never uses it.
+            // (RetroArch exception removed: every app is one profile by its key. Per-core support, if
+            //  wanted, comes later via user-defined sub-profiles.)
+            string ResolveGameKey(string path, string aumId, string titleId)
+            {
+                string exe = string.IsNullOrEmpty(path) ? "" : Path.GetFileName(path).ToLowerInvariant();
+                bool uwpHost = exe == "" || exe == "applicationframehost.exe" || exe == "gamelaunchhelper.exe";
+                bool windowsApps = !string.IsNullOrEmpty(path) &&
+                                   path.IndexOf("\\WindowsApps\\", StringComparison.OrdinalIgnoreCase) >= 0;
+                if (!uwpHost && !windowsApps && !string.IsNullOrEmpty(path))
+                    return path; // normal exe — keyed by path EXACTLY as before (PC games unaffected)
+                if (!string.IsNullOrEmpty(titleId)) return "GB_" + SanitizeKey(titleId);
+                if (!string.IsNullOrEmpty(aumId)) return "GB_" + SanitizeKey(aumId);
+                return path ?? "";
+            }
+
+            string SanitizeKey(string s)
+            {
+                var sb = new System.Text.StringBuilder(s.Length);
+                foreach (var c in s) sb.Append(char.IsLetterOrDigit(c) ? c : '_');
+                return sb.ToString();
+            }
+
+            // Display label: DisplayName cut at the first '|' (emulator version junk), trimmed, capped to
+            // 13 chars. Cosmetic — identity/matching use the key (path / AumId / TitleId).
             string ResolveGameBarName(string path, string windowTitle, string displayName)
             {
-                var exe = Path.GetFileNameWithoutExtension(path) ?? "";
-                if (exe.Equals("retroarch", StringComparison.OrdinalIgnoreCase))
-                    return !string.IsNullOrEmpty(windowTitle) ? windowTitle : displayName;
-                if (!string.IsNullOrEmpty(displayName)) return displayName;
-                if (!string.IsNullOrEmpty(windowTitle)) return windowTitle;
-                return exe;
+                string raw = !string.IsNullOrEmpty(displayName) ? displayName
+                           : !string.IsNullOrEmpty(windowTitle) ? windowTitle
+                           : (Path.GetFileNameWithoutExtension(path) ?? "");
+                int cut = raw.IndexOf('|');
+                if (cut > 0) raw = raw.Substring(0, cut);
+                raw = raw.Trim();
+                if (raw.Length > 13) raw = raw.Substring(0, 13).Trim();
+                return raw;
             }
 
             try
@@ -665,20 +703,19 @@ namespace XboxGamingBarHelper.Systems
                         }
                         else
                         {
-                            // Game-Bar identity = DisplayName (stable), except RetroArch (window title
-                            // for per-core). See ResolveGameBarName.
                             var gameName = ResolveGameBarName(mw.Path, mw.Title, trackedGame.DisplayName);
-                            Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
-                            return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
+                            var gameKey = ResolveGameKey(mw.Path, trackedGame.AumId, trackedGame.TitleId);
+                            Logger.Info($"[GameDetection] Game Bar game: label='{gameName}' key='{gameKey}' | exePath='{mw.Path}' AumId='{trackedGame.AumId}' TitleId='{trackedGame.TitleId}' DisplayName='{trackedGame.DisplayName}' FPS={fps} PID={mw.ProcessId} FG={mw.IsForeground}");
+                            return new RunningGame(mw.ProcessId, gameName, gameKey, fps, mw.IsForeground);
                         }
                     }
                     else
                     {
                         // TrackedGame has FPS > 0, it's actively rendering - use it.
-                        // Game-Bar identity = DisplayName (stable), except RetroArch (window title).
                         var gameName = ResolveGameBarName(mw.Path, mw.Title, trackedGame.DisplayName);
-                        Logger.Info($"TrackedGame \"{trackedGame.DisplayName}\" matched to ProcessId={mw.ProcessId} Path={mw.Path} FPS={fps} Foreground={mw.IsForeground} -> GameName={gameName}");
-                        return new RunningGame(mw.ProcessId, gameName, mw.Path, fps, mw.IsForeground);
+                        var gameKey = ResolveGameKey(mw.Path, trackedGame.AumId, trackedGame.TitleId);
+                        Logger.Info($"[GameDetection] Game Bar game: label='{gameName}' key='{gameKey}' | exePath='{mw.Path}' AumId='{trackedGame.AumId}' TitleId='{trackedGame.TitleId}' DisplayName='{trackedGame.DisplayName}' FPS={fps} PID={mw.ProcessId} FG={mw.IsForeground}");
+                        return new RunningGame(mw.ProcessId, gameName, gameKey, fps, mw.IsForeground);
                     }
                 }
                 else
@@ -762,35 +799,25 @@ namespace XboxGamingBarHelper.Systems
 
                         if (matchesByTitle || matchesByProcessName)
                         {
-                            // Game-Bar identity = DisplayName (stable), except RetroArch (window title).
                             var gameName = ResolveGameBarName(processWindow.Value.Path, processWindow.Value.Title, trackedGame.DisplayName);
-                            Logger.Debug($"TrackedGame fallback match \"{gameName}\" at \"{processWindow.Value.Path}\" (FPS={fps}).");
-                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+                            var gameKey = ResolveGameKey(processWindow.Value.Path, trackedGame.AumId, trackedGame.TitleId);
+                            Logger.Debug($"[GameDetection] Game Bar fallback game: label='{gameName}' key='{gameKey}' at '{processWindow.Value.Path}' (AumId='{trackedGame.AumId}' TitleId='{trackedGame.TitleId}' FPS={fps}).");
+                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, gameKey, fps, processWindow.Value.IsForeground));
                             continue;
                         }
                     }
 
-                    // (b) RTSS FPS-based detection: a window RTSS reports rendering frames is a game.
-                    //     Identity = EXE name (NO window title), per the Game-Bar-only redesign.
+                    // (b) RTSS FPS-based detection — LOG ONLY (user decision): RTSS is kept purely as a
+                    //     diagnostic signal and must NOT load or change a profile. Only the Xbox Game Bar
+                    //     (TrackedGame) drives profiles; otherwise the global profile stays. The block is
+                    //     kept reversible in case RTSS-based detection is wanted again later.
                     if (hasFPS)
                     {
-                        // Gap-bridge: if this very process was just published as a game (e.g. the Game
-                        // Bar dropped the RetroArch target for a tick), keep the last identity instead
-                        // of flickering to the bare exe name ("retroarch").
-                        var last = RunningGame != null ? RunningGame.Value : new RunningGame();
-                        string name;
-                        if (last.GameId.IsValid() && !string.IsNullOrEmpty(last.GameId.Path) &&
-                            last.GameId.Path.Equals(processWindow.Value.Path, StringComparison.OrdinalIgnoreCase))
-                        {
-                            name = last.GameId.Name;
-                        }
-                        else
-                        {
-                            name = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
-                            if (string.IsNullOrEmpty(name)) name = processWindow.Value.Title;
-                        }
-                        Logger.Debug($"RTSS FPS detection: \"{name}\" at \"{processWindow.Value.Path}\" has {fps} FPS.");
-                        possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, name, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+                        var rtssName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
+                        if (string.IsNullOrEmpty(rtssName)) rtssName = processWindow.Value.Title;
+                        Logger.Info($"[GameDetection] RTSS saw '{rtssName}' at '{processWindow.Value.Path}' FPS={fps} — ignored (no Game Bar target, global profile stays).");
+                        // [DISABLED — RTSS log-only] previously:
+                        // possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, name, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
                         continue;
                     }
 
@@ -924,7 +951,10 @@ namespace XboxGamingBarHelper.Systems
             if (previousRunningGame != currentRunningGame)
             {
                 Logger.Info($"[GameDetection] State change: prev={previousRunningGame.GameId.Name ?? "none"} -> curr={currentRunningGame.GameId.Name ?? "none"}");
-                bool gameChanged = previousRunningGame.GameId != currentRunningGame.GameId;
+                // Change-detection keys on the stable KEY (GameId.Path = exe path or GB_<titleId|aumId>),
+                // NOT the display Name — so an emulator whose title/DisplayName churns (e.g. Eden loading a
+                // game) is not seen as a new game. Falls back to Name only when neither side has a key.
+                bool gameChanged = !GameKeysEqual(previousRunningGame.GameId, currentRunningGame.GameId);
                 bool foregroundChanged = previousRunningGame.IsForeground != currentRunningGame.IsForeground;
 
                 if (gameChanged)
