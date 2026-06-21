@@ -659,7 +659,10 @@ namespace XboxGamingBar
 
         private static readonly List<string> BlackListAppTrackerNames = new List<string>()
         {
-            "App Installer", //Somehow App Installer shows up as a game sometimes
+            "App Installer",    // sometimes reported as IsGame=true by Game Bar tracker
+            "File Explorer",    // sometimes reported as IsGame=true after a game exits in windowed mode
+            "Windows Explorer", // Win10 name for the same
+            "Datei-Explorer",   // German locale name
         };
 
         // Theme definitions
@@ -960,6 +963,7 @@ namespace XboxGamingBar
         private XboxGameBarWidgetNotificationManager notificationManager = null;
         public XboxGameBarWidgetActivity WidgetActivity { get { return widgetActivity; } }
         private XboxGameBarAppTargetTracker appTargetTracker = null;
+        private System.Threading.CancellationTokenSource _clearTrackedGameCts;
         private bool appIsInBackground = false;
 
         private Brush widgetDarkThemeBrush = null;
@@ -4132,7 +4136,7 @@ namespace XboxGamingBar
 
             Logger.Info("=== OnNavigatedTo END ===");
         }
-        private void AppTargetTracker_TargetChanged(XboxGameBarAppTargetTracker sender, object args)
+        private async void AppTargetTracker_TargetChanged(XboxGameBarAppTargetTracker sender, object args)
         {
             var settingEnabled = appTargetTracker.Setting == XboxGameBarAppTargetSetting.Enabled;
 
@@ -4142,22 +4146,40 @@ namespace XboxGamingBar
                 target = appTargetTracker.GetTarget();
             }
 
-            if (target == null)
+            bool isValidGame = target != null
+                && target.IsGame
+                && !BlackListAppTrackerNames.Contains(target.DisplayName);
+
+            if (isValidGame)
             {
-                Logger.Info("Found no target.");
-                trackedGame.SetValue(new TrackedGame());
+                // Valid game: cancel any pending "no-game" clear and push immediately.
+                _clearTrackedGameCts?.Cancel();
+                Logger.Info($"Tracked game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
+                trackedGame.SetValue(new TrackedGame(target.AumId, target.DisplayName, StringHelper.CleanStringForSerialization(target.TitleId), target.IsFullscreen));
             }
             else
             {
-                if (target.IsGame && !BlackListAppTrackerNames.Contains(target.DisplayName))
+                // No game or blacklisted app: debounce the clear by 600 ms.
+                // Game Bar sometimes fires a transient null/non-game event when its overlay
+                // activates (e.g. user opens Game Bar mid-game), then immediately re-fires
+                // the actual game. Without the debounce this causes a spurious profile-reset
+                // notification. If no game arrives within 600 ms the game truly ended.
+                string reason = target == null ? "null target"
+                    : $"non-game/blacklisted DisplayName={target.DisplayName} AumId={target.AumId}";
+                Logger.Info($"TargetChanged: {reason} — debouncing clear 600 ms");
+
+                _clearTrackedGameCts?.Cancel();
+                _clearTrackedGameCts = new System.Threading.CancellationTokenSource();
+                var cts = _clearTrackedGameCts;
+                try
                 {
-                    Logger.Info($"Tracked game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
-                    trackedGame.SetValue(new TrackedGame(target.AumId, target.DisplayName, StringHelper.CleanStringForSerialization(target.TitleId), target.IsFullscreen));
-                }
-                else
-                {
-                    Logger.Info($"Tracked non-game DisplayName={target.DisplayName} AumId={target.AumId} TitleId={target.TitleId} IsFullscreen={target.IsFullscreen}");
+                    await System.Threading.Tasks.Task.Delay(600, cts.Token);
+                    Logger.Info($"TargetChanged: debounce elapsed ({reason}) — clearing tracked game");
                     trackedGame.SetValue(new TrackedGame());
+                }
+                catch (System.Threading.Tasks.TaskCanceledException)
+                {
+                    Logger.Info("TargetChanged: clear debounce cancelled — new game target arrived");
                 }
             }
         }
