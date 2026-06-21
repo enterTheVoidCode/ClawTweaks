@@ -1004,6 +1004,39 @@ namespace XboxGamingBarHelper.Systems
                 bool gameChanged = !GameKeysEqual(previousRunningGame.GameId, currentRunningGame.GameId);
                 bool foregroundChanged = previousRunningGame.IsForeground != currentRunningGame.IsForeground;
 
+                // Detect path-only update: same game name but different exe path.
+                // This happens when the widget pushes a game name before the helper's window scan has
+                // refreshed the foreground exe cache — the first detection gets a stale path (e.g. the
+                // previous game's exe). On the next scan tick the correct path arrives, causing gameChanged=true
+                // for the SAME game. Without this guard the full game-change handler fires and tears down the
+                // per-game profile (RestoreGlobalProfileSettings), overriding TDP + PerGameProfile=false.
+                bool isPathUpdateOnly = gameChanged
+                    && !string.IsNullOrEmpty(currentRunningGame.GameId.Path)
+                    && !string.IsNullOrEmpty(previousRunningGame.GameId.Path)
+                    && !string.IsNullOrEmpty(previousRunningGame.GameId.Name)
+                    && string.Equals(previousRunningGame.GameId.Name, currentRunningGame.GameId.Name,
+                                     StringComparison.OrdinalIgnoreCase);
+
+                if (isPathUpdateOnly)
+                {
+                    Logger.Info($"[GameDetection] Path update for same game '{currentRunningGame.GameId.Name}': '{previousRunningGame.GameId.Path}' → '{currentRunningGame.GameId.Path}' — updating silently, skipping profile reload");
+                    // Preserve icon from previous entry if the new path doesn't have one yet
+                    if (string.IsNullOrEmpty(currentRunningGame.GameId.IconPath) &&
+                        !string.IsNullOrEmpty(previousRunningGame.GameId.IconPath))
+                    {
+                        currentRunningGame.GameId = new GameId(
+                            currentRunningGame.GameId.Name,
+                            currentRunningGame.GameId.Path,
+                            previousRunningGame.GameId.IconPath);
+                    }
+                    // Update path in-memory AND notify widget (icon/path may differ) but skip the
+                    // profile-change handler so the active per-game profile is not torn down.
+                    RunningGame.SetValueSilent(currentRunningGame);
+                    // Re-apply affinity with the now-correct PID from the real exe path.
+                    ApplyAffinityToRunningGame();
+                    return;
+                }
+
                 if (gameChanged)
                 {
                     if (currentRunningGame.GameId.IsValid())

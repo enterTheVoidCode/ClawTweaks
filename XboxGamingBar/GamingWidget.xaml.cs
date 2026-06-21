@@ -661,11 +661,14 @@ namespace XboxGamingBar
         // Add display names as observed in widget logs (see TargetChanged logging below).
         private static readonly List<string> BlackListAppTrackerNames = new List<string>()
         {
-            "App Installer",    // sometimes reported as IsGame=true by Game Bar tracker
-            "File Explorer",    // explorer.exe desktop window — windowed-game exit triggers this
-            "Windows Explorer", // Win10 locale name for the same
-            "Datei-Explorer",   // German locale name
-            "Program Manager",  // explorer.exe Progman shell window — same root cause
+            "App Installer",       // sometimes reported as IsGame=true by Game Bar tracker
+            "File Explorer",       // explorer.exe desktop window — windowed-game exit triggers this
+            "Windows Explorer",    // Win10 locale name for the same
+            "Datei-Explorer",      // German locale name for the same
+            "explorer.exe",        // raw process name reported by tracker (no window title resolved)
+            "Program Manager",     // explorer.exe Progman shell window — same root cause
+            "Aktive Anwendungen",  // German Game Bar "active apps" panel — IsGame=true false positive
+            "Active apps",         // English equivalent (in case locale differs)
         };
 
         // Theme definitions
