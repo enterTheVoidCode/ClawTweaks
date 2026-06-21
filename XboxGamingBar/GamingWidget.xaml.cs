@@ -658,17 +658,11 @@ namespace XboxGamingBar
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         // Apps that the Game Bar SDK incorrectly reports with IsGame=true.
-        // Add display names as observed in widget logs (see TargetChanged logging below).
+        // Kept as a fallback for known edge-cases, but the primary filter is now TitleId/AumId
+        // (see AppTargetTracker_TargetChanged). Add names only when the structured filter can't catch them.
         private static readonly List<string> BlackListAppTrackerNames = new List<string>()
         {
             "App Installer",       // sometimes reported as IsGame=true by Game Bar tracker
-            "File Explorer",       // explorer.exe desktop window — windowed-game exit triggers this
-            "Windows Explorer",    // Win10 locale name for the same
-            "Datei-Explorer",      // German locale name for the same
-            "explorer.exe",        // raw process name reported by tracker (no window title resolved)
-            "Program Manager",     // explorer.exe Progman shell window — same root cause
-            "Aktive Anwendungen",  // German Game Bar "active apps" panel — IsGame=true false positive
-            "Active apps",         // English equivalent (in case locale differs)
         };
 
         // Theme definitions
@@ -999,6 +993,11 @@ namespace XboxGamingBar
         // Update check
         private string _pendingUpdateZipUrl = null;
         private string _pendingUpdateVersion = null;
+
+        // Set when IsHelperAliveAsync has already attempted a restart due to version mismatch.
+        // OnPipeConnectedAsync checks this to show the reboot dialog once the UI is visible again.
+        private bool _versionMismatchRestartAttempted = false;
+        private string _versionMismatchOldHelperVersion = null;
 
         // Helper launch guard - prevents duplicate launches and UAC prompts
         private static bool isLaunchingHelper = false;
@@ -4164,10 +4163,21 @@ namespace XboxGamingBar
             }
 
             bool blacklisted = target != null && BlackListAppTrackerNames.Contains(target.DisplayName);
-            bool isValidGame = target != null && target.IsGame && !blacklisted;
+
+            // Primary filter: a real game always has a TitleId (Steam App ID, Xbox title ID) or an AumId
+            // (Microsoft Store / UWP package). System processes that Game Bar mis-marks as IsGame=true
+            // (explorer.exe, shell windows, Game Bar panels) have neither — this is locale-independent
+            // and catches all variants without a name blacklist.
+            // Exception: DRM-free or unregistered Win32 executables also lack TitleId/AumId. Those are
+            // handled by the RTSS profile-fallback in the helper (detected once a profile exists).
+            bool hasIdentifier = target != null
+                && (!string.IsNullOrEmpty(target.TitleId) || !string.IsNullOrEmpty(target.AumId));
+            bool isValidGame = target != null && target.IsGame && !blacklisted && hasIdentifier;
 
             if (blacklisted)
                 Logger.Info($"[TargetChanged] BLACKLISTED '{target.DisplayName}' (IsGame={target.IsGame}) — treating as no-game");
+            else if (target != null && target.IsGame && !hasIdentifier)
+                Logger.Info($"[TargetChanged] REJECTED '{target.DisplayName}' — IsGame=true but TitleId and AumId both empty (system process false-positive)");
 
             if (isValidGame)
             {
@@ -4336,6 +4346,22 @@ namespace XboxGamingBar
                         {
                             Logger.Warn($"Connected to wrong helper version: helper={helperVersion}, widget={widgetVersion} - disconnecting and retrying");
 
+                            // If we already attempted an automatic restart (IsHelperAliveAsync set the flag)
+                            // and the helper is STILL running the old version, the auto-restart failed —
+                            // UAC was denied or the Task Scheduler didn't fire. Offer a manual reboot.
+                            // Clear the flag first so we don't spam the dialog on every retry.
+                            if (_versionMismatchRestartAttempted)
+                            {
+                                _versionMismatchRestartAttempted = false;
+                                _versionMismatchOldHelperVersion = null;
+                                Logger.Info("[VersionMismatch] Automatic restart was attempted but helper is still old — showing reboot dialog");
+                                string hv = helperVersion, wv = widgetVersion;
+                                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
+                                {
+                                    await ShowVersionMismatchRebootDialogAsync(hv, wv);
+                                });
+                            }
+
                             // Disconnect and trigger reconnection
                             App.PipeClient?.Dispose();
 
@@ -4375,6 +4401,8 @@ namespace XboxGamingBar
                         }
 
                         Logger.Info($"Connected to correct helper version: {helperVersion}");
+                        // Keep _versionMismatchRestartAttempted set so the post-banner block
+                        // below can show the reboot dialog once the UI is fully visible.
                     }
                 }
             }
@@ -4397,6 +4425,19 @@ namespace XboxGamingBar
             {
                 HideConnectionBanner();
             });
+
+            // If this reconnect follows a version-mismatch restart, offer a reboot now that the
+            // UI is fully visible and the UAC prompt is long gone. Covers both the success case
+            // (new helper running, clean reboot recommended) and the failure case (UAC denied,
+            // handled earlier in the mismatch branch above which also clears the flag).
+            if (_versionMismatchRestartAttempted)
+            {
+                _versionMismatchRestartAttempted = false;
+                string oldVer = _versionMismatchOldHelperVersion ?? "previous version";
+                _versionMismatchOldHelperVersion = null;
+                Logger.Info($"[VersionMismatch] Helper restarted successfully ({oldVer} → {GetWidgetVersion()}) — showing reboot dialog");
+                _ = ShowVersionMismatchRebootDialogAsync(oldVer, GetWidgetVersion());
+            }
 
             // Create widget activity and app target tracker if widget is available
             if (widget != null)

@@ -172,6 +172,21 @@ namespace XboxGamingBar
                 if (string.IsNullOrEmpty(exePath)) return;
                 if (string.IsNullOrEmpty(gameName)) return;
 
+                // Guard against the start-up race where currentGameName (the Game Bar title)
+                // has already switched to the new game but runningGame.GameId.Path still holds
+                // the PREVIOUS game's exe (helper window-scan lag). Stamping then cross-stamps
+                // the wrong exe path under this title, which collapses unrelated games into one
+                // group in the Saved-Profiles list. Only stamp when the running game's identity
+                // matches the title we're stamping; otherwise skip and let a later, consistent
+                // tick do it.
+                string runningName = rg.GameId.Name;
+                if (string.IsNullOrEmpty(runningName)
+                    || !string.Equals(runningName, gameName, StringComparison.OrdinalIgnoreCase))
+                {
+                    Logger.Debug($"EnsureGameExePathStored skipped: running '{runningName}' != target '{gameName}' (start-up race)");
+                    return;
+                }
+
                 var settings = ApplicationData.Current.LocalSettings;
                 foreach (var suffix in new[] { "", "_AC", "_DC" })
                 {

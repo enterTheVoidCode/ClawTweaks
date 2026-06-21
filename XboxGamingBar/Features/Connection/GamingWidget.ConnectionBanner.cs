@@ -98,7 +98,7 @@ namespace XboxGamingBar
                     break;
                 case BannerState.Upgrading:
                     ConnectionStatusBanner.Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 51, 153, 102)); // #339966 Green
-                    ConnectionStatusText.Text = "Updating — please confirm the Windows admin (UAC) prompt if it appears (in FSE Mode it opens in the background). If the app opens in the large main window, close it so the Game Bar widget is shown again.";
+                    ConnectionStatusText.Text = "Updating — a UAC prompt may appear in the background. Please confirm it to complete the update.";
                     SetBannerIcon(GlyphAdmin);
                     break;
             }
@@ -200,6 +200,67 @@ namespace XboxGamingBar
                     ? Visibility.Collapsed
                     : Visibility.Visible;
             }
+        }
+
+        /// <summary>
+        /// Shows a reboot-recommended dialog when the widget detects a version mismatch between
+        /// itself and the running helper. The old helper process is still live (MSIX in-place updates
+        /// do not kill running elevated processes), so the update is only fully active after a reboot
+        /// or after the helper auto-restarts via the scheduled task (requires UAC confirmation).
+        ///
+        /// "Reboot now" sends a forced system reboot via the helper's power-action pipe.
+        /// "Later" dismisses the dialog; the automatic restart flow continues in parallel.
+        /// </summary>
+        private async Task ShowVersionMismatchRebootDialogAsync(string helperVersion, string widgetVersion)
+        {
+            try
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = "Reboot recommended",
+                    Content = "ClawTweaks was updated. Please reboot to make sure everything is running cleanly.",
+                    PrimaryButtonText = "Reboot now",
+                    CloseButtonText = "Later",
+                    DefaultButton = ContentDialogButton.Close
+                };
+
+                Logger.Info($"[VersionMismatch] Showing reboot dialog: {helperVersion} → {widgetVersion}");
+                var result = await dialog.ShowAsync();
+
+                if (result == ContentDialogResult.Primary)
+                {
+                    Logger.Info($"[VersionMismatch] User chose reboot now — IsConnected={App.IsConnected}");
+                    // The pipe may be momentarily disconnected (e.g., failed-restart path disposes it
+                    // right after scheduling this dialog). Retry for up to 5 s before giving up.
+                    for (int attempt = 0; attempt < 5; attempt++)
+                    {
+                        if (App.IsConnected)
+                        {
+                            SendPowerActionAsync("reboot");
+                            return;
+                        }
+                        Logger.Info($"[VersionMismatch] Pipe not connected, retrying in 1 s (attempt {attempt + 1}/5)");
+                        await Task.Delay(1000);
+                    }
+                    Logger.Warn("[VersionMismatch] Pipe still not connected after 5 s — cannot send reboot command");
+                }
+                else
+                {
+                    Logger.Info("[VersionMismatch] User deferred reboot — auto-restart continues");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[VersionMismatch] Reboot dialog failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>Returns true when versionA is strictly newer than versionB (Major.Minor.Build.Revision).</summary>
+        private static bool IsVersionNewer(string versionA, string versionB)
+        {
+            if (Version.TryParse(versionA, out var a) && Version.TryParse(versionB, out var b))
+                return a > b;
+            return false;
         }
 
     }

@@ -377,21 +377,26 @@ namespace XboxGamingBar
                 foreach (var containerName in containerNames)
                 {
                     var container = settings.Containers[containerName];
-                    bool needsExe = !container.Values.ContainsKey("GameExePath");
+                    string existingExe = container.Values.ContainsKey("GameExePath")
+                        ? container.Values["GameExePath"] as string
+                        : null;
+                    bool needsExe = string.IsNullOrEmpty(existingExe);
                     bool needsMod = !container.Values.ContainsKey("LastModifiedUtc");
-                    if (!needsExe && !needsMod) continue;
 
                     string suffixed = containerName.Substring("Profile_Game_".Length);
                     string title = suffixed;
                     if (suffixed.EndsWith("_AC")) title = suffixed.Substring(0, suffixed.Length - 3);
                     else if (suffixed.EndsWith("_DC")) title = suffixed.Substring(0, suffixed.Length - 3);
 
-                    // 1) Direct title match.
-                    var match = helperEntries.FirstOrDefault(e =>
+                    // 1) Direct title match — authoritative (helper XML <Name> == profile title).
+                    var direct = helperEntries.FirstOrDefault(e =>
                         string.Equals(e.title, title, StringComparison.OrdinalIgnoreCase));
+                    bool hasDirect = !string.IsNullOrEmpty(direct.fullPath);
 
-                    // 2) Word-boundary substring match (emulators).
-                    if (string.IsNullOrEmpty(match.fullPath))
+                    var match = direct;
+
+                    // 2) Word-boundary substring match (emulators) — only when no direct match.
+                    if (!hasDirect)
                     {
                         var candidates = helperEntries
                             .Where(e => e.basename.Length >= 4
@@ -406,12 +411,27 @@ namespace XboxGamingBar
                         }
                     }
 
-                    if (string.IsNullOrEmpty(match.fullPath)) continue;
+                    if (string.IsNullOrEmpty(match.fullPath))
+                    {
+                        if (needsMod && hasDirect)
+                            container.Values["LastModifiedUtc"] = direct.lastWrite.Ticks;
+                        continue;
+                    }
 
-                    if (needsExe)
+                    // Stamp GameExePath when missing (any match), OR REPAIR it when a direct
+                    // title match disagrees with the stored value. The repair undoes the
+                    // start-up name/path race that cross-stamped a wrong exe (e.g. RE2's
+                    // container holding Blasphemous 2's path → both collapsing into one group).
+                    // Repair only on a direct title match — never on the fuzzy emulator match,
+                    // which is intentionally not authoritative.
+                    bool wrongDirect = hasDirect && !needsExe
+                        && !string.Equals(existingExe, direct.fullPath, StringComparison.OrdinalIgnoreCase);
+                    if (needsExe || wrongDirect)
                     {
                         container.Values["GameExePath"] = match.fullPath;
                         filled++;
+                        if (wrongDirect)
+                            Logger.Info($"Profiles repair: corrected GameExePath for '{title}' ('{existingExe}' -> '{match.fullPath}')");
                     }
                     if (needsMod)
                     {

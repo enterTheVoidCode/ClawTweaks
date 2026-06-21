@@ -264,7 +264,12 @@ namespace XboxGamingBarHelper.Profile
                 return true;
             }
 
-            // Fallback: try matching by path only (handles name variations like "Game Name" vs "Game: Name")
+            // Fallback: try matching by path only (handles name variations like "Game Name" vs
+            // "Game: Name", and emulators like Eden whose window title carries a changing version
+            // string but whose exe path is stable). This is path-PRIMARY by design: the exe path is
+            // the reliable identity. It is safe because the path delivered here is resolved from the
+            // tracked-game window match (SystemManager), which is keyed on the game's identity and so
+            // never carries a stale previous-game exe.
             if (!string.IsNullOrEmpty(gameId.Path))
             {
                 foreach (var kvp in gameProfiles)

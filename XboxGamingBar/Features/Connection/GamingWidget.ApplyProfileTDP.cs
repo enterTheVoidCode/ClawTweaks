@@ -243,12 +243,17 @@ namespace XboxGamingBar
                     {
                         Logger.Info($"Helper version mismatch: helper={helperVersion}, widget={widgetVersion} - requesting helper restart");
 
-                        // Show upgrading banner before requesting exit
+                        // Show banner only — no dialog here. The UAC prompt for the automatic helper
+                        // restart will appear right after RequestHelperExitAsync(). Showing a dialog
+                        // now would steal focus from the UAC confirmation. The reboot dialog is offered
+                        // later (in OnPipeConnectedAsync) only if the automatic restart failed.
                         await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                         {
                             ShowConnectionBanner(BannerState.Upgrading);
                         });
 
+                        _versionMismatchRestartAttempted = true;
+                        _versionMismatchOldHelperVersion = helperVersion;
                         await RequestHelperExitAsync();
 
                         // Wait for the old helper to fully exit

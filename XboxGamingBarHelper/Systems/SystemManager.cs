@@ -539,9 +539,17 @@ namespace XboxGamingBarHelper.Systems
 
             // Cache invalidation: the exe-path cache belongs to one specific TrackedGame; clear it
             // whenever the tracked game identity changes (or disappears).
-            string trackedCacheKey = trackedGame.IsValid()
-                ? (trackedGame.AumId ?? trackedGame.TitleId ?? trackedGame.DisplayName ?? "")
-                : "";
+            // NOTE: AumId/TitleId arrive as EMPTY STRINGS (not null) for Steam games, so a plain
+            // "AumId ?? TitleId ?? DisplayName" never falls through (\"\" is not null) and the key would
+            // be "" for every game → the cache would NEVER invalidate on a game change → the previous
+            // game's exe stays cached and gets served to the new game. Pick the first NON-EMPTY field.
+            string trackedCacheKey = "";
+            if (trackedGame.IsValid())
+            {
+                trackedCacheKey = !string.IsNullOrEmpty(trackedGame.AumId) ? trackedGame.AumId
+                                : !string.IsNullOrEmpty(trackedGame.TitleId) ? trackedGame.TitleId
+                                : (trackedGame.DisplayName ?? "");
+            }
             if (trackedCacheKey != _lastTrackedCacheKey)
             {
                 _lastTrackedCacheKey = trackedCacheKey;
@@ -551,31 +559,37 @@ namespace XboxGamingBarHelper.Systems
                     Logger.Info($"[GameDetection] TrackedGame key changed → exe-cache cleared (key='{trackedCacheKey}')");
             }
 
-            // Fast path: Game Bar has a tracked game → resolve exe path once via QueryFullProcessImageName
-            // on the current foreground PID (no EnumWindows). Returns immediately, skipping GetOpenWindows.
-            // Falls through to the full window scan when:
-            //   • exe resolution fails (UWP launch race, transient timing) — retried next tick
-            //   • cached game has FPS=0 but another process is rendering (game may have changed)
-            if (trackedGame.IsValid())
+            // Fast path: reuse the exe path we already CONFIRMED for this tracked game (resolved by the
+            // tracked-game window match further down on an earlier tick and cached). Returns immediately,
+            // skipping GetOpenWindows.
+            //
+            // We deliberately do NOT resolve the exe from the current foreground PID here. During a
+            // game-launch transition the foreground is briefly still the PREVIOUS game (or a launcher),
+            // so QueryFullProcessImageName on the foreground returns a STALE exe (e.g. the previous
+            // game's re2.exe while the Game Bar already reports "Blasphemous 2"). That stale exe then
+            // gets cached and served for the whole loading period (until the new game renders), which
+            // mismatches the game's identity (Name says new game, Path is the old exe) and corrupts
+            // anything keyed on the path (per-game grouping, controller GameExePath). The window scan
+            // below matches on the tracked game's IDENTITY (DisplayName/title), so it can never match
+            // the previous game's window, and is the reliable source for the exe. Once it caches the
+            // exe, subsequent ticks use this fast path (no EnumWindows) until the game changes.
+            //
+            // Falls through to the full window scan when the cache is empty (fresh game change) or when
+            // the cached game has FPS=0 but another process is rendering (game may have changed).
+            if (trackedGame.IsValid() && !string.IsNullOrEmpty(_cachedTrackedExePath))
             {
-                if (string.IsNullOrEmpty(_cachedTrackedExePath))
-                    TryResolveExeFromForeground(out _cachedTrackedExePath, out _cachedTrackedPid);
-
-                if (!string.IsNullOrEmpty(_cachedTrackedExePath))
+                uint fps = AppEntries.TryGetValue(_cachedTrackedPid, out var fastAe)
+                           ? fastAe.InstantaneousFrames : 0;
+                bool anotherIsRendering = fps == 0
+                    && AppEntries.Values.Any(e => e.InstantaneousFrames > 0);
+                if (!anotherIsRendering)
                 {
-                    uint fps = AppEntries.TryGetValue(_cachedTrackedPid, out var fastAe)
-                               ? fastAe.InstantaneousFrames : 0;
-                    bool anotherIsRendering = fps == 0
-                        && AppEntries.Values.Any(e => e.InstantaneousFrames > 0);
-                    if (!anotherIsRendering)
-                    {
-                        var gameName = ResolveGameBarName(_cachedTrackedExePath, "", trackedGame.DisplayName);
-                        var gameKey  = ResolveGameKey(_cachedTrackedExePath, trackedGame.AumId, trackedGame.TitleId);
-                        Logger.Debug($"[GameDetection] Fast path: label='{gameName}' key='{gameKey}' exe='{_cachedTrackedExePath}' PID={_cachedTrackedPid} FPS={fps}");
-                        return new RunningGame(_cachedTrackedPid, gameName, gameKey, fps, true);
-                    }
-                    Logger.Info("[GameDetection] Fast path skipped: cached game FPS=0, another process rendering — falling through to window scan");
+                    var gameName = ResolveGameBarName(_cachedTrackedExePath, "", trackedGame.DisplayName);
+                    var gameKey  = ResolveGameKey(_cachedTrackedExePath, trackedGame.AumId, trackedGame.TitleId);
+                    Logger.Debug($"[GameDetection] Fast path: label='{gameName}' key='{gameKey}' exe='{_cachedTrackedExePath}' PID={_cachedTrackedPid} FPS={fps}");
+                    return new RunningGame(_cachedTrackedPid, gameName, gameKey, fps, true);
                 }
+                Logger.Info("[GameDetection] Fast path skipped: cached game FPS=0, another process rendering — falling through to window scan");
             }
 
             // Fallback: full window scan for non-Game-Bar games, emulators, UWP launch races,
@@ -753,6 +767,10 @@ namespace XboxGamingBarHelper.Systems
                             var gameName = ResolveGameBarName(mw.Path, mw.Title, trackedGame.DisplayName);
                             var gameKey = ResolveGameKey(mw.Path, trackedGame.AumId, trackedGame.TitleId);
                             Logger.Info($"[GameDetection] Game Bar game: label='{gameName}' key='{gameKey}' | exePath='{mw.Path}' AumId='{trackedGame.AumId}' TitleId='{trackedGame.TitleId}' DisplayName='{trackedGame.DisplayName}' FPS={fps} PID={mw.ProcessId} FG={mw.IsForeground}");
+                            // Cache the identity-matched exe so the fast path can serve it next tick
+                            // (and so the path stays correct instead of being re-guessed from foreground).
+                            _cachedTrackedExePath = mw.Path;
+                            _cachedTrackedPid = mw.ProcessId;
                             return new RunningGame(mw.ProcessId, gameName, gameKey, fps, mw.IsForeground);
                         }
                     }
@@ -762,6 +780,9 @@ namespace XboxGamingBarHelper.Systems
                         var gameName = ResolveGameBarName(mw.Path, mw.Title, trackedGame.DisplayName);
                         var gameKey = ResolveGameKey(mw.Path, trackedGame.AumId, trackedGame.TitleId);
                         Logger.Info($"[GameDetection] Game Bar game: label='{gameName}' key='{gameKey}' | exePath='{mw.Path}' AumId='{trackedGame.AumId}' TitleId='{trackedGame.TitleId}' DisplayName='{trackedGame.DisplayName}' FPS={fps} PID={mw.ProcessId} FG={mw.IsForeground}");
+                        // Cache the identity-matched exe so the fast path can serve it next tick.
+                        _cachedTrackedExePath = mw.Path;
+                        _cachedTrackedPid = mw.ProcessId;
                         return new RunningGame(mw.ProcessId, gameName, gameKey, fps, mw.IsForeground);
                     }
                 }
@@ -854,17 +875,39 @@ namespace XboxGamingBarHelper.Systems
                         }
                     }
 
-                    // (b) RTSS FPS-based detection — LOG ONLY (user decision): RTSS is kept purely as a
-                    //     diagnostic signal and must NOT load or change a profile. Only the Xbox Game Bar
-                    //     (TrackedGame) drives profiles; otherwise the global profile stays. The block is
-                    //     kept reversible in case RTSS-based detection is wanted again later.
-                    if (hasFPS)
+                    // (b) RTSS FPS-based detection — profile-gated fallback for games that don't trigger
+                    //     Game Bar's TargetChanged at launch (e.g. Tomb Raider, Celeste). Only activated
+                    //     when: (1) RTSS sees FPS > 0, (2) the Game Bar has no tracked game at all
+                    //     (trackedGame invalid), AND (3) a saved per-game profile exists for this exe path.
+                    //     The profile-gate prevents false positives: browsers and other apps rendering at
+                    //     FPS > 0 have no saved profile, so they stay ignored.
+                    if (hasFPS && !trackedGame.IsValid())
                     {
                         var rtssName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
                         if (string.IsNullOrEmpty(rtssName)) rtssName = processWindow.Value.Title;
-                        Logger.Info($"[GameDetection] RTSS saw '{rtssName}' at '{processWindow.Value.Path}' FPS={fps} — ignored (no Game Bar target, global profile stays).");
-                        // [DISABLED — RTSS log-only] previously:
-                        // possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, name, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+
+                        bool hasMatchingProfile = !string.IsNullOrEmpty(processWindow.Value.Path)
+                            && Profiles.Keys.Any(k => string.Equals(k.Path, processWindow.Value.Path, StringComparison.OrdinalIgnoreCase));
+
+                        if (hasMatchingProfile)
+                        {
+                            var gameName = ResolveGameBarName(processWindow.Value.Path, processWindow.Value.Title, null);
+                            Logger.Info($"[GameDetection] RTSS profile-fallback: '{gameName}' at '{processWindow.Value.Path}' FPS={fps} — Game Bar silent, profile exists → loading per-game profile");
+                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+                        }
+                        else
+                        {
+                            Logger.Info($"[GameDetection] RTSS saw '{rtssName}' at '{processWindow.Value.Path}' FPS={fps} — no profile, ignored (global profile stays)");
+                        }
+                        continue;
+                    }
+                    else if (hasFPS)
+                    {
+                        // Game Bar is tracking something — RTSS is informational only here; the
+                        // TrackedGame block above already matched or will match on the next tick.
+                        var rtssName = Path.GetFileNameWithoutExtension(processWindow.Value.Path);
+                        if (string.IsNullOrEmpty(rtssName)) rtssName = processWindow.Value.Title;
+                        Logger.Debug($"[GameDetection] RTSS saw '{rtssName}' FPS={fps} — TrackedGame active, skipping RTSS fallback");
                         continue;
                     }
 
