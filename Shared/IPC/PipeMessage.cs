@@ -249,11 +249,35 @@ namespace Shared.IPC
         private static string UnescapeJson(string s)
         {
             if (s == null) return "";
-            return s.Replace("\\\"", "\"")
-                    .Replace("\\\\", "\\")
-                    .Replace("\\n", "\n")
-                    .Replace("\\r", "\r")
-                    .Replace("\\t", "\t");
+            if (s.IndexOf('\\') < 0) return s;
+
+            // Single-pass parser. A chained .Replace() is WRONG here: un-doubling "\\" -> "\"
+            // first re-creates literal "\r"/"\n"/"\t" sequences from paths like "...\re2.exe",
+            // which a later .Replace("\\r", "\r") then mangles into a control character.
+            // Walking the string once and consuming each escape exactly once avoids this.
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (c == '\\' && i + 1 < s.Length)
+                {
+                    char next = s[++i];
+                    switch (next)
+                    {
+                        case 'n': sb.Append('\n'); break;
+                        case 'r': sb.Append('\r'); break;
+                        case 't': sb.Append('\t'); break;
+                        case '"': sb.Append('"'); break;
+                        case '\\': sb.Append('\\'); break;
+                        default: sb.Append(next); break; // unknown escape: keep the char, drop backslash
+                    }
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
         }
 
         private static string ValueToJson(object value)

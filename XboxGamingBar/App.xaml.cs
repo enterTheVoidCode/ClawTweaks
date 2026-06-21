@@ -547,6 +547,17 @@ namespace XboxGamingBar
             Logger.Info("App launched");
             LogVersionTransition("OnLaunched");
 
+            // If the Game Bar widget is already active, this OnLaunched was triggered by Windows
+            // after an MSIX install (Windows auto-launches installed apps). Opening a standalone
+            // window on top of an active Game Bar session obscures the widget and confuses the user.
+            // Close immediately so the Game Bar overlay stays visible.
+            if (gamingXboxGameBarWidget != null)
+            {
+                Logger.Info("OnLaunched with active Game Bar widget — suppressing standalone window (post-install auto-launch)");
+                try { Window.Current?.Close(); } catch { }
+                return;
+            }
+
             // Standalone "app mode": launch compact (not stretched across the whole screen). Set the
             // preferred size before the view is activated; this only affects the standalone desktop
             // window — the Game Bar host sizes the widget from the manifest, not this.

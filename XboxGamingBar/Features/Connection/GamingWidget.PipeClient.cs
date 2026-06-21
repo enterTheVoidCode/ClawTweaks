@@ -240,6 +240,41 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Unescapes a JSON string value in a single pass. A chained .Replace() is WRONG:
+        /// un-doubling "\\" -> "\" first re-creates literal "\r"/"\n"/"\t" sequences from paths
+        /// like "...\re2.exe", which a later .Replace("\\r", "\r") then mangles into a control
+        /// character (this corrupted per-game controller-profile GameExePath values). Walking the
+        /// string once and consuming each escape exactly once avoids the ambiguity.
+        /// </summary>
+        private static string UnescapeJsonString(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.IndexOf('\\') < 0) return s;
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                char c = s[i];
+                if (c == '\\' && i + 1 < s.Length)
+                {
+                    char next = s[++i];
+                    switch (next)
+                    {
+                        case 'n': sb.Append('\n'); break;
+                        case 'r': sb.Append('\r'); break;
+                        case 't': sb.Append('\t'); break;
+                        case '"': sb.Append('"'); break;
+                        case '\\': sb.Append('\\'); break;
+                        default: sb.Append(next); break; // unknown escape: keep the char, drop backslash
+                    }
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
+        }
+
+        /// <summary>
         /// Parses a pipe JSON message into a ValueSet.
         /// </summary>
         private Windows.Foundation.Collections.ValueSet ParsePipeMessageToValueSet(string json)
@@ -262,9 +297,7 @@ namespace XboxGamingBar
 
                     if (value.StartsWith("\"") && value.EndsWith("\""))
                     {
-                        result[key] = value.Substring(1, value.Length - 2)
-                            .Replace("\\\"", "\"").Replace("\\\\", "\\")
-                            .Replace("\\n", "\n").Replace("\\r", "\r").Replace("\\t", "\t");
+                        result[key] = UnescapeJsonString(value.Substring(1, value.Length - 2));
                     }
                     else if (value == "true")
                     {
