@@ -895,9 +895,22 @@ namespace XboxGamingBarHelper.Systems
                             Logger.Info($"[GameDetection] RTSS profile-fallback: '{gameName}' at '{processWindow.Value.Path}' FPS={fps} — Game Bar silent, profile exists → loading per-game profile");
                             possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
                         }
+                        else if (processWindow.Value.IsForeground)
+                        {
+                            // No saved profile yet, but RTSS sees this process rendering in the FOREGROUND.
+                            // That's a real game the user is actively playing — e.g. an emulator like Eden,
+                            // or any DRM-free Win32 exe that the Game Bar rejects because it has no
+                            // TitleId/AumId. Detect it (global profile applies) so the user can CREATE a
+                            // per-game profile; otherwise it's a chicken-and-egg (no profile → never
+                            // detected → can never make one). Shell false-positives (explorer / Program
+                            // Manager / Game Bar panels) are not hooked by RTSS, so they never reach here.
+                            var gameName = ResolveGameBarName(processWindow.Value.Path, processWindow.Value.Title, null);
+                            Logger.Info($"[GameDetection] RTSS no-profile game: '{gameName}' at '{processWindow.Value.Path}' FPS={fps} — foreground + rendering, Game Bar silent → detecting so a profile can be created");
+                            possibleGames.Add(new RunningGame(processWindow.Value.ProcessId, gameName, processWindow.Value.Path, fps, processWindow.Value.IsForeground));
+                        }
                         else
                         {
-                            Logger.Info($"[GameDetection] RTSS saw '{rtssName}' at '{processWindow.Value.Path}' FPS={fps} — no profile, ignored (global profile stays)");
+                            Logger.Info($"[GameDetection] RTSS saw '{rtssName}' at '{processWindow.Value.Path}' FPS={fps} — no profile + not foreground, ignored (global profile stays)");
                         }
                         continue;
                     }
