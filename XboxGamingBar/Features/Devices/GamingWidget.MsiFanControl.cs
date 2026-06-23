@@ -615,6 +615,7 @@ namespace XboxGamingBar
                 for (int i = 1; i < 8; i++) if (ec[i] != expected[i]) { match = false; break; }
 
                 bool enabled = MsiFanEnableToggle?.IsOn ?? false;
+                int preset = MsiFanPresetComboBox?.SelectedIndex ?? -1;
 
                 if (!readOk)
                 {
@@ -625,6 +626,16 @@ namespace XboxGamingBar
                 {
                     MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 200, 200, 200));
                     MsiFanCheckStatus.Text = $"Custom fan curve is OFF (firmware control). EC table: [{string.Join(",", ec)}], control bit: {(controlOn ? "on" : "off")}.";
+                }
+                else if (preset == 5)
+                {
+                    // "Cooling (EC Sport)" is a hardware-mode preset: the helper writes the
+                    // BestPerformance EC table and hands fan control BACK to the firmware
+                    // (SetFanControl(false)). The control bit being OFF is therefore correct —
+                    // not a mismatch. The EC table comparison against the software-curve
+                    // placeholder would always fail here, so we skip it entirely.
+                    MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 120, 210, 120));
+                    MsiFanCheckStatus.Text = $"✓ EC Sport applied — firmware controls the fan (hardware mode, control bit off is correct).\nEC table: [{string.Join(",", ec)}]";
                 }
                 else if (match && controlOn)
                 {

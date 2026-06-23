@@ -532,5 +532,12 @@
         // Standalone "app mode" window toggle (Open ClawTweaks Window action / front MSI button).
         AppModeWindowState,          // bool - widget→helper: app-mode window opened (true) / closed (false)
         CloseAppModeWindow,          // string - helper→widget trigger: close the standalone app-mode window
+
+        // Steam Xbox extended controller driver conflict detection. The Steam "Xbox Configuration
+        // Support" feature installs the "steamxbox" upper-filter driver on the XnaComposite device
+        // class. This filter intercepts HID reports and breaks HidHide's ability to hide/unhide the
+        // physical MSI Claw, making virtual controller emulation non-functional.
+        // Helper pushes true on connect if detected; widget blocks the emulation toggle.
+        SteamXboxDriverDetected,     // bool - true = steamxbox upper-filter driver is active
     }
 }

@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -296,6 +296,11 @@ namespace XboxGamingBar
 
                 var request = new Windows.Foundation.Collections.ValueSet();
                 request.Add("CheckDriverUpdates", true);
+                // Explicit user-initiated check → always rebuild the installed-driver
+                // snapshot. The cached probe is only for the instant startup/tab display;
+                // a manual "Check" after installing a driver must re-read PnP versions,
+                // otherwise a just-updated driver still shows the old version (stale cache).
+                request.Add("ForceRefresh", true);
                 var response = await App.SendMessageAsync(request);
                 if (response == null)
                 {
@@ -510,6 +515,7 @@ namespace XboxGamingBar
                         {
                             Name = GetD("name"),
                             Category = GetD("category"),
+                            CategoryIcon = CategoryToIconGlyph(GetD("category")),
                             Version = GetD("version"),
                             ReleaseDate = GetD("releaseDate"),
                             DownloadUrl = downloadUrl,
@@ -529,6 +535,7 @@ namespace XboxGamingBar
                             IgnoreKey = ignoreKey,
                             MuteButtonLabel = muteLabel,
                             MuteButtonVisibility = muteVis,
+                            Highlights = GetD("highlights"),
                         });
                     }
                 }
@@ -587,10 +594,27 @@ namespace XboxGamingBar
             }
         }
 
+        private static string CategoryToIconGlyph(string category)
+        {
+            if (string.IsNullOrEmpty(category)) return "";
+            var c = category.ToLowerInvariant();
+            if (c.Contains("graphic") || c.Contains("gpu") || c.Contains("display") || c.Contains("arc")) return "";
+            if (c.Contains("bluetooth")) return "";
+            if (c.Contains("network") || c.Contains("wifi") || c.Contains("wi-fi") || c.Contains("wireless") || c.Contains("killer")) return "";
+            if (c.Contains("bios") || c.Contains("uefi") || c.Contains("chipset") || c.Contains("chip")) return "";
+            if (c.Contains("firmware") || c.Contains("controller")) return "";
+            if (c.Contains("audio") || c.Contains("sound") || c.Contains("speaker")) return "";
+            if (c.Contains("software") || c.Contains("app") || c.Contains("center")) return "";
+            if (c.Contains("lan") || c.Contains("ethernet")) return "";
+            if (c.Contains("usb")) return "";
+            return "";
+        }
+
         private sealed class DriverDisplay
         {
             public string Name { get; set; }
             public string Category { get; set; }
+            public string CategoryIcon { get; set; } = "";
             public string Version { get; set; }
             public string ReleaseDate { get; set; }
             public string DownloadUrl { get; set; }
@@ -620,6 +644,10 @@ namespace XboxGamingBar
             public string MuteButtonLabel { get; set; }
             /// <summary>Visible only for update rows (and currently-muted rows).</summary>
             public Windows.UI.Xaml.Visibility MuteButtonVisibility { get; set; } = Windows.UI.Xaml.Visibility.Collapsed;
+            /// <summary>Game-On Driver highlights from Intel ExtendedDetails (comma-separated, may be empty).</summary>
+            public string Highlights { get; set; } = "";
+            public Windows.UI.Xaml.Visibility HighlightsVisibility =>
+                string.IsNullOrWhiteSpace(Highlights) ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
         }
 
         // Cached full driver list so the "Show utilities and diagnostics"
@@ -779,8 +807,6 @@ namespace XboxGamingBar
         private void DriverUpdatesHideBannerCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
             if (_isLoadingUpdatePreferenceCheckboxes) return;
-            if (DriverUpdatesHideBannerCheckbox == null) return;
-            DriverUpdatesHideBanner = DriverUpdatesHideBannerCheckbox.IsChecked == true;
             // Re-evaluate tile visibility right now so the setting has an
             // immediate effect without waiting for the next helper push.
             if (QuickDriverUpdatesTile != null && DriverUpdatesHideBanner)
@@ -830,8 +856,6 @@ namespace XboxGamingBar
                     // the user sees the current setting on first render.
                     if (DriverUpdatesUpdateOnStartCheckbox != null && DriverUpdatesUpdateOnStartCheckbox.IsChecked != checkOnStart)
                         DriverUpdatesUpdateOnStartCheckbox.IsChecked = checkOnStart;
-                    if (DriverUpdatesHideBannerCheckbox != null && DriverUpdatesHideBannerCheckbox.IsChecked != hideBanner)
-                        DriverUpdatesHideBannerCheckbox.IsChecked = hideBanner;
 
                     bool visible = count > 0
                                    && ((legionGoDetected?.Value == true) || IsMsiClawDevice())
@@ -901,20 +925,7 @@ namespace XboxGamingBar
         /// </summary>
         private void UpdateUpdateAllButtonVisibility()
         {
-            if (DriverUpdatesUpdateAllButton == null) return;
-            int updateCount = 0;
-            foreach (var d in _allDriverDisplays)
-            {
-                if (IsUpdateAllCandidate(d)) updateCount++;
-            }
-            DriverUpdatesUpdateAllButton.Visibility = updateCount > 0
-                ? Windows.UI.Xaml.Visibility.Visible
-                : Windows.UI.Xaml.Visibility.Collapsed;
-            // Surface the count so the user knows exactly what "Update all"
-            // is about to touch — no more surprise 24-installer launches.
-            DriverUpdatesUpdateAllButton.Content = updateCount > 1
-                ? $"Update all ({updateCount})"
-                : "Update all";
+            // "Update all" button removed from UI.
         }
 
         /// <summary>
@@ -1005,74 +1016,8 @@ namespace XboxGamingBar
         /// </summary>
         private async void DriverUpdatesUpdateAllButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
-            if (DriverUpdatesUpdateAllButton == null) return;
-            var urls = new System.Collections.Generic.List<string>();
-            foreach (var d in _allDriverDisplays)
-            {
-                // Update-all is strictly VISIBLE + UpdateAvailable. We
-                // deliberately don't touch NotInstalled rows (the user
-                // doesn't necessarily want Windows to gain drivers it
-                // hasn't picked up yet) and we respect the category filter
-                // (hidden utilities/diagnostics/tools never get queued).
-                if (IsUpdateAllCandidate(d)) urls.Add(d.DownloadUrl);
-            }
-            if (urls.Count == 0)
-            {
-                if (DriverUpdatesStatusText != null)
-                    DriverUpdatesStatusText.Text = "No visible driver updates to install.";
-                return;
-            }
-
-            string originalLabel = DriverUpdatesUpdateAllButton.Content?.ToString() ?? "Update all";
-            DriverUpdatesUpdateAllButton.IsEnabled = false;
-            DriverUpdatesUpdateAllButton.Content = $"Updating {urls.Count}\u2026";
-            if (DriverUpdatesStatusText != null)
-                DriverUpdatesStatusText.Text = $"Downloading {urls.Count} installers\u2026";
-
-            try
-            {
-                if (!App.IsConnected)
-                {
-                    if (DriverUpdatesStatusText != null)
-                        DriverUpdatesStatusText.Text = "Helper not connected — can't install.";
-                    return;
-                }
-
-                var request = new Windows.Foundation.Collections.ValueSet();
-                // ValueSet can't nest arrays across the pipe contract — join
-                // with newlines, helper splits on \n.
-                request.Add("BatchInstallDrivers", string.Join("\n", urls));
-                var response = await App.SendMessageAsync(request);
-
-                string message = "Done.";
-                if (response != null && response.TryGetValue("DriverBatchInstallResult", out var payloadObj) && payloadObj is string payload)
-                {
-                    try
-                    {
-                        if (Windows.Data.Json.JsonObject.TryParse(payload, out var root))
-                        {
-                            string msg = root.TryGetValue("message", out var m)
-                                         && m.ValueType == Windows.Data.Json.JsonValueType.String
-                                         ? m.GetString() : "";
-                            if (!string.IsNullOrWhiteSpace(msg)) message = msg;
-                        }
-                    }
-                    catch (Exception ex) { Logger.Warn($"Batch install parse failed: {ex.Message}"); }
-                }
-                if (DriverUpdatesStatusText != null)
-                    DriverUpdatesStatusText.Text = message;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"DriverUpdatesUpdateAllButton_Click failed: {ex.Message}");
-                if (DriverUpdatesStatusText != null)
-                    DriverUpdatesStatusText.Text = $"Update all failed: {ex.Message}";
-            }
-            finally
-            {
-                DriverUpdatesUpdateAllButton.Content = originalLabel;
-                DriverUpdatesUpdateAllButton.IsEnabled = true;
-            }
+            // "Update all" button removed from UI.
+            await System.Threading.Tasks.Task.CompletedTask;
         }
 
         /// <summary>
@@ -1091,12 +1036,30 @@ namespace XboxGamingBar
             UpdateUpdateAllButtonVisibility();
         }
 
+        private async void DriverUpdatesIntelDsaButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            bool ok = await OpenExternalUrlAsync("https://www.intel.com/content/www/us/en/support/intel-driver-support-assistant.html");
+            if (!ok && DriverUpdatesStatusText != null)
+                DriverUpdatesStatusText.Text = "Couldn't open the browser for the Intel DSA page.";
+        }
+
+        internal void UpdateSteamXboxDriverUI(bool detected)
+        {
+            if (SteamXboxDriverWarning != null)
+                SteamXboxDriverWarning.Visibility = detected ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+        }
+
+        // Tracks a button waiting for a large background download to finish.
+        // Set when the helper responds with async:true; cleared by OnDriverInstallComplete.
+        private Windows.UI.Xaml.Controls.Button _driverInstallInFlightButton;
+        private string _driverInstallInFlightOriginalLabel;
+
         /// <summary>
         /// Click handler for the per-row Install/Update button. Sends the
         /// download URL to the helper, which runs elevated and can launch
-        /// the Lenovo installer without an extra UAC prompt. Updates the
-        /// button label to "Installing…" during the pipe round-trip so the
-        /// user has feedback while the download runs.
+        /// the installer without an extra UAC prompt. Shows "Installing\u2026" during
+        /// the pipe round-trip; for large Intel CDN downloads the helper responds
+        /// with async:true immediately and pushes DriverInstallComplete when done.
         /// </summary>
         private async void DriverInstallButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
@@ -1114,7 +1077,7 @@ namespace XboxGamingBar
             // page) open the URL in the browser instead of downloading + launching an
             // installer. Detect via the row flag AND, as a robust fallback, via the
             // host: installers are only ever served from the download CDNs, so any
-            // intel.com / www.msi.com page URL is a deep-link to open.
+            // www.intel.com / www.msi.com page URL is a deep-link to open.
             var displayItem = button.DataContext as DriverDisplay;
 
             // Modded Wi-Fi row: assisted install — helper downloads + extracts + opens
@@ -1154,7 +1117,7 @@ namespace XboxGamingBar
             }
 
             bool isDeepLink = (displayItem != null && displayItem.IsDeepLink)
-                || url.IndexOf("intel.com", StringComparison.OrdinalIgnoreCase) >= 0
+                || url.IndexOf("www.intel.com", StringComparison.OrdinalIgnoreCase) >= 0
                 || url.IndexOf("www.msi.com", StringComparison.OrdinalIgnoreCase) >= 0
                 || url.IndexOf("support.lenovo.com", StringComparison.OrdinalIgnoreCase) >= 0;
             if (isDeepLink)
@@ -1169,6 +1132,7 @@ namespace XboxGamingBar
             button.IsEnabled = false;
             button.Content = "Installing\u2026";
 
+            bool asyncDownload = false;
             try
             {
                 if (!App.IsConnected)
@@ -1190,6 +1154,8 @@ namespace XboxGamingBar
                         {
                             bool success = root.TryGetValue("success", out var s) &&
                                            s.ValueType == Windows.Data.Json.JsonValueType.Boolean && s.GetBoolean();
+                            asyncDownload = root.TryGetValue("async", out var a) &&
+                                            a.ValueType == Windows.Data.Json.JsonValueType.Boolean && a.GetBoolean();
                             string msg = root.TryGetValue("message", out var m) &&
                                          m.ValueType == Windows.Data.Json.JsonValueType.String ? m.GetString() : "";
                             message = string.IsNullOrWhiteSpace(msg)
@@ -1198,6 +1164,14 @@ namespace XboxGamingBar
                         }
                     }
                     catch (Exception ex) { Logger.Warn($"DriverInstallButton parse failed: {ex.Message}"); }
+                }
+                if (asyncDownload)
+                {
+                    // Large download running in background
+                    // "Downloading\u2026" stays until OnDriverInstallComplete restores button.
+                    button.Content = "Downloading\u2026";
+                    _driverInstallInFlightButton = button;
+                    _driverInstallInFlightOriginalLabel = originalLabel;
                 }
                 if (DriverUpdatesStatusText != null)
                     DriverUpdatesStatusText.Text = message;
@@ -1210,9 +1184,42 @@ namespace XboxGamingBar
             }
             finally
             {
-                button.Content = originalLabel;
-                button.IsEnabled = true;
+                // For async downloads the button stays disabled until the push arrives.
+                if (!asyncDownload)
+                {
+                    button.Content = originalLabel;
+                    button.IsEnabled = true;
+                }
             }
+        }
+
+        private void OnDriverInstallComplete(string resultJson)
+        {
+            string message = "Driver installer launched.";
+            try
+            {
+                if (Windows.Data.Json.JsonObject.TryParse(resultJson, out var root))
+                {
+                    bool success = root.TryGetValue("success", out var s) &&
+                                   s.ValueType == Windows.Data.Json.JsonValueType.Boolean && s.GetBoolean();
+                    string msg = root.TryGetValue("message", out var m) &&
+                                 m.ValueType == Windows.Data.Json.JsonValueType.String ? m.GetString() : "";
+                    message = string.IsNullOrWhiteSpace(msg)
+                        ? (success ? "Driver installer launched." : "Driver install failed.")
+                        : msg;
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"OnDriverInstallComplete parse failed: {ex.Message}"); }
+
+            if (_driverInstallInFlightButton != null)
+            {
+                _driverInstallInFlightButton.Content = _driverInstallInFlightOriginalLabel ?? "Install";
+                _driverInstallInFlightButton.IsEnabled = true;
+                _driverInstallInFlightButton = null;
+                _driverInstallInFlightOriginalLabel = null;
+            }
+            if (DriverUpdatesStatusText != null)
+                DriverUpdatesStatusText.Text = message;
         }
 
         /// <summary>

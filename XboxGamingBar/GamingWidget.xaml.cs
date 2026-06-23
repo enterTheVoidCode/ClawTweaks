@@ -1334,6 +1334,10 @@ namespace XboxGamingBar
         private readonly InstallViGEmBusProperty installViGEmBus;
         private readonly HidHideInstalledProperty hidHideInstalled;
         private readonly InstallHidHideProperty installHidHide;
+        private readonly SteamXboxDriverDetectedProperty steamXboxDriverDetected;
+        // Cached result from last steam-driver check. Set by UpdateSteamXboxDriverUI because
+        // RequestSteamXboxDriverStatus calls it directly without going through the property setter.
+        private bool _steamXboxDriverDetected;
         private readonly InstallUsbipProperty installUsbip;
         // Setup/Dependencies tool action triggers (helper runs install/uninstall elevated, pushes status back)
         private readonly ToolTriggerProperty installRTSS;
@@ -2125,6 +2129,7 @@ namespace XboxGamingBar
             installViGEmBus = new InstallViGEmBusProperty(this);
             hidHideInstalled = new HidHideInstalledProperty(this);
             installHidHide = new InstallHidHideProperty(this);
+            steamXboxDriverDetected = new SteamXboxDriverDetectedProperty(this);
             installUsbip = new InstallUsbipProperty(this);
             installRTSS = new ToolTriggerProperty(this, Function.InstallRTSS);
             uninstallViGEm = new ToolTriggerProperty(this, Function.UninstallViGEm);
@@ -2146,6 +2151,7 @@ namespace XboxGamingBar
             pawnIOInstalled.SetInstalledCallback(UpdatePawnIOInstalledUI);
             vigemBusInstalled.SetInstalledCallback(UpdateViGEmBusInstalledUI);
             hidHideInstalled.SetInstalledCallback(UpdateHidHideInstalledUI);
+            steamXboxDriverDetected.SetDetectedCallback(UpdateSteamXboxDriverUI);
 
             // AutoTDP properties
             autoTDPEnabled = new AutoTDPEnabledProperty(false);
@@ -2407,6 +2413,7 @@ namespace XboxGamingBar
                 installViGEmBus,
                 hidHideInstalled,
                 installHidHide,
+                steamXboxDriverDetected,
                 installUsbip,
                 installRTSS,
                 uninstallViGEm,

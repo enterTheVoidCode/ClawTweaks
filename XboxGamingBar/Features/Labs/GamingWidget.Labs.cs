@@ -150,10 +150,36 @@ namespace XboxGamingBar
             }
         }
 
+        private async void RequestSteamXboxDriverStatus()
+        {
+            if (!App.IsConnected)
+                return;
+
+            try
+            {
+                var request = new Windows.Foundation.Collections.ValueSet();
+                request.Add("Command", (int)Command.Get);
+                request.Add("Function", (int)Function.SteamXboxDriverDetected);
+                var response = await App.SendMessageAsync(request);
+
+                if (response != null && response.TryGetValue("Content", out object detectedObj))
+                {
+                    bool detected = Convert.ToBoolean(detectedObj);
+                    UpdateSteamXboxDriverUI(detected);
+                    Logger.Debug($"Steam Xbox driver status received: {detected}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to request Steam Xbox driver status: {ex.Message}");
+            }
+        }
+
         private void RequestControllerEmulationDriverStatus()
         {
             RequestViGEmBusStatus();
             RequestHidHideStatus();
+            RequestSteamXboxDriverStatus();
         }
 
         private async void UpdateDAServiceStatus()
