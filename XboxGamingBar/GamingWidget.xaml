@@ -631,9 +631,9 @@
                     </RadioButton>
                     <RadioButton x:Name="DriverNavItem" Tag="Drivers" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Drivers">
                         <RadioButton.Content>
-                            <!-- Tools / wrench (Segoe Fluent Icons "Repair", E90F) — driver & firmware updates -->
+                            <!-- Toolbox filled (Fluent UI System Icons ic_fluent_toolbox_32_filled, MIT) -->
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE90F;"/>
+                                <PathIcon Data="M12.25 3C10.4551 3 9 4.45507 9 6.25V8H5.25C3.45507 8 2 9.45508 2 11.25V15H9V14C9 13.4477 9.44772 13 10 13C10.5523 13 11 13.4477 11 14V15H21V14C21 13.4477 21.4477 13 22 13C22.5523 13 23 13.4477 23 14V15H30L30 11.25C30 9.45507 28.5449 8 26.75 8H23V6.25C23 4.45507 21.5449 3 19.75 3H12.25ZM21 8H11V6.25C11 5.55964 11.5596 5 12.25 5H19.75C20.4404 5 21 5.55964 21 6.25V8ZM2 24.75V17H9V18C9 18.5523 9.44772 19 10 19C10.5523 19 11 18.5523 11 18V17H21V18C21 18.5523 21.4477 19 22 19C22.5523 19 23 18.5523 23 18V17H30L30 24.75C30 26.5449 28.5449 28 26.75 28H5.25C3.45507 28 2 26.5449 2 24.75Z"/>
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
@@ -3542,7 +3542,8 @@
                 <!-- ONBOARDING / SETUP TAB -->
                 <ScrollViewer x:Name="OnboardingScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
-                    <StackPanel Padding="16,8,16,16">
+                    <StackPanel Padding="16,8,16,16"
+                                XYFocusKeyboardNavigation="Enabled">
                         <!-- App version & updates — collapsible, at the very top. Lists the latest and
                              previous release so the user can jump forward or roll back. -->
                         <muxc:Expander x:Name="AppUpdateExpander" Margin="0,0,0,10"
@@ -3593,7 +3594,18 @@
                             </StackPanel>
                         </muxc:Expander>
 
-                        <TextBlock Text="Setup &amp; Onboarding" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,4,0,2"/>
+                        <muxc:Expander x:Name="SetupExpander"
+                                       Margin="0,0,0,10"
+                                       HorizontalAlignment="Stretch"
+                                       HorizontalContentAlignment="Stretch"
+                                       IsExpanded="False">
+                            <muxc:Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8D7;" FontSize="14" Foreground="#5B8DEF" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Setup &amp; Onboarding" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </muxc:Expander.Header>
+                            <StackPanel>
                         <TextBlock Text="ClawTweaks needs a few small tools. One click checks what's present and installs anything missing."
                                    FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
@@ -3681,6 +3693,187 @@
                                            FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,6"/>
                                 <TextBlock x:Name="OnbViGEmStatus" Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888"/>
                             </StackPanel>
+                        </Border>
+                            </StackPanel>
+                        </muxc:Expander>
+
+                        <!-- Offboarding — install or remove individual tools, collapsed by default -->
+                        <muxc:Expander x:Name="OffboardingExpander"
+                                       Margin="0,0,0,10"
+                                       HorizontalAlignment="Stretch"
+                                       HorizontalContentAlignment="Stretch"
+                                       IsExpanded="False">
+                            <muxc:Expander.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="14" Foreground="#CC6644" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Offboarding" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </muxc:Expander.Header>
+                            <StackPanel>
+                                <TextBlock Text="Remove individual tools. Each row shows the current status and lets you uninstall independently."
+                                           FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                <Border Background="#1A1A2E" CornerRadius="6" Padding="12">
+                                    <StackPanel>
+                                        <!-- usbip-win2 -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="DebugUsbipStatusText" Text="usbip-win2: Checking..."
+                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                <Button x:Name="DebugUsbipInstallButton" Content="Install usbip-win2"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="DebugUsbipInstall_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="DebugUsbipUninstallButton" Content="Uninstall" IsEnabled="False"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="DebugUsbipUninstall_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="USB/IP kernel driver for VIIPER controller emulation."
+                                                   FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,8"/>
+
+                                        <!-- ViGEmBus -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="ControllerEmulationViGEmBusStatusText" Text="ViGEmBus: Checking..."
+                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                <Button x:Name="ControllerEmulationViGEmBusInstallButton" Content="Install ViGEmBus"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="ViGEmBusInstallButton_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="ControllerEmulationViGEmBusUninstallButton" Content="Uninstall" IsEnabled="False"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="ViGEmBusUninstallButton_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="Legacy controller emulation driver. Only needed when the VIIPER backend is off."
+                                                   FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,8"/>
+
+                                        <!-- HidHide -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="ControllerEmulationHidHideStatusText" Text="HidHide: Checking..."
+                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                <Button x:Name="ControllerEmulationHidHideInstallButton" Content="Install HidHide"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="HidHideInstallButton_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="ControllerEmulationHidHideUninstallButton" Content="Uninstall" IsEnabled="False"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="HidHideUninstallButton_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="Hides the Claw's built-in controller while emulation runs — prevents double input."
+                                                   FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,8"/>
+
+                                        <!-- RTSS -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="DebugRtssStatusText" Text="RTSS: Checking..."
+                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                <Button x:Name="DebugRtssInstallButton" Content="Install RTSS"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="DebugRtssInstall_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="DebugRtssUninstallButton" Content="Uninstall" IsEnabled="False"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="DebugRtssUninstall_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="RivaTuner Statistics Server — FPS limiter and on-screen overlay."
+                                                   FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,8"/>
+
+                                        <!-- PawnIO -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="DebugPawnIOStatusText" Text="PawnIO: Checking..."
+                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
+                                                <Button x:Name="DebugPawnIOInstallButton" Content="Install PawnIO"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="DebugPawnIOInstall_Click" Visibility="Collapsed"/>
+                                                <Button x:Name="DebugPawnIOUninstallButton" Content="Uninstall" IsEnabled="False"
+                                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                                        Click="DebugPawnIOUninstall_Click"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="Kernel sensor driver — exposes CPU/GPU power and temperature to the overlay."
+                                                   FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,4"/>
+
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </muxc:Expander>
+
+                        <!-- Factory Reset -->
+                        <Border Background="#2A1A1A"
+                                BorderBrush="#662222"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12"
+                                Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                    <TextBlock Text="Factory Reset" FontSize="14" Foreground="#CC4444" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Deletes all profiles, controller settings, custom tiles, TDP presets and Quick Settings. Charge limit is disabled and reset to 100 %. The app restarts with factory defaults."
+                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <Button x:Name="FactoryResetButton"
+                                        Grid.Column="1"
+                                        Content="Reset all"
+                                        Padding="12,6"
+                                        Background="#3A1A1A"
+                                        Foreground="#CC4444"
+                                        BorderBrush="#662222"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        VerticalAlignment="Center"
+                                        Click="FactoryResetButton_Click"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Uninstall ClawTweaks -->
+                        <Border Background="#1A1A1A"
+                                BorderBrush="#444444"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12"
+                                Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                    <TextBlock Text="Uninstall ClawTweaks" FontSize="14" Foreground="#AAAAAA" FontWeight="SemiBold"/>
+                                    <TextBlock Text="Opens Windows Settings → Apps so you can remove ClawTweaks. Run Factory Reset first to clean up all profiles and settings."
+                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                </StackPanel>
+                                <Button Grid.Column="1"
+                                        Content="Uninstall"
+                                        Padding="12,6"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource ModernButtonStyle}"
+                                        Click="UninstallClawTweaks_Click"/>
+                            </Grid>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
@@ -4411,37 +4604,6 @@
                                                       Toggled="EnableDebugToolsToggle_Toggled"/>
                                     </Grid>
 
-                                    <!-- Factory Reset -->
-                                    <Border Background="#2A1A1A"
-                                            BorderBrush="#662222"
-                                            BorderThickness="1"
-                                            CornerRadius="6"
-                                            Padding="12"
-                                            Margin="0,16,0,0">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Factory Reset" FontSize="14" Foreground="#CC4444" FontWeight="SemiBold"/>
-                                                <TextBlock Text="Deletes all profiles, controller settings, custom tiles, TDP presets and Quick Settings. The app restarts with factory defaults."
-                                                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,3,0,0"/>
-                                            </StackPanel>
-                                            <Button x:Name="FactoryResetButton"
-                                                    Grid.Column="1"
-                                                    Content="Reset all"
-                                                    Padding="12,6"
-                                                    Background="#3A1A1A"
-                                                    Foreground="#CC4444"
-                                                    BorderBrush="#662222"
-                                                    BorderThickness="1"
-                                                    CornerRadius="4"
-                                                    VerticalAlignment="Center"
-                                                    Click="FactoryResetButton_Click"/>
-                                        </Grid>
-                                    </Border>
-
                                     <!-- VIIPER Emulation Backend Toggle (experimental — debug menu only) -->
                                     <Grid Margin="0,16,0,0">
                                         <Grid.ColumnDefinitions>
@@ -4487,164 +4649,6 @@
                                                              Margin="0,4,0,0"
                                                              Content="Or open usbip-win2 releases"
                                                              NavigateUri="https://github.com/vadimgrn/usbip-win2/releases"/>
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- Driver dependencies — moved here from Controller tab so it's
-                                         co-located with the backend toggles that depend on these drivers -->
-                                    <Border Background="#1A1A2E" CornerRadius="4" Padding="10" Margin="0,12,0,0">
-                                        <StackPanel>
-                                            <TextBlock Text="Driver dependencies"
-                                                       FontSize="11"
-                                                       Foreground="#AAAAAA"/>
-                                            <TextBlock Text="usbip-win2 powers the default VIIPER controller emulation; ViGEmBus is the legacy alternative. HidHide avoids double-input from stock controllers."
-                                                       FontSize="11"
-                                                       Foreground="#888888"
-                                                       TextWrapping="Wrap"
-                                                       Margin="0,2,0,0"/>
-
-                                            <!-- usbip-win2 (VIIPER backend driver, downloaded signed installer) -->
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="DebugUsbipStatusText"
-                                                           Text="usbip-win2: Checking..."
-                                                           FontSize="11"
-                                                           Foreground="#888888"
-                                                           VerticalAlignment="Center"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
-                                                    <Button x:Name="DebugUsbipInstallButton"
-                                                            Content="Install usbip-win2"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="DebugUsbipInstall_Click"/>
-                                                    <Button x:Name="DebugUsbipUninstallButton"
-                                                            Content="Uninstall"
-                                                            IsEnabled="False"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="DebugUsbipUninstall_Click"/>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <!-- ViGEmBus (LEGACY backend driver) -->
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="ControllerEmulationViGEmBusStatusText"
-                                                           Text="ViGEmBus (legacy): Checking..."
-                                                           FontSize="11"
-                                                           Foreground="#888888"
-                                                           VerticalAlignment="Center"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
-                                                    <Button x:Name="ControllerEmulationViGEmBusInstallButton"
-                                                            Content="Install ViGEmBus"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="ViGEmBusInstallButton_Click"/>
-                                                    <Button x:Name="ControllerEmulationViGEmBusUninstallButton"
-                                                            Content="Uninstall"
-                                                            IsEnabled="False"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="ViGEmBusUninstallButton_Click"/>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="ControllerEmulationHidHideStatusText"
-                                                           Text="HidHide: Checking..."
-                                                           FontSize="11"
-                                                           Foreground="#888888"
-                                                           VerticalAlignment="Center"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
-                                                    <Button x:Name="ControllerEmulationHidHideInstallButton"
-                                                            Content="Install HidHide"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="HidHideInstallButton_Click"/>
-                                                    <Button x:Name="ControllerEmulationHidHideUninstallButton"
-                                                            Content="Uninstall"
-                                                            IsEnabled="False"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="HidHideUninstallButton_Click"/>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <!-- RTSS (FPS limiter + overlay) -->
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="DebugRtssStatusText"
-                                                           Text="RTSS: Checking..."
-                                                           FontSize="11"
-                                                           Foreground="#888888"
-                                                           VerticalAlignment="Center"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
-                                                    <Button x:Name="DebugRtssInstallButton"
-                                                            Content="Install RTSS"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="DebugRtssInstall_Click"/>
-                                                    <Button x:Name="DebugRtssUninstallButton"
-                                                            Content="Uninstall"
-                                                            IsEnabled="False"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="DebugRtssUninstall_Click"/>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <!-- PawnIO (hardware sensors) -->
-                                            <Grid Margin="0,8,0,0">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="DebugPawnIOStatusText"
-                                                           Text="PawnIO: Checking..."
-                                                           FontSize="11"
-                                                           Foreground="#888888"
-                                                           VerticalAlignment="Center"/>
-                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
-                                                    <Button x:Name="DebugPawnIOInstallButton"
-                                                            Content="Install PawnIO"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="DebugPawnIOInstall_Click"/>
-                                                    <Button x:Name="DebugPawnIOUninstallButton"
-                                                            Content="Uninstall"
-                                                            IsEnabled="False"
-                                                            Style="{StaticResource ModernButtonStyle}"
-                                                            FontSize="11"
-                                                            Padding="10,4"
-                                                            Click="DebugPawnIOUninstall_Click"/>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <HyperlinkButton Content="RTSS won't install? Download it manually (Guru3D)"
-                                                             NavigateUri="https://www.guru3d.com/files-details/rtss-rivatuner-statistics-server-download.html"
-                                                             FontSize="11" Margin="0,8,0,0" Padding="0"/>
                                         </StackPanel>
                                     </Border>
 
@@ -5174,15 +5178,14 @@
                                                 Content="Check for updates"
                                                 Style="{StaticResource ModernButtonStyle}"
                                                 Click="DriverUpdatesCheckButton_Click"/>
-                                        <Button x:Name="DriverUpdatesUpdateAllButton"
-                                                Content="Update all"
-                                                Visibility="Collapsed"
-                                                Style="{StaticResource ModernButtonStyle}"
-                                                Click="DriverUpdatesUpdateAllButton_Click"/>
                                         <Button x:Name="DriverUpdatesOpenPageButton"
                                                 Content="Open MSI driver page"
                                                 Style="{StaticResource ModernButtonStyle}"
                                                 Click="DriverUpdatesOpenPageButton_Click"/>
+                                        <Button x:Name="DriverUpdatesIntelDsaButton"
+                                                Content="Intel DSA"
+                                                Style="{StaticResource ModernButtonStyle}"
+                                                Click="DriverUpdatesIntelDsaButton_Click"/>
                                     </StackPanel>
 
                                     <TextBlock x:Name="DriverUpdatesStatusText"
@@ -5199,13 +5202,6 @@
                                               Foreground="#AAAAAA"
                                               Checked="DriverUpdatesUpdateOnStartCheckbox_Changed"
                                               Unchecked="DriverUpdatesUpdateOnStartCheckbox_Changed"/>
-                                    <CheckBox x:Name="DriverUpdatesHideBannerCheckbox"
-                                              Content="Hide driver-update banner on Quick tab"
-                                              IsChecked="False"
-                                              FontSize="12"
-                                              Foreground="#AAAAAA"
-                                              Checked="DriverUpdatesHideBannerCheckbox_Changed"
-                                              Unchecked="DriverUpdatesHideBannerCheckbox_Changed"/>
                                     <CheckBox x:Name="DriverUpdatesModdedWifiCheckbox"
                                               Content="Use modded Wi-Fi driver (theboss619) — at your own risk"
                                               IsChecked="False"
@@ -5214,51 +5210,70 @@
                                               Checked="DriverUpdatesModdedWifiCheckbox_Changed"
                                               Unchecked="DriverUpdatesModdedWifiCheckbox_Changed"/>
 
-                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed">
+                                    <ItemsControl x:Name="DriverUpdatesList" Visibility="Collapsed"
+                                                  XYFocusKeyboardNavigation="Enabled">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border Background="#1A1A2E" CornerRadius="4" Padding="8,6" Margin="0,3,0,0">
-                                                    <StackPanel>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
-                                                            <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
-                                                            </Border>
-                                                        </Grid>
-                                                        <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
-                                                            <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
-                                                        </TextBlock>
-                                                        <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
-                                                            <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
-                                                        </TextBlock>
-                                                        <Grid Margin="0,4,0,0">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
-                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                                                <Button Content="{Binding MuteButtonLabel}"
-                                                                        Tag="{Binding IgnoreKey}"
-                                                                        Visibility="{Binding MuteButtonVisibility}"
-                                                                        Style="{StaticResource ModernButtonStyle}"
-                                                                        FontSize="11"
-                                                                        Padding="10,4"
-                                                                        Click="DriverMuteButton_Click"/>
-                                                                <Button Content="{Binding InstallButtonLabel}"
-                                                                        Tag="{Binding DownloadUrl}"
-                                                                        Visibility="{Binding InstallButtonVisibility}"
-                                                                        Style="{StaticResource ModernButtonStyle}"
-                                                                        FontSize="11"
-                                                                        Padding="10,4"
-                                                                        Click="DriverInstallButton_Click"/>
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </StackPanel>
+                                                    <Grid ColumnSpacing="10">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="22"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0"
+                                                                   Text="{Binding CategoryIcon}"
+                                                                   FontFamily="Segoe MDL2 Assets"
+                                                                   FontSize="16"
+                                                                   Foreground="#7A9EC8"
+                                                                   HorizontalAlignment="Center"
+                                                                   VerticalAlignment="Center"/>
+                                                        <StackPanel Grid.Column="1" XYFocusKeyboardNavigation="Enabled">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="13" Foreground="#E0E0E0" TextWrapping="Wrap"/>
+                                                                <Border Grid.Column="1" Background="{Binding StatusColor}" CornerRadius="10" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                                    <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
+                                                                </Border>
+                                                            </Grid>
+                                                            <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                                <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
+                                                            </TextBlock>
+                                                            <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                                <Run Text="Installed:"/><Run Text=" "/><Run Text="{Binding InstalledVersion}"/><Run Text="  →  "/><Run Text="Latest:"/><Run Text=" "/><Run Text="{Binding Version}"/>
+                                                            </TextBlock>
+                                                            <TextBlock Text="{Binding Highlights}"
+                                                                       FontSize="10" Foreground="#AA77CC"
+                                                                       FontStyle="Italic"
+                                                                       TextWrapping="Wrap" Margin="0,2,0,0"
+                                                                       Visibility="{Binding HighlightsVisibility}"/>
+                                                            <Grid Margin="0,4,0,0">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="{Binding ReleaseDate, FallbackValue=''}" FontSize="10" Foreground="#666666" VerticalAlignment="Center"/>
+                                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                                    <Button Content="{Binding MuteButtonLabel}"
+                                                                            Tag="{Binding IgnoreKey}"
+                                                                            Visibility="{Binding MuteButtonVisibility}"
+                                                                            Style="{StaticResource ModernButtonStyle}"
+                                                                            FontSize="11"
+                                                                            Padding="10,4"
+                                                                            Click="DriverMuteButton_Click"/>
+                                                                    <Button Content="{Binding InstallButtonLabel}"
+                                                                            Tag="{Binding DownloadUrl}"
+                                                                            Visibility="{Binding InstallButtonVisibility}"
+                                                                            Style="{StaticResource ModernButtonStyle}"
+                                                                            FontSize="11"
+                                                                            Padding="10,4"
+                                                                            Click="DriverInstallButton_Click"/>
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </StackPanel>
+                                                    </Grid>
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -6213,6 +6228,25 @@
                                                 <TextBlock Text="MSI Center M is active — controller emulation and gyro unavailable. Disable it via the MSI Center tile in the Quick Tab."
                                                            FontSize="11" Foreground="#FFA500" TextWrapping="Wrap"/>
                                             </StackPanel>
+                                        </Border>
+                                        <!-- Steam Xbox Extended Feature Support driver warning -->
+                                        <Border x:Name="SteamXboxDriverWarning"
+                                                Background="#220000"
+                                                BorderBrush="#FF5050"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="8,6"
+                                                Margin="0,6,0,0"
+                                                Visibility="Collapsed">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <FontIcon Grid.Column="0" Glyph="&#xE7BA;" FontSize="13" Foreground="#FF5050" VerticalAlignment="Top" Margin="0,1,8,0"/>
+                                                <TextBlock Grid.Column="1" FontSize="11" Foreground="#FF5050" TextWrapping="Wrap"
+                                                           Text="Steam's &quot;Xbox Extended Feature Support&quot; driver is active. It intercepts HID reports and prevents virtual controller emulation. Disable it in Steam → Settings → Controller → uncheck &quot;Xbox Extended Feature Support&quot;."/>
+                                            </Grid>
                                         </Border>
                                     </StackPanel>
                                     <ToggleButton x:Name="ControllerEmulationExpandButton"
@@ -9530,7 +9564,7 @@
                                         <TextBlock x:Name="ControllerStateViiperValue" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                     <Grid>
-                                        <TextBlock Text="MSI Claw XInput (PID_1901)" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock Text="Game controllers" FontSize="13" Foreground="#AAAAAA"/>
                                         <TextBlock x:Name="ControllerStatePid1901Value" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
                                     <Grid>
@@ -9545,6 +9579,28 @@
                                         <TextBlock Text="XInput slots connected" FontSize="13" Foreground="#AAAAAA"/>
                                         <TextBlock x:Name="ControllerStateXInputValue" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
+
+                                    <!-- Console-style controller list -->
+                                    <Border Background="#0D0D0D"
+                                            BorderBrush="#333333"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="10,8"
+                                            Margin="0,4,0,0">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="CONNECTED CONTROLLERS"
+                                                       FontFamily="Consolas, Courier New"
+                                                       FontSize="10"
+                                                       Foreground="#555555"
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock x:Name="ControllerListConsole"
+                                                       Text="scanning..."
+                                                       FontFamily="Consolas, Courier New"
+                                                       FontSize="11"
+                                                       Foreground="#DDDDDD"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -10105,6 +10161,15 @@
 
                     </StackPanel>
                 </ScrollViewer>
+
+                <!-- Dim overlay: shown whenever the connection banner is visible to focus
+                     the user on the banner and block accidental tile interaction. -->
+                <Border x:Name="BannerDimOverlay"
+                        Background="#99000000"
+                        VerticalAlignment="Stretch"
+                        HorizontalAlignment="Stretch"
+                        IsHitTestVisible="True"
+                        Visibility="Collapsed"/>
 
                 <!-- Connection Status Banner - placed last for z-order (renders on top) -->
                 <!-- Visible by default with Loading... so user sees immediate feedback before code runs -->

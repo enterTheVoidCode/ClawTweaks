@@ -50,8 +50,6 @@ namespace XboxGamingBar
                     GoTweaksHideBannerCheckbox.IsChecked = GoTweaksHideBanner;
                 if (DriverUpdatesUpdateOnStartCheckbox != null)
                     DriverUpdatesUpdateOnStartCheckbox.IsChecked = DriverUpdatesCheckOnStart;
-                if (DriverUpdatesHideBannerCheckbox != null)
-                    DriverUpdatesHideBannerCheckbox.IsChecked = DriverUpdatesHideBanner;
                 if (DriverUpdatesModdedWifiCheckbox != null)
                     DriverUpdatesModdedWifiCheckbox.IsChecked = DriverUpdatesUseModdedWifi;
             }

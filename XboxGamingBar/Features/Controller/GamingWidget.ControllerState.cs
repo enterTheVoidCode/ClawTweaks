@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Shared.Enums;
 using Windows.UI;
 using Windows.UI.Core;
@@ -51,7 +52,7 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Parse "state|vigem|pid1901|pid1902|blocked|xinput" and update the card UI.
+        /// Parse "state|vigem|pid1901|pid1902|blocked|xinput|viiper|viiperType|pid1901Hid" and update the card UI.
         /// </summary>
         private void OnControllerStateReceived(string content)
         {
@@ -60,7 +61,7 @@ namespace XboxGamingBar
                 if (ControllerStateText == null)
                     return;
 
-                int state = 0, vigem = 0, pid1901 = 0, pid1902 = 0, blocked = -1, xinput = 0, viiper = 0;
+                int state = 0, vigem = 0, pid1901 = 0, pid1902 = 0, blocked = -1, xinput = 0, viiper = 0, pid1901Hid = -1, joyCplCount = -1;
                 string viiperType = "";
                 try
                 {
@@ -76,6 +77,8 @@ namespace XboxGamingBar
                     }
                     if (parts.Length >= 7) int.TryParse(parts[6], out viiper);
                     if (parts.Length >= 8) viiperType = parts[7] ?? "";
+                    if (parts.Length >= 9) int.TryParse(parts[8], out pid1901Hid);
+                    if (parts.Length >= 10) int.TryParse(parts[9], out joyCplCount);
                 }
                 catch { /* fall through to "unknown" defaults */ }
 
@@ -122,8 +125,56 @@ namespace XboxGamingBar
                     ControllerStateViiperValue.Text = viiper > 0
                         ? (string.IsNullOrEmpty(viiperName) ? $"{viiper} active" : $"{viiperName} (active)")
                         : "none";
+                // "Game controllers" counter = xinput (occupied XInput slots) — the same number
+                // joy.cpl shows regardless of mode. pid1901Hid tracks physical MSI nodes for the
+                // console list and health-check coloring in HW mode.
                 if (ControllerStatePid1901Value != null)
-                    ControllerStatePid1901Value.Text = pid1901 > 0 ? "present" : "not present";
+                {
+                    ControllerStatePid1901Value.Text = xinput.ToString();
+
+                    // Color: in HW mode (2) we expect 3 MSI XInput nodes; in virtual mode (1)
+                    // we expect at least 1 virtual controller; otherwise white if anything present.
+                    bool countOk = state == 2 ? xinput >= 3
+                                 : state == 1 ? xinput >= 1
+                                 : xinput > 0;
+                    ControllerStatePid1901Value.Foreground = new SolidColorBrush(
+                        countOk
+                            ? Windows.UI.Colors.White
+                            : xinput > 0
+                                ? Windows.UI.Color.FromArgb(255, 255, 180, 0)   // orange — partial
+                                : Windows.UI.Color.FromArgb(255, 255, 80, 80)); // red — none
+                }
+
+                if (ControllerListConsole != null)
+                {
+                    var sb = new StringBuilder();
+                    int slot = 0;
+
+                    // MSI Claw XInput gamepad nodes (each = one joy.cpl "Xbox 360 Controller" entry)
+                    int igCount = pid1901Hid >= 0 ? pid1901Hid : (pid1901 > 0 ? 1 : 0);
+                    for (int i = 0; i < igCount; i++)
+                        sb.AppendLine($"[{slot++}]  Xbox 360 Controller for Windows  (MSI Claw)");
+
+                    // ViGEm virtual controllers
+                    for (int i = 0; i < vigem; i++)
+                        sb.AppendLine($"[{slot++}]  Xbox 360 Controller  (Virtual / ViGEm)");
+
+                    // VIIPER virtual controllers
+                    if (viiper > 0)
+                    {
+                        string vname = string.IsNullOrEmpty(viiperName) ? "VIIPER" : viiperName;
+                        for (int i = 0; i < viiper; i++)
+                            sb.AppendLine($"[{slot++}]  {vname}  (Virtual / VIIPER)");
+                    }
+
+                    // PID_1902 DInput (if visible / not hidden)
+                    if (pid1902 > 0)
+                        sb.AppendLine($"[{slot++}]  MSI Claw DInput Controller  (PID_1902)");
+
+                    ControllerListConsole.Text = sb.Length > 0
+                        ? sb.ToString().TrimEnd()
+                        : "(no controllers detected)";
+                }
                 if (ControllerStatePid1902Value != null)
                     ControllerStatePid1902Value.Text = pid1902 > 0 ? "present" : "not present";
                 if (ControllerStateBlockedValue != null)

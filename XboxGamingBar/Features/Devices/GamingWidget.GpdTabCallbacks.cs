@@ -142,6 +142,37 @@ namespace XboxGamingBar
         /// AND game state. The card is hidden while a game is running — changing the virtual
         /// controller during gameplay is not supported and wastes screen space.
         /// </summary>
+        /// <summary>
+        /// Single source of truth for ControllerEmulationEnabledToggle.IsEnabled.
+        /// The toggle is interactive only when ALL prerequisites are met:
+        ///   1. Hardware / helper reports emulation as supported.
+        ///   2. Steam Xbox driver not active.
+        ///   3. MSI Center M not intercepting the controller.
+        ///   4. Onboarding complete (all required tools installed).
+        /// Exception to (4): if emulation is already running (toggle ON, restored at startup),
+        /// the user can always turn it off — they should never be stuck in an active-emulation state.
+        /// </summary>
+        internal void UpdateControllerEmulationToggleEnabled()
+        {
+            if (ControllerEmulationEnabledToggle == null) return;
+
+            if (!controllerEmulationSupported
+                || _steamXboxDriverDetected
+                || msiCenterActive?.Value == true)
+            {
+                ControllerEmulationEnabledToggle.IsEnabled = false;
+                UpdateControllerEmulationStatusText();
+                return;
+            }
+
+            bool onboardingOk = OnbAllToolsInstalled || GetPersistedOnboardingComplete();
+            bool alreadyOn = ControllerEmulationEnabledToggle.IsOn;
+            bool allowed = onboardingOk || alreadyOn;
+            ControllerEmulationEnabledToggle.IsEnabled = allowed;
+            UpdateControllerEmulationStatusText();
+            Logger.Debug($"[VCtrl] toggle enabled={allowed} (onboarding={onboardingOk}, alreadyOn={alreadyOn}, steam={_steamXboxDriverDetected}, msi={msiCenterActive?.Value})");
+        }
+
         private void SetControllerEmulationAvailability(bool available)
         {
             controllerEmulationSupported = available;
@@ -156,13 +187,9 @@ namespace XboxGamingBar
                 Logger.Info($"Controller tab visibility set to: {available} (non-Legion, controllerEmulationAvailable)");
             }
 
-            if (ControllerEmulationEnabledToggle != null)
-            {
-                ControllerEmulationEnabledToggle.IsEnabled = available;
-            }
+            UpdateControllerEmulationToggleEnabled();
 
             UpdateControllerEmulationControlState();
-            UpdateControllerEmulationStatusText();
             Logger.Info($"Controller emulation availability set to: {available}");
             UpdateControllerEmulationMouseSettingsVisibility();
             RefreshLegionEnhancedRemapUi();
@@ -389,34 +416,47 @@ namespace XboxGamingBar
 
         private void UpdateControllerEmulationStatusText()
         {
-            if (ControllerEmulationStatusText != null)
-            {
-                bool enabled = controllerEmulationSupported &&
-                               ControllerEmulationEnabledToggle != null &&
-                               ControllerEmulationEnabledToggle.IsOn;
+            if (ControllerEmulationStatusText == null) return;
 
-                if (!controllerEmulationSupported)
-                {
-                    ControllerEmulationStatusText.Text = "Controller emulation is not available on this handheld.";
-                    ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
-                }
-                else if (!enabled)
-                {
-                    ControllerEmulationStatusText.Text = "Controller emulation is disabled.";
-                    ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 210, 170, 90));
-                }
-                else
-                {
-                    ControllerEmulationStatusText.Text = "Controller emulation is enabled.";
-                    ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 200, 120));
-                }
+            bool isOn = ControllerEmulationEnabledToggle?.IsOn == true;
+
+            if (!controllerEmulationSupported)
+            {
+                ControllerEmulationStatusText.Text = "Controller emulation is not available on this handheld.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+            }
+            else if (_steamXboxDriverDetected)
+            {
+                ControllerEmulationStatusText.Text = "Blocked by Steam Xbox driver — disable it in Steam Settings → Controller.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 80, 80));
+            }
+            else if (msiCenterActive?.Value == true)
+            {
+                ControllerEmulationStatusText.Text = "Blocked by MSI Center M — turn it off first.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 80, 80));
+            }
+            else if (!OnbAllToolsInstalled && !GetPersistedOnboardingComplete() && !isOn)
+            {
+                ControllerEmulationStatusText.Text = "Complete the setup (Setup tab) before enabling controller emulation.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 210, 170, 90));
+            }
+            else if (!isOn)
+            {
+                ControllerEmulationStatusText.Text = "Controller emulation is disabled.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 210, 170, 90));
+            }
+            else
+            {
+                ControllerEmulationStatusText.Text = "Controller emulation is enabled.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 200, 120));
             }
         }
 
         private void ControllerEmulationEnabledToggle_Toggled(object sender, RoutedEventArgs e)
         {
             UpdateControllerEmulationControlState();
-            UpdateControllerEmulationStatusText();
+            // Re-evaluate IsEnabled: if user turned emulation off, "alreadyOn" gate no longer applies.
+            UpdateControllerEmulationToggleEnabled();
             UpdateControllerEmulationMouseSettingsVisibility();
             UpdateSystemControllerEmulationNavigation();
             // Per-game controller profiles only work with emulation running — keep the

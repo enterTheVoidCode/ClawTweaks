@@ -196,6 +196,20 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes DriverInstallComplete after a large background
+                // download (e.g. Intel Arc 824 MB) finishes. Re-enables the
+                // install button and shows the final status message.
+                if (message.TryGetValue("DriverInstallComplete", out object driverCompleteObj)
+                    && driverCompleteObj is string driverCompleteJson)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnDriverInstallComplete(driverCompleteJson); }
+                        catch (Exception ex) { Logger.Error($"OnDriverInstallComplete dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Skip TDP and CurrentTDP updates during Sticky TDP reapply
                 if (isStickyTDPReapplying && message.ContainsKey("Function"))
                 {

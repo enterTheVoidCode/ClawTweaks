@@ -134,6 +134,7 @@
     <Compile Include="Data\InstallViGEmBusProperty.cs" />
     <Compile Include="Data\HidHideInstalledProperty.cs" />
     <Compile Include="Data\InstallHidHideProperty.cs" />
+    <Compile Include="Data\SteamXboxDriverDetectedProperty.cs" />
     <Compile Include="Data\InstallUsbipProperty.cs" />
     <Compile Include="Data\ToolTriggerProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />

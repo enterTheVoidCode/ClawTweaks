@@ -86,21 +86,8 @@ namespace XboxGamingBar
             if (MsiCenterControllerWarning != null)
                 MsiCenterControllerWarning.Visibility = msiActive ? Visibility.Visible : Visibility.Collapsed;
 
-            if (ControllerEmulationEnabledToggle != null && msiActive)
-            {
-                // Force-off while MSI Center M is active.
-                // Do NOT call SetValue here — just visually/logically disable.
-                ControllerEmulationEnabledToggle.IsEnabled = false;
-            }
-            else if (ControllerEmulationEnabledToggle != null && !msiActive)
-            {
-                // Re-enable only if the underlying support conditions are met
-                // (ViGEmBus, HidHide etc.) — rely on the existing support-check
-                // path that sets IsEnabled after helper reports capabilities.
-                // We just remove our extra gate; the normal path will set the
-                // final enabled state on the next UpdateControllerEmulationControlState call.
-                UpdateControllerEmulationControlState();
-            }
+            // Delegate IsEnabled to the centralized gate — it checks MSI, Steam, and onboarding.
+            UpdateControllerEmulationToggleEnabled();
 
             Logger.Info($"UpdateMsiCenterGatedFeatures: msiActive={msiActive}");
         }

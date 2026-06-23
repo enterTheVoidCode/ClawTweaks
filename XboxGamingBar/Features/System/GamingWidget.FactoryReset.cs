@@ -2,6 +2,7 @@ using NLog;
 using System;
 using System.Linq;
 using Windows.Storage;
+using Windows.System;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 
@@ -75,7 +76,21 @@ namespace XboxGamingBar
                     Logger.Warn($"FactoryReset: could not clear local folder: {ex.Message}");
                 }
 
-                // 4. Tell the helper to reset its OWN global controller profile (gyro + Legion
+                // 4. Disable charge limit and reset it to 100 % so the battery charges fully after reset.
+                try
+                {
+                    if (App.IsConnected)
+                    {
+                        await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "MsiChargeLimit", "False:100" } });
+                        Logger.Info("FactoryReset: charge limit disabled (reset to 100 %)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"FactoryReset: failed to reset charge limit: {ex.Message}");
+                }
+
+                // 5. Tell the helper to reset its OWN global controller profile (gyro + Legion
                 //    controller settings). These are persisted in the helper's profile store
                 //    (global.xml), which this widget-side reset does not touch — otherwise gyro
                 //    stays active after a reset. Gyro must default to OFF.
@@ -117,6 +132,17 @@ namespace XboxGamingBar
                     CloseButtonText = "OK"
                 };
                 await errDialog.ShowAsync();
+            }
+        }
+        private async void UninstallClawTweaks_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                await Launcher.LaunchUriAsync(new Uri("ms-settings:appsfeatures"));
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"UninstallClawTweaks: could not open Settings: {ex.Message}");
             }
         }
     }

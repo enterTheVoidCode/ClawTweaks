@@ -103,6 +103,8 @@ namespace XboxGamingBar
                     break;
             }
             ConnectionStatusBanner.Visibility = Visibility.Visible;
+            if (BannerDimOverlay != null)
+                BannerDimOverlay.Visibility = Visibility.Visible;
 
             // Also update the small status indicator dot
             switch (state)
@@ -147,6 +149,9 @@ namespace XboxGamingBar
             {
                 Logger.Warn("[BANNER] HideConnectionBanner: ConnectionStatusBanner is null!");
             }
+
+            if (BannerDimOverlay != null)
+                BannerDimOverlay.Visibility = Visibility.Collapsed;
 
             // When banner is hidden, we're connected - show green status
             UpdateHelperStatusIndicator(HelperStatus.Connected);

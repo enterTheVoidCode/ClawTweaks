@@ -36,6 +36,10 @@ namespace XboxGamingBarHelper.Services
     internal static class IntelDsaCatalogService
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private static readonly System.Text.RegularExpressions.Regex _liRegex =
+            new System.Text.RegularExpressions.Regex(@"<li[^>]*>(.*?)</li>",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                System.Text.RegularExpressions.RegexOptions.Singleline);
 
         private const string DataCdnUrl = "https://dsadata.intel.com/data/en";
         private static readonly string[] LocalCacheZips =
@@ -64,6 +68,8 @@ namespace XboxGamingBarHelper.Services
             public string Version;           // e.g. "32.0.101.8826"
             public string PageUrl;           // Intel download page (placeholder resolved)
             public string FileUrl;           // direct downloadmirror.intel.com installer (may be empty)
+            /// <summary>Game On Driver highlights parsed from ExtendedDetails (e.g. "Gothic 1 Remake*, F1® 25: 2026 Season*").</summary>
+            public string Highlights;        // comma-separated list of highlighted games (may be empty)
             public List<string> DetectionValues = new List<string>(); // VEN_xxxx&DEV_xxxx[&SUBSYS_...]
         }
 
@@ -146,14 +152,33 @@ namespace XboxGamingBarHelper.Services
                     pageUrl = pageUrl.Replace("/{packageId}", "").Replace("{packageId}/", "").Replace("{packageId}", "");
 
                 string fileUrl = "";
-                if (pkg.TryGetProperty("Files", out var files) && files.ValueKind == JsonValueKind.Array)
+                if (pkg.TryGetProperty("Files", out var files))
                 {
-                    foreach (var f in files.EnumerateArray())
+                    if (files.ValueKind == JsonValueKind.Array)
                     {
-                        var u = GetStr(f, "url");
-                        if (!string.IsNullOrEmpty(u)) { fileUrl = u; break; }
+                        foreach (var f in files.EnumerateArray())
+                        {
+                            var u = GetStr(f, "Url");
+                            if (!string.IsNullOrEmpty(u) && u.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                            { fileUrl = u; break; }
+                        }
+                        // Second pass: accept any non-empty URL if no .exe found
+                        if (string.IsNullOrEmpty(fileUrl))
+                        {
+                            foreach (var f in files.EnumerateArray())
+                            {
+                                var u = GetStr(f, "Url");
+                                if (!string.IsNullOrEmpty(u)) { fileUrl = u; break; }
+                            }
+                        }
+                    }
+                    else if (files.ValueKind == JsonValueKind.Object)
+                    {
+                        fileUrl = GetStr(files, "Url");
                     }
                 }
+
+                string highlights = ParseHighlightsFromHtml(GetStr(pkg, "ExtendedDetails"));
 
                 if (!pkg.TryGetProperty("Components", out var comps) || comps.ValueKind != JsonValueKind.Array)
                     continue;
@@ -166,6 +191,7 @@ namespace XboxGamingBarHelper.Services
                         Version = GetStr(comp, "Version"),
                         PageUrl = pageUrl,
                         FileUrl = fileUrl,
+                        Highlights = highlights,
                     };
                     if (comp.TryGetProperty("DetectionValues", out var dv) && dv.ValueKind == JsonValueKind.Array)
                         foreach (var v in dv.EnumerateArray())
@@ -210,6 +236,33 @@ namespace XboxGamingBarHelper.Services
                 }
             }
             return best;
+        }
+
+        /// <summary>
+        /// Finds the "Highlights" bullet list in Intel's ExtendedDetails HTML and
+        /// returns the items as a comma-separated string (e.g. "Gothic 1 Remake*, F1® 25").
+        /// Returns empty string when no highlights section is found.
+        /// </summary>
+        private static string ParseHighlightsFromHtml(string html)
+        {
+            if (string.IsNullOrWhiteSpace(html)) return "";
+            int hIdx = html.IndexOf("Highlights", StringComparison.OrdinalIgnoreCase);
+            if (hIdx < 0) return "";
+            int ulStart = html.IndexOf("<ul", hIdx, StringComparison.OrdinalIgnoreCase);
+            if (ulStart < 0) return "";
+            int ulEnd = html.IndexOf("</ul>", ulStart, StringComparison.OrdinalIgnoreCase);
+            if (ulEnd < 0) return "";
+            string ulBlock = html.Substring(ulStart, ulEnd - ulStart + 5);
+            var items = new List<string>();
+            foreach (System.Text.RegularExpressions.Match m in _liRegex.Matches(ulBlock))
+            {
+                string text = System.Text.RegularExpressions.Regex.Replace(m.Groups[1].Value, "<[^>]+>", "").Trim();
+                text = text.Replace("&amp;", "&").Replace("&reg;", "®").Replace("&nbsp;", " ")
+                           .Replace("&trade;", "™").Replace("&copy;", "©");
+                text = System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+                if (!string.IsNullOrWhiteSpace(text)) items.Add(text);
+            }
+            return string.Join(", ", items);
         }
 
         private static string GetStr(JsonElement obj, string name)

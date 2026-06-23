@@ -934,11 +934,15 @@ namespace XboxGamingBarHelper
                             && Uri.TryCreate(extUrl, UriKind.Absolute, out var extUri)
                             && (extUri.Scheme == "http" || extUri.Scheme == "https"))
                         {
+                            // cmd /c start is the reliable way to open a URL from an elevated
+                            // process into the user's (non-elevated) default browser. Using
+                            // explorer.exe directly fails when the URL contains query strings.
                             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                             {
-                                FileName = "explorer.exe",
-                                Arguments = extUri.AbsoluteUri,
+                                FileName = "cmd.exe",
+                                Arguments = "/c start \"\" \"" + extUri.AbsoluteUri + "\"",
                                 UseShellExecute = false,
+                                CreateNoWindow = true,
                             });
                             opened = true;
                             Logger.Info($"Pipe: OpenExternalUrl -> {extUri.Host}");
@@ -1002,6 +1006,7 @@ namespace XboxGamingBarHelper
                 // the folder (the user runs Setup.bat themselves).
                 if (pipeMsg.Extra.ContainsKey("InstallModdedWifi"))
                 {
+                    Logger.Info("Pipe: InstallModdedWifi — starting download");
                     string resultJson;
                     try { resultJson = await Services.MsiClawDriverCheckService.InstallModdedWifiAsync(); }
                     catch (Exception ex)
@@ -1009,6 +1014,8 @@ namespace XboxGamingBarHelper
                         Logger.Warn($"Pipe: InstallModdedWifi threw: {ex.Message}");
                         resultJson = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
                     }
+                    // Driver changed on disk → drop the cached snapshot so the next check re-reads PnP.
+                    Services.MsiClawDriverCheckService.InvalidateCache();
                     if (pipeServer != null && pipeServer.IsConnected)
                     {
                         var response = new global::Windows.Foundation.Collections.ValueSet { { "ModdedWifiInstallResult", resultJson } };
@@ -1168,39 +1175,99 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
-                // Handle driver-install request. Widget sends a Lenovo download URL;
-                // helper downloads the file to a per-session temp folder and launches
-                // it. The helper runs elevated so Lenovo EXE installers that require
-                // admin work without a second UAC prompt. Response signals start
-                // success/failure only — we don't wait for the installer to finish.
+                // Handle driver-install request. Widget sends a download URL; helper
+                // downloads the file to a per-session temp folder and launches it elevated.
+                // Intel CDN files (downloadmirror.intel.com) can be 800+ MB — running those
+                // inline would block the pipe until the download finishes and the widget's
+                // SendMessageAsync times out, causing the button to flicker back immediately.
+                // For those large downloads: respond immediately with async:true, then finish
+                // the download in the background and push DriverInstallComplete when done.
                 if (pipeMsg.Extra.ContainsKey("InstallDriverUpdate"))
                 {
-                    string resultJson;
-                    try
+                    string installUrl = null;
+                    if (pipeMsg.Extra.TryGetValue("InstallDriverUpdate", out var urlObj))
+                        installUrl = urlObj?.ToString();
+
+                    bool isLargeDownload = !string.IsNullOrEmpty(installUrl) &&
+                        (installUrl.IndexOf("downloadmirror.intel.com", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                         installUrl.IndexOf("downloads.intel.com", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                    Logger.Info($"Pipe: InstallDriverUpdate url='{installUrl}' isLargeDownload={isLargeDownload}");
+
+                    if (isLargeDownload)
                     {
-                        string installUrl = null;
-                        if (pipeMsg.Extra.TryGetValue("InstallDriverUpdate", out var urlObj))
+                        // Acknowledge immediately so the pipe round-trip returns without timing out.
+                        if (pipeServer != null && pipeServer.IsConnected)
                         {
-                            installUrl = urlObj?.ToString();
+                            var ack = new global::Windows.Foundation.Collections.ValueSet
+                            {
+                                { "DriverInstallResult", "{\"success\":true,\"message\":\"Downloading driver in background…\",\"async\":true}" },
+                            };
+                            var ackMsg = Shared.IPC.PipeMessage.FromValueSet(ack);
+                            ackMsg.RequestId = pipeMsg.RequestId;
+                            pipeServer.SendMessage(ackMsg.ToJson());
                         }
-                        resultJson = Services.MsiClawDriverCheckService.IsClawHardware()
-                            ? await Services.MsiClawDriverCheckService.InstallDriverAsync(installUrl)
-                            : await Services.LenovoDriverCheckService.InstallDriverAsync(installUrl);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Warn($"Pipe: InstallDriverUpdate threw: {ex.Message}");
-                        resultJson = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
-                    }
-                    if (pipeServer != null && pipeServer.IsConnected)
-                    {
-                        var response = new global::Windows.Foundation.Collections.ValueSet
+
+                        // Download + launch in the background; push completion when done.
+                        var capturedUrl = installUrl;
+                        _ = Task.Run(async () =>
                         {
-                            { "DriverInstallResult", resultJson },
-                        };
-                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
-                        responseMsg.RequestId = pipeMsg.RequestId;
-                        pipeServer.SendMessage(responseMsg.ToJson());
+                            string resultJson;
+                            try
+                            {
+                                resultJson = Services.MsiClawDriverCheckService.IsClawHardware()
+                                    ? await Services.MsiClawDriverCheckService.InstallDriverAsync(capturedUrl)
+                                    : await Services.LenovoDriverCheckService.InstallDriverAsync(capturedUrl);
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Warn($"Background driver install threw: {ex.Message}");
+                                resultJson = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
+                            }
+                            Logger.Info($"Background driver install finished: {resultJson}");
+                            // Driver changed on disk → drop the cached snapshot so the next check re-reads PnP.
+                            Services.MsiClawDriverCheckService.InvalidateCache();
+                            if (pipeServer != null && pipeServer.IsConnected)
+                            {
+                                var push = new global::Windows.Foundation.Collections.ValueSet
+                                {
+                                    { "DriverInstallComplete", resultJson },
+                                };
+                                pipeServer.SendMessage(Shared.IPC.PipeMessage.FromValueSet(push).ToJson());
+                            }
+                            else
+                            {
+                                Logger.Warn("Background driver install: pipe not connected, cannot push DriverInstallComplete");
+                            }
+                        });
+                    }
+                    else
+                    {
+                        // Small/local download: synchronous path, respond after launch.
+                        string resultJson;
+                        try
+                        {
+                            resultJson = Services.MsiClawDriverCheckService.IsClawHardware()
+                                ? await Services.MsiClawDriverCheckService.InstallDriverAsync(installUrl)
+                                : await Services.LenovoDriverCheckService.InstallDriverAsync(installUrl);
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.Warn($"Pipe: InstallDriverUpdate threw: {ex.Message}");
+                            resultJson = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
+                        }
+                        // Driver changed on disk → drop the cached snapshot so the next check re-reads PnP.
+                        Services.MsiClawDriverCheckService.InvalidateCache();
+                        if (pipeServer != null && pipeServer.IsConnected)
+                        {
+                            var response = new global::Windows.Foundation.Collections.ValueSet
+                            {
+                                { "DriverInstallResult", resultJson },
+                            };
+                            var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                            responseMsg.RequestId = pipeMsg.RequestId;
+                            pipeServer.SendMessage(responseMsg.ToJson());
+                        }
                     }
                     return;
                 }
@@ -1665,6 +1732,16 @@ namespace XboxGamingBarHelper
                     });
                     response = new global::Windows.Foundation.Collections.ValueSet();
                     response.Add("Content", true); // Acknowledge request started
+                }
+                // Steam Xbox extended controller driver conflict detection
+                else if (functionValue == (int)Function.SteamXboxDriverDetected)
+                {
+                    bool detected = DetectSteamXboxDriver();
+                    response = new global::Windows.Foundation.Collections.ValueSet();
+                    response.Add(nameof(Function), functionValue);
+                    response.Add("Content", detected);
+                    response.Add("UpdatedTime", DateTimeOffset.Now.ToUnixTimeMilliseconds());
+                    Logger.Info($"Pipe: Steam Xbox driver detected: {detected}");
                 }
                 // HidHide: Check installed status
                 else if (functionValue == (int)Function.HidHideInstalled)

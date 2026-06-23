@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System;
 using System.Linq;
 using System.Management;
@@ -36,6 +37,27 @@ namespace XboxGamingBarHelper
         [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")]
         private static extern uint CS_XInputGetState(uint dwUserIndex, ref CS_XINPUT_STATE pState);
 
+        // winmm joystick API — same enumeration joy.cpl uses internally.
+        // joyGetDevCaps returns 0 (JOYERR_NOERROR) for a connected controller.
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+        private struct CS_JOYCAPS
+        {
+            public ushort wMid, wPid;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]  public string szPname;
+            public uint wXmin, wXmax, wYmin, wYmax, wZmin, wZmax;
+            public uint wNumButtons, wPeriodMin, wPeriodMax;
+            public uint wRmin, wRmax, wUmin, wUmax, wVmin, wVmax;
+            public uint wCaps, wMaxAxes, wNumAxes, wMaxButtons;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szRegKey;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szOEMVxD;
+        }
+
+        [DllImport("winmm.dll")]
+        private static extern uint CS_joyGetNumDevs();
+
+        [DllImport("winmm.dll", EntryPoint = "joyGetDevCapsA", CharSet = CharSet.Ansi)]
+        private static extern uint CS_joyGetDevCaps(uint id, ref CS_JOYCAPS pjc, uint cb);
+
         /// <summary>
         /// Build the compact controller-state string for the widget's Controller-State card.
         /// Format: "state|vigem|pid1901|pid1902|blocked|xinput".
@@ -58,6 +80,57 @@ namespace XboxGamingBarHelper
         /// (we are about to mount) yet no ViGEm pad exists yet, so that fallback would mislead.
         /// One WMI query + one HidHide probe; only run once, so no per-frame cost.
         /// </summary>
+        /// <summary>
+        /// Detects whether the Steam "Xbox Extended Feature Support Driver" (steamxbox) is active.
+        /// This driver installs itself as an UpperFilter on the XnaComposite device class and
+        /// intercepts HID reports, breaking HidHide's ability to hide/unhide the physical MSI Claw.
+        /// Port of HC's Steam.HasXboxDriversInstalled() — two independent registry checks.
+        /// </summary>
+        internal static bool DetectSteamXboxDriver()
+        {
+            try
+            {
+                // Check 1: XnaComposite class UpperFilters (GUID from HC DeviceClassIds.XnaComposite)
+                const string xnaCompositeGuid = "{d61ca365-5af4-4486-998b-9db4734c6ca3}";
+                using (var key = Registry.LocalMachine.OpenSubKey(
+                    $@"SYSTEM\CurrentControlSet\Control\Class\{xnaCompositeGuid}"))
+                {
+                    var upperFilters = key?.GetValue("UpperFilters") as string[];
+                    if (upperFilters != null &&
+                        upperFilters.Any(f => string.Equals(f, "steamxbox", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        Logger.Info("[SteamXboxDriver] Detected via XnaComposite UpperFilters");
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"[SteamXboxDriver] UpperFilters check failed: {ex.Message}"); }
+
+            try
+            {
+                // Check 2: ROOT\SYSTEM enumeration for a device with Service=steamxbox (HC RegistryUtils port)
+                using (var root = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Enum\ROOT\SYSTEM"))
+                {
+                    if (root != null)
+                    {
+                        foreach (string sub in root.GetSubKeyNames())
+                        {
+                            using var subKey = root.OpenSubKey(sub);
+                            var service = subKey?.GetValue("Service")?.ToString();
+                            if (string.Equals(service, "steamxbox", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Logger.Info($"[SteamXboxDriver] Detected via ROOT\\SYSTEM\\{sub} Service=steamxbox");
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"[SteamXboxDriver] ROOT\\SYSTEM check failed: {ex.Message}"); }
+
+            return false;
+        }
+
         internal static bool IsHwControllerBaselineClean(out string diag)
             => IsHwControllerBaselineClean(out diag, out _);
 
@@ -114,7 +187,7 @@ namespace XboxGamingBarHelper
 
         internal static string BuildControllerStateString()
         {
-            int vigem = 0, pid1901 = 0, pid1902 = 0, blocked = 0, xinput = 0;
+            int vigem = 0, pid1901 = 0, pid1901Hid = 0, pid1902 = 0, blocked = 0, xinput = 0;
             bool hidHideKnown = false;
             bool cloaking = false;
 
@@ -140,11 +213,27 @@ namespace XboxGamingBarHelper
                         }
                         else if (id.IndexOf("VID_0DB0", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            if (id.IndexOf("PID_1901", StringComparison.OrdinalIgnoreCase) >= 0) pid1901++;
-                            else if (id.IndexOf("PID_1902", StringComparison.OrdinalIgnoreCase) >= 0) pid1902++;
+                            if (id.IndexOf("PID_1901", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                pid1901++;
+                                // Count only XInput gamepad interface nodes (those containing "&IG_").
+                                // These are exactly what joy.cpl / DirectInput lists as separate
+                                // "Xbox 360 Controller for Windows" entries. A healthy MSI Claw in
+                                // HW mode exposes 3 such nodes (IG_00, IG_01, IG_02).
+                                // Non-IG_ nodes (keyboard MI_xx, command 0xFFA0) are excluded.
+                                if (id.StartsWith("HID\\", StringComparison.OrdinalIgnoreCase) &&
+                                    id.IndexOf("&IG_", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    pid1901Hid++;
+                                    Logger.Debug($"[ControllerState] PID_1901 XInput gamepad node #{pid1901Hid}: {id}");
+                                }
+                            }
+                            else if (id.IndexOf("PID_1902", StringComparison.OrdinalIgnoreCase) >= 0)
+                                pid1902++;
                         }
                     }
                 }
+                Logger.Info($"[ControllerState] PID_1901 total PnP nodes={pid1901}, HID nodes={pid1901Hid}");
             }
             catch (Exception ex) { Logger.Debug($"ControllerState: WMI query failed: {ex.Message}"); }
 
@@ -224,9 +313,30 @@ namespace XboxGamingBarHelper
                              $"cloaking={cloaking}, blocked={blocked}) → resolved to {state} via EmulationEnabled={emulationOn}");
             }
 
+            // ── joy.cpl-equivalent count via winmm joyGetDevCaps ─────────────
+            // Counts the same game controllers that joy.cpl shows — iterate all
+            // joystick slots and count those where joyGetDevCaps() returns 0 (present).
+            int joyCplCount = -1;
+            try
+            {
+                uint numDevs = CS_joyGetNumDevs();
+                joyCplCount = 0;
+                for (uint i = 0; i < numDevs && i < 16; i++)
+                {
+                    var caps = new CS_JOYCAPS();
+                    if (CS_joyGetDevCaps(i, ref caps, (uint)Marshal.SizeOf(caps)) == 0)
+                    {
+                        joyCplCount++;
+                        Logger.Debug($"[ControllerState] joy.cpl slot {i}: {caps.szPname}");
+                    }
+                }
+                Logger.Info($"[ControllerState] joy.cpl-equivalent count: {joyCplCount} (of {numDevs} slots)");
+            }
+            catch (Exception ex) { Logger.Debug($"ControllerState: joyGetDevCaps failed: {ex.Message}"); }
+
             // -1 signals "HidHide state unknown" to the widget so it doesn't show a misleading 0.
             int blockedOut = hidHideKnown ? blocked : -1;
-            return $"{state}|{vigem}|{pid1901}|{pid1902}|{blockedOut}|{xinput}|{viiper}|{viiperType}";
+            return $"{state}|{vigem}|{pid1901}|{pid1902}|{blockedOut}|{xinput}|{viiper}|{viiperType}|{pid1901Hid}|{joyCplCount}";
         }
     }
 }

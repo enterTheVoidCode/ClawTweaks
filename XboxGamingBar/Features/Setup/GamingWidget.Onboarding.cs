@@ -192,6 +192,11 @@ namespace XboxGamingBar
                 bool complete = known ? OnbAllToolsInstalled : GetPersistedOnboardingComplete();
                 ApplyOnboardingTabLayout(complete);
 
+                // Auto-expand the Setup section while onboarding is still pending so the user
+                // immediately sees what is missing. Never auto-collapse once they've opened it.
+                if (SetupExpander != null && !complete)
+                    SetupExpander.IsExpanded = true;
+
                 if (OnboardingNavBadge != null)
                 {
                     OnboardingNavBadge.Visibility = complete ? Visibility.Collapsed : Visibility.Visible;
@@ -199,6 +204,9 @@ namespace XboxGamingBar
 
                 // Persist only the *confirmed* state so the next cold start initialises from truth.
                 if (known) SetPersistedOnboardingComplete(OnbAllToolsInstalled);
+
+                // Onboarding completion affects the emulation toggle gate — re-evaluate.
+                UpdateControllerEmulationToggleEnabled();
             }
             catch (Exception ex)
             {

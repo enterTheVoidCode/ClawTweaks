@@ -55,6 +55,11 @@ namespace XboxGamingBarHelper.Services
         private static MsiDriverUpdateResult _lastResult;
         public static MsiDriverUpdateResult LastResult => _lastResult;
 
+        /// <summary>Drops the cached driver snapshot so the next (even non-forced) check
+        /// rebuilds the PnP/registry index. Called after a driver install so a just-updated
+        /// driver's new version is picked up instead of the pre-install cache.</summary>
+        public static void InvalidateCache() => _lastResult = null;
+
         // Optional modded Wi-Fi driver (theboss619), parsed from the manifest.
         private static ModdedWifiInfo _moddedWifi;
         internal sealed class ModdedWifiInfo { public string Name = ""; public string Version = ""; public string Url = ""; public string ThreadUrl = ""; }
@@ -559,6 +564,26 @@ namespace XboxGamingBarHelper.Services
                 {
                     var hit = IntelDsaCatalogService.FindLatest(catalog, dom.CatalogCategory, new[] { d.HwId });
                     if (hit == null) continue;
+                    // Use the direct installer URL when the catalog provides one and the
+                    // host is whitelisted — the user gets an Install button and the helper
+                    // downloads + launches the .exe. Falls back to the Intel download page
+                    // (browser "Download" button) otherwise.
+                    // Intel's catalog API sometimes puts the direct CDN URL in the Url/PageUrl
+                    // field rather than Files[0].url, so we check both.
+                    string directUrl = null;
+                    if (!string.IsNullOrWhiteSpace(hit.FileUrl)
+                        && Uri.TryCreate(hit.FileUrl, UriKind.Absolute, out var fileUri)
+                        && IsAllowedHost(fileUri.Host))
+                    {
+                        directUrl = hit.FileUrl;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(hit.PageUrl)
+                        && Uri.TryCreate(hit.PageUrl, UriKind.Absolute, out var pageUri)
+                        && IsAllowedHost(pageUri.Host))
+                    {
+                        directUrl = hit.PageUrl;
+                    }
+                    bool hasDirectUrl = directUrl != null;
                     row = new MsiDriverEntry
                     {
                         Name = dom.Label,
@@ -567,8 +592,11 @@ namespace XboxGamingBarHelper.Services
                         Version = hit.Version,
                         InstalledVersion = d.Version,
                         UpdateStatus = DriverMatchUtil.CompareVersions(d.Version, hit.Version),
-                        Action = "deeplink",
-                        DownloadUrl = !string.IsNullOrWhiteSpace(hit.PageUrl) ? hit.PageUrl : dom.DefaultUrl,
+                        Action = hasDirectUrl ? "install" : "deeplink",
+                        DownloadUrl = hasDirectUrl ? directUrl
+                                    : !string.IsNullOrWhiteSpace(hit.PageUrl) ? hit.PageUrl
+                                    : dom.DefaultUrl,
+                        Highlights = hit.Highlights ?? "",
                         MatchedDeviceName = d.Name,
                         MatchedProvider = "Intel (DSA catalog)",
                     };
@@ -581,6 +609,12 @@ namespace XboxGamingBarHelper.Services
                     var d = devs[0];
                     var man = intelManifest?.FirstOrDefault(e => IntelManifestMatchesDomain(dom.Keywords, e));
                     string latest = man?.Version ?? "";
+                    string manifestUrl = !string.IsNullOrWhiteSpace(man?.DownloadUrl) ? man.DownloadUrl : dom.DefaultUrl;
+                    // If the manifest URL itself is a direct CDN link (downloadmirror.intel.com /
+                    // downloads.intel.com), treat it as an auto-install rather than a deep-link.
+                    bool manifestIsDirect = !string.IsNullOrWhiteSpace(man?.DownloadUrl)
+                        && Uri.TryCreate(man.DownloadUrl, UriKind.Absolute, out var mUri)
+                        && IsAllowedHost(mUri.Host);
                     row = new MsiDriverEntry
                     {
                         Name = dom.Label,
@@ -591,8 +625,8 @@ namespace XboxGamingBarHelper.Services
                         UpdateStatus = string.IsNullOrWhiteSpace(latest)
                             ? DriverUpdateStatus.Unknown
                             : DriverMatchUtil.CompareVersions(d.Version, latest),
-                        Action = "deeplink",
-                        DownloadUrl = !string.IsNullOrWhiteSpace(man?.DownloadUrl) ? man.DownloadUrl : dom.DefaultUrl,
+                        Action = manifestIsDirect ? "install" : "deeplink",
+                        DownloadUrl = manifestUrl,
                         Severity = man?.Severity ?? "",
                         ReleaseDate = man?.ReleaseDate ?? "",
                         MatchedDeviceName = d.Name,
@@ -633,7 +667,10 @@ namespace XboxGamingBarHelper.Services
         private static bool IsAllowedHost(string host)
         {
             host = (host ?? "").ToLowerInvariant();
-            return host == "download.msi.com" || host == "download-2.msi.com";
+            return host == "download.msi.com"
+                || host == "download-2.msi.com"
+                || host == "downloadmirror.intel.com"
+                || host == "downloads.intel.com";
         }
 
         public static async Task<string> InstallDriverAsync(string url)
@@ -651,7 +688,16 @@ namespace XboxGamingBarHelper.Services
 
             var (path, err) = await DownloadToTempAsync(url);
             if (path == null)
+            {
+                // Headless download blocked (Intel AWS WAF) — let the browser do it, then poll
+                // the Downloads folder and launch the finished installer.
+                if (err == WafBlockedMarker)
+                {
+                    Logger.Info($"InstallDriverAsync: direct download blocked, falling back to browser for {url}");
+                    return await BrowserDownloadAndLaunchAsync(url);
+                }
                 return "{\"success\":false,\"message\":\"Download failed: " + (err ?? "").Replace("\"", "'") + "\"}";
+            }
 
             string ext = (System.IO.Path.GetExtension(path) ?? "").ToLowerInvariant();
             if (ext != ".exe" && ext != ".msi")
@@ -704,9 +750,10 @@ namespace XboxGamingBarHelper.Services
 
         /// <summary>
         /// Assisted install of the third-party modded Wi-Fi driver (theboss619):
-        /// downloads the manifest-configured TechPowerUp zip, extracts it, and opens
-        /// the folder containing Setup.bat so the USER runs it themselves (it installs
-        /// a root certificate + the driver). We deliberately do NOT auto-run the .bat.
+        /// downloads the archive from the manifest URL, detects its format, renames it
+        /// with the correct extension (ZIP or 7z), opens the containing folder in Explorer
+        /// and tells the user to extract + run Setup.bat. We deliberately do NOT auto-run
+        /// any script. Supports both ZIP and 7-Zip archives (theboss619 ships as .7z).
         /// </summary>
         public static async Task<string> InstallModdedWifiAsync()
         {
@@ -721,6 +768,7 @@ namespace XboxGamingBarHelper.Services
             if (uri.Scheme != "https" || !(host == "www.techpowerup.com" || host == "techpowerup.com"))
                 return "{\"success\":false,\"message\":\"Host not allowed: " + uri.Host + "\"}";
 
+            Logger.Info($"Modded Wi-Fi: downloading from {mw.Url}");
             string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "ClawModdedWifi");
             try
             {
@@ -729,7 +777,8 @@ namespace XboxGamingBarHelper.Services
             }
             catch (Exception ex) { return "{\"success\":false,\"message\":\"Temp dir: " + ex.Message.Replace("\"", "'") + "\"}"; }
 
-            string zipPath = System.IO.Path.Combine(dir, "modded-wifi.zip");
+            // Download to a temp name first; we'll rename once we know the format.
+            string rawPath = System.IO.Path.Combine(dir, "modded-wifi.tmp");
             try
             {
                 using (var req = new HttpRequestMessage(HttpMethod.Get, mw.Url))
@@ -741,24 +790,80 @@ namespace XboxGamingBarHelper.Services
                     if (!resp.IsSuccessStatusCode)
                         return "{\"success\":false,\"message\":\"Download HTTP " + (int)resp.StatusCode + "\"}";
                     using (var src = await resp.Content.ReadAsStreamAsync())
-                    using (var dst = System.IO.File.Create(zipPath))
+                    using (var dst = System.IO.File.Create(rawPath))
                         await src.CopyToAsync(dst);
                 }
             }
             catch (Exception ex) { return "{\"success\":false,\"message\":\"Download failed: " + ex.Message.Replace("\"", "'") + "\"}"; }
 
-            string extractDir = System.IO.Path.Combine(dir, "extracted");
-            try { System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, extractDir); }
-            catch (Exception ex) { return "{\"success\":false,\"message\":\"Extract failed: " + ex.Message.Replace("\"", "'") + "\"}"; }
-
-            // Open the folder that holds Setup.bat (assisted: the user runs it).
-            string openDir = extractDir;
+            // Detect archive format by magic bytes: PK = ZIP (50 4B), 7z = 7-Zip (37 7A BC AF).
+            string ext = ".zip";
             try
             {
-                var setup = System.IO.Directory.GetFiles(extractDir, "Setup.bat", System.IO.SearchOption.AllDirectories).FirstOrDefault();
-                if (!string.IsNullOrEmpty(setup)) openDir = System.IO.Path.GetDirectoryName(setup);
+                byte[] magic = new byte[4];
+                using (var fs = System.IO.File.OpenRead(rawPath))
+                    fs.Read(magic, 0, 4);
+                if (magic[0] == 0x37 && magic[1] == 0x7A && magic[2] == 0xBC && magic[3] == 0xAF)
+                    ext = ".7z";
             }
-            catch { }
+            catch { /* keep .zip as fallback */ }
+
+            string archivePath = System.IO.Path.Combine(dir, "modded-wifi" + ext);
+            try { System.IO.File.Move(rawPath, archivePath); }
+            catch (Exception ex) { return "{\"success\":false,\"message\":\"Rename failed: " + ex.Message.Replace("\"", "'") + "\"}"; }
+
+            Logger.Info($"Modded Wi-Fi: downloaded {ext} archive ({new System.IO.FileInfo(archivePath).Length / 1024} KB) to {archivePath}");
+
+            // Extract using Shell.Application (Windows built-in — handles both ZIP and 7z
+            // natively on Windows 11 without any third-party library).
+            string openDir = dir;
+            string extractDir = System.IO.Path.Combine(dir, "extracted");
+            try
+            {
+                System.IO.Directory.CreateDirectory(extractDir);
+                dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application"));
+                dynamic archive = shell.NameSpace(archivePath);
+                dynamic dest = shell.NameSpace(extractDir);
+                // 4 = no progress dialog, 16 = respond "Yes to all" for overwrites
+                dest.CopyHere(archive.Items(), 4 | 16);
+                // CopyHere is fire-and-forget; wait for at least one file to appear (up to 30 s).
+                var deadline = DateTime.UtcNow.AddSeconds(30);
+                while (DateTime.UtcNow < deadline && System.IO.Directory.GetFiles(extractDir, "*", System.IO.SearchOption.AllDirectories).Length == 0)
+                    System.Threading.Thread.Sleep(200);
+                var setup = System.IO.Directory.GetFiles(extractDir, "Setup.bat", System.IO.SearchOption.AllDirectories).FirstOrDefault();
+                openDir = !string.IsNullOrEmpty(setup) ? System.IO.Path.GetDirectoryName(setup) : extractDir;
+                Logger.Info($"Modded Wi-Fi: extracted {ext} archive to {openDir}");
+
+                // Auto-launch Setup.bat via explorer.exe so it runs at the user's medium
+                // integrity (not our elevated token). The bat's own UAC request then shows
+                // to the user as a normal confirmation prompt.
+                if (!string.IsNullOrEmpty(setup))
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = "explorer.exe",
+                            Arguments = "\"" + setup + "\"",
+                            UseShellExecute = false,
+                        });
+                        Logger.Info($"Modded Wi-Fi: launched Setup.bat via explorer (de-elevated)");
+                        string safeBat = openDir.Replace("\\", "\\\\").Replace("\"", "'");
+                        return "{\"success\":true,\"message\":\"Setup.bat started — confirm the UAC prompt to install the certificate and driver.\",\"path\":\"" + safeBat + "\"}";
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Modded Wi-Fi: Setup.bat launch failed ({ex.Message}), opening folder instead");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Modded Wi-Fi: shell extraction failed ({ex.Message}), opening archive folder instead");
+                openDir = dir;
+            }
+
+            // Fallback: open the folder so the user can run Setup.bat manually.
             try
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -768,11 +873,12 @@ namespace XboxGamingBarHelper.Services
                     UseShellExecute = false,
                 });
             }
-            catch (Exception ex) { Logger.Warn($"Open modded folder failed: {ex.Message}"); }
+            catch (Exception ex) { Logger.Warn($"Modded Wi-Fi: open folder failed: {ex.Message}"); }
 
-            Logger.Info($"Modded Wi-Fi: downloaded + extracted to {openDir}");
+            string msg = "Downloaded and extracted. Run Setup.bat in the opened folder (installs the theboss619 certificate + driver).";
+            Logger.Info($"Modded Wi-Fi: done — opened {openDir}");
             string safe = openDir.Replace("\\", "\\\\").Replace("\"", "'");
-            return "{\"success\":true,\"message\":\"Downloaded and extracted. Run Setup.bat in the opened folder (installs the theboss619 certificate + driver).\",\"path\":\"" + safe + "\"}";
+            return "{\"success\":true,\"message\":\"" + msg + "\",\"path\":\"" + safe + "\"}";
         }
 
         private static async Task<(string path, string error)> DownloadToTempAsync(string url)
@@ -796,14 +902,218 @@ namespace XboxGamingBarHelper.Services
             string target = System.IO.Path.Combine(dir, fileName);
             try
             {
+                Logger.Info($"DownloadToTempAsync: starting GET {url}");
                 using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-                if (!response.IsSuccessStatusCode) return (null, "HTTP " + (int)response.StatusCode);
+
+                // AWS WAF / CloudFront bot challenge: Intel's CDN (downloadmirror.intel.com)
+                // answers a headless client with HTTP 202 + 'x-amzn-waf-action: challenge' and
+                // an empty text/html body instead of the binary. 202 IS a 2xx, so the old
+                // IsSuccessStatusCode check passed and we streamed a 0-byte "exe" that then
+                // failed to launch. A bare HttpClient cannot solve the JS challenge — signal
+                // the caller to fall back to a real browser download.
+                if (response.Headers.TryGetValues("x-amzn-waf-action", out var wafVals))
+                {
+                    Logger.Warn($"DownloadToTempAsync: AWS WAF challenge ({string.Join(",", wafVals)}) for {url} → browser fallback");
+                    return (null, WafBlockedMarker);
+                }
+                if ((int)response.StatusCode != 200)
+                {
+                    Logger.Warn($"DownloadToTempAsync: HTTP {(int)response.StatusCode} (non-200) for {url}");
+                    // 202/204/3xx from a CDN means "not the file" — let the caller try the browser.
+                    return (null, ((int)response.StatusCode == 202) ? WafBlockedMarker : "HTTP " + (int)response.StatusCode);
+                }
+                // A real installer is never text/html. Reject WAF/landing pages up front.
+                string mediaType = response.Content.Headers.ContentType?.MediaType ?? "";
+                if (mediaType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) ||
+                    mediaType.IndexOf("html", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    Logger.Warn($"DownloadToTempAsync: non-binary Content-Type '{mediaType}' for {url} → browser fallback");
+                    return (null, WafBlockedMarker);
+                }
+
+                Logger.Info($"DownloadToTempAsync: headers OK (CT='{mediaType}'), streaming to {target}");
                 using (var src = await response.Content.ReadAsStreamAsync())
                 using (var dst = System.IO.File.Create(target))
                     await src.CopyToAsync(dst);
+
+                // Never hand a bogus payload to the launcher: validate EXE/MSI magic bytes.
+                // This is what bit us — a 0-byte challenge page saved as gfx_*.exe.
+                string ext = (System.IO.Path.GetExtension(target) ?? "").ToLowerInvariant();
+                if ((ext == ".exe" || ext == ".msi") && !LooksLikeWindowsBinary(target))
+                {
+                    long len = 0; try { len = new System.IO.FileInfo(target).Length; } catch { }
+                    Logger.Warn($"DownloadToTempAsync: payload is not a valid PE/MSI ({len} bytes) for {url} → browser fallback");
+                    try { System.IO.File.Delete(target); } catch { }
+                    return (null, WafBlockedMarker);
+                }
+
+                long size = 0; try { size = new System.IO.FileInfo(target).Length; } catch { }
+                Logger.Info($"DownloadToTempAsync: download complete → {target} ({size} bytes)");
                 return (target, null);
             }
-            catch (Exception ex) { return (null, ex.Message); }
+            catch (Exception ex)
+            {
+                Logger.Warn($"DownloadToTempAsync: exception for {url}: {ex.GetType().Name}: {ex.Message}");
+                return (null, ex.Message);
+            }
+        }
+
+        /// <summary>Sentinel returned by DownloadToTempAsync when a headless download is blocked
+        /// (AWS WAF challenge / non-binary payload). Tells InstallDriverAsync to open the URL in
+        /// the user's browser instead, where the challenge auto-solves.</summary>
+        internal const string WafBlockedMarker = "__WAF_BLOCKED__";
+
+        /// <summary>Cheap sanity check that a downloaded file is a real Windows installer:
+        /// 'MZ' for PE/EXE, or the OLE compound-doc magic (D0 CF 11 E0) for MSI. Anything
+        /// smaller than 4 KB (e.g. a challenge/landing page) is rejected outright.</summary>
+        private static bool LooksLikeWindowsBinary(string path)
+        {
+            try
+            {
+                using var fs = System.IO.File.OpenRead(path);
+                if (fs.Length < 4096) return false;
+                var b = new byte[8];
+                if (fs.Read(b, 0, 8) < 4) return false;
+                if (b[0] == 0x4D && b[1] == 0x5A) return true;                                  // MZ
+                if (b[0] == 0xD0 && b[1] == 0xCF && b[2] == 0x11 && b[3] == 0xE0) return true;   // MSI/OLE
+                return false;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Browser fallback for WAF-protected CDN downloads (Intel). Opens the file URL in the
+        /// user's default browser (de-elevated via explorer, so the browser's own session solves
+        /// the AWS WAF challenge), then polls the Downloads folder until the installer finishes
+        /// downloading and launches it. Returns a result JSON in the same shape as InstallDriverAsync.
+        /// </summary>
+        private static async Task<string> BrowserDownloadAndLaunchAsync(string url)
+        {
+            string fileName = null;
+            try { fileName = System.IO.Path.GetFileName(new Uri(url).LocalPath); } catch { }
+            string baseName = string.IsNullOrEmpty(fileName)
+                ? null : System.IO.Path.GetFileNameWithoutExtension(fileName);
+
+            string downloads = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
+            // Snapshot existing files so we only pick up the NEW download (ignores stale copies
+            // from a previous attempt — the browser saves those as "name (1).exe").
+            var before = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                if (System.IO.Directory.Exists(downloads))
+                    foreach (var f in System.IO.Directory.GetFiles(downloads)) before.Add(f);
+            }
+            catch { }
+
+            // Open the URL in the default browser at the user's integrity level (explorer.exe
+            // de-elevates). The browser runs the WAF JS challenge and downloads to Downloads.
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = "\"" + url + "\"",
+                    UseShellExecute = false,
+                });
+                Logger.Info($"BrowserDownload: opened {url} in default browser; polling {downloads}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"BrowserDownload: failed to open browser: {ex.Message}");
+                return "{\"success\":false,\"message\":\"Could not open the browser: " + ex.Message.Replace("\"", "'") + "\"}";
+            }
+
+            // Poll for the completed installer. Driver EXEs are large (200 MB–1 GB) → allow time.
+            string found = await PollForDownloadAsync(downloads, before, baseName, TimeSpan.FromMinutes(5));
+            if (found == null)
+            {
+                Logger.Info("BrowserDownload: timed out waiting for the download; asking the user to run it manually");
+                return "{\"success\":true,\"launched\":false,\"message\":\"Opened the download in your browser. Run the installer from your Downloads folder once it finishes.\"}";
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = found, UseShellExecute = true });
+                Logger.Info($"BrowserDownload: launched {System.IO.Path.GetFileName(found)}");
+            }
+            catch (Exception ex)
+            {
+                string safe = found.Replace("\\", "\\\\").Replace("\"", "'");
+                Logger.Warn($"BrowserDownload: launch failed for {found}: {ex.Message}");
+                return "{\"success\":true,\"launched\":false,\"path\":\"" + safe + "\",\"message\":\"Downloaded — open it from your Downloads folder to install.\"}";
+            }
+            return "{\"success\":true,\"launched\":true,\"message\":\"Downloaded via browser and launched the installer.\"}";
+        }
+
+        /// <summary>Watches the Downloads folder for a NEW completed .exe/.msi (one not present in
+        /// <paramref name="before"/>), preferring a name matching <paramref name="baseName"/>. Waits
+        /// out in-progress partials (.crdownload/.tmp/.part) and confirms the file size is stable
+        /// before returning it. Returns null on timeout.</summary>
+        private static async Task<string> PollForDownloadAsync(
+            string dir, HashSet<string> before, string baseName, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow.Add(timeout);
+            while (DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(1000);
+
+                string[] files;
+                try { files = System.IO.Directory.GetFiles(dir); }
+                catch { continue; }
+
+                var candidates = files.Where(f => !before.Contains(f)).ToList();
+                if (candidates.Count == 0) continue;
+
+                // A partial sibling (.crdownload/.part/.tmp) means the browser is still writing.
+                bool partialInProgress = candidates.Any(f =>
+                {
+                    var e = System.IO.Path.GetExtension(f).ToLowerInvariant();
+                    return e == ".crdownload" || e == ".tmp" || e == ".part" || e == ".partial" || e == ".download";
+                });
+                if (partialInProgress) continue;
+
+                var done = candidates.Where(f =>
+                {
+                    var e = System.IO.Path.GetExtension(f).ToLowerInvariant();
+                    return e == ".exe" || e == ".msi";
+                }).ToList();
+                if (done.Count == 0) continue;
+
+                string pick = null;
+                if (!string.IsNullOrEmpty(baseName))
+                    pick = done.FirstOrDefault(f =>
+                        System.IO.Path.GetFileName(f).IndexOf(baseName, StringComparison.OrdinalIgnoreCase) >= 0);
+                if (pick == null)
+                {
+                    try { pick = done.OrderByDescending(f => new System.IO.FileInfo(f).LastWriteTimeUtc).First(); }
+                    catch { pick = done[0]; }
+                }
+
+                if (await IsFileStableAsync(pick))
+                {
+                    Logger.Info($"BrowserDownload: detected completed download {System.IO.Path.GetFileName(pick)}");
+                    return pick;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>True once the file's size stops changing and it is no longer write-locked.</summary>
+        private static async Task<bool> IsFileStableAsync(string path)
+        {
+            try
+            {
+                long s1 = new System.IO.FileInfo(path).Length;
+                if (s1 <= 0) return false;
+                await Task.Delay(1200);
+                long s2 = new System.IO.FileInfo(path).Length;
+                if (s1 != s2) return false;
+                using (System.IO.File.Open(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read)) { }
+                return true;
+            }
+            catch { return false; }
         }
 
         // ------------------------------------------------------------------
@@ -902,6 +1212,8 @@ namespace XboxGamingBarHelper.Services
         public string Severity { get; set; } = "";
         public string InstalledVersion { get; set; } = "";
         public DriverUpdateStatus UpdateStatus { get; set; } = DriverUpdateStatus.Unknown;
+        /// <summary>Game On Driver highlights from the Intel DSA catalog (Graphics rows only).</summary>
+        public string Highlights { get; set; } = "";
         /// <summary>"msi" | "intel" — drives the per-row action label.</summary>
         public string ProviderScope { get; set; } = "msi";
         /// <summary>"install" (download+launch) | "deeplink" (open URL in browser).</summary>
