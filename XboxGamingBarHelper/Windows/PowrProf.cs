@@ -85,5 +85,33 @@ namespace XboxGamingBarHelper.Windows
         /// <returns>True if successful, false otherwise.</returns>
         [DllImport("powrprof.dll", SetLastError = true)]
         public static extern bool SetSuspendState(bool bHibernate, bool bForce, bool bWakeupEventsDisabled);
+
+        // ── Modern Standby (S0) entry via display-off ────────────────────────────────────────────
+        // Microsoft's official position: there is NO API to make Windows enter Modern Standby — it
+        // only starts from a user/kernel path (power button, lid, idle, Start-menu Sleep), and
+        // SetSuspendState fails/hibernates on Modern-Standby systems. The documented community
+        // workaround (PowerToys / Open-Shell) is to turn the display OFF, which on a Modern-Standby
+        // handheld is exactly the power-button short-press trigger that lets the system drift into
+        // S0 DRIPS. This is NOT a forced power-state transition, so it cannot crash on wake the way
+        // NtInitiatePowerAction(S1) did.
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam, uint fuFlags, uint uTimeout, out IntPtr lpdwResult);
+
+        private static readonly IntPtr HWND_BROADCAST = new IntPtr(0xFFFF);
+        private const uint WM_SYSCOMMAND = 0x0112;
+        private const int SC_MONITORPOWER = 0xF170;
+        private const uint SMTO_ABORTIFHUNG = 0x0002;
+
+        /// <summary>
+        /// Turns the display off (lParam=2). On a Modern-Standby device this triggers entry into
+        /// S0 low-power idle, the same as a power-button short-press. Safe: no forced power state.
+        /// </summary>
+        public static void TurnOffDisplayForModernStandby()
+        {
+            // lParam = 2 → "display is being turned off". SendMessageTimeout (not SendMessage) so an
+            // unresponsive top-level window can't hang the helper.
+            SendMessageTimeout(HWND_BROADCAST, WM_SYSCOMMAND, (IntPtr)SC_MONITORPOWER, (IntPtr)2,
+                SMTO_ABORTIFHUNG, 1000, out _);
+        }
     }
 }

@@ -19,12 +19,12 @@ namespace XboxGamingBarHelper
             switch ((action ?? string.Empty).Trim().ToLowerInvariant())
             {
                 case "sleep":
-                    // bForce MUST be false: bForce=true (critical suspend) escalates to hibernate on
-                    // some systems (incl. the MSI Claw), which is exactly the "sleep hibernated" bug.
-                    // Sleep is instant anyway, so there is no downside. Mirrors the working Hibernate
-                    // pipe handler's bForce=false.
-                    Logger.Info("PowerAction: sleep");
-                    PowrProf.SetSuspendState(false, false, false);
+                    // There is NO API to force Modern Standby (Microsoft); SetSuspendState hibernates
+                    // on this device and NtInitiatePowerAction(S1) crashed on wake. The safe,
+                    // documented way to enter S0 is to turn the display OFF (the power-button
+                    // short-press trigger) and let the system drift into Modern Standby.
+                    Logger.Info("PowerAction: sleep (display-off → Modern Standby S0)");
+                    PowrProf.TurnOffDisplayForModernStandby();
                     break;
                 case "hibernate":
                     Logger.Info("PowerAction: hibernate");
