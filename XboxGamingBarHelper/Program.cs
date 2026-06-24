@@ -143,11 +143,31 @@ namespace XboxGamingBarHelper
         private const int PROFILE_SWITCH_COOLDOWN_MS = 500;
 
         /// <summary>
-        /// Helper method to check if we're in the cooldown period after a profile switch.
+        /// Until this time, per-game-clobbering setting saves are suppressed because the widget just
+        /// (re)connected while a per-game profile was active. The widget's initial batch-sync on
+        /// connect can carry a STALE value from the PREVIOUS game (e.g. RE2's 25W TDP while
+        /// Silksong=11W is running) before it loads the current game's profile — which the helper
+        /// would otherwise persist into the running game's profile, corrupting it. Set only when a
+        /// per-game profile is active at connect, so the global case is never affected.
+        /// </summary>
+        private static DateTime widgetConnectSuppressUntil = DateTime.MinValue;
+
+        /// <summary>
+        /// Window length after a per-game widget (re)connect during which stale batch-sync setting
+        /// saves are suppressed. Long enough to cover the connect batch-sync (~1–2 s observed),
+        /// short enough that a deliberate user change shortly after opening Game Bar still lands.
+        /// </summary>
+        private const int WIDGET_CONNECT_SUPPRESS_MS = 4000;
+
+        /// <summary>
+        /// Helper method to check if we're in the cooldown period after a profile switch, OR within
+        /// the per-game widget-connect suppression window (see <see cref="widgetConnectSuppressUntil"/>).
+        /// Both gate the same per-game-clobber-prone property handlers.
         /// </summary>
         private static bool IsInProfileSwitchCooldown()
         {
-            return (DateTime.UtcNow - profileSwitchTime).TotalMilliseconds < PROFILE_SWITCH_COOLDOWN_MS;
+            return (DateTime.UtcNow - profileSwitchTime).TotalMilliseconds < PROFILE_SWITCH_COOLDOWN_MS
+                || DateTime.UtcNow < widgetConnectSuppressUntil;
         }
 
         /// <summary>
@@ -769,6 +789,29 @@ namespace XboxGamingBarHelper
                 pipeServer.Connected += (s, e) =>
                 {
                     Logger.Info("Widget connected via Named Pipe");
+
+                    // If a per-game profile is currently active, suppress per-game setting saves for
+                    // a short window. The widget's initial batch-sync on connect can push a STALE
+                    // value from the PREVIOUS game (e.g. RE2's 25W while Silksong=11W is running)
+                    // before it loads the current game's profile, which would corrupt the running
+                    // game's profile. The per-game value already applied at game start stands; the
+                    // widget's correct re-push lands normally once the window elapses.
+                    try
+                    {
+                        bool perGameActive = profileManager?.CurrentProfile.Use == true;
+                        if (perGameActive)
+                        {
+                            widgetConnectSuppressUntil = DateTime.UtcNow.AddMilliseconds(WIDGET_CONNECT_SUPPRESS_MS);
+                            Logger.Info($"Widget connect: per-game profile '{profileManager.CurrentProfile.GameId.Name}' active → suppressing stale batch-sync setting saves for {WIDGET_CONNECT_SUPPRESS_MS}ms");
+
+                            // Also re-assert the per-game TDP to hardware and make it authoritative for
+                            // the same window, so the widget's stale connect-time TDP push (previous
+                            // game's value) is IGNORED at the apply level too (not just the save).
+                            try { performanceManager?.TDP?.ApplyConnectAuthority(profileManager.CurrentProfile.TDP, WIDGET_CONNECT_SUPPRESS_MS); }
+                            catch (Exception ex2) { Logger.Warn($"Widget connect TDP authority failed: {ex2.Message}"); }
+                        }
+                    }
+                    catch (Exception ex) { Logger.Warn($"Widget connect suppress-window setup failed: {ex.Message}"); }
                     // Snapshot every saved per-mode fan curve + unlock state so the
                     // widget can populate its cache and let the user edit any mode
                     // without changing the running power mode.

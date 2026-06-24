@@ -34,6 +34,20 @@ namespace XboxGamingBarHelper.Systems
 
         private global::Windows.System.Power.PowerSupplyStatus lastPowerSupplyStatus = global::Windows.System.Power.PowerSupplyStatus.NotPresent;
         private bool hasSeenInitialPowerSupplyStatus = false;
+
+        // Combined suspend/resume tracking — ported 1:1 from HandheldCompanion SystemManager.
+        // On the MSI Claw (S0 Modern Standby, S3 disabled) the classic
+        // SystemEvents.PowerModeChanged Suspend/Resume broadcasts are NOT raised for the common
+        // sleep case — only hibernate (S4) raises them. The reliable S0 wake signal is
+        // SystemEvents.SessionSwitch.SessionUnlock (the session locks on standby and unlocks on
+        // wake), which rides the same internal SystemEvents message pump. We therefore derive a
+        // single "system ready" state from BOTH inputs (like HC: ready == !suspended && !locked)
+        // and raise ResumeFromSleep only on the not-ready → ready transition, so S0 (session) and
+        // S3/S4 (power) both work and neither double-fires.
+        private bool isPowerSuspended = false;
+        private bool isSessionLocked = false;
+        // Assume ready at startup: the helper launches while the user is actively interacting.
+        private bool lastSystemReady = true;
         private static readonly string[] IgnoredProcesses =
         {
             // Windows shell and system processes - never games
@@ -275,6 +289,9 @@ namespace XboxGamingBarHelper.Systems
 
             // Subscribe to system power events for sleep/wake detection
             SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+            // Subscribe to session lock/unlock — the reliable resume signal under S0 Modern
+            // Standby, where PowerModeChanged.Resume does not fire (see field comment above).
+            SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
             // Subscribe to display change events for dock/undock detection
             SystemEvents.DisplaySettingsChanged += SystemEvents_DisplaySettingsChanged;
         }
@@ -284,13 +301,18 @@ namespace XboxGamingBarHelper.Systems
             switch (e.Mode)
             {
                 case PowerModes.Resume:
-                    Logger.Info($"System resumed from sleep/hibernate at: {DateTime.Now}");
-                    ResumeFromSleep?.Invoke(this);
-                    // Refresh display settings in case display changed during sleep
-                    RefreshDisplaySettings();
+                    // S3/S4 (hibernate) path. Does NOT fire for S0 Modern Standby — that wake is
+                    // caught via SessionUnlock below. Feed the combined ready evaluation so a
+                    // hibernate resume that is also session-locked waits for the unlock, matching
+                    // HC, and ResumeFromSleep fires exactly once.
+                    Logger.Info($"PowerModeChanged: Resume (hibernate/S3-S4 path) at {DateTime.Now}");
+                    isPowerSuspended = false;
+                    EvaluateSystemReady("PowerResume");
                     break;
                 case PowerModes.Suspend:
-                    Logger.Info($"System is going to sleep/hibernate at: {DateTime.Now}");
+                    Logger.Info($"PowerModeChanged: Suspend at {DateTime.Now}");
+                    isPowerSuspended = true;
+                    EvaluateSystemReady("PowerSuspend");
                     break;
                 case PowerModes.StatusChange:
                     // StatusChange fires on AC/DC line transitions AND on battery percentage
@@ -317,6 +339,55 @@ namespace XboxGamingBarHelper.Systems
                         Logger.Warn($"PowerModeChanged StatusChange handler threw: {ex.Message}");
                     }
                     break;
+            }
+        }
+
+        /// <summary>
+        /// Session lock/unlock. On S0 Modern Standby this is the reliable wake signal:
+        /// the session locks on standby entry and unlocks on wake, while
+        /// PowerModeChanged.Resume stays silent. Ported 1:1 from HC OnSessionSwitch.
+        /// </summary>
+        private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
+        {
+            switch (e.Reason)
+            {
+                case SessionSwitchReason.SessionUnlock:
+                    Logger.Info($"SessionSwitch: SessionUnlock (Modern Standby/S0 resume path) at {DateTime.Now}");
+                    isSessionLocked = false;
+                    EvaluateSystemReady("SessionUnlock");
+                    break;
+                case SessionSwitchReason.SessionLock:
+                    Logger.Info($"SessionSwitch: SessionLock at {DateTime.Now}");
+                    isSessionLocked = true;
+                    EvaluateSystemReady("SessionLock");
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Derives a single "system ready" state from the power-suspend and session-lock inputs
+        /// (ready == not suspended AND not locked, like HC PerformSystemRoutine) and raises
+        /// ResumeFromSleep exactly once on the not-ready → ready transition. This unifies the
+        /// S0 (session) and S3/S4 (power) wake paths and prevents double-firing when both signals
+        /// arrive for the same wake.
+        /// </summary>
+        private void EvaluateSystemReady(string trigger)
+        {
+            bool ready = !isPowerSuspended && !isSessionLocked;
+            if (ready == lastSystemReady)
+                return;
+            lastSystemReady = ready;
+
+            if (ready)
+            {
+                Logger.Info($"System resumed/ready (trigger={trigger}) — refreshing hardware sensors and re-applying profile.");
+                ResumeFromSleep?.Invoke(this);
+                // Refresh display settings in case the display changed during sleep/standby.
+                RefreshDisplaySettings();
+            }
+            else
+            {
+                Logger.Info($"System entering low-power/locked (trigger={trigger}, powerSuspended={isPowerSuspended}, sessionLocked={isSessionLocked}).");
             }
         }
 

@@ -1553,6 +1553,55 @@ namespace XboxGamingBarHelper.Performance
             }
         }
 
+        /// <summary>
+        /// Forces the one-time MSI Claw TDP unlock (OverBoost + EC ceiling 35/37) to re-run.
+        /// Call on resume from sleep/hibernate: the helper PROCESS survives the power transition so
+        /// <see cref="msiClawUnlockDone"/> stays true and <see cref="EnsureMsiClawTdpUnlock"/> would
+        /// no-op — but the EC power-cycles during S3/S4 (and S0 Modern Standby) and clears the
+        /// unlock, clamping sustained PL1 back to the Lunar Lake default (~17W). Without this the
+        /// resume TDP re-apply writes PL1/PL2 but the EC ignores it → the "17W cap after hibernation"
+        /// the community reports. Re-running the unlock first restores the ceiling so the subsequent
+        /// profile TDP re-apply is honoured. Claw-only; no-op on other devices.
+        /// </summary>
+        public void ReassertMsiClawTdpUnlock()
+        {
+            try
+            {
+                if (Devices.DeviceDetector.DetectDevice().DeviceType != Shared.Enums.DeviceType.MSIClaw)
+                    return;
+
+                // The EC power-cycles during sleep/hibernate and clears BOTH:
+                //   (a) the OverBoost + ceiling unlock (EnsureMsiClawTdpUnlock), and
+                //   (b) the ACTIVE power-shift scenario — the 0x40 bit that actually holds the
+                //       sustained TDP (SetMsiPowerShiftForTdp).
+                // The helper PROCESS survives the transition, so both the once-per-run unlock guard
+                // (msiClawUnlockDone) and the power-shift cache (lastMsiShiftValue) are stale and the
+                // normal apply path would SKIP both re-writes → the EC reverts to ~15/17W after the
+                // turbo window (Tau): exactly the delayed post-hibernate drop. Invalidate both caches
+                // and apply the current TDP immediately — bypassing the 150 ms debounce and the
+                // possibly-delayed profile re-apply (observed ~60 s gap) — so unlock + PL1/PL2 +
+                // power-shift are all restored at once, right on resume.
+                msiClawUnlockDone = false;
+                lastMsiShiftValue = -1;
+
+                int currentTdp = TDP?.Value ?? 0;
+                if (currentTdp > 0)
+                {
+                    ApplyTDPInternal(currentTdp);
+                    Logger.Info($"[MSIClaw] Re-asserted TDP unlock + power-shift after resume (TDP={currentTdp}W).");
+                }
+                else
+                {
+                    EnsureMsiClawTdpUnlock();
+                    Logger.Info("[MSIClaw] Re-asserted TDP unlock after resume (no current TDP to apply yet).");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[MSIClaw] ReassertMsiClawTdpUnlock failed: {ex.Message}");
+            }
+        }
+
         // ── MSI ACPI WMI TDP helpers ───────────────────────────────────────────────
         // 1:1 port from HC ClawA1M.SetCPUPowerLimit + HandheldCompanion.WMI.Set.
         // HC reference:

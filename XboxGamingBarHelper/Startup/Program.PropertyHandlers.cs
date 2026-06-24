@@ -73,6 +73,12 @@ namespace XboxGamingBarHelper
             // Force refresh hardware sensors (battery values can be stale after hibernation)
             performanceManager?.ForceRefreshHardware();
 
+            // Re-assert the MSI Claw TDP unlock FIRST: the EC power-cycles during sleep/hibernate
+            // and clears the OverBoost + ceiling unlock (the helper process survives, so the
+            // once-per-run guard would otherwise skip it). Without this the TDP re-apply below is
+            // clamped to ~17W — the "17W cap after hibernation" community reports. No-op on non-Claw.
+            performanceManager?.ReassertMsiClawTdpUnlock();
+
             // Re-apply current profile settings (TDP, CPU boost, EPP, CPU state)
             CurrentProfile_PropertyChanged(sender, null);
         }

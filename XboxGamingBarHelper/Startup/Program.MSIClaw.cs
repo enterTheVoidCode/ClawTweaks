@@ -712,11 +712,13 @@ namespace XboxGamingBarHelper
         // ── Auto-safety: switch a software fan curve to EC Sport before the latch zone ──────
         // A software fan curve (Comfort scenario) can only regulate the fan DOWN and under-cools
         // under sustained load → the CPU overshoots into the EC's ~90 °C thermal-protection latch
-        // (unrecoverable without a shutdown). When the CPU crosses 78 °C while a curve preset is
+        // (unrecoverable without a shutdown). When the CPU crosses 70 °C while a curve preset is
         // active, hand cooling to the EC's own aggressive curve (Sport 0xC4) which cools well and
         // never latches. Per design we do NOT switch back on temperature — only when a game ends
         // (RestoreFanAfterGame), so the fan stays competent for the whole session without flapping.
-        private const float AutoSportThresholdC = 78f;
+        // 70 °C (was 78): users reported the quiet/curve modes could still reach the panic latch, so
+        // we engage EC Sport earlier for more headroom below the ~90 °C latch zone.
+        private const float AutoSportThresholdC = 70f;
         private static bool _autoSportActive;
         private static bool _msiFanAutoSportEnabled; // true on MSI Claw; gates the per-tick check
 
@@ -726,7 +728,7 @@ namespace XboxGamingBarHelper
         private static void EnableMsiFanAutoSport()
         {
             _msiFanAutoSportEnabled = true;
-            Logger.Info("[MSIClaw] Fan auto-safety enabled (Sport above 78 °C, checked in the 1s main loop, restore on game end)");
+            Logger.Info("[MSIClaw] Fan auto-safety enabled (Sport above 70 °C, checked in the 1s main loop, restore on game end)");
         }
 
         internal static void MsiFanAutoSportTick()

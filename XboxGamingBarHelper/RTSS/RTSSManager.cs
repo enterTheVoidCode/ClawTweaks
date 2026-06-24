@@ -109,7 +109,7 @@ namespace XboxGamingBarHelper.RTSS
         };
 
         // Layout settings
-        private int osdTextSize = 125;        // Percentage: 50=Small, 100=Medium, 125=Default, 150=Large, 200=X-Large
+        private int osdTextSize = 150;        // Percentage: 50=Small, 100=Medium, 125=Medium-Large, 150=Default, 175=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
         private string osdTextColor = "FFFFFF";
         private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
         private string osdBackgroundColor = "80000000";
@@ -757,7 +757,7 @@ namespace XboxGamingBarHelper.RTSS
                     {
                         // Show the frametime stats as FPS metrics (not ms): min FPS is the slowest frame
                         // (= max frametime), max FPS the fastest (= min frametime). These are secondary
-                        // stats → rendered at 55% (smaller than the FPS "ms" at 75%); reset with <S>.
+                        // stats → rendered at 75% to match the GPU watts size (OSDItemGPU "<S=75>"); reset with <S>.
                         string labelColor = ApplyOpacityToColor("808080");
                         string minColor = ApplyOpacityToColor("FF6600");   // min fps = worst → orange
                         string avgColor = ApplyOpacityToColor("FFFF00");
@@ -766,7 +766,7 @@ namespace XboxGamingBarHelper.RTSS
                         int minFps = currentMaxFt > 0.01f ? (int)System.Math.Round(1000f / currentMaxFt) : 0;
                         int avgFps = currentAvgFt > 0.01f ? (int)System.Math.Round(1000f / currentAvgFt) : 0;
                         int maxFps = currentMinFt > 0.01f ? (int)System.Math.Round(1000f / currentMinFt) : 0;
-                        statsLabel = $"\n<S=55><C={labelColor}>min:<C={minColor}>{minFps} <C={labelColor}>avg:<C={avgColor}>{avgFps} <C={labelColor}>max:<C={maxColor}>{maxFps}";
+                        statsLabel = $"\n<S=75><C={labelColor}>min:<C={minColor}>{minFps} <C={labelColor}>avg:<C={avgColor}>{avgFps} <C={labelColor}>max:<C={maxColor}>{maxFps}";
                         if (current1PercentLowFps > 0)
                         {
                             statsLabel += $" <C={labelColor}>1% low:<C={lowColor}>{current1PercentLowFps:F0}";

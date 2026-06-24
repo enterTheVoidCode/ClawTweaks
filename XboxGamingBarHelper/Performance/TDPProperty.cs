@@ -47,6 +47,25 @@ namespace XboxGamingBarHelper.Performance
             Manager.SetTDP(tdp);
         }
 
+        /// <summary>
+        /// Same protection as <see cref="ApplyStartupAuthority"/>, but for a per-game WIDGET RECONNECT
+        /// (Game Bar opened while a game with a per-game profile is running). The widget's initial
+        /// batch-sync on connect pushes its stale TDP slider value (e.g. the previous game's 25W)
+        /// BEFORE it loads the current game's profile. Re-assert the current per-game TDP to hardware
+        /// and make it authoritative for a grace window so that stale push is IGNORED (both the
+        /// hardware apply AND — because SetValue returns false — the per-game profile save). Genuine
+        /// user changes after the window still apply normally.
+        /// </summary>
+        public void ApplyConnectAuthority(int tdp, int graceMs)
+        {
+            forceNextApply = false; // don't let the widget's connect push force-apply over us
+            long graceTimestamp = System.DateTime.Now.Ticks + (long)graceMs * System.TimeSpan.TicksPerMillisecond;
+            profileAppliedTimestamp = graceTimestamp;
+            Logger.Info($"TDP connect authority: {tdp}W (ignoring stale widget TDP pushes for ~{graceMs}ms)");
+            base.SetValue(tdp, graceTimestamp);
+            Manager.SetTDP(tdp);
+        }
+
         public override bool SetValue(object newValue, long updatedTime = 0)
         {
             // Ignore widget messages with timestamps older than our last profile-applied timestamp

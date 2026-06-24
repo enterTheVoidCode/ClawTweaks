@@ -305,6 +305,9 @@ namespace XboxGamingBar
                 bool hasGameAcDc = HasValidGame(currentGameName)
                     && GetPerGamePowerSourceProfileEnabled(currentGameName);
                 bool hasGlobalAcDc = GetGlobalPowerSourceProfileEnabled();
+                // A per-game profile is the active source whenever the per-game toggle is on for a
+                // valid running game — independent of any AC/DC split.
+                bool perGameActive = PerGameProfileToggle?.IsOn == true && HasValidGame(currentGameName);
                 PerformanceProfile ac, dc;
                 string source;
                 if (hasGameAcDc)
@@ -312,6 +315,18 @@ namespace XboxGamingBar
                     ac = gameACProfile;
                     dc = gameDCProfile;
                     source = "game-AC/DC";
+                }
+                else if (perGameActive)
+                {
+                    // Per-game profile active but WITHOUT an AC/DC split. Send the per-game base
+                    // profile for both states — NOT globalProfile. Otherwise the helper caches the
+                    // GLOBAL TDP as the AC/DC per-state value and re-applies it on the next AC/DC
+                    // tick, clobbering the active per-game TDP (e.g. global 30W overwriting a 25W
+                    // per-game cap ~15 s after it was correctly applied). Invariant: while a game
+                    // with a per-game profile is running, the global profile must never win.
+                    ac = gameProfile;
+                    dc = gameProfile;
+                    source = "game (no AC/DC split)";
                 }
                 else if (hasGlobalAcDc)
                 {

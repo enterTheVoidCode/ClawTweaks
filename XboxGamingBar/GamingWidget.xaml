@@ -1451,7 +1451,7 @@
                                               Grid.Column="1"
                                               Margin="0,0,8,0"
                                               Style="{StaticResource ModernComboBoxStyle}"
-                                              SelectedIndex="1"
+                                              SelectedIndex="5"
                                               SelectionChanged="TDPModeComboBox_SelectionChanged"
                                               XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
                                               XYFocusDown="{x:Bind TDPSlider}"
@@ -2113,8 +2113,9 @@
                                                   FocusVisualPrimaryBrush="White">
                                             <ComboBoxItem Content="Small" Tag="50"/>
                                             <ComboBoxItem Content="Medium" Tag="100"/>
-                                            <ComboBoxItem Content="Default" Tag="125" IsSelected="True"/>
-                                            <ComboBoxItem Content="Large" Tag="150"/>
+                                            <ComboBoxItem Content="Medium-Large" Tag="125"/>
+                                            <ComboBoxItem Content="Default" Tag="150" IsSelected="True"/>
+                                            <ComboBoxItem Content="Large" Tag="175"/>
                                             <ComboBoxItem Content="X-Large" Tag="200"/>
                                             <ComboBoxItem Content="XX-Large" Tag="250"/>
                                             <ComboBoxItem Content="XXX-Large" Tag="300"/>
@@ -3875,6 +3876,82 @@
                                         Click="UninstallClawTweaks_Click"/>
                             </Grid>
                         </Border>
+
+                        <!-- Tab Settings (mirror of the System-tab section; same backing state) — collapsible, default collapsed -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Tab Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Reorder tabs, hide the ones you don't need, optionally pick a default tab."
+                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="TabSettingsExpandButtonOnboarding" Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  Click="TabSettingsExpandButton_Click" KeyDown="TabSettingsExpandButton_KeyDown"
+                                                  UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="TabSettingsExpandIconOnboarding" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <StackPanel x:Name="TabSettingsContentOnboarding" Visibility="Collapsed" Margin="0,12,0,0"
+                                            XYFocusKeyboardNavigation="Enabled">
+                                    <TextBlock Text="System and Setup can't be hidden."
+                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <ItemsControl x:Name="TabSettingsItemsControlOnboarding">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox Grid.Column="0" Content="{Binding DisplayName}"
+                                                              IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                                                              Visibility="{Binding CheckBoxVisibility}"
+                                                              Foreground="#FFFFFF" Tag="{Binding Tag}"
+                                                              UseSystemFocusVisuals="True" FocusVisualPrimaryBrush="White"
+                                                              Checked="TabSettingVisible_Changed" Unchecked="TabSettingVisible_Changed"/>
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}"
+                                                               Visibility="{Binding LabelVisibility}"
+                                                               Foreground="#FFFFFF" VerticalAlignment="Center" Margin="32,0,0,0"/>
+                                                    <Button Grid.Column="1" Content="&#xE70E;" FontFamily="Segoe MDL2 Assets"
+                                                            FontSize="10" Width="28" Height="24" Padding="0" Margin="4,0,0,0"
+                                                            Background="Transparent" Tag="{Binding Tag}"
+                                                            IsEnabled="{Binding CanMoveUp}" Click="TabSettingMoveUp_Click"/>
+                                                    <Button Grid.Column="2" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                                                            FontSize="10" Width="28" Height="24" Padding="0" Margin="4,0,0,0"
+                                                            Background="Transparent" Tag="{Binding Tag}"
+                                                            IsEnabled="{Binding CanMoveDown}" Click="TabSettingMoveDown_Click"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Grid Margin="0,14,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                                            <TextBlock Text="Open a specific tab on Game Bar open"
+                                                       FontSize="14" Foreground="#E0E0E0" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            <TextBlock Text="Off = reopen at the last tab (default)." FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="DefaultTabToggleOnboarding" Grid.Column="1" VerticalAlignment="Center"
+                                                      MinWidth="0" HorizontalAlignment="Right" Toggled="DefaultTabToggle_Toggled"/>
+                                    </Grid>
+                                    <ComboBox x:Name="DefaultTabComboOnboarding" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              SelectionChanged="DefaultTabCombo_SelectionChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -3882,6 +3959,84 @@
                 <ScrollViewer x:Name="SystemScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
+                        <!-- Tab Settings: collapsible (default collapsed) — reorder tabs, hide non-mandatory ones, optional default tab -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                            <StackPanel>
+                                <!-- Header: title + expand toggle -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Tab Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Reorder tabs, hide the ones you don't need, optionally pick a default tab."
+                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="TabSettingsExpandButtonSystem" Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  Click="TabSettingsExpandButton_Click" KeyDown="TabSettingsExpandButton_KeyDown"
+                                                  UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="TabSettingsExpandIconSystem" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible content -->
+                                <StackPanel x:Name="TabSettingsContentSystem" Visibility="Collapsed" Margin="0,12,0,0"
+                                            XYFocusKeyboardNavigation="Enabled">
+                                    <TextBlock Text="System and Setup can't be hidden."
+                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <ItemsControl x:Name="TabSettingsItemsControlSystem">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,2">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <CheckBox Grid.Column="0" Content="{Binding DisplayName}"
+                                                              IsChecked="{Binding IsVisible, Mode=TwoWay}"
+                                                              Visibility="{Binding CheckBoxVisibility}"
+                                                              Foreground="#FFFFFF" Tag="{Binding Tag}"
+                                                              UseSystemFocusVisuals="True" FocusVisualPrimaryBrush="White"
+                                                              Checked="TabSettingVisible_Changed" Unchecked="TabSettingVisible_Changed"/>
+                                                    <TextBlock Grid.Column="0" Text="{Binding DisplayName}"
+                                                               Visibility="{Binding LabelVisibility}"
+                                                               Foreground="#FFFFFF" VerticalAlignment="Center" Margin="32,0,0,0"/>
+                                                    <Button Grid.Column="1" Content="&#xE70E;" FontFamily="Segoe MDL2 Assets"
+                                                            FontSize="10" Width="28" Height="24" Padding="0" Margin="4,0,0,0"
+                                                            Background="Transparent" Tag="{Binding Tag}"
+                                                            IsEnabled="{Binding CanMoveUp}" Click="TabSettingMoveUp_Click"/>
+                                                    <Button Grid.Column="2" Content="&#xE70D;" FontFamily="Segoe MDL2 Assets"
+                                                            FontSize="10" Width="28" Height="24" Padding="0" Margin="4,0,0,0"
+                                                            Background="Transparent" Tag="{Binding Tag}"
+                                                            IsEnabled="{Binding CanMoveDown}" Click="TabSettingMoveDown_Click"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Grid Margin="0,14,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                                            <TextBlock Text="Open a specific tab on Game Bar open"
+                                                       FontSize="14" Foreground="#E0E0E0" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                            <TextBlock Text="Off = reopen at the last tab (default)." FontSize="11" Foreground="#888888"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="DefaultTabToggleSystem" Grid.Column="1" VerticalAlignment="Center"
+                                                      MinWidth="0" HorizontalAlignment="Right" Toggled="DefaultTabToggle_Toggled"/>
+                                    </Grid>
+                                    <ComboBox x:Name="DefaultTabComboSystem" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                              Style="{StaticResource ModernComboBoxStyle}"
+                                              SelectionChanged="DefaultTabCombo_SelectionChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Appearance / Theme (moved out of Debug to the top of the System tab) -->
                         <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
                             <StackPanel>
@@ -5506,11 +5661,11 @@
                                                       SelectionChanged="MsiFanPresetComboBox_SelectionChanged"
                                                       KeyDown="MsiFanPresetComboBox_KeyDown">
                                                 <ComboBoxItem Content="Quiet" Tag="0"/>
-                                                <ComboBoxItem Content="Default" Tag="1" IsSelected="True"/>
+                                                <ComboBoxItem Content="Default (EC Quiet Auto Sportmode 70 Grad)" Tag="1"/>
                                                 <ComboBoxItem Content="Aggressive" Tag="2"/>
                                                 <ComboBoxItem Content="Cooling (Early Ramp)" Tag="3"/>
                                                 <ComboBoxItem Content="Custom" Tag="4"/>
-                                                <ComboBoxItem Content="Cooling (EC Sport)" Tag="5"/>
+                                                <ComboBoxItem Content="Default (EC Sport)" Tag="5" IsSelected="True"/>
                                             </ComboBox>
                                         </Grid>
 
