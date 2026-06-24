@@ -73,8 +73,8 @@ namespace XboxGamingBar
             {
                 var settings = ApplicationData.Current.LocalSettings;
                 bool enabled = settings.Values.TryGetValue(MsiFanEnabledKey, out var enObj) && enObj is bool b && b;
-                int preset = (settings.Values.TryGetValue(MsiFanPresetKey, out var pObj) && pObj is int p) ? p : 1;
-                if (preset < 0 || preset > 5) preset = 1;
+                int preset = (settings.Values.TryGetValue(MsiFanPresetKey, out var pObj) && pObj is int p) ? p : 5;
+                if (preset < 0 || preset > 5) preset = 5;
 
                 // Restore the curve for the selected preset (custom from storage; presets from constants).
                 LoadCurveForPreset(preset);
@@ -97,8 +97,9 @@ namespace XboxGamingBar
         /// <summary>
         /// Applies the fan state the helper pushed on connect (authoritative). Updates the UI +
         /// the widget's cached keys without echoing back to the helper.
-        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled, 0=Quiet, 1=Default, 2=Aggressive,
-        /// 3=Cooling(early ramp), 4=Custom, 5=Cooling(EC Sport).
+        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled, 0=Quiet,
+        /// 1=Default (EC Quiet Auto Sportmode 70°C), 2=Aggressive, 3=Cooling(early ramp),
+        /// 4=Custom, 5=Default (EC Sport) — the new default, forced on toggle enable.
         /// </summary>
         internal void OnMsiFanState(string payload)
         {
@@ -108,7 +109,7 @@ namespace XboxGamingBar
             string curve = parts.Length > 1 ? parts[1] : "";
 
             bool enabled = value >= 0;
-            int preset = (value >= 0 && value <= 5) ? value : 1;
+            int preset = (value >= 0 && value <= 5) ? value : 5;
 
             _msiFanInitializing = true;
             try
@@ -337,15 +338,26 @@ namespace XboxGamingBar
             if (MsiFanContent != null)
                 MsiFanContent.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
             ApplicationData.Current.LocalSettings.Values[MsiFanEnabledKey] = on;
-            if (on) RenderMsiFanCurve();
+            if (on)
+            {
+                // Enabling/re-enabling fan control always activates the new default
+                // "Default (EC Sport)" hardware-cooling mode (preset 5) — the safe, never-latching
+                // baseline. Selecting another preset afterwards still works and persists.
+                _msiFanInitializing = true;
+                try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 5; }
+                finally { _msiFanInitializing = false; }
+                ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 5;
+                LoadCurveForPreset(5);
+                RenderMsiFanCurve();
+            }
             SendMsiFanStateToHelper();
         }
 
         private void MsiFanPresetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_msiFanInitializing) return;
-            int idx = MsiFanPresetComboBox?.SelectedIndex ?? 1;
-            if (idx < 0) idx = 1;
+            int idx = MsiFanPresetComboBox?.SelectedIndex ?? 5;
+            if (idx < 0) idx = 5;
             ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = idx;
 
             LoadCurveForPreset(idx);
@@ -372,7 +384,7 @@ namespace XboxGamingBar
                     return;
                 }
 
-                int preset = MsiFanPresetComboBox?.SelectedIndex ?? 1;
+                int preset = MsiFanPresetComboBox?.SelectedIndex ?? 5;
                 if (preset == 4)
                 {
                     SendMsiFanCurveToHelper();

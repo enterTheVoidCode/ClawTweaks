@@ -125,7 +125,7 @@ namespace XboxGamingBar
         private ObservableCollection<OSDItemViewModel> osdItemViewModels = new ObservableCollection<OSDItemViewModel>();
 
         // Global OSD layout settings
-        private int osdTextSize = 125;    // Percentage: 50=Small, 100=Medium, 125=Default, 150=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
+        private int osdTextSize = 150;    // Percentage: 50=Small, 100=Medium, 125=Medium-Large, 150=Default, 175=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
         // RTSS overlay font (applied helper-side to the RTSS Global profile). Default = Bahnschrift
         // (ships with Win 10/11; helper falls back to RTSS's Unispace if it isn't installed). The
         // Bahnschrift variants bake the weight into the face name, so weight stays 400 for all of them.
@@ -653,6 +653,29 @@ namespace XboxGamingBar
                     }
                 }
 
+                // One-time migration: the old "Default" overlay size was 125%. Bahnschrift
+                // renders noticeably smaller, so the default is now 150% (the former "Large").
+                // Bump any saved 125% ("old default") to 150% exactly once — guarded by a flag so
+                // a later deliberate "Medium-Large" (125%) pick is never re-bumped.
+                try
+                {
+                    const string migFlag = "OSD_TextSize_DefaultBumpedTo150";
+                    if (!(settings.Values.TryGetValue(migFlag, out object migDone) && migDone is bool mb && mb))
+                    {
+                        foreach (var key in settings.Values.Keys
+                                     .Where(k => k.StartsWith("OSD_TextSize_", StringComparison.Ordinal)).ToList())
+                        {
+                            if (settings.Values[key] is int v && v == 125)
+                            {
+                                settings.Values[key] = 150;
+                                Logger.Info($"OSD size migration: bumped {key} 125 -> 150");
+                            }
+                        }
+                        settings.Values[migFlag] = true;
+                    }
+                }
+                catch (Exception ex) { Logger.Warn($"OSD size migration failed: {ex.Message}"); }
+
                 // Load global layout settings (text size is per-resolution)
                 string currentRes = resolution?.Value ?? "default";
                 string textSizeKey = $"OSD_TextSize_{currentRes}";
@@ -663,9 +686,10 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Default to 125 ("Default", between Medium and Large) if no per-resolution setting exists
-                    osdTextSize = 125;
-                    Logger.Info($"No OSD text size saved for resolution {currentRes}, using default 125");
+                    // Default to 150 ("Default", = former "Large") if no per-resolution setting exists.
+                    // Bahnschrift renders small, so 150% is the baseline.
+                    osdTextSize = 150;
+                    Logger.Info($"No OSD text size saved for resolution {currentRes}, using default 150");
                 }
                 if (settings.Values.TryGetValue("OSD_Font", out object fontVal) && fontVal is string fontFace && !string.IsNullOrWhiteSpace(fontFace))
                 {

@@ -67,6 +67,14 @@ namespace XboxGamingBar
                 Logger.Info($"GamingWidget_VisibleChanged: Visible={isVisible}, DisplayMode={sender?.GameBarDisplayMode.ToString() ?? "Unknown"}");
                 UpdateGameBarForegroundSignal("VisibleChanged");
 
+                // Apply the user's tab order/visibility (idempotent) and, if enabled, jump to their
+                // chosen default tab. Default behaviour (option off) keeps the last position.
+                if (isVisible)
+                {
+                    ApplyTabPrefs();
+                    ApplyDefaultTabOnOpen();
+                }
+
                 // Resize to full height on first activation.
                 // Delay to let Game Bar finish restoring its cached layout first.
                 if (isVisible && !hasAppliedInitialSize && sender != null)

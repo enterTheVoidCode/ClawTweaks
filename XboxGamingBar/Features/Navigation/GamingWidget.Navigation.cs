@@ -161,6 +161,7 @@ namespace XboxGamingBar
                         SystemScrollViewer.Visibility = Visibility.Visible;
                         SystemScrollViewer.ChangeView(null, 0, null, true);
                         RequestControllerEmulationDriverStatus();
+                        RefreshTabSettingsList();
                         break;
                     case "Drivers":
                         if (DriverScrollViewer != null)
@@ -180,6 +181,7 @@ namespace XboxGamingBar
                         }
                         RequestControllerEmulationDriverStatus(); // refresh ViGEm/HidHide status
                         RefreshOnboardingTab();
+                        RefreshTabSettingsList();
                         break;
                 }
 
@@ -536,7 +538,8 @@ namespace XboxGamingBar
             }
             else if (SystemScrollViewer?.Visibility == Visibility.Visible)
             {
-                target = ThemeComboBox;
+                // Tab Settings (collapsible) is the first card on the System tab.
+                target = TabSettingsExpandButtonSystem ?? (Control)ThemeComboBox;
             }
             else if (ScalingScrollViewer?.Visibility == Visibility.Visible)
             {
@@ -739,6 +742,22 @@ namespace XboxGamingBar
                 LightingContent.Visibility = Visibility.Collapsed;
                 if (LightingExpandIcon != null) LightingExpandIcon.Glyph = "";
                 LightingExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == TabSettingsContentSystem && _tabSettingsExpandedSystem)
+            {
+                _tabSettingsExpandedSystem = false;
+                TabSettingsContentSystem.Visibility = Visibility.Collapsed;
+                if (TabSettingsExpandIconSystem != null) TabSettingsExpandIconSystem.Glyph = "";
+                TabSettingsExpandButtonSystem?.Focus(FocusState.Programmatic);
+                return true;
+            }
+            if (fe == TabSettingsContentOnboarding && _tabSettingsExpandedOnboarding)
+            {
+                _tabSettingsExpandedOnboarding = false;
+                TabSettingsContentOnboarding.Visibility = Visibility.Collapsed;
+                if (TabSettingsExpandIconOnboarding != null) TabSettingsExpandIconOnboarding.Glyph = "";
+                TabSettingsExpandButtonOnboarding?.Focus(FocusState.Programmatic);
                 return true;
             }
             return false;

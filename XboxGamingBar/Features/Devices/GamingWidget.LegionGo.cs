@@ -69,9 +69,18 @@ namespace XboxGamingBar
                 // Update XY focus bindings - TDP Mode card is always present now
                 UpdatePerformanceTabXYFocus(true);
 
-                // Sync TDP Mode with Legion Performance Mode if Legion device
-                // Skip during initial sync - ApplyProfileTDPToHelper will set the correct value
-                if (visible && LegionPerformanceModeComboBox != null && TDPModeComboBox != null && !isInitialSync)
+                // Sync TDP Mode with Legion Performance Mode if Legion device.
+                // Skip during initial sync - ApplyProfileTDPToHelper will set the correct value.
+                //
+                // CRITICAL: gate on isActualLegion (NOT just `visible`). On the MSI Claw the
+                // TDP-Mode card is hidden and the device always runs Slider/Custom — the slider
+                // is the source of truth. Copying LegionPerformanceModeComboBox.SelectedIndex
+                // into TDPModeComboBox here does NOT pre-set lastTDPModeIndex, so
+                // TDPModeComboBox_SelectionChanged fires as a "user change" and applies preset
+                // index 1 = "Standard" = 25W, which persists to the global profile. That is the
+                // recurring "global TDP resets to 25W on every Game Bar open" bug: harmless on
+                // real Legion (card visible, sync intended) but a silent clobber on the Claw.
+                if (isActualLegion && LegionPerformanceModeComboBox != null && TDPModeComboBox != null && !isInitialSync)
                 {
                     TDPModeComboBox.SelectedIndex = LegionPerformanceModeComboBox.SelectedIndex;
                 }
@@ -281,7 +290,9 @@ namespace XboxGamingBar
             DriverUpdatesCheckButton.IsEnabled = false;
             DriverUpdatesCheckButton.Content = "Checking…";
             if (DriverUpdatesStatusText != null)
-                DriverUpdatesStatusText.Text = "Reading machine info and contacting Lenovo…";
+                DriverUpdatesStatusText.Text = IsMsiClawDevice()
+                    ? "Reading machine info and contacting MSI + Intel…"
+                    : "Reading machine info and contacting Lenovo…";
             if (DriverUpdatesList != null)
                 DriverUpdatesList.Visibility = Visibility.Collapsed;
 
@@ -2552,7 +2563,11 @@ namespace XboxGamingBar
         /// <summary>
         /// Handles TDP Mode ComboBox selection in Performance tab (Legion devices only)
         /// </summary>
-        private int lastTDPModeIndex = 1; // Track last index to avoid redundant updates (init to XAML default: Balanced)
+        private int lastTDPModeIndex = 5; // Track last index to avoid redundant updates (init to XAML default: Slider/Custom 255).
+                                          // MUST match the ComboBox's XAML SelectedIndex so the equality guard
+                                          // suppresses the init SelectionChanged — otherwise a preset (e.g. index 1 =
+                                          // Standard 25W) would apply on every fresh load and overwrite the user's
+                                          // slider TDP in the global profile.
         private double savedCustomTDP = 15; // Saved custom TDP value when switching away from Custom mode
         private void TDPModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {

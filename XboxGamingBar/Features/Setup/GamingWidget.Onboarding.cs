@@ -263,6 +263,10 @@ namespace XboxGamingBar
                 }
                 if (insertAt < 0 || insertAt > MainNavPanel.Children.Count) insertAt = MainNavPanel.Children.Count;
                 MainNavPanel.Children.Insert(insertAt, OnboardingNavItem);
+
+                // The user's saved tab order is the final authority — re-apply it on top of the
+                // onboarding move (no-op when no custom order has been set).
+                ApplyTabPrefs();
             }
             catch (Exception ex)
             {
