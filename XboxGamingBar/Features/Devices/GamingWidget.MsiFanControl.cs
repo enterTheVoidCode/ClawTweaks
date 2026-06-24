@@ -97,9 +97,11 @@ namespace XboxGamingBar
         /// <summary>
         /// Applies the fan state the helper pushed on connect (authoritative). Updates the UI +
         /// the widget's cached keys without echoing back to the helper.
-        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled, 0=Quiet,
-        /// 1=Default (EC Quiet Auto Sportmode 70°C), 2=Aggressive, 3=Cooling(early ramp),
-        /// 4=Custom, 5=Default (EC Sport) — the new default, forced on toggle enable.
+        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled,
+        /// 0=EC Quiet · Quiet, 1=EC Quiet · Default (both Comfort + curve, auto-Sport at 70°C/158°F),
+        /// 2=EC Sport · Aggressive, 3=EC Sport · Cooling (early ramp), 4=EC Sport · Custom (all three
+        /// hold Sport permanently + software curve), 5=EC Sport (Default) — firmware drives the fan,
+        /// the default, forced on toggle enable.
         /// </summary>
         internal void OnMsiFanState(string payload)
         {

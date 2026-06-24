@@ -317,8 +317,10 @@ namespace XboxGamingBarHelper
 
         /// <summary>
         /// Apply an MSI Claw fan command from the widget.
-        /// value: 0/1/2/3 = software preset (Quiet/Default/Aggressive/Cooling); 4 = custom curve;
-        /// -1 = disable → firmware control.
+        /// value: 0/1 = EC Quiet curve (Quiet/Default) — Comfort power-shift + software curve, with the
+        ///   auto-Sport safety at 70 °C (158 °F); 2/3 = EC Sport curve (Aggressive/Cooling) — Sport
+        ///   power-shift held permanently + software curve; 4 = EC Sport custom curve; 5 = EC Sport
+        ///   default (firmware drives the fan, no software curve); -1 = disable → firmware control.
         /// Persisted so it can be re-applied on startup (the EC resets across reboots).
         /// </summary>
         internal static void ApplyMsiFan(int value)
@@ -329,17 +331,19 @@ namespace XboxGamingBarHelper
                 Settings.LocalSettingsHelper.SetValue("MsiFan_Value", value);
 
                 // Any explicit fan-mode apply ends an auto-safety Sport override (the watcher may
-                // re-engage on the next tick if it is still hot and a curve mode is selected).
+                // re-engage on the next tick if it is still hot and a Quiet curve mode is selected).
                 _autoSportActive = false;
 
-                // EC Sport cooling (mode 5): let the EC run its own aggressive fan curve via the Sport
-                // power-shift scenario (0xC4) — cools well, never latches. Any other mode restores the
-                // calm Comfort scenario (0xC0) so our software fan table is honoured again.
-                performanceManager?.SetMsiSportCooling(value == 5);
+                // EC power-shift scenario: Sport (0xC4) held permanently for Aggressive/Cooling/Custom
+                // and the EC-Sport default (values 2-5); Comfort (0xC0) for Quiet/Default (0-1) and
+                // firmware mode (-1). Sport raises the TDP/boost ceiling; for the curve presets (2-4)
+                // we still re-apply our software table below, so OUR curve — not the EC's — drives the
+                // fan while Sport stays active (apply-after-shift = our curve is the last word).
+                performanceManager?.SetMsiSportCooling(value >= 2);
                 if (value == 5)
                 {
-                    // Sport overrides the software table; put the fan in hardware mode so the EC's
-                    // aggressive curve drives it cleanly (and clear any full-speed override).
+                    // Pure EC Sport: hand the fan to the firmware so the EC's own aggressive curve drives
+                    // it cleanly (and clear any full-speed override). No software curve in this mode.
                     MsiClawFanController.ApplyHardwareTable("BestPerformance");
                     return;
                 }
@@ -709,15 +713,17 @@ namespace XboxGamingBarHelper
             }
         }
 
-        // ── Auto-safety: switch a software fan curve to EC Sport before the latch zone ──────
-        // A software fan curve (Comfort scenario) can only regulate the fan DOWN and under-cools
-        // under sustained load → the CPU overshoots into the EC's ~90 °C thermal-protection latch
-        // (unrecoverable without a shutdown). When the CPU crosses 70 °C while a curve preset is
-        // active, hand cooling to the EC's own aggressive curve (Sport 0xC4) which cools well and
-        // never latches. Per design we do NOT switch back on temperature — only when a game ends
-        // (RestoreFanAfterGame), so the fan stays competent for the whole session without flapping.
-        // 70 °C (was 78): users reported the quiet/curve modes could still reach the panic latch, so
-        // we engage EC Sport earlier for more headroom below the ~90 °C latch zone.
+        // ── Auto-safety: switch an EC Quiet curve to EC Sport before the latch zone ──────
+        // The EC Quiet curve modes (Quiet/Default, values 0-1) run the Comfort scenario, which can only
+        // regulate the fan DOWN and under-cools under sustained load → the CPU overshoots into the EC's
+        // ~90 °C thermal-protection latch (unrecoverable without a shutdown). When the CPU crosses
+        // 70 °C while a Quiet curve is active, hand cooling to the EC's own aggressive curve (Sport
+        // 0xC4) which cools well and never latches. Per design we do NOT switch back on temperature —
+        // only when a game ends (RestoreFanAfterGame), so the fan stays competent for the whole session
+        // without flapping. 70 °C (was 78): users reported the quiet modes could still reach the panic
+        // latch, so we engage EC Sport earlier for more headroom below the ~90 °C latch zone.
+        // The EC Sport curve modes (Aggressive/Cooling/Custom, values 2-4) already hold Sport
+        // permanently, so the safety does not apply to them.
         private const float AutoSportThresholdC = 70f;
         private static bool _autoSportActive;
         private static bool _msiFanAutoSportEnabled; // true on MSI Claw; gates the per-tick check
@@ -738,8 +744,9 @@ namespace XboxGamingBarHelper
                 if (!_msiFanAutoSportEnabled) return; // not an MSI Claw (or not yet initialised)
                 if (_autoSportActive) return; // already handed to EC Sport — wait for game end
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
-                // Only protect software-curve modes (Comfort table). -1 = firmware (safe), 5 = already Sport.
-                if (value < 0 || value > 4) return;
+                // Only protect the EC Quiet curve modes (Comfort): 0 = Quiet, 1 = Default. -1 = firmware
+                // (safe), 2-4 = already permanent EC Sport, 5 = EC Sport default. None need the safety.
+                if (value < 0 || value > 1) return;
 
                 float temp = performanceManager?.CPUTemperature?.Value ?? 0f;
                 if (temp >= AutoSportThresholdC)

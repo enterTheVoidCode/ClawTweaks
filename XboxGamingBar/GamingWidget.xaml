@@ -5660,14 +5660,17 @@
                                                       Width="160"
                                                       SelectionChanged="MsiFanPresetComboBox_SelectionChanged"
                                                       KeyDown="MsiFanPresetComboBox_KeyDown">
-                                                <ComboBoxItem Content="Quiet" Tag="0"/>
-                                                <ComboBoxItem Content="Default (EC Quiet Auto Sportmode 70 Grad)" Tag="1"/>
-                                                <ComboBoxItem Content="Aggressive" Tag="2"/>
-                                                <ComboBoxItem Content="Cooling (Early Ramp)" Tag="3"/>
-                                                <ComboBoxItem Content="Custom" Tag="4"/>
-                                                <ComboBoxItem Content="Default (EC Sport)" Tag="5" IsSelected="True"/>
+                                                <ComboBoxItem Content="EC Quiet · Quiet" Tag="0"/>
+                                                <ComboBoxItem Content="EC Quiet · Default" Tag="1"/>
+                                                <ComboBoxItem Content="EC Sport · Aggressive" Tag="2"/>
+                                                <ComboBoxItem Content="EC Sport · Cooling (Early Ramp)" Tag="3"/>
+                                                <ComboBoxItem Content="EC Sport · Custom" Tag="4"/>
+                                                <ComboBoxItem Content="EC Sport (Default)" Tag="5" IsSelected="True"/>
                                             </ComboBox>
                                         </Grid>
+
+                                        <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#999999" TextWrapping="Wrap"
+                                                   Text="EC Sport is the default MSI mode. EC Quiet curves auto-switch to EC Sport at 158 °F (70 °C); EC Sport curves keep the Sport power-shift active at all times. Use EC Quiet for lighter tasks — you can test whether the Auto Sport safety kicks in early enough to stay controlled under heavy gaming. If the fan ever stays uncontrollably loud, shut the device down, wait one minute, then reboot."/>
 
                                         <!-- Drag editor: 11 control points (0,10,…,100 °C → 0–100 %). -->
                                         <TextBlock Text="Fan %" FontSize="11" Foreground="#999999" Margin="0,12,0,4"/>
