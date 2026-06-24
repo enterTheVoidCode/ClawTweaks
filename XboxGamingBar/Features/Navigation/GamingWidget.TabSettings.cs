@@ -407,21 +407,30 @@ namespace XboxGamingBar
 
         /// <summary>On Game Bar open: if enabled and the chosen tab is currently visible, jump to it.
         /// Default (option off) keeps the last position. A hidden/removed target is ignored.</summary>
-        internal void ApplyDefaultTabOnOpen()
+        internal bool ApplyDefaultTabOnOpen()
         {
             try
             {
-                if (!(ApplicationData.Current.LocalSettings.Values[DefaultTabEnabledKey] is bool en) || !en) return;
+                if (!(ApplicationData.Current.LocalSettings.Values[DefaultTabEnabledKey] is bool en) || !en) return false;
                 var tag = ApplicationData.Current.LocalSettings.Values[DefaultTabKey] as string;
-                if (string.IsNullOrEmpty(tag)) return;
+                if (string.IsNullOrEmpty(tag)) return false;
                 var rb = NavItemForTag(tag);
-                if (rb != null && rb.Visibility == Visibility.Visible && rb.IsChecked != true)
+                if (rb != null && rb.Visibility == Visibility.Visible)
                 {
-                    rb.IsChecked = true;
+                    // Check the nav item (themes the pill / moves focus) AND force the actual content
+                    // switch. Relying on the Checked event alone is not enough: after a tab reorder the
+                    // item can already be IsChecked=true (so Checked never fires) or a competing setter
+                    // (Loaded's Quick default) overrides it — leaving the pill on the target tab but the
+                    // content on the previous one. Calling NavRadioButton_Checked directly is idempotent
+                    // and guarantees the matching ScrollViewer is shown.
+                    if (rb.IsChecked != true) rb.IsChecked = true;
+                    NavRadioButton_Checked(rb, null);
                     Logger.Info($"Default-tab on open → '{tag}'");
+                    return true;
                 }
             }
             catch (Exception ex) { Logger.Debug($"ApplyDefaultTabOnOpen: {ex.Message}"); }
+            return false;
         }
 
         // ── collapsible section (default collapsed) + controller navigation ─────────────────────

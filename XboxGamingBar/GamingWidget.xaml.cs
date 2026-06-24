@@ -2573,8 +2573,11 @@ namespace XboxGamingBar
         {
             Logger.Info($"GamingWidget_Loaded called. Widget is null: {widget == null}, WidgetActivity is null: {widgetActivity == null}, Pipe connected: {App.IsConnected}");
 
-            // Set initial navigation selection (first RadioButton - Quick tab)
-            QuickNavItem.IsChecked = true;
+            // Set initial navigation selection: the user's configured default tab if enabled,
+            // otherwise the Quick tab. ApplyDefaultTabOnOpen also runs on subsequent Game Bar
+            // reopens via VisibleChanged; applying it here too makes the very first open honour it.
+            if (!ApplyDefaultTabOnOpen())
+                QuickNavItem.IsChecked = true;
 
             // Load profile customization settings
             LoadProfileCustomizationSettings();
