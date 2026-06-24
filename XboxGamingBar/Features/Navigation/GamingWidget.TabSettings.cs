@@ -448,22 +448,73 @@ namespace XboxGamingBar
             if (expanded) RefreshTabSettingsList(); // build the rows now that the panel is visible
         }
 
-        // Expand toggle: D-pad Down enters the panel (first focusable row control) when expanded;
-        // when collapsed, leave it unhandled so normal Down navigation moves to the next card.
+        // Expand toggle: D-pad Down enters the panel when expanded; when collapsed, leave it unhandled
+        // so normal Down navigation moves to the next card. Controller (XYFocus) navigation inside the
+        // reorder list only works once focus sits on a row's hide-checkbox — from there Down walks
+        // checkbox→checkbox and across to the sort arrows. So we explicitly land on the FIRST row's
+        // checkbox. The order is fully user-reorderable, so we key off row index 0 (the topmost item),
+        // never a fixed tab.
         private void TabSettingsExpandButton_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key != Windows.System.VirtualKey.Down && e.Key != Windows.System.VirtualKey.GamepadDPadDown) return;
             bool system = ReferenceEquals(sender, TabSettingsExpandButtonSystem);
             bool expanded = system ? _tabSettingsExpandedSystem : _tabSettingsExpandedOnboarding;
             var content = system ? TabSettingsContentSystem : TabSettingsContentOnboarding;
+            var items = system ? TabSettingsItemsControlSystem : TabSettingsItemsControlOnboarding;
             if (!expanded || content == null) return;
 
+            if (TryFocusFirstTabRowControl(items))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            // Fallback: first focusable anywhere in the panel (e.g. list not yet realized).
             var first = Windows.UI.Xaml.Input.FocusManager.FindFirstFocusableElement(content) as Control;
             if (first != null)
             {
                 first.Focus(FocusState.Keyboard);
                 e.Handled = true;
             }
+        }
+
+        /// <summary>Focus the first reorder row's hide-checkbox (the controller-navigation entry point).
+        /// Order is user-reorderable, so this targets row index 0 — whatever tab currently sits on top.
+        /// If that row is a mandatory tab (no checkbox, e.g. System/Setup moved to the top), falls back
+        /// to the row's first focusable control (its sort arrows) so focus still enters at the top.</summary>
+        private bool TryFocusFirstTabRowControl(ItemsControl items)
+        {
+            if (items == null) return false;
+            int count = items.Items?.Count ?? 0;
+            if (count == 0) return false;
+
+            // Ensure the item containers exist before we ask for them (plain ItemsControl, no
+            // virtualization — UpdateLayout realizes all rows).
+            items.UpdateLayout();
+
+            for (int i = 0; i < count; i++)
+            {
+                if (!(items.ContainerFromIndex(i) is DependencyObject container)) continue;
+
+                var cb = FindVisibleCheckBox(container);
+                if (cb != null) { cb.Focus(FocusState.Keyboard); return true; }
+
+                if (Windows.UI.Xaml.Input.FocusManager.FindFirstFocusableElement(container) is Control ctrl)
+                { ctrl.Focus(FocusState.Keyboard); return true; }
+            }
+            return false;
+        }
+
+        private static CheckBox FindVisibleCheckBox(DependencyObject root)
+        {
+            if (root is CheckBox cb && cb.Visibility == Visibility.Visible) return cb;
+            int n = Windows.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < n; i++)
+            {
+                var found = FindVisibleCheckBox(Windows.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i));
+                if (found != null) return found;
+            }
+            return null;
         }
     }
 }
