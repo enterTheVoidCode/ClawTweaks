@@ -12,7 +12,10 @@
 
     <ScrollViewer x:Name="RootScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <Grid x:Name="RootGrid">
-            <Grid x:Name="MainGrid" Margin="15,15,15,15">
+            <!-- All controls in this Game Bar widget-settings flyout are intentionally hidden.
+                 The named elements are kept so the code-behind still constructs/syncs them without
+                 error; only their container is collapsed so the flyout shows nothing. -->
+            <Grid x:Name="MainGrid" Margin="15,15,15,15" Visibility="Collapsed">
                 <Grid.RowDefinitions>
                     <RowDefinition x:Name="Row_0_ProgressRing" Height="Auto"/>
                     <RowDefinition x:Name="Row_1_AutoManageRTSS" Height="36"/>
