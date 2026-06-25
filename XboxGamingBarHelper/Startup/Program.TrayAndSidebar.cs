@@ -234,7 +234,7 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                 _uiThread = new Thread(TrayUiThreadMain)
                 {
                     IsBackground = true,
-                    Name = "GoTweaksHelperTray",
+                    Name = "ClawTweaksHelperTray",
                 };
                 _uiThread.SetApartmentState(ApartmentState.STA);
                 _uiThread.Start();
@@ -265,10 +265,11 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                         menu.Items.Add(new global::System.Windows.Forms.ToolStripSeparator());
                         menu.Items.Add(exitItem);
 
+                        using (var trayIcon = LoadTrayIcon())
                         using (var notifyIcon = new global::System.Windows.Forms.NotifyIcon())
                         {
-                            notifyIcon.Text = "GoTweaks Helper";
-                            notifyIcon.Icon = global::System.Drawing.SystemIcons.Application;
+                            notifyIcon.Text = "ClawTweaks Helper";
+                            notifyIcon.Icon = trayIcon ?? global::System.Drawing.SystemIcons.Application;
                             notifyIcon.ContextMenuStrip = menu;
                             notifyIcon.Visible = true;
 
@@ -283,6 +284,42 @@ Remove-Item -LiteralPath $MyInvocation.MyCommand.Path -Force -ErrorAction Silent
                 {
                     _startupException = ex;
                     _startupSignal.Set();
+                }
+            }
+
+            /// <summary>
+            /// Loads the bundled ClawTweaks branding icon from the embedded resource
+            /// (Resources\Tray\ClawTweaks.ico). Returns null on any failure so the caller
+            /// falls back to the generic system icon — a missing/broken icon must never
+            /// stop the tray indicator from coming up.
+            /// </summary>
+            private static global::System.Drawing.Icon LoadTrayIcon()
+            {
+                try
+                {
+                    var asm = global::System.Reflection.Assembly.GetExecutingAssembly();
+                    string name = global::System.Linq.Enumerable.FirstOrDefault(
+                        asm.GetManifestResourceNames(),
+                        n => n.EndsWith("ClawTweaks.ico", StringComparison.OrdinalIgnoreCase));
+                    if (name == null)
+                    {
+                        return null;
+                    }
+
+                    using (var stream = asm.GetManifestResourceStream(name))
+                    {
+                        if (stream == null)
+                        {
+                            return null;
+                        }
+
+                        return new global::System.Drawing.Icon(stream);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"Tray icon load failed, using system icon: {ex.Message}");
+                    return null;
                 }
             }
 

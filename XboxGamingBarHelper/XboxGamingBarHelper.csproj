@@ -520,6 +520,8 @@
     <EmbeddedResource Include="Resources\PawnIO\LpcIO.bin" />
     <!-- Bundled default game profiles for systems without Xbox FSE -->
     <EmbeddedResource Include="Resources\DefaultGameProfiles\bundled_profiles.json" />
+    <!-- ClawTweaks branding icon for the system-tray indicator -->
+    <EmbeddedResource Include="Resources\Tray\ClawTweaks.ico" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
