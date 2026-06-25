@@ -983,22 +983,26 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Close the foreground game window
-        /// Uses Alt+Tab to switch to game, then Alt+F4 to close it
+        /// Close the foreground game window. Closes the Game Bar first with Win+G (same mechanism
+        /// as the custom-shortcut tiles), which dismisses the overlay and returns focus to the game
+        /// underneath, then sends Alt+F4 to close it. More reliable than Alt+Tab (that left the
+        /// Game Bar open in the background and could focus the wrong window).
         /// </summary>
         private async void SendAltF4()
         {
             try
             {
-                // Alt+Tab to switch focus to the game (away from Game Bar)
-                _ = SendKeyboardShortcutViaHelper("Alt+Tab");
-                Logger.Info("Alt+Tab sent to focus game");
-
-                // Wait for focus switch
-                await Task.Delay(200);
+                // Close the Game Bar first (Win+G) so the overlay is gone and focus returns to the
+                // game underneath. Only when running as a widget. Mirrors SendCustomShortcutAsync.
+                if (widget != null)
+                {
+                    await SendKeyboardShortcutViaHelper("Win+G");
+                    Logger.Debug("Win+G sent to close Game Bar");
+                    await Task.Delay(150);
+                }
 
                 // Now send Alt+F4 to close the focused game
-                _ = SendKeyboardShortcutViaHelper("Alt+F4");
+                await SendKeyboardShortcutViaHelper("Alt+F4");
                 Logger.Info("Alt+F4 sent to close game");
             }
             catch (Exception ex)
@@ -1014,28 +1018,33 @@ namespace XboxGamingBar
         ///   • Alt+Enter — emulators (RetroArch/DOSBox/MAME), terminals and exclusive-fullscreen games
         /// One of them is a no-op in any given app, so the surviving one toggles fullscreen.
         /// (Edge case: an app that binds *both* would toggle twice and stay as-is — rare, and
-        /// not a typical handheld foreground.) Alt+Tab first focuses the game away from Game Bar.
+        /// not a typical handheld foreground.) The Game Bar is closed first with Win+G (same
+        /// mechanism as the custom-shortcut tiles), which dismisses the overlay and returns focus
+        /// to the game underneath — more reliable than Alt+Tab (that left the Game Bar open in the
+        /// background and could focus the wrong window).
         /// </summary>
         private async void ToggleFullscreen()
         {
             try
             {
-                // Alt+Tab to switch focus to the game (away from Game Bar)
-                _ = SendKeyboardShortcutViaHelper("Alt+Tab");
-                Logger.Info("Alt+Tab sent to focus game");
-
-                // Wait for focus switch
-                await Task.Delay(200);
+                // Close the Game Bar first (Win+G) so the overlay is gone and focus returns to the
+                // game underneath. Only when running as a widget. Mirrors SendCustomShortcutAsync.
+                if (widget != null)
+                {
+                    await SendKeyboardShortcutViaHelper("Win+G");
+                    Logger.Debug("Win+G sent to close Game Bar");
+                    await Task.Delay(150);
+                }
 
                 // F11 — the soft/universal fullscreen toggle (browsers, apps, many games)
-                _ = SendKeyboardShortcutViaHelper("F11");
+                await SendKeyboardShortcutViaHelper("F11");
                 Logger.Info("Fullscreen: F11 sent");
 
                 // Small gap so the two shortcuts don't collide in the input queue
                 await Task.Delay(120);
 
                 // Alt+Enter — emulators, terminals and exclusive-fullscreen games
-                _ = SendKeyboardShortcutViaHelper("Alt+Enter");
+                await SendKeyboardShortcutViaHelper("Alt+Enter");
                 Logger.Info("Fullscreen: Alt+Enter sent");
             }
             catch (Exception ex)
