@@ -5504,7 +5504,7 @@
                             <Border CornerRadius="8" Background="#20000000">
                                 <Image x:Name="DisplayReferenceImage"
                                        HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                                       MinHeight="190" MaxHeight="290" Stretch="UniformToFill"
+                                       MinHeight="133" MaxHeight="203" Stretch="UniformToFill"
                                        Tapped="DisplayReferenceImage_Tapped"/>
                             </Border>
                             <Button x:Name="DisplayRefPrevButton" Click="DisplayRefPrevButton_Click"
