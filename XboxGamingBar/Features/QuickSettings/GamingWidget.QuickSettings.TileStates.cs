@@ -138,6 +138,10 @@ namespace XboxGamingBar
                 Tag = tile.Id,
                 Style = Resources["QuickSettingsTileStyle"] as Style,
                 Background = bgBrush,
+                // Buttons pin FontFamily to the theme resource (Segoe UI) via their default style,
+                // so tile text would NOT inherit the app-wide page font. Set it explicitly to the
+                // chosen app font (carried on the page root); the icon glyph keeps its own font.
+                FontFamily = this.FontFamily,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
                 // Override QuickSettingsTileStyle's Center default so the ContentPresenter

@@ -72,6 +72,98 @@ namespace XboxGamingBar
             }
         }
 
+        // ── App-wide UI font ─────────────────────────────────────────────────────────
+        // Deliberately separate from the OSD/overlay font (OSDFontComboBox → RTSS). This only
+        // changes the widget UI text. The Bahnschrift faces are installed Windows fonts, so they
+        // resolve by name with no embedding; the whole UI inherits from the page-root FontFamily.
+        private const string AppFontSettingKey = "WidgetUiFont";
+        private const string DefaultAppFont = "Bahnschrift SemiLight";
+        private bool isAppFontInitialized = false;
+
+        private void AppFontComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!isAppFontInitialized) return; // Don't save until initial load completes
+
+            if (AppFontComboBox?.SelectedItem is ComboBoxItem item && item.Tag is string face)
+            {
+                ApplyAppFont(face);
+                SaveAppFontSetting(face);
+            }
+        }
+
+        private void ApplyAppFont(string face)
+        {
+            try
+            {
+                // Page-root FontFamily is the single inheritance point for all UI text. Icon
+                // elements set their own (Segoe MDL2 / Fluent Icons) face, so they are unaffected.
+                this.FontFamily = new FontFamily(face);
+
+                // Quick-settings tiles are Buttons, which pin FontFamily to the theme resource and
+                // therefore do NOT inherit the page font. They read this.FontFamily when built, so a
+                // runtime font change needs a tile rebuild to refresh already-realised tiles. Only on
+                // user-initiated changes (initial load builds the tiles afterwards anyway).
+                if (isAppFontInitialized)
+                {
+                    RebuildQuickSettingsTiles();
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to apply app font '{face}': {ex.Message}");
+            }
+        }
+
+        private void SaveAppFontSetting(string face)
+        {
+            try
+            {
+                ApplicationData.Current.LocalSettings.Values[AppFontSettingKey] = face;
+                Logger.Info($"App font saved: {face}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to save app font: {ex.Message}");
+            }
+        }
+
+        private void LoadAppFontSetting()
+        {
+            string face = DefaultAppFont;
+            try
+            {
+                var settings = ApplicationData.Current.LocalSettings;
+                if (settings.Values.TryGetValue(AppFontSettingKey, out var saved)
+                    && saved is string s && !string.IsNullOrWhiteSpace(s))
+                {
+                    face = s;
+                }
+
+                ApplyAppFont(face);
+
+                // Reflect the saved face in the combo without re-triggering a save.
+                if (AppFontComboBox != null)
+                {
+                    foreach (ComboBoxItem item in AppFontComboBox.Items)
+                    {
+                        if (item.Tag is string tag && tag == face)
+                        {
+                            AppFontComboBox.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to load app font: {ex.Message}");
+            }
+            finally
+            {
+                isAppFontInitialized = true; // Allow saves once initial load completed
+            }
+        }
+
         private void ApplyTheme(string themeName)
         {
             if (!WidgetThemes.TryGetValue(themeName, out var theme))
@@ -459,7 +551,11 @@ namespace XboxGamingBar
                 case "Claw Blue (Glas)":     return "Claw Blue";
                 case "Box X (Glas)":         return "Box X";
                 case "Nintendon't (Glas)":   return "Nintendon't";
-                case "Chrilleteur (Glas)":   return "Chrilleteur";
+                // The old violet/yellow "Chrilleteur" theme was renamed to "Candy"; the name
+                // "Chrilleteur" now refers to a new purple/yellow/turquoise palette.
+                case "Chrilleteur (Glas)":   return "Candy";
+                // "Assassins Weed Clawhalla (Ice)" was renamed to "Polar Ice".
+                case "Assassins Weed Clawhalla (Ice)": return "Polar Ice";
                 case "Mono":                 return "Windows";
                 default:                     return name;
             }
@@ -516,6 +612,24 @@ namespace XboxGamingBar
             try
             {
                 var settings = ApplicationData.Current.LocalSettings;
+
+                // One-time migration: the original violet/yellow "Chrilleteur" theme was renamed to
+                // "Candy", and the name "Chrilleteur" now refers to a new palette. Themes persist by
+                // their name string only (there is no stable internal id), so a user who saved the
+                // string "Chrilleteur" would otherwise silently switch to the new theme. Rewrite that
+                // saved string to "Candy" exactly once, guarded by a flag, so existing users keep the
+                // original look while a fresh selection of "Chrilleteur" still maps to the new theme.
+                if (!settings.Values.ContainsKey("ThemeMigratedChrilleteurToCandy"))
+                {
+                    if (settings.Values.TryGetValue("WidgetTheme", out var prev) && prev is string prevName
+                        && prevName == "Chrilleteur")
+                    {
+                        settings.Values["WidgetTheme"] = "Candy";
+                        Logger.Info("Theme migration: saved 'Chrilleteur' rewritten to 'Candy' (one-time).");
+                    }
+                    settings.Values["ThemeMigratedChrilleteurToCandy"] = true;
+                }
+
                 if (settings.Values.TryGetValue("WidgetTheme", out var saved) && saved is string themeName)
                 {
                     themeName = MigrateThemeName(themeName);  // map renamed themes (e.g. "Mono"→"Windows", glass "(Glas)")

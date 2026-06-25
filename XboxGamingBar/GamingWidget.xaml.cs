@@ -760,9 +760,9 @@ namespace XboxGamingBar
                 MetricsBackground2 = Windows.UI.Color.FromArgb(255, 200, 16, 34),
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 154, 154)
             }},
-            // Violet/yellow combo (per reference image).
-            { "Chrilleteur", new ThemeColors {
-                Name = "Chrilleteur",
+            // Violet/yellow combo (per reference image). Formerly named "Chrilleteur".
+            { "Candy", new ThemeColors {
+                Name = "Candy",
                 PageBackground  = Windows.UI.Color.FromArgb(255, 106, 0, 138),      // violet
                 PageBackground2 = Windows.UI.Color.FromArgb(255, 166, 0, 154),      // magenta
                 CardBackground  = Windows.UI.Color.FromArgb(210, 94, 10, 114),
@@ -781,6 +781,141 @@ namespace XboxGamingBar
                 MetricsBackground  = Windows.UI.Color.FromArgb(255, 200, 40, 184),
                 MetricsBackground2 = Windows.UI.Color.FromArgb(255, 138, 26, 134),
                 MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 230, 0)
+            }},
+            // Chrilleteur palette: Royal Purple base (#6A0DAD), Sunny Yellow accent (#FFD700),
+            // Soft Turquoise as the active/secondary colour (#40E0D0), Anthracite Grey for
+            // inactive tiles and buttons (#2F4F4F). All four screenshot colours are represented.
+            { "Chrilleteur", new ThemeColors {
+                Name = "Chrilleteur",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 106, 13, 173),     // #6A0DAD royal purple (base)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 60, 8, 104),       // deeper royal purple
+                CardBackground  = Windows.UI.Color.FromArgb(205, 70, 20, 118),      // translucent purple glass
+                CardBorder      = Windows.UI.Color.FromArgb(255, 255, 215, 0),      // #FFD700 yellow edge
+                AccentColor     = Windows.UI.Color.FromArgb(255, 255, 215, 0),      // #FFD700 sunny yellow (accent)
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 255, 250, 235),    // warm near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 120, 228, 214),    // soft turquoise tint
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 47, 79, 79),       // #2F4F4F anthracite grey
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 64, 224, 208),     // #40E0D0 turquoise
+                TileOff         = Windows.UI.Color.FromArgb(255, 60, 94, 94),       // anthracite top (inactive)
+                TileOff2        = Windows.UI.Color.FromArgb(255, 34, 58, 58),       // darker anthracite
+                TileOn          = Windows.UI.Color.FromArgb(255, 64, 224, 208),     // #40E0D0 turquoise active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 36, 150, 140),     // deep turquoise
+                GlowColor       = Windows.UI.Color.FromArgb(255, 255, 215, 0),      // #FFD700 yellow glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 255, 224, 60),     // bright yellow icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 64, 224, 208),  // turquoise
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 36, 150, 140),  // deep turquoise
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 215, 0)    // yellow
+            }},
+            // "Spot if i" — Spotify-inspired: near-black surfaces with signature green (#1DB954).
+            { "Spot if i", new ThemeColors {
+                Name = "Spot if i",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 18, 18, 18),       // #121212 near-black (base)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 10, 26, 16),       // black with a green hint
+                CardBackground  = Windows.UI.Color.FromArgb(210, 24, 24, 24),       // #181818 translucent
+                CardBorder      = Windows.UI.Color.FromArgb(255, 29, 185, 84),      // #1DB954 green
+                AccentColor     = Windows.UI.Color.FromArgb(255, 30, 215, 96),      // #1ED760 bright green
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 255, 255, 255),    // white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 179, 179, 179),    // #B3B3B3 grey
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 30, 30, 30),       // #1E1E1E
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 29, 185, 84),      // green
+                TileOff         = Windows.UI.Color.FromArgb(255, 40, 40, 40),       // #282828 card grey (inactive)
+                TileOff2        = Windows.UI.Color.FromArgb(255, 24, 24, 24),       // #181818
+                TileOn          = Windows.UI.Color.FromArgb(255, 29, 185, 84),      // #1DB954 green active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 20, 130, 60),      // deep green
+                GlowColor       = Windows.UI.Color.FromArgb(255, 30, 215, 96),      // green glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 30, 215, 96),      // green icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 29, 185, 84),   // green
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 20, 120, 56),   // deep green
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 30, 215, 96)    // green
+            }},
+            // "Cyberpunk" — neon on deep purple-black: magenta-pink accent, cyan glow, purple tiles.
+            { "Cyberpunk", new ThemeColors {
+                Name = "Cyberpunk",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 13, 2, 33),        // #0D0221 deep purple-black (base)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 26, 0, 51),        // #1A0033
+                CardBackground  = Windows.UI.Color.FromArgb(210, 30, 10, 55),       // translucent purple
+                CardBorder      = Windows.UI.Color.FromArgb(255, 5, 217, 232),      // #05D9E8 cyan
+                AccentColor     = Windows.UI.Color.FromArgb(255, 255, 42, 109),     // #FF2A6D neon pink
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 235, 245, 255),    // near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 5, 217, 232),      // cyan
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 28, 8, 50),        // dark purple
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 123, 47, 247),     // #7B2FF7 purple
+                TileOff         = Windows.UI.Color.FromArgb(255, 40, 14, 70),       // purple tile (inactive)
+                TileOff2        = Windows.UI.Color.FromArgb(255, 20, 4, 40),        // deep purple
+                TileOn          = Windows.UI.Color.FromArgb(255, 255, 42, 109),     // neon pink active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 150, 20, 90),      // deep pink
+                GlowColor       = Windows.UI.Color.FromArgb(255, 5, 217, 232),      // cyan glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 5, 217, 232),      // cyan icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 123, 47, 247),  // purple
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 70, 20, 150),   // deep purple
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 42, 109)   // neon pink
+            }},
+            // "Loius Vuittong" — luxury brown leather with classic gold (#D4AF37) accents.
+            { "Loius Vuittong", new ThemeColors {
+                Name = "Loius Vuittong",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 43, 29, 18),       // #2B1D12 dark brown (base)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 78, 54, 41),       // #4E3629 leather brown
+                CardBackground  = Windows.UI.Color.FromArgb(210, 61, 43, 31),       // #3D2B1F translucent
+                CardBorder      = Windows.UI.Color.FromArgb(255, 212, 175, 55),     // #D4AF37 gold
+                AccentColor     = Windows.UI.Color.FromArgb(255, 212, 175, 55),     // gold
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 244, 228, 193),    // cream
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 197, 160, 88),     // soft gold
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 61, 43, 31),       // #3D2B1F brown
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 176, 141, 60),     // darker gold
+                TileOff         = Windows.UI.Color.FromArgb(255, 84, 58, 40),       // brown tile (inactive)
+                TileOff2        = Windows.UI.Color.FromArgb(255, 50, 34, 22),       // deep brown
+                TileOn          = Windows.UI.Color.FromArgb(255, 212, 175, 55),     // gold active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 160, 124, 38),     // deep gold
+                GlowColor       = Windows.UI.Color.FromArgb(255, 224, 192, 92),     // gold glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 224, 192, 92),     // gold icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 176, 141, 60),  // gold-brown
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 110, 80, 40),   // deep brown-gold
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 212, 175, 55)   // gold
+            }},
+            // "Ferrar I" — Rosso Corsa red body with shield-yellow accents.
+            { "Ferrar I", new ThemeColors {
+                Name = "Ferrar I",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 200, 16, 0),       // #C81000 rich red (base)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 120, 6, 0),        // deep red
+                CardBackground  = Windows.UI.Color.FromArgb(205, 150, 12, 4),       // translucent dark red
+                CardBorder      = Windows.UI.Color.FromArgb(255, 255, 239, 0),      // #FFEF00 yellow
+                AccentColor     = Windows.UI.Color.FromArgb(255, 255, 239, 0),      // yellow
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 255, 248, 220),    // near-white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 255, 230, 120),    // soft yellow
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 24, 18, 16),       // near-black accent
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 255, 239, 0),      // yellow
+                TileOff         = Windows.UI.Color.FromArgb(255, 150, 14, 4),       // dark red tile (inactive)
+                TileOff2        = Windows.UI.Color.FromArgb(255, 90, 6, 0),         // deep red
+                TileOn          = Windows.UI.Color.FromArgb(255, 255, 216, 0),      // yellow active (pops on red)
+                TileOn2         = Windows.UI.Color.FromArgb(255, 200, 150, 0),      // deep gold
+                GlowColor       = Windows.UI.Color.FromArgb(255, 255, 239, 0),      // yellow glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 255, 239, 0),      // yellow icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 255, 216, 0),   // yellow
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 200, 150, 0),   // deep gold
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 255, 239, 0)    // yellow
+            }},
+            // "Polar Ice" — frozen palette: deep icy navy base, glacial cyan accent, frost-white
+            // text, slate-blue inactive tiles, ice-cyan active tiles.
+            { "Polar Ice", new ThemeColors {
+                Name = "Polar Ice",
+                PageBackground  = Windows.UI.Color.FromArgb(255, 14, 27, 42),       // #0E1B2A deep icy navy (base)
+                PageBackground2 = Windows.UI.Color.FromArgb(255, 24, 44, 66),       // #182C42 slate blue
+                CardBackground  = Windows.UI.Color.FromArgb(205, 28, 48, 70),       // translucent slate glass
+                CardBorder      = Windows.UI.Color.FromArgb(255, 150, 220, 245),    // icy blue edge
+                AccentColor     = Windows.UI.Color.FromArgb(255, 140, 220, 255),    // #8CDCFF glacial cyan
+                TextPrimary     = Windows.UI.Color.FromArgb(255, 235, 248, 255),    // frost white
+                TextSecondary   = Windows.UI.Color.FromArgb(255, 160, 200, 225),    // pale ice blue
+                ButtonBackground= Windows.UI.Color.FromArgb(255, 26, 46, 66),       // slate
+                ButtonBorder    = Windows.UI.Color.FromArgb(255, 120, 200, 235),    // ice blue
+                TileOff         = Windows.UI.Color.FromArgb(255, 34, 56, 80),       // cold slate tile (inactive)
+                TileOff2        = Windows.UI.Color.FromArgb(255, 18, 32, 50),       // deep navy
+                TileOn          = Windows.UI.Color.FromArgb(255, 150, 225, 250),    // ice cyan active
+                TileOn2         = Windows.UI.Color.FromArgb(255, 90, 165, 210),     // deeper glacial blue
+                GlowColor       = Windows.UI.Color.FromArgb(255, 175, 235, 255),    // icy glow
+                TileIcon        = Windows.UI.Color.FromArgb(255, 200, 240, 255),    // frost icons
+                MetricsBackground  = Windows.UI.Color.FromArgb(255, 120, 200, 235), // ice blue
+                MetricsBackground2 = Windows.UI.Color.FromArgb(255, 70, 140, 190),  // deep ice
+                MetricsBorder      = Windows.UI.Color.FromArgb(255, 190, 235, 255)  // frost
             }},
             // ClawTweaks brand: deep black → blood red with a glowing red accent (the dragon art).
             { "Claw Tweaks", new ThemeColors {
@@ -3942,6 +4077,9 @@ namespace XboxGamingBar
 
             // Load saved theme preference
             LoadThemeSetting();
+
+            // Load saved app-wide UI font (separate from the OSD/overlay font)
+            LoadAppFontSetting();
 
             // Only update widget if new parameter is an XboxGameBarWidget, preserve existing otherwise
             if (e.Parameter is XboxGameBarWidget newWidget)

@@ -177,6 +177,8 @@ namespace XboxGamingBar
                 Tag = tile.Id,
                 MinHeight = 52,
                 Padding = new Thickness(4),
+                // Match the app-wide UI font (Buttons otherwise pin to the theme Segoe UI).
+                FontFamily = this.FontFamily,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
                 Background = mainBg,

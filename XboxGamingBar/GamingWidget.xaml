@@ -4061,6 +4061,12 @@
                                     <ComboBoxItem Content="Box X"/>
                                     <ComboBoxItem Content="Nintendon't"/>
                                     <ComboBoxItem Content="Chrilleteur"/>
+                                    <ComboBoxItem Content="Candy"/>
+                                    <ComboBoxItem Content="Spot if i"/>
+                                    <ComboBoxItem Content="Cyberpunk"/>
+                                    <ComboBoxItem Content="Loius Vuittong"/>
+                                    <ComboBoxItem Content="Ferrar I"/>
+                                    <ComboBoxItem Content="Polar Ice"/>
                                     <ComboBoxItem Content="Claw Tweaks"/>
                                     <ComboBoxItem Content="ViscaBarca"/>
                                     <ComboBoxItem Content="BVB"/>
@@ -4070,6 +4076,40 @@
                                     <ComboBoxItem Content="Dracula"/>
                                     <ComboBoxItem Content="Nord"/>
                                     <ComboBoxItem Content="Catppuccin"/>
+                                </ComboBox>
+                            </Grid>
+
+                            <!-- App font selection. Deliberately separate from the OSD/overlay font
+                                 (that one lives in the OSD card and drives RTSS); this one only
+                                 changes the widget UI text and is curated to the Bahnschrift family.
+                                 Each item previews itself in its own face. -->
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="App Font" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Font for the widget UI" FontSize="11" Foreground="#888888"/>
+                                </StackPanel>
+                                <ComboBox x:Name="AppFontComboBox"
+                                          Grid.Column="1"
+                                          Width="150"
+                                          VerticalAlignment="Center"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          SelectionChanged="AppFontComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Bahnschrift" Tag="Bahnschrift" FontFamily="Bahnschrift"/>
+                                    <ComboBoxItem Content="Bahnschrift Light" Tag="Bahnschrift Light" FontFamily="Bahnschrift Light"/>
+                                    <ComboBoxItem Content="Bahnschrift SemiLight" Tag="Bahnschrift SemiLight" IsSelected="True" FontFamily="Bahnschrift SemiLight"/>
+                                    <ComboBoxItem Content="Bahnschrift SemiBold" Tag="Bahnschrift SemiBold" FontFamily="Bahnschrift SemiBold"/>
+                                    <ComboBoxItem Content="Bahnschrift Condensed" Tag="Bahnschrift Condensed" FontFamily="Bahnschrift Condensed"/>
+                                    <ComboBoxItem Content="Bahnschrift SemiCondensed" Tag="Bahnschrift SemiCondensed" FontFamily="Bahnschrift SemiCondensed"/>
+                                    <ComboBoxItem Content="Bahnschrift Light Condensed" Tag="Bahnschrift Light Condensed" FontFamily="Bahnschrift Light Condensed"/>
+                                    <ComboBoxItem Content="Bahnschrift Light SemiCondensed" Tag="Bahnschrift Light SemiCondensed" FontFamily="Bahnschrift Light SemiCondensed"/>
+                                    <ComboBoxItem Content="Bahnschrift SemiLight Condensed" Tag="Bahnschrift SemiLight Condensed" FontFamily="Bahnschrift SemiLight Condensed"/>
+                                    <ComboBoxItem Content="Bahnschrift SemiLight SemiCondensed" Tag="Bahnschrift SemiLight SemiCondensed" FontFamily="Bahnschrift SemiLight SemiCondensed"/>
+                                    <ComboBoxItem Content="Bahnschrift SemiBold Condensed" Tag="Bahnschrift SemiBold Condensed" FontFamily="Bahnschrift SemiBold Condensed"/>
+                                    <ComboBoxItem Content="Bahnschrift SemiBold SemiCondensed" Tag="Bahnschrift SemiBold SemiCondensed" FontFamily="Bahnschrift SemiBold SemiCondensed"/>
                                 </ComboBox>
                             </Grid>
 
