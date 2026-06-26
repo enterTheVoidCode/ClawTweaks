@@ -132,10 +132,34 @@ function Install-ViaWinget {
 
 #region Installers
 function Install-PawnIO {
+    # PRIMARY: the official signed PawnIO setup exe. winget's namazso.PawnIO manifest points at the
+    # old namazso/PawnIO release assets, which no longer exist (the setup moved to the PawnIO.Setup
+    # repo), so winget now fails. The latest-release direct download is the reliable path; winget is
+    # kept as a fallback. This re-introduces a download+launch in this script — acceptable here
+    # because winget is broken and this runs only on an explicit, user-triggered install (not at boot).
+    $url = "https://github.com/namazso/PawnIO.Setup/releases/latest/download/PawnIO_setup.exe"
+    $exe = Join-Path $env:TEMP "PawnIO_setup.exe"
+    try {
+        Write-Info "Downloading PawnIO setup from $url ..."
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $url -OutFile $exe -UseBasicParsing -ErrorAction Stop
+        if (Test-Path $exe) {
+            Write-Info "Running PawnIO setup silently (/S)..."
+            $p = Start-Process -FilePath $exe -ArgumentList "/S" -Wait -PassThru -ErrorAction Stop
+            Remove-Item $exe -Force -ErrorAction SilentlyContinue
+            if ($p.ExitCode -eq 0) { return $true }
+            Write-Warn "PawnIO setup exited with code $($p.ExitCode); falling back to winget."
+        }
+    } catch {
+        Write-Warn "PawnIO direct install failed: $($_.Exception.Message). Falling back to winget."
+        Remove-Item $exe -Force -ErrorAction SilentlyContinue
+    }
+
+    # FALLBACK: winget (the previous logic).
     Write-Info "Attempting PawnIO install via winget (namazso.PawnIO)..."
     $ok = Install-ViaWinget -PackageId "namazso.PawnIO" -DisplayName "PawnIO"
     if ($ok) { return $true }
-    Write-Warn "Automatic PawnIO install failed. Get it from: https://github.com/namazso/PawnIO/releases"
+    Write-Warn "Automatic PawnIO install failed. Get it from: https://github.com/namazso/PawnIO.Setup/releases"
     return $false
 }
 
