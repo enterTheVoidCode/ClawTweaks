@@ -4254,6 +4254,24 @@
                                                       Style="{StaticResource ModernToggleStyle}"
                                                       Toggled="MsiLedBootCycleToggle_Toggled"/>
                                     </Grid>
+
+                                    <!-- LED color based on battery State of Charge. The LED is only
+                                         re-coloured when the charge crosses a 10% band (no HID spam),
+                                         and only while the LED is on. -->
+                                    <Grid Margin="0,14,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="LED color based on battery" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Tint the LED by charge level: blue (full) → green → yellow → orange → red → purple (low). Only while the LED is on."
+                                                       FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="LedColorBySocToggle" Grid.Column="1"
+                                                      OnContent="" OffContent="" IsOn="False"
+                                                      Style="{StaticResource ModernToggleStyle}"/>
+                                    </Grid>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

@@ -1392,6 +1392,7 @@ namespace XboxGamingBar
         private readonly ControllerEmulationAvailableProperty controllerEmulationAvailable;
         private readonly ControllerEmulationEnabledProperty controllerEmulationEnabled;
         private readonly HwControllerExceptionProperty hwControllerException;
+        private readonly LedColorBySocProperty ledColorBySoc;
         private readonly ControllerEmulationHideStockControllerProperty controllerEmulationHideStockController;
         private readonly ControllerEmulationImprovedInputProperty controllerEmulationImprovedInput;
         private readonly ControllerEmulationHideTargetProperty controllerEmulationHideTarget;
@@ -2171,6 +2172,7 @@ namespace XboxGamingBar
             controllerEmulationAvailable = new ControllerEmulationAvailableProperty(this);
             controllerEmulationEnabled = new ControllerEmulationEnabledProperty(ControllerEmulationEnabledToggle, this);
             hwControllerException = new HwControllerExceptionProperty(HwControllerExceptionToggle, this);
+            ledColorBySoc = new LedColorBySocProperty(LedColorBySocToggle, this);
             controllerEmulationHideStockController = new ControllerEmulationHideStockControllerProperty(ControllerEmulationHideStockControllerToggle, this);
             controllerEmulationImprovedInput = new ControllerEmulationImprovedInputProperty(ControllerEmulationImprovedInputToggle, this);
             controllerEmulationImprovedInput.PropertyChanged += ControllerEmulationImprovedInput_PropertyChanged;
@@ -2649,6 +2651,7 @@ namespace XboxGamingBar
                 controllerEmulationAvailable,
                 controllerEmulationEnabled,
                 hwControllerException,
+                ledColorBySoc,
                 controllerEmulationHideStockController,
                 controllerEmulationImprovedInput,
                 controllerEmulationHideTarget,

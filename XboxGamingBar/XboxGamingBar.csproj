@@ -267,6 +267,7 @@
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
     <Compile Include="Data\HwControllerExceptionProperty.cs" />
+    <Compile Include="Data\LedColorBySocProperty.cs" />
     <Compile Include="Data\OSDProperty.cs" />
     <Compile Include="Data\AMD\AMDRadeonSuperResolutionSupportedProperty.cs" />
     <Compile Include="Data\RefreshRateProperty.cs" />

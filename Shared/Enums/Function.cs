@@ -546,5 +546,11 @@
         // NBA 2K26). Helper is authoritative (keyed on GameId.Name) and pushes the current game's
         // state to the widget; widget sends user toggles. The swap happens only at game start.
         HwControllerException,       // bool - true = use HW controller for the running game
+
+        // LED color based on battery State of Charge (MSI Claw). When ON, the helper tints the
+        // controller LED by battery % via a fixed color schema (blue → green → yellow → orange →
+        // red → purple). Only active while the LED is on (brightness > 0); the LED is only written
+        // when the SoC crosses a 10% band (no HID spam). Persisted helper-side; widget toggle.
+        LedColorBySoc,              // bool - true = drive the LED color from battery SoC
     }
 }
