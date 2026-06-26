@@ -1673,6 +1673,16 @@ namespace XboxGamingBarHelper
                         }
                     }
                 }
+                // LED color based on battery SoC (MSI Claw): persist + apply/restore immediately.
+                else if (functionValue == (int)Function.LedColorBySoc)
+                {
+                    if (request.Content != null)
+                    {
+                        bool on = request.Content.ToString().ToLower() == "true";
+                        SetLedColorBySoc(on);
+                        Logger.Info($"Pipe: LED color based on SoC set to: {on}");
+                    }
+                }
                 // Auto Hibernate Mode: 0=Always, 1=AC Only, 2=DC Only
                 else if (functionValue == (int)Function.AutoHibernateMode)
                 {

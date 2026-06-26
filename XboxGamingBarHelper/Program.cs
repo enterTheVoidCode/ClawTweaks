@@ -1575,6 +1575,11 @@ namespace XboxGamingBarHelper
             powerManager.SchedulingPolicy.PropertyChanged += SchedulingPolicy_PropertyChanged;
             powerManager.MaxPCoreFreq.PropertyChanged += MaxCoreFreq_PropertyChanged;
             powerManager.MaxECoreFreq.PropertyChanged += MaxCoreFreq_PropertyChanged;
+
+            // LED color based on battery SoC (MSI Claw). Lightweight band-check timer; writes the LED
+            // only when the SoC crosses a 10% band (no HID spam).
+            InitLedColorBySoc();
+
             if (settingsManager?.AutoHibernateEnabled != null)
             {
                 settingsManager.AutoHibernateEnabled.PropertyChanged += AutoHibernateEnabled_PropertyChanged;

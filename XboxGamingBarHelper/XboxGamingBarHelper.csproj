@@ -286,6 +286,7 @@
     <Compile Include="Startup\Program.HotkeyHandlers.cs" />
     <Compile Include="Startup\Program.Labs.cs" />
     <Compile Include="Startup\Program.MSIClaw.cs" />
+    <Compile Include="Startup\Program.LedSoc.cs" />
     <Compile Include="Startup\Program.PowerActions.cs" />
     <Compile Include="Startup\Program.ControllerState.cs" />
     <Compile Include="Startup\Program.ScreenSaver.cs" />
