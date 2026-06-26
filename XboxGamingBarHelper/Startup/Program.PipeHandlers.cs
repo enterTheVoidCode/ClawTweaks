@@ -391,6 +391,10 @@ namespace XboxGamingBarHelper
                             // back at full brightness. Its presence also authorises the helper to drive the LED.
                             Devices.MSIClaw.MsiLedColorStore.Save(lr, lg, lb, lbright);
                             Logger.Info($"Pipe: MsiLedColor R={lr} G={lg} B={lb} Brightness={lbright} → ok={ok}");
+                            // If LED-by-SoC is active, the saved colour is kept (for restore) but the
+                            // SoC tint owns the LED — reclaim it so a connect-time re-push of the user's
+                            // colour doesn't leave the LED un-tinted until the next band crossing.
+                            ReassertLedColorBySocIfActive();
                             SendPipeAck(pipeMsg.RequestId, ok);
                         }
                         else

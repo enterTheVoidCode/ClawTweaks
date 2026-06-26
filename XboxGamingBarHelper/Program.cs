@@ -821,6 +821,10 @@ namespace XboxGamingBarHelper
                     // the helper restored at boot (helper is the single source of truth).
                     try { PushMsiFanStateToWidget(); }
                     catch (Exception ex) { Logger.Warn($"Failed to push MSI fan state on connect: {ex.Message}"); }
+                    // LED-color-by-SoC is persisted helper-side; push it so the widget toggle reflects
+                    // the real state (otherwise it shows its default 'off' on every Game Bar reopen).
+                    try { PushLedColorBySocState(); }
+                    catch (Exception ex) { Logger.Warn($"Failed to push LED-by-SoC state on connect: {ex.Message}"); }
                 };
                 pipeServer.Disconnected += (s, e) => Logger.Info("Widget disconnected from Named Pipe");
                 pipeServer.Start();

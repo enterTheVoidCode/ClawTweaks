@@ -20,19 +20,25 @@ namespace XboxGamingBarHelper
         private static bool _ledColorBySocEnabled;
         private static int _lastSocBand = -1;            // -1 = nothing applied yet
         private static Timer _ledSocTimer;
+        // False while the controller is mounting (DInput switch + HidHide). The LED HID is busy then,
+        // so tinting would fight MsiLedBoot and flicker. Set true at BOOT COMPLETE. Stays true across
+        // hibernate (the controller doesn't re-mount), so resume tinting is immediate.
+        private static volatile bool _clawControllerReady;
 
-        // 10% bands, low → high SoC (index = ComputeSocBand). Blue (full) down to purple (critical).
+        // 10% bands, low → high SoC (index = ComputeSocBand). A clearly-stepped gradient so adjacent
+        // bands are visually distinct on the LED: blue → teal → green → lime → yellow → orange →
+        // orange-red → red → purple. (Earlier 80-89 dark-green vs 70-79 green looked identical.)
         private static readonly (byte R, byte G, byte B)[] LedSocBandColors =
         {
-            (150,   0, 200),   // band 0: < 20%   — purple (critical, lowest)
-            (200,   0,   0),   // band 1: 20-29   — red
-            (255,  69,   0),   // band 2: 30-39   — orange-red
+            (160,   0, 210),   // band 0: < 20%   — purple (critical, lowest)
+            (210,   0,   0),   // band 1: 20-29   — red
+            (255,  60,   0),   // band 2: 30-39   — orange-red
             (255, 140,   0),   // band 3: 40-49   — orange
-            (255, 215,   0),   // band 4: 50-59   — yellow
-            (160, 220,   0),   // band 5: 60-69   — lime / yellow-green
-            (  0, 200,   0),   // band 6: 70-79   — green
-            (  0, 100,   0),   // band 7: 80-89   — dark green
-            (  0, 110, 255),   // band 8: >= 90   — blue (full)
+            (255, 220,   0),   // band 4: 50-59   — yellow
+            (170, 220,   0),   // band 5: 60-69   — lime / yellow-green
+            (  0, 210,   0),   // band 6: 70-79   — green
+            (  0, 200, 160),   // band 7: 80-89   — teal / aqua-green (distinct from blue and green)
+            (  0, 120, 255),   // band 8: >= 90   — blue (full)
         };
 
         private static int ComputeSocBand(int soc)
@@ -65,6 +71,7 @@ namespace XboxGamingBarHelper
             try
             {
                 if (!_ledColorBySocEnabled) return;
+                if (!_clawControllerReady) return;   // controller still mounting → don't fight MsiLedBoot / flicker
                 if (Devices.DeviceDetector.DetectDevice().DeviceType != DeviceType.MSIClaw) return;
 
                 // Only drive the LED if the user has it ON. MsiLedColorStore is the single source of
@@ -91,6 +98,63 @@ namespace XboxGamingBarHelper
                 }
             }
             catch (Exception ex) { Logger.Debug($"[LedSoC] tick threw: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// If LED-by-SoC is enabled and the battery is readable, returns the current band color so the
+        /// boot LED (MsiLedBoot) can apply it DIRECTLY instead of the user's saved colour — avoiding a
+        /// saved-colour → SoC-colour flash during boot. Returns false when the feature is off or the
+        /// SoC isn't available yet (caller keeps the saved colour).
+        /// </summary>
+        internal static bool TryGetSocBandColorForBoot(out byte r, out byte g, out byte b)
+        {
+            r = g = b = 0;
+            if (!_ledColorBySocEnabled) return false;
+            int soc = (int)(performanceManager?.BatteryLevel?.Value ?? -1f);
+            if (soc <= 0 || soc > 100) return false;
+            var c = LedSocBandColors[ComputeSocBand(soc)];
+            r = c.R; g = c.G; b = c.B;
+            return true;
+        }
+
+        /// <summary>Pushes the persisted LED-by-SoC setting to the widget so its toggle reflects reality on connect.</summary>
+        internal static void PushLedColorBySocState()
+        {
+            try
+            {
+                Program.SendPipeMessage(new Shared.IPC.PipeMessage
+                {
+                    Function = Function.LedColorBySoc,
+                    Command = Command.Set,
+                    Content = _ledColorBySocEnabled ? "true" : "false"
+                });
+                Logger.Info($"[LedSoC] pushed state to widget: {_ledColorBySocEnabled}");
+            }
+            catch (Exception ex) { Logger.Debug($"[LedSoC] push failed: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Re-asserts the SoC tint if the LED was just overwritten by an external color set (the
+        /// widget re-pushing its saved MsiLedColor on connect). Called from the MsiLedColor handler.
+        /// </summary>
+        internal static void ReassertLedColorBySocIfActive()
+        {
+            if (!_ledColorBySocEnabled) return;
+            _lastSocBand = -1;   // force a re-write even though the SoC band hasn't changed
+            LedSocTick();
+        }
+
+        /// <summary>
+        /// Resume-from-sleep/hibernate hook. The controller power-cycles across hibernate and comes
+        /// back showing its EEPROM colour (the user's normal colour), but the SoC band is unchanged,
+        /// so the timer would not re-tint. Force a re-write so the LED returns to the SoC colour
+        /// without needing the widget to be opened. The timer retries if the HID isn't ready yet.
+        /// </summary>
+        internal static void OnResumeReassertLedColorBySoc()
+        {
+            if (!_ledColorBySocEnabled) return;
+            _lastSocBand = -1;
+            LedSocTick();
         }
 
         /// <summary>Pipe handler target. Persists the setting and applies/restores immediately.</summary>

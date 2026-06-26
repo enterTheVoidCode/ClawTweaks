@@ -1768,6 +1768,9 @@ namespace XboxGamingBarHelper
                 var bootSw = System.Diagnostics.Stopwatch.StartNew();
                 int invocation = System.Threading.Interlocked.Increment(ref _startClawMonitorInvocations);
                 Logger.Info($"[ClawBoot #{invocation}] StartClawButtonMonitorBackground begin (startInMouseMode={startInMouseMode}, mountVigem={mountVigem}, viiperBackendActive={_viiperBackendActive})");
+                // Hold the LED-by-SoC tint while the controller is mounting (the LED HID is busy and
+                // MsiLedBoot owns the LED then) — avoids the boot flicker. Released at BOOT COMPLETE.
+                _clawControllerReady = false;
                 try
                 {
                     // ── Step 0: MSI Center guard ──────────────────────────────────
@@ -1973,6 +1976,12 @@ namespace XboxGamingBarHelper
                     }
 
                     Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms BOOT COMPLETE (HidHide enabled, physical DInput hidden)");
+
+                    // Controller mount done → LED-by-SoC may now tint (one clean transition instead of
+                    // flickering during the mount). Force a re-tint so it doesn't wait up to the poll
+                    // interval after boot.
+                    _clawControllerReady = true;
+                    ReassertLedColorBySocIfActive();
                 }
                 catch (Exception ex)
                 {

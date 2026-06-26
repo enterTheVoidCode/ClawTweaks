@@ -81,6 +81,12 @@ namespace XboxGamingBarHelper
 
             // Re-apply current profile settings (TDP, CPU boost, EPP, CPU state)
             CurrentProfile_PropertyChanged(sender, null);
+
+            // The controller power-cycles across hibernate and comes back on its EEPROM (normal)
+            // colour; force the SoC tint to re-apply so the LED doesn't stay on the normal colour
+            // until the widget is opened. No-op if LED-by-SoC is off; retries via the timer if the
+            // LED HID isn't reachable yet during the controller re-mount.
+            OnResumeReassertLedColorBySoc();
         }
 
         // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)

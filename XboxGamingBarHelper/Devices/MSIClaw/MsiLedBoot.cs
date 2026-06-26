@@ -52,6 +52,14 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
                 return;
             }
 
+            // If LED-by-SoC is enabled and the battery is already readable, boot straight to the SoC
+            // band colour instead of the saved colour (no saved → SoC flash). Falls back to the saved
+            // colour when the SoC isn't available yet; the SoC timer then tints once BOOT COMPLETE.
+            if (Program.TryGetSocBandColorForBoot(out byte sr, out byte sg, out byte sb))
+            {
+                r = sr; g = sg; b = sb;
+            }
+
             if (!MsiLedColorStore.LoadBootCycle())
             {
                 // Cycle off: no flash, just the user's colour (retry until the HID is ready).
