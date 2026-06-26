@@ -1652,6 +1652,27 @@ namespace XboxGamingBarHelper
                         Logger.Info($"Pipe: Sidebar Menu enabled set to: {sidebarMenuEnabled}");
                     }
                 }
+                // Per-game HW Controller Exception (MSI Claw): persist the flag for the running
+                // game. No live controller swap — it applies at the next game start.
+                else if (functionValue == (int)Function.HwControllerException)
+                {
+                    if (request.Content != null)
+                    {
+                        bool on = request.Content.ToString().ToLower() == "true";
+                        string gameKey = systemManager?.RunningGame?.Value.IsValid() == true
+                            ? systemManager.RunningGame.Value.GameId.Name
+                            : null;
+                        if (!string.IsNullOrEmpty(gameKey))
+                        {
+                            SetHwControllerException(gameKey, on);
+                            Logger.Info($"Pipe: HW controller exception for '{gameKey}' = {on}");
+                        }
+                        else
+                        {
+                            Logger.Warn("Pipe: HwControllerException ignored — no valid running game");
+                        }
+                    }
+                }
                 // Auto Hibernate Mode: 0=Always, 1=AC Only, 2=DC Only
                 else if (functionValue == (int)Function.AutoHibernateMode)
                 {

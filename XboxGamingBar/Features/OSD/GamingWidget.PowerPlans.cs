@@ -292,6 +292,12 @@ namespace XboxGamingBar
             {
                 if (!App.IsConnected) return;
 
+                // Don't push values before the profiles are loaded from storage — otherwise a
+                // connect-time send races ahead and pushes the constructor default (TDP=25),
+                // which the helper would then apply over the user's real global TDP on the next
+                // AC/DC transition. A later call (post-load) sends the correct values.
+                if (!powerSourceProfilesLoaded) return;
+
                 // Pick which AC/DC pair drives the helper's per-state cache.
                 //   1. Per-game profile with per-game AC/DC split enabled → game AC/DC.
                 //   2. Global AC/DC split enabled → acProfile / dcProfile.

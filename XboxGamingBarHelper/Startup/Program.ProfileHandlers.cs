@@ -1106,6 +1106,11 @@ namespace XboxGamingBarHelper
                     // Apply CPU core affinity to the new game
                     systemManager.ApplyAffinityToRunningGame();
 
+                    // Per-game HW Controller Exception (MSI Claw): if this game is flagged and
+                    // controller emulation is active, swap the virtual pad for the native HW
+                    // controller. Also pushes the current game's exception state to the widget.
+                    ApplyHwControllerExceptionOnGameStart(systemManager.RunningGame.Value.GameId.Name);
+
                     // Switch Lossless Scaling profile for the detected game
                     if (losslessScalingManager.LosslessScalingInstalled.Value)
                     {
@@ -1128,6 +1133,11 @@ namespace XboxGamingBarHelper
                 {
                     Logger.Info($"Stopped playing game, use global profile instead.");
                     RestoreGlobalProfileSettings();
+
+                    // Per-game HW Controller Exception: if we swapped to the HW controller for an
+                    // exception game, restore the virtual controller for the next game. Clear the
+                    // widget toggle (no game → option hidden anyway).
+                    RestoreVirtualControllerAfterHwException();
 
                     // MSI Claw fan auto-safety: if the watcher handed cooling to EC Sport during the
                     // session (CPU crossed 78 °C in a curve mode), restore the user's saved fan curve now.

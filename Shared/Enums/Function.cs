@@ -539,5 +539,12 @@
         // physical MSI Claw, making virtual controller emulation non-functional.
         // Helper pushes true on connect if detected; widget blocks the emulation toggle.
         SteamXboxDriverDetected,     // bool - true = steamxbox upper-filter driver is active
+
+        // Per-game HW Controller Exception (MSI Claw). When ON for the running game and controller
+        // emulation is active, that game uses the physical hardware controller instead of the
+        // virtual Viiper/ViGEm pad (fixes titles that choke on the Viiper usbip controller, e.g.
+        // NBA 2K26). Helper is authoritative (keyed on GameId.Name) and pushes the current game's
+        // state to the widget; widget sends user toggles. The swap happens only at game start.
+        HwControllerException,       // bool - true = use HW controller for the running game
     }
 }

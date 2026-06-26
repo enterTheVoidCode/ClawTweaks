@@ -1404,6 +1404,164 @@ namespace XboxGamingBarHelper
             }
         }
 
+        // ── Per-game HW Controller Exception ──────────────────────────────────────────
+        // When a game is flagged, it uses the physical HW controller (native XInput, unhidden)
+        // instead of the virtual Viiper/ViGEm pad — fixes titles that choke on the Viiper usbip
+        // controller (e.g. NBA 2K26). Helper is authoritative, keyed on GameId.Name, persisted via
+        // LocalSettingsHelper. The swap happens only at game start; toggling never tears down live.
+        private const string HwExceptionSettingKey = "HwControllerExceptionGames";
+        private static readonly object _hwExceptionLock = new object();
+        private static System.Collections.Generic.HashSet<string> _hwExceptionGames;
+        private static bool _hwExceptionSwapActive;   // true once we swapped virtual→HW for the running game
+        // The game key we last evaluated. RunningGame_PropertyChanged re-fires repeatedly for the
+        // SAME game (RTSS re-detection, focus changes, shader-compile churn). Without this guard the
+        // swap would re-run on every re-fire → the controller visibly flickers between virtual and HW.
+        private static string _hwExceptionLastGameKey;
+
+        private static System.Collections.Generic.HashSet<string> HwExceptionGames
+        {
+            get
+            {
+                lock (_hwExceptionLock)
+                {
+                    if (_hwExceptionGames == null)
+                    {
+                        _hwExceptionGames = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        try
+                        {
+                            // Unit separator () as delimiter — game names can contain ';' or ','.
+                            if (Settings.LocalSettingsHelper.TryGetValue(HwExceptionSettingKey, out string saved)
+                                && !string.IsNullOrWhiteSpace(saved))
+                            {
+                                foreach (var g in saved.Split(''))
+                                    if (!string.IsNullOrWhiteSpace(g)) _hwExceptionGames.Add(g);
+                            }
+                        }
+                        catch (Exception ex) { Logger.Warn($"[HWExc] load failed: {ex.Message}"); }
+                    }
+                    return _hwExceptionGames;
+                }
+            }
+        }
+
+        // Normalize the exception key to EXACTLY match the per-game controller-profile key. The
+        // widget stores controller profiles under ControllerProfile_Game_{currentGameName}, where
+        // currentGameName = SanitizeGameName(GameId.Name) = GameId.Name.Trim(). Trimming here keeps
+        // the HW exception and the per-game controller profile on the same identity, so a stray
+        // leading/trailing space in GameId.Name can't split them onto different keys.
+        private static string NormalizeHwExceptionKey(string gameKey) => gameKey?.Trim();
+
+        internal static bool IsHwControllerException(string gameKey)
+        {
+            gameKey = NormalizeHwExceptionKey(gameKey);
+            if (string.IsNullOrEmpty(gameKey)) return false;
+            lock (_hwExceptionLock) return HwExceptionGames.Contains(gameKey);
+        }
+
+        /// <summary>Persist the exception flag for a game. No live controller swap — applies at next game start.</summary>
+        internal static void SetHwControllerException(string gameKey, bool on)
+        {
+            gameKey = NormalizeHwExceptionKey(gameKey);
+            if (string.IsNullOrEmpty(gameKey)) return;
+            lock (_hwExceptionLock)
+            {
+                var set = HwExceptionGames;
+                bool changed = on ? set.Add(gameKey) : set.Remove(gameKey);
+                if (!changed) return;
+                try { Settings.LocalSettingsHelper.SetValue(HwExceptionSettingKey, string.Join("", set)); }
+                catch (Exception ex) { Logger.Warn($"[HWExc] save failed: {ex.Message}"); }
+            }
+            Logger.Info($"[HWExc] Exception for '{gameKey}' set to {on} (no live swap; applies at next game start)");
+        }
+
+        private static void PushHwControllerExceptionState(bool on)
+        {
+            try
+            {
+                Program.SendPipeMessage(new Shared.IPC.PipeMessage
+                {
+                    Function = Function.HwControllerException,
+                    Command = Command.Set,
+                    Content = on ? "true" : "false"
+                });
+            }
+            catch (Exception ex) { Logger.Debug($"[HWExc] push failed: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Game-start hook (RunningGame became valid). Pushes the current game's exception state to
+        /// the widget and, if the game is flagged AND controller emulation is enabled, swaps the
+        /// virtual controller for the native HW controller. Only the swap-at-start path.
+        /// </summary>
+        internal static void ApplyHwControllerExceptionOnGameStart(string gameKey)
+        {
+            try
+            {
+                if (Devices.DeviceDetector.DetectDevice().DeviceType != DeviceType.MSIClaw) return;
+
+                // Idempotency: RunningGame_PropertyChanged re-fires repeatedly for the same game.
+                // Only evaluate (and possibly swap) once per game session — re-firing for the same
+                // key is a no-op, so the controller never flickers between virtual and HW.
+                if (string.Equals(gameKey, _hwExceptionLastGameKey, StringComparison.OrdinalIgnoreCase))
+                    return;
+                _hwExceptionLastGameKey = gameKey;
+
+                bool exception = IsHwControllerException(gameKey);
+                PushHwControllerExceptionState(exception);
+
+                if (!exception)
+                {
+                    // Safety: a previous exception game may have left us in HW mode — restore virtual.
+                    if (_hwExceptionSwapActive) RestoreVirtualControllerAfterHwException();
+                    return;
+                }
+
+                bool emulationEnabled = Settings.LocalSettingsHelper.TryGetValue("ControllerEmulationEnabled", out bool en) && en;
+                if (!emulationEnabled)
+                {
+                    Logger.Info($"[HWExc] Game '{gameKey}' flagged but emulation is off → already HW, no swap");
+                    return;
+                }
+
+                Logger.Info($"[HWExc] Game '{gameKey}' flagged → swapping virtual controller → native HW controller");
+                _hwExceptionSwapActive = true;
+                Task.Run(() =>
+                {
+                    // HW mode = stop the monitor → native XInput, nothing hidden (the game sees the
+                    // real Claw controller). Same baseline the External Gamepad Mode OFF path uses.
+                    try { StopMSIClawButtonMonitor(); }
+                    catch (Exception ex) { Logger.Warn($"[HWExc] swap task threw: {ex.Message}"); }
+                });
+            }
+            catch (Exception ex) { Logger.Warn($"[HWExc] ApplyHwControllerExceptionOnGameStart threw: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Game-end hook. If we swapped to HW for an exception game, restore the virtual controller
+        /// so the next game gets the normal emulated pad.
+        /// </summary>
+        internal static void RestoreVirtualControllerAfterHwException()
+        {
+            // Always clear the idempotency key on game end, EVEN when no swap happened this session
+            // (e.g. the exception was enabled mid-game). Otherwise the key stays set and the SAME
+            // game re-launched would early-return in ApplyHwControllerExceptionOnGameStart and never
+            // swap. Must run before the swap-active early-return below.
+            _hwExceptionLastGameKey = null;
+
+            if (!_hwExceptionSwapActive) return;
+            _hwExceptionSwapActive = false;
+            Logger.Info("[HWExc] Restoring virtual controller after HW-exception game ended");
+            Task.Run(() =>
+            {
+                try
+                {
+                    StopMSIClawButtonMonitor();                          // clean baseline
+                    StartClawButtonMonitorBackground(mountVigem: true);  // restore virtual controller
+                }
+                catch (Exception ex) { Logger.Warn($"[HWExc] restore task threw: {ex.Message}"); }
+            });
+        }
+
         /// <summary>
         /// Experimental: reacts to the VIIPER backend toggle (Debug menu).
         ///

@@ -3221,8 +3221,11 @@
                         <!-- Container for dynamically created game profile cards -->
                         <StackPanel x:Name="AllGameProfilesContainer"/>
 
-                        <!-- Power Source Profile Card -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- Power Source Profile Card.
+                             AC/DC split is removed for the GLOBAL profile, so this card is only shown
+                             while a per-game profile is active (per-game profiles keep their AC/DC
+                             split). Visibility is driven in code by UpdatePowerSourceProfileScopeText. -->
+                        <Border x:Name="PowerSourceProfileCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -3231,7 +3234,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Extra per Power Source Profiles" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Separate profiles for AC (plugged in) and DC (battery)"
+                                        <TextBlock Text="Separate profiles for AC (plugged in) and DC (battery). Per-game only."
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
                                     </StackPanel>
@@ -9635,6 +9638,43 @@
                         </StackPanel>
                         </StackPanel>
                         <!-- End hidden Performance Mode section -->
+
+                        <!-- ── HW Controller Exception (per-game, MSI Claw) — bottom of Controller tab ──
+                             Visible only while controller emulation is enabled AND a game is running
+                             (gated in code-behind via UpdateHwControllerExceptionVisibility). When on,
+                             the running game uses the native HW controller instead of the virtual
+                             Viiper/ViGEm pad — fixes a few titles (e.g. NBA 2K26) that choke on the
+                             Viiper usbip controller. The swap is applied at the next game start. -->
+                        <Border x:Name="HwControllerExceptionCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="HW Controller Exception for this Game" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Use the physical hardware controller instead of the virtual one for this game. Helps with competitive titles or special cases (e.g. NBA 2K26) that have issues with the virtual controller."
+                                                   Style="{StaticResource CardCaptionStyle}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="HwControllerExceptionToggle"
+                                                  Grid.Column="1"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Right"
+                                                  Style="{StaticResource ModernToggleStyle}"
+                                                  IsOn="False"
+                                                  Toggled="HwControllerExceptionToggle_Toggled"/>
+                                </Grid>
+                                <TextBlock x:Name="HwControllerExceptionHint"
+                                           Text="Close and restart the game to apply — the controller is only swapped at game start."
+                                           Style="{StaticResource CardCaptionStyle}"
+                                           Foreground="#FFAA46"
+                                           TextWrapping="Wrap"
+                                           Margin="0,8,0,0"
+                                           Visibility="Collapsed"/>
+                            </StackPanel>
+                        </Border>
 
                         <!-- ── Controller Status (read-only diagnostic, bottom of Controller tab) ──
                              Mirrors Diagnostics\Get-ControllerState.ps1. The elevated helper inspects
