@@ -4238,8 +4238,13 @@
                                                       HorizontalAlignment="Left"
                                                       ColorChanged="MsiLedColorPicker_ColorChanged"/>
 
-                                    <!-- Boot colour cycle on/off (red→green→your colour at controller startup). -->
-                                    <Grid Margin="0,14,0,0">
+                                    <!-- Boot colour cycle on/off (red while loading → your colour).
+                                         REMOVED from the UI (Collapsed). The helper forces cycle-off
+                                         (MsiLedColorStore.LoadBootCycle returns false), so the red
+                                         loading flash never runs; the saved colour is still applied at
+                                         startup. The toggle element is kept (Collapsed) only so the
+                                         existing code-behind compiles; it is never user-visible. -->
+                                    <Grid Margin="0,14,0,0" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>

@@ -108,6 +108,12 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         /// <summary>Loads the startup colour-cycle preference. Defaults to TRUE (enabled) when unset.</summary>
         public static bool LoadBootCycle()
         {
+            // Startup colour cycle (red loading flash) is disabled: the toggle was removed from the UI
+            // and the cycle code must not run. Forced off here so MsiLedBoot always takes the cycle-off
+            // path (apply the saved colour, no red flash). The original preference-read logic below is
+            // intentionally kept (unreached) so the feature can be re-enabled later.
+            return false;
+#pragma warning disable CS0162 // Unreachable code detected (kept on purpose)
             try
             {
                 string path = ResolvePath(BootCycleFileName);
@@ -119,6 +125,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
                 Logger.Debug($"[MsiLedStore] LoadBootCycle failed: {ex.Message}");
                 return true;
             }
+#pragma warning restore CS0162
         }
     }
 }
