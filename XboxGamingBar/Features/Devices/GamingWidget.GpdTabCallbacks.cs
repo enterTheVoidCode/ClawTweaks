@@ -455,6 +455,8 @@ namespace XboxGamingBar
         private void ControllerEmulationEnabledToggle_Toggled(object sender, RoutedEventArgs e)
         {
             UpdateControllerEmulationControlState();
+            // HW Controller Exception card depends on emulation being on (and a game running).
+            UpdateHwControllerExceptionVisibility();
             // Re-evaluate IsEnabled: if user turned emulation off, "alreadyOn" gate no longer applies.
             UpdateControllerEmulationToggleEnabled();
             UpdateControllerEmulationMouseSettingsVisibility();

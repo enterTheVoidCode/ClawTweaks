@@ -1797,6 +1797,8 @@ namespace XboxGamingBar
             {
                 isSwitchingControllerProfile = false;
                 UpdateControllerProfileModeBadge();
+                // HW Controller Exception is only available with a per-game controller profile.
+                UpdateHwControllerExceptionVisibility();
             }
         }
 
@@ -1842,6 +1844,13 @@ namespace XboxGamingBar
                     LegionControllerProfileToggle.IsEnabled = HasValidGame(currentGameName);
                 SetControllerProfileHints(gameActive: HasValidGame(currentGameName), hasProfile: false);
                 UpdateControllerProfileModeBadge();
+
+                // The HW Controller Exception belongs to the per-game controller profile — clear it
+                // too. Turning the toggle off makes HwControllerExceptionProperty push false to the
+                // helper, removing this game from the exception set. Then hide the (now irrelevant) card.
+                if (HwControllerExceptionToggle != null && HwControllerExceptionToggle.IsOn)
+                    HwControllerExceptionToggle.IsOn = false;
+                UpdateHwControllerExceptionVisibility();
 
                 if (isSavedProfilesExpanded)
                     RefreshSavedProfilesList();

@@ -48,7 +48,7 @@ namespace XboxGamingBar
     /// </summary>
     public class PerformanceProfile
     {
-        public double TDP { get; set; } = 25;
+        public double TDP { get; set; } = 30;   // fallback default; new per-game profiles seed at the device max (GetDeviceMaxTdp)
         public bool CPUBoost { get; set; } = false;
         public double CPUEPP { get; set; } = 0;
         public int MaxCPUState { get; set; } = 100;
@@ -1391,6 +1391,7 @@ namespace XboxGamingBar
         private readonly GPDButtonProperty gpdButtonLSRight;
         private readonly ControllerEmulationAvailableProperty controllerEmulationAvailable;
         private readonly ControllerEmulationEnabledProperty controllerEmulationEnabled;
+        private readonly HwControllerExceptionProperty hwControllerException;
         private readonly ControllerEmulationHideStockControllerProperty controllerEmulationHideStockController;
         private readonly ControllerEmulationImprovedInputProperty controllerEmulationImprovedInput;
         private readonly ControllerEmulationHideTargetProperty controllerEmulationHideTarget;
@@ -1561,6 +1562,9 @@ namespace XboxGamingBar
         private PerformanceProfile globalProfile = new PerformanceProfile();
         private PerformanceProfile acProfile = new PerformanceProfile();
         private PerformanceProfile dcProfile = new PerformanceProfile();
+        // True once the Global/AC/DC profiles have been loaded from storage. Until then their TDP
+        // is the constructor default (25) and must not be pushed to the helper as PowerSourceProfileValues.
+        private bool powerSourceProfilesLoaded = false;
         private PerformanceProfile gameProfile = new PerformanceProfile();
         private PerformanceProfile gameACProfile = new PerformanceProfile();
         private PerformanceProfile gameDCProfile = new PerformanceProfile();
@@ -1643,12 +1647,13 @@ namespace XboxGamingBar
 
         private bool GetGlobalPowerSourceProfileEnabled()
         {
-            var settings = ApplicationData.Current.LocalSettings;
-            if (settings.Values.TryGetValue(GlobalPowerSourceProfileSettingKey, out object val) && val is bool enabled)
-            {
-                return enabled;
-            }
-
+            // AC/DC split removed for the GLOBAL profile: there is exactly one global profile,
+            // never a power-source-dependent value. (Per-game profiles keep their AC/DC split via
+            // GetPerGamePowerSourceProfileEnabled.) Forcing false means SendPowerSourceProfileValues
+            // ToHelper always sends globalProfile for both AC and DC, so a stale AC/DC sub-value can
+            // never clobber the real global TDP on a plug/unplug or helper restart. The saved key is
+            // intentionally ignored so existing users with the old global split enabled are migrated
+            // to no-split automatically.
             return false;
         }
 
@@ -1729,13 +1734,20 @@ namespace XboxGamingBar
 
         private void UpdatePowerSourceProfileScopeText()
         {
+            bool hasGame = HasValidGame(currentGameName);
+            bool perGameContext = PerGameProfileToggle?.IsOn == true && hasGame;
+
+            // AC/DC split is removed for the global profile, so the Power-Source-Profile card is
+            // only relevant — and only shown — while a per-game profile is active.
+            if (PowerSourceProfileCard != null)
+            {
+                PowerSourceProfileCard.Visibility = perGameContext ? Visibility.Visible : Visibility.Collapsed;
+            }
+
             if (PowerSourceProfileScopeText == null)
             {
                 return;
             }
-
-            bool hasGame = HasValidGame(currentGameName);
-            bool perGameContext = PerGameProfileToggle?.IsOn == true && hasGame;
 
             if (perGameContext)
             {
@@ -2158,6 +2170,7 @@ namespace XboxGamingBar
             gpdButtonLSRight = new GPDButtonProperty(this, Function.GPDButtonLSRight);
             controllerEmulationAvailable = new ControllerEmulationAvailableProperty(this);
             controllerEmulationEnabled = new ControllerEmulationEnabledProperty(ControllerEmulationEnabledToggle, this);
+            hwControllerException = new HwControllerExceptionProperty(HwControllerExceptionToggle, this);
             controllerEmulationHideStockController = new ControllerEmulationHideStockControllerProperty(ControllerEmulationHideStockControllerToggle, this);
             controllerEmulationImprovedInput = new ControllerEmulationImprovedInputProperty(ControllerEmulationImprovedInputToggle, this);
             controllerEmulationImprovedInput.PropertyChanged += ControllerEmulationImprovedInput_PropertyChanged;
@@ -2635,6 +2648,7 @@ namespace XboxGamingBar
                 gpdButtonLSRight,
                 controllerEmulationAvailable,
                 controllerEmulationEnabled,
+                hwControllerException,
                 controllerEmulationHideStockController,
                 controllerEmulationImprovedInput,
                 controllerEmulationHideTarget,
@@ -2735,6 +2749,11 @@ namespace XboxGamingBar
             LoadProfileFromStorage("Global", globalProfile);
             LoadProfileFromStorage("AC", acProfile);
             LoadProfileFromStorage("DC", dcProfile);
+
+            // From here on globalProfile holds the user's real TDP (not the constructor default
+            // of 25). Guards SendPowerSourceProfileValuesToHelper from pushing that stale 25 to the
+            // helper if a pipe-connect send races ahead of this load.
+            powerSourceProfilesLoaded = true;
 
             // Load global controller profile from storage
             LoadControllerProfileFromStorage("Global", globalControllerProfile);
@@ -3383,6 +3402,45 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Shows the per-game HW Controller Exception card only when controller emulation is enabled
+        /// AND a game is running. Otherwise the card (and its restart hint) is hidden.
+        /// </summary>
+        private void UpdateHwControllerExceptionVisibility()
+        {
+            if (HwControllerExceptionCard == null) return;
+
+            // Only relevant when controller emulation is active AND the running game has a per-game
+            // CONTROLLER profile active (LegionControllerProfileToggle) — NOT the per-game
+            // PERFORMANCE profile. The exception swaps the controller for that specific game, so it
+            // belongs to the per-game controller profile.
+            bool emulationOn = IsControllerEmulationActive;
+            bool perGameControllerProfile = LegionControllerProfileToggle?.IsOn == true;
+            bool gameRunning = HasValidGame(currentGameName);
+            bool show = emulationOn && perGameControllerProfile && gameRunning;
+
+            HwControllerExceptionCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (!show && HwControllerExceptionHint != null)
+            {
+                HwControllerExceptionHint.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        /// <summary>
+        /// User toggled the HW Controller Exception. The HwControllerExceptionProperty already sends
+        /// the value to the helper; here we only surface the "restart the game to apply" hint. Skips
+        /// when the toggle was set by helper sync (not a user action).
+        /// </summary>
+        private void HwControllerExceptionToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (hwControllerException != null && hwControllerException.IsUpdatingUI) return;
+            if (WidgetSliderProperty.HelperSyncCount > 0) return;
+            if (HwControllerExceptionHint == null) return;
+
+            HwControllerExceptionHint.Visibility =
+                (HwControllerExceptionToggle?.IsOn == true) ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         private void OnGameTextChanged(DependencyObject sender, DependencyProperty dp)
         {
             string rawGameName = RunningGameText.Text;
@@ -3417,6 +3475,9 @@ namespace XboxGamingBar
 
                 // Now safe to update currentGameName
                 currentGameName = newGameName;
+
+                // Per-game HW Controller Exception card: visible only with a running game + emulation on.
+                UpdateHwControllerExceptionVisibility();
 
                 // Check if we have a valid game
                 if (HasValidGame(currentGameName))

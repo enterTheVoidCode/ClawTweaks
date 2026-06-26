@@ -44,6 +44,16 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget
     {
 
+        /// <summary>
+        /// Default PL1 (SPL) max TDP in watts for a brand-new per-game profile. The TDP slider drives
+        /// PL1; on the MSI Claw 8 AI+ (Intel Lunar Lake) the PL1 ceiling is 30W (PL2/SPPT then gets
+        /// the usual +1 → 31W). The tdpLimits "min,max" string reports the higher PL2/OverBoost
+        /// ceiling (e.g. 35/37), which is NOT the right PL1 default — so we use the fixed Lunar Lake
+        /// PL1 max here. Users tune DOWN from this; they can still raise the slider manually for
+        /// OverBoost.
+        /// </summary>
+        private double GetNewProfileDefaultTdp() => 30;
+
         private void LoadOrCreateGameProfiles()
         {
             if (!HasValidGame(currentGameName))
@@ -138,8 +148,15 @@ namespace XboxGamingBar
                     }
 
                     gameProfile = (seedProfile ?? globalProfile).Clone();
+                    if (seedProfile == null)
+                    {
+                        // Brand-new per-game profile (no prior per-game data): start TDP at the PL1
+                        // max (30W on the Claw). Users tune DOWN from max far more often than up, and
+                        // this avoids inheriting a possibly-low global TDP.
+                        gameProfile.TDP = GetNewProfileDefaultTdp();
+                    }
                     SaveProfileToStorage($"Game_{currentGameName}", gameProfile);
-                    Logger.Info($"Initialized game profile for {currentGameName} (seed={(seedProfile != null ? "active profile" : "global profile")})");
+                    Logger.Info($"Initialized game profile for {currentGameName} (seed={(seedProfile != null ? "active profile" : $"PL1 max {GetNewProfileDefaultTdp()}W")})");
                 }
                 else
                 {
