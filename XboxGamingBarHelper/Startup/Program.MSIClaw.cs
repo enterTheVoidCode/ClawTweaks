@@ -308,6 +308,8 @@ namespace XboxGamingBarHelper
                 case 60: case 61: case 62: case 63: case 64: case 65: case 69: // Launch Website
                     LaunchUrl(ResolveWebsiteUrlHelper(actionType, actionParam));
                     break;
+                case 74: Windows.User32.SendCtrlComboViaKeybdEvent(0x31); break; // Steam BPM: Steam menu (Ctrl+1)
+                case 75: Windows.User32.SendCtrlComboViaKeybdEvent(0x32); break; // Steam BPM: Quick Access (Ctrl+2)
                 default:
                     // App actions that need widget state — try widget (may not work when suspended)
                     FireTileHotkeyToWidget($"__action__{actionType}", actionName);

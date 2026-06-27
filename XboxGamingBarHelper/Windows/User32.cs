@@ -709,6 +709,7 @@ namespace XboxGamingBarHelper.Windows
             0x25, 0x26, 0x27, 0x28, // Arrow keys
             0x2D, 0x2E,             // Insert, Delete
             0x5B, 0x5C,             // Win keys
+            0xA3, 0xA5,             // Right Ctrl, Right Alt (E0-prefixed scan codes)
             0x6F,                   // NumpadDivide
             0x90,                   // ScrollLock
             0x91,                   // NumLock
@@ -716,6 +717,11 @@ namespace XboxGamingBarHelper.Windows
         };
 
         private const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
+        private const uint KEYEVENTF_SCANCODE = 0x0008;
+        private const uint MAPVK_VK_TO_VSC = 0x00;
+
+        [DllImport("user32.dll")]
+        private static extern uint MapVirtualKey(uint uCode, uint uMapType);
 
         /// <summary>
         /// Dictionary mapping key names to virtual key codes
@@ -913,16 +919,67 @@ namespace XboxGamingBarHelper.Windows
 
             INPUT[] inputs = new INPUT[1];
             inputs[0].type = INPUT_KEYBOARD;
-            inputs[0].u.ki.wVk = vk;
+
+            // Prefer scan-code injection: DirectInput / Raw Input consumers (most games AND the Steam
+            // overlay / Big Picture input layer) read the hardware scan code, not the virtual key. A
+            // VK-only event has wScan=0, so those layers never see the key — even though VK-only works
+            // fine for the Windows message queue (Notepad, browsers, Steam's hotkey-capture dialog).
+            // Sending a real scan code is hardware-like and still reconstructs the correct VK for
+            // message-queue readers, so it's strictly broader, not a swap.
+            ushort scan = (ushort)MapVirtualKey(vk, MAPVK_VK_TO_VSC);
+            if (scan != 0)
+            {
+                flags |= KEYEVENTF_SCANCODE;
+                inputs[0].u.ki.wVk = 0;          // ignored when KEYEVENTF_SCANCODE is set
+                inputs[0].u.ki.wScan = scan;
+            }
+            else
+            {
+                // No PS/2 scan code (media / volume / browser / app-launch keys) — these are consumed
+                // via the VK / WM_APPCOMMAND layer anyway, so keep the original VK-only path intact.
+                inputs[0].u.ki.wVk = vk;
+            }
             inputs[0].u.ki.dwFlags = flags;
 
             var result = SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
             if (result != 1)
             {
                 var error = Marshal.GetLastWin32Error();
-                Logger.Warn($"SendInput failed for VK=0x{vk:X2} keyUp={keyUp}: result={result}, error={error}");
+                Logger.Warn($"SendInput failed for VK=0x{vk:X2} scan=0x{scan:X2} keyUp={keyUp}: result={result}, error={error}");
             }
             return result == 1;
+        }
+
+        // ── Steam Big Picture menu shortcuts (Ctrl+1 / Ctrl+2) ──────────────────────────────────
+        // BPM's library shortcuts ignore SendInput injection (scancode or VK alike), but DO react to
+        // the legacy keybd_event API with hardware scan codes — verified on the MSI Claw. Every other
+        // surface (in-game overlay, perf OSD, desktop apps) keeps using the normal SendInput path.
+
+        [DllImport("user32.dll")]
+        private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        private const uint KEYBDEVENTF_KEYUP = 0x0002;
+        private const uint KEYBDEVENTF_SCANCODE = 0x0008;
+
+        /// <summary>
+        /// Sends Left Ctrl + the given key via the legacy keybd_event API with hardware scan codes —
+        /// the one injection method Steam Big Picture's library shortcuts react to (Ctrl+1 = Steam
+        /// menu, Ctrl+2 = Quick Access). keyVk: 0x31 = '1', 0x32 = '2'.
+        /// </summary>
+        public static void SendCtrlComboViaKeybdEvent(ushort keyVk)
+        {
+            try { ComboKeybdEvent(0xA2 /*VK_LCONTROL*/, keyVk, holdMs: 35, gapMs: 15); }
+            catch (Exception ex) { Logger.Warn($"SendCtrlComboViaKeybdEvent(0x{keyVk:X2}) failed: {ex.Message}"); }
+        }
+
+        private static void ComboKeybdEvent(ushort modVk, ushort keyVk, int holdMs, int gapMs)
+        {
+            byte modScan = (byte)MapVirtualKey(modVk, MAPVK_VK_TO_VSC);
+            byte keyScan = (byte)MapVirtualKey(keyVk, MAPVK_VK_TO_VSC);
+            keybd_event((byte)modVk, modScan, KEYBDEVENTF_SCANCODE, UIntPtr.Zero); Sleep((uint)gapMs);
+            keybd_event((byte)keyVk, keyScan, KEYBDEVENTF_SCANCODE, UIntPtr.Zero); Sleep((uint)holdMs);
+            keybd_event((byte)keyVk, keyScan, KEYBDEVENTF_SCANCODE | KEYBDEVENTF_KEYUP, UIntPtr.Zero); Sleep((uint)gapMs);
+            keybd_event((byte)modVk, modScan, KEYBDEVENTF_SCANCODE | KEYBDEVENTF_KEYUP, UIntPtr.Zero);
+            Logger.Info($"ComboKeybdEvent mod=0x{modVk:X2}/sc0x{modScan:X2} key=0x{keyVk:X2}/sc0x{keyScan:X2}");
         }
 
         private static int GetVirtualKeyCode(string keyName)

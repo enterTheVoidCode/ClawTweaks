@@ -3896,8 +3896,9 @@
                             </StackPanel>
                         </muxc:Expander>
 
-                        <!-- Tab Settings (mirror of the System-tab section; same backing state) — collapsible, default collapsed -->
-                        <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                        <!-- Tab Settings is owned by the System tab; hidden here to avoid a duplicate.
+                             Kept in the tree (Collapsed) because the *Onboarding controls are referenced in code. -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0" Visibility="Collapsed">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -3969,6 +3970,19 @@
                                               Style="{StaticResource ModernComboBoxStyle}"
                                               SelectionChanged="DefaultTabCombo_SelectionChanged"/>
                                 </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Controller Guide button → stop Windows Game Bar from grabbing it -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Controller Guide button" Style="{StaticResource CardTitleStyle}"/>
+                                <TextBlock Text="Stops the virtual controller's Xbox/Guide button from opening the Windows Game Bar (turns off Windows' controller-to-Game-Bar shortcuts in the registry). Note: the Xbox button can currently still open the Xbox app, but it does not open Steam Big Picture or the Steam overlay — so this is geared toward Xbox-app users rather than Steam."
+                                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                <Button x:Name="OnbGuideGameBarBtn" Content="Disable Game Bar on Guide button"
+                                        Click="OnbDisableGuideGameBar_Click" HorizontalAlignment="Left"/>
+                                <TextBlock x:Name="OnbGuideGameBarStatus" FontSize="11" Foreground="#888888"
+                                           TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -4286,10 +4300,8 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="LED color based on battery" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Tint the LED by charge level: blue (full) → green → yellow → orange → red → purple (low). Only while the LED is on."
+                                            <TextBlock Text="Levels: ≥90% blue · 80–89% teal · 70–79% green · 60–69% lime · 50–59% yellow · 40–49% orange · 30–39% orange-red · 20–29% red · &lt;20% purple. Only while the LED is on."
                                                        FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
-                                            <TextBlock Text="Levels: ≥90% blue · 80–89% teal · 70–79% green · 60–69% lime · 50–59% yellow · 40–49% orange · 30–39% orange-red · 20–29% red · &lt;20% purple."
-                                                       FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                             <TextBlock Text="Note: the color may only update once the charge crosses into a new 10% band, or after a reboot."
                                                        FontSize="11" Foreground="#777777" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                         </StackPanel>

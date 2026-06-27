@@ -964,6 +964,21 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                if (pipeMsg.Extra.ContainsKey("DisableGuideGameBar"))
+                {
+                    bool ok = false;
+                    try { ok = DisableGuideButtonGameBar(); }
+                    catch (Exception ex) { Logger.Warn($"Pipe: DisableGuideGameBar threw: {ex.Message}"); }
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet { { "DisableGuideGameBarResult", ok } };
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
                 if (pipeMsg.Extra.ContainsKey("SetDriverCheckOnStart"))
                 {
                     try
@@ -2677,6 +2692,30 @@ namespace XboxGamingBarHelper
         /// Sends a simple acknowledgment response to the widget via Named Pipe.
         /// Used for fire-and-forget messages that still need a response to avoid timeout.
         /// </summary>
+        /// <summary>
+        /// Turns off Windows' "controller Xbox/Guide button opens Game Bar" shortcuts so the virtual
+        /// controller's Guide button is free for other apps (e.g. Steam Big Picture) to claim. Writes
+        /// the three HKCU\Software\Microsoft\GameBar nexus DWORDs to 0. HKCU of this elevated helper is
+        /// the same user hive, so the change applies to the logged-in user. Windows may only pick it up
+        /// after a sign-out/in or reboot.
+        /// </summary>
+        private static bool DisableGuideButtonGameBar()
+        {
+            using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\GameBar"))
+            {
+                if (key == null)
+                {
+                    Logger.Warn("DisableGuideButtonGameBar: could not open HKCU\\Software\\Microsoft\\GameBar");
+                    return false;
+                }
+                key.SetValue("UseNexusForGameBarEnabled", 0, Microsoft.Win32.RegistryValueKind.DWord);
+                key.SetValue("TaskSwitcherNexusInjectionEnabled", 0, Microsoft.Win32.RegistryValueKind.DWord);
+                key.SetValue("GamepadNexusChordEnabled", 0, Microsoft.Win32.RegistryValueKind.DWord);
+            }
+            Logger.Info("DisableGuideButtonGameBar: set GameBar nexus reg values (UseNexus/TaskSwitcherNexusInjection/GamepadNexusChord) to 0");
+            return true;
+        }
+
         private static void SendPipeAck(int requestId, bool success = true)
         {
             try
