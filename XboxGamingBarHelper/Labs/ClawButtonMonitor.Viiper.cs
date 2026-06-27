@@ -237,7 +237,27 @@ namespace XboxGamingBarHelper.Labs
             {
                 if (_viiperMounted)
                 {
-                    try { svc.RemoveDevice(ViiperBusId, _viiperDeviceId); } catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: VIIPER RemoveDevice threw: {ex.Message}"); }
+                    // Verify the kernel-side device removal and retry on failure. A USBIP detach can
+                    // transiently fail (the same hiccup AddDevice retries for); if RemoveDevice is left
+                    // un-retried the virtual pad lingers in the OS, and the NEXT mount creates a SECOND
+                    // one on a fresh bus → two PID_028E pads (the rare "phantom ViGEm" the diagnostic
+                    // can't tell apart). Only runs on Stop, and only sleeps when a removal actually
+                    // fails — the normal teardown succeeds on the first try with no added delay.
+                    bool removed = false;
+                    for (int attempt = 1; attempt <= ViiperAttachMaxAttempts; attempt++)
+                    {
+                        try { removed = svc.RemoveDevice(ViiperBusId, _viiperDeviceId); }
+                        catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: VIIPER RemoveDevice attempt {attempt} threw: {ex.Message}"); removed = false; }
+                        if (removed) break;
+                        if (attempt < ViiperAttachMaxAttempts)
+                        {
+                            Logger.Warn($"ClawButtonMonitor: VIIPER RemoveDevice attempt {attempt}/{ViiperAttachMaxAttempts} failed — retrying in {ViiperAttachRetryDelayMs} ms (avoid a leaked stale pad)");
+                            System.Threading.Thread.Sleep(ViiperAttachRetryDelayMs);
+                        }
+                    }
+                    if (!removed)
+                        Logger.Error($"ClawButtonMonitor: VIIPER RemoveDevice failed after {ViiperAttachMaxAttempts} attempts — a stale virtual pad may linger until reboot");
+
                     try { svc.RemoveBus(ViiperBusId); } catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: VIIPER RemoveBus threw: {ex.Message}"); }
                 }
                 try { svc.Dispose(); } catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: VIIPER Dispose threw: {ex.Message}"); }

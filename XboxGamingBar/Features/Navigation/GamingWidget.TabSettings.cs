@@ -198,8 +198,19 @@ namespace XboxGamingBar
                     rb.Visibility = userHidden ? Visibility.Collapsed : Visibility.Visible;
                 }
 
-                // (a) Order
-                ReorderNavChildren(EffectiveTabOrder());
+                // (a) Order. While onboarding is incomplete, force the Setup tab to the very FIRST
+                // position — a live-only override on top of the saved/factory order so the user is
+                // steered straight to setup. It is never persisted (the reorder-list UI and
+                // SaveOrderFromShown keep using the pure EffectiveTabOrder), so the user's real tab
+                // order is restored automatically once onboarding completes.
+                var order = EffectiveTabOrder();
+                if (OnboardingIncompleteForOrder())
+                {
+                    order = new List<string>(order);
+                    order.Remove("Onboarding");
+                    order.Insert(0, "Onboarding");
+                }
+                ReorderNavChildren(order);
 
                 // Never leave a hidden tab selected.
                 EnsureValidActiveTab();

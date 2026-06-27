@@ -3617,8 +3617,13 @@
                         <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,4,0,0">
                             <StackPanel>
                                 <TextBlock Text="1. Install required tools" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
-                                <TextBlock Text="usbip-win2 (the default emulation driver) has its own download button at the top. „Check &amp; install tools“ at the bottom installs everything that's still missing in one go."
-                                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+
+                                <!-- Backend-switch notice (replaces the old usbip blurb): shown as a headline and
+                                     blinking accent so the move off the discontinued ViGEm backend is unmissable. -->
+                                <TextBlock x:Name="OnbBackendBlink" Loaded="OnbBackendBlink_Loaded"
+                                           Text="We're switching from the discontinued ViGEm to VIIPER (USBIP)"
+                                           FontSize="13" FontWeight="SemiBold" Foreground="#5B8DEF"
+                                           TextWrapping="Wrap" Margin="0,4,0,10"/>
 
                                 <!-- usbip-win2 FIRST: VIIPER backend driver. Not on winget → own download button
                                      (downloaded signed Inno-Setup installer, runs silently). -->
@@ -3630,34 +3635,45 @@
                                             Click="OnbUsbipInstall_Click"/>
                                 </Grid>
                                 <TextBlock Text="USB/IP kernel driver powering the default VIIPER controller emulation (button remapping, gyro-as-stick, Mouse Mode). Downloads + installs the official signed driver silently — needs internet once, reboot afterwards."
-                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,8"/>
+                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,4"/>
+                                <TextBlock Text="Note: the usbip-win2 installer may open in the background — that's expected. Let it finish; it closes itself."
+                                           FontSize="10" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
-                                <!-- Read-only per-tool status (refreshed after the run) + what each tool does -->
-                                <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..."  FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
-                                <TextBlock Text="Hides the Claw's built-in controller while emulation runs, so games see only the virtual pad — prevents double input."
-                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
+                                <!-- Frame around everything the "Check &amp; install tools" button covers — i.e. all
+                                     required tools EXCEPT usbip-win2 (which has its own download button above). -->
+                                <Border Background="#15151F" BorderBrush="#33333F" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,4,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="„Check &amp; install tools“ installs everything in this box in one go (everything except usbip-win2)."
+                                                   FontSize="10" Foreground="#888888" TextWrapping="Wrap" Margin="0,0,0,4"/>
 
-                                <TextBlock x:Name="OnbRtssStatus"    Text="RTSS: Checking..."     FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
-                                <TextBlock Text="RivaTuner Statistics Server. Draws the on-screen overlay (FPS, TDP, temps) and enforces the FPS limiter."
-                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
+                                        <!-- Read-only per-tool status (refreshed after the run) + what each tool does -->
+                                        <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..."  FontSize="11" Foreground="#888888" Margin="0,4,0,0"/>
+                                        <TextBlock Text="Hides the Claw's built-in controller while emulation runs, so games see only the virtual pad — prevents double input."
+                                                   FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
 
-                                <TextBlock x:Name="OnbPawnIOStatus"  Text="PawnIO: Checking..."   FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
-                                <TextBlock Text="Kernel sensor driver. Exposes CPU/GPU power and temperature to the overlay — without it the power readout stays at 0 W."
-                                           FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
+                                        <TextBlock x:Name="OnbRtssStatus"    Text="RTSS: Checking..."     FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
+                                        <TextBlock Text="RivaTuner Statistics Server. Draws the on-screen overlay (FPS, TDP, temps) and enforces the FPS limiter."
+                                                   FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
 
-                                <!-- One-click group install MOVED to the bottom (below PawnIO). Backend-aware:
-                                     PawnIO/HidHide/RTSS always, plus usbip when VIIPER / ViGEm when Legacy. -->
-                                <Button x:Name="OnbRunSetupBtn" Content="Check &amp; install tools"
-                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                        Style="{StaticResource ModernButtonStyle}" FontSize="13" Padding="10,8" Margin="0,12,0,0"
-                                        Click="OnbRunSetup_Click"/>
-                                <!-- Live progress: spinner + text while the setup runs in the background -->
-                                <StackPanel x:Name="OnbSetupProgressPanel" Orientation="Horizontal" Margin="0,6,0,0" Visibility="Collapsed">
-                                    <ProgressRing x:Name="OnbSetupSpinner" IsActive="False" Width="16" Height="16"
-                                                  Foreground="#5B8DEF" VerticalAlignment="Top" Margin="0,1,8,0"/>
-                                    <TextBlock x:Name="OnbSetupProgress" Text="" FontSize="11" Foreground="#AAAAAA"
-                                               TextWrapping="Wrap"/>
-                                </StackPanel>
+                                        <TextBlock x:Name="OnbPawnIOStatus"  Text="PawnIO: Checking..."   FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
+                                        <TextBlock Text="Kernel sensor driver. Exposes CPU/GPU power and temperature to the overlay — without it the power readout stays at 0 W."
+                                                   FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
+
+                                        <!-- One-click group install. Backend-aware:
+                                             PawnIO/HidHide/RTSS always, plus usbip when VIIPER / ViGEm when Legacy. -->
+                                        <Button x:Name="OnbRunSetupBtn" Content="Check &amp; install tools"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                Style="{StaticResource ModernButtonStyle}" FontSize="13" Padding="10,8" Margin="0,12,0,0"
+                                                Click="OnbRunSetup_Click"/>
+                                        <!-- Live progress: spinner + text while the setup runs in the background -->
+                                        <StackPanel x:Name="OnbSetupProgressPanel" Orientation="Horizontal" Margin="0,6,0,0" Visibility="Collapsed">
+                                            <ProgressRing x:Name="OnbSetupSpinner" IsActive="False" Width="16" Height="16"
+                                                          Foreground="#5B8DEF" VerticalAlignment="Top" Margin="0,1,8,0"/>
+                                            <TextBlock x:Name="OnbSetupProgress" Text="" FontSize="11" Foreground="#AAAAAA"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
 
                                 <TextBlock Text="HidHide, RTSS and PawnIO are official, signed third-party tools installed via winget; usbip-win2 is the signed vendor driver, downloaded on demand. Individual install / download buttons live under System → Debug → Driver dependencies."
                                            FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,10,0,0"/>
@@ -3820,10 +3836,8 @@
 
                                     </StackPanel>
                                 </Border>
-                            </StackPanel>
-                        </muxc:Expander>
 
-                        <!-- Factory Reset -->
+                                <!-- Factory Reset -->
                         <Border Background="#2A1A1A"
                                 BorderBrush="#662222"
                                 BorderThickness="1"
@@ -3879,6 +3893,8 @@
                                         Click="UninstallClawTweaks_Click"/>
                             </Grid>
                         </Border>
+                            </StackPanel>
+                        </muxc:Expander>
 
                         <!-- Tab Settings (mirror of the System-tab section; same backing state) — collapsible, default collapsed -->
                         <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
@@ -4272,6 +4288,10 @@
                                             <TextBlock Text="LED color based on battery" FontSize="13" Foreground="#FFFFFF"/>
                                             <TextBlock Text="Tint the LED by charge level: blue (full) → green → yellow → orange → red → purple (low). Only while the LED is on."
                                                        FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                            <TextBlock Text="Levels: ≥90% blue · 80–89% teal · 70–79% green · 60–69% lime · 50–59% yellow · 40–49% orange · 30–39% orange-red · 20–29% red · &lt;20% purple."
+                                                       FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                            <TextBlock Text="Note: the color may only update once the charge crosses into a new 10% band, or after a reboot."
+                                                       FontSize="11" Foreground="#777777" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="LedColorBySocToggle" Grid.Column="1"
                                                       OnContent="" OffContent="" IsOn="False"
@@ -4833,7 +4853,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="Use VIIPER emulation (Experimental)" FontSize="14" Foreground="#FFC107"/>
+                                                <TextBlock Text="Use VIIPER emulation (recommended)" FontSize="14" Foreground="#FFC107"/>
                                             </StackPanel>
                                             <TextBlock Text="Replaces the legacy ViGEm controller emulation with VIIPER (USBIP-based). Requires usbip-win2. Toggling restarts controller emulation." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
                                             <TextBlock x:Name="UsbipPrereqStatusLine"

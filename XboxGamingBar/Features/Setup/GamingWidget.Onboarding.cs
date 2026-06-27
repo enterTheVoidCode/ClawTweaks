@@ -3,6 +3,7 @@ using Windows.UI;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Media.Animation;
 
 namespace XboxGamingBar
 {
@@ -65,6 +66,29 @@ namespace XboxGamingBar
             }
         }
         private const string OnboardingCompleteKey = "Onboarding_Complete";
+
+        // Keeps the backend-switch notice blinking (held as a field so the Storyboard isn't GC'd).
+        private Storyboard _onbBackendBlinkSb;
+
+        // Starts the looping fade on the backend-switch headline once it's loaded into the tree.
+        private void OnbBackendBlink_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (_onbBackendBlinkSb != null) return;
+            if (!(sender is FrameworkElement fe)) return;
+            var anim = new DoubleAnimation
+            {
+                From = 1.0,
+                To = 0.3,
+                Duration = new Duration(TimeSpan.FromSeconds(0.7)),
+                AutoReverse = true,
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+            Storyboard.SetTarget(anim, fe);
+            Storyboard.SetTargetProperty(anim, "Opacity");
+            _onbBackendBlinkSb = new Storyboard();
+            _onbBackendBlinkSb.Children.Add(anim);
+            try { _onbBackendBlinkSb.Begin(); } catch { }
+        }
 
         // Called when the Onboarding tab becomes visible: render all rows from current state.
         private void RefreshOnboardingTab()
@@ -231,8 +255,10 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Move only the Onboarding nav item: right after Main while setup is incomplete, and to the
-        /// far right (after Settings/System) once all tools are installed. Other tabs are untouched.
+        /// Re-applies tab placement on a setup complete/incomplete transition. Placement itself is
+        /// owned by <see cref="ApplyTabPrefs"/> / <c>ReorderNavChildren</c>, which forces the Setup
+        /// tab to the FIRST position while onboarding is incomplete (overriding the saved order) and
+        /// otherwise honours the user's saved/factory order (Setup sits last by default).
         /// </summary>
         private void ApplyOnboardingTabLayout(bool complete)
         {
@@ -240,32 +266,6 @@ namespace XboxGamingBar
             {
                 if (_onbLayoutComplete == complete) return;
                 _onbLayoutComplete = complete;
-
-                if (MainNavPanel == null || OnboardingNavItem == null
-                    || !MainNavPanel.Children.Contains(OnboardingNavItem))
-                {
-                    return;
-                }
-
-                MainNavPanel.Children.Remove(OnboardingNavItem);
-                int insertAt;
-                if (complete && SystemNavItem != null && MainNavPanel.Children.Contains(SystemNavItem))
-                {
-                    insertAt = MainNavPanel.Children.IndexOf(SystemNavItem) + 1; // right after Settings
-                }
-                else if (QuickNavItem != null && MainNavPanel.Children.Contains(QuickNavItem))
-                {
-                    insertAt = MainNavPanel.Children.IndexOf(QuickNavItem) + 1;  // right after Main
-                }
-                else
-                {
-                    insertAt = MainNavPanel.Children.Count;
-                }
-                if (insertAt < 0 || insertAt > MainNavPanel.Children.Count) insertAt = MainNavPanel.Children.Count;
-                MainNavPanel.Children.Insert(insertAt, OnboardingNavItem);
-
-                // The user's saved tab order is the final authority — re-apply it on top of the
-                // onboarding move (no-op when no custom order has been set).
                 ApplyTabPrefs();
             }
             catch (Exception ex)
@@ -273,6 +273,15 @@ namespace XboxGamingBar
                 Logger.Warn($"ApplyOnboardingTabLayout failed: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// True while onboarding is still pending — drives the live-only "Setup tab to the front"
+        /// override in <see cref="ApplyTabPrefs"/>. Uses the confirmed layout state once known,
+        /// otherwise the persisted completion flag so a returning, fully-set-up user never gets a
+        /// transient Setup-first flash on cold start.
+        /// </summary>
+        private bool OnboardingIncompleteForOrder()
+            => _onbLayoutComplete.HasValue ? !_onbLayoutComplete.Value : !GetPersistedOnboardingComplete();
 
         // True between clicking the setup button and the helper reporting back. Gates the spinner and
         // the completion handler so a tab refresh doesn't prematurely stop the spinner.
