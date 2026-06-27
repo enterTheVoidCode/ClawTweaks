@@ -55,6 +55,12 @@ namespace XboxGamingBar.QuickSettings
         // ── Special Controller Buttons (70–79) ─────────────────────────────
         EmulateXboxGuide       = 70,   // momentary Xbox Guide tap on the virtual ViGEm controller
 
+        // Steam Big Picture library shortcuts. BPM only reacts to keybd_event injection (not SendInput),
+        // so these go through the helper's SendCtrlComboViaKeybdEvent path. Ctrl+1 = Steam menu (left),
+        // Ctrl+2 = Quick Access (right). Value 74 kept stable so existing button assignments survive.
+        SteamBpmSteamMenu      = 74,   // keybd_event Ctrl+1 → Steam menu (left)
+        SteamBpmQuickAccess    = 75,   // keybd_event Ctrl+2 → Quick Access (right)
+
         // ── Launch Website (60–69) ─────────────────────────────────────────
         OpenExophase           = 60,
         OpenRetroAchievements  = 61,
@@ -100,6 +106,8 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.OpenChrome:         return "Open Chrome";
                 case TileActionType.OpenSpotify:        return "Open Spotify";
                 case TileActionType.EmulateXboxGuide:       return "Xbox Button";
+                case TileActionType.SteamBpmSteamMenu:      return "Steam BPM Left Menu";
+                case TileActionType.SteamBpmQuickAccess:    return "Steam BPM Right Quick Access";
                 case TileActionType.OpenExophase:           return "Open Exophase (Achievements)";
                 case TileActionType.OpenRetroAchievements:  return "Open Retro Achievements";
                 case TileActionType.OpenGoogle:             return "Open Google";
@@ -396,6 +404,9 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.OpenClawTweaksFaq;
             // Special Controller Buttons group
             yield return TileActionType.EmulateXboxGuide;
+            // Steam Big Picture library shortcuts (keybd_event path)
+            yield return TileActionType.SteamBpmSteamMenu;
+            yield return TileActionType.SteamBpmQuickAccess;
         }
     }
 

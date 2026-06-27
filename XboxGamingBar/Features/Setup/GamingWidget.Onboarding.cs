@@ -411,6 +411,32 @@ namespace XboxGamingBar
             UpdateOnboardingSteps();
         }
 
+        // --- Disable the controller Guide button opening the Windows Game Bar (frees it for Steam BPM etc.) ---
+        private async void OnbDisableGuideGameBar_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Logger.Info("Onboarding: disabling Guide-button → Game Bar shortcuts");
+                if (OnbGuideGameBarBtn != null) { OnbGuideGameBarBtn.IsEnabled = false; OnbGuideGameBarBtn.Content = "Applying…"; }
+
+                // The widget is sandboxed and can't write HKCU; the elevated helper sets the registry.
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "DisableGuideGameBar", true } });
+
+                if (OnbGuideGameBarBtn != null) OnbGuideGameBarBtn.Content = "Done";
+                if (OnbGuideGameBarStatus != null)
+                {
+                    OnbGuideGameBarStatus.Text = "Done. Sign out and back in (or reboot) so Windows stops opening the Game Bar on the Guide button.";
+                    OnbGuideGameBarStatus.Foreground = OnbGreenBrush;
+                    OnbGuideGameBarStatus.Visibility = Visibility.Visible;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"Onboarding disable Guide Game Bar failed: {ex.Message}");
+                if (OnbGuideGameBarBtn != null) { OnbGuideGameBarBtn.IsEnabled = true; OnbGuideGameBarBtn.Content = "Disable Game Bar on Guide button"; }
+            }
+        }
+
         // --- System > Debug: per-tool install/uninstall (RTSS + PawnIO; ViGEm/HidHide handled in LegionGo.cs) ---
 
         private static void SetDebugToolRow(TextBlock status, Button installBtn, Button uninstallBtn, string toolName, string installLabel, bool installed)
