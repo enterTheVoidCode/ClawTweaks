@@ -493,11 +493,15 @@ namespace XboxGamingBarHelper.Labs
             _mouseModeEnabled = enabled;
             if (!enabled)
             {
-                // Release any stuck mouse buttons when leaving mouse mode
+                // Release ONLY buttons that were actually held. Sending an unconditional LEFTUP/RIGHTUP
+                // here fires a stray click at the cursor on every Mouse→Controller switch (a lone
+                // button-up is treated as a click on the desktop/many surfaces). The tracked down-state
+                // tells us what genuinely needs releasing, so a switch with no click in progress emits
+                // nothing — while a real in-progress click is still released cleanly (no stuck button).
                 try
                 {
-                    mouse_event(MOUSEEVENTF_LEFTUP,  0, 0, 0, IntPtr.Zero);
-                    mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, IntPtr.Zero);
+                    if (_mouseLbWasDown) mouse_event(MOUSEEVENTF_LEFTUP,  0, 0, 0, IntPtr.Zero);
+                    if (_mouseRbWasDown) mouse_event(MOUSEEVENTF_RIGHTUP, 0, 0, 0, IntPtr.Zero);
                 }
                 catch { }
                 _mouseLbWasDown   = false;

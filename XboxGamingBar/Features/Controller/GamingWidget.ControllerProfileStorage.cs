@@ -1316,12 +1316,36 @@ namespace XboxGamingBar
             _buttonKeyboardKeys[buttonName] = new List<int>(keys ?? new List<int>());
         }
 
+        /// <summary>
+        /// The front (Desktop / left-MSI) button is GLOBAL-only for now: a per-game controller profile
+        /// must not change the single-click action. Returns the GLOBAL profile's stored Desktop mapping
+        /// so the apply + send paths always use it, regardless of which profile is active. The per-game
+        /// LegionButtonDesktop stays in storage (for a future, deliberately UI-integrated per-game
+        /// feature) but is intentionally neither loaded nor overwritten. All other buttons
+        /// (M1/M2/Y1-3/Page) keep their normal per-game behaviour.
+        /// </summary>
+        private ButtonMapping GetGlobalDesktopButtonMapping()
+        {
+            try
+            {
+                var g = new ControllerProfile();
+                LoadControllerProfileFromStorage("Global", g);
+                if (g.ButtonDesktop != null) return g.ButtonDesktop;
+            }
+            catch (Exception ex) { Logger.Warn($"GetGlobalDesktopButtonMapping failed: {ex.Message}"); }
+            return globalControllerProfile.ButtonDesktop ?? new ButtonMapping();
+        }
+
         private void ApplyControllerProfile(ControllerProfile profile)
         {
             isLoadingControllerProfile = true;
 
             try
             {
+                // Front (Desktop) button is global-only for now — use the GLOBAL mapping for it
+                // regardless of which profile is being applied (see GetGlobalDesktopButtonMapping).
+                var desktopMapping = GetGlobalDesktopButtonMapping();
+
                 // Store keyboard keys before applying UI
                 SetStoredKeyboardKeys("Y1", profile.ButtonY1?.KeyboardKeys ?? new List<int>());
                 SetStoredKeyboardKeys("Y2", profile.ButtonY2?.KeyboardKeys ?? new List<int>());
@@ -1329,7 +1353,7 @@ namespace XboxGamingBar
                 SetStoredKeyboardKeys("M1", profile.ButtonM1?.KeyboardKeys ?? new List<int>());
                 SetStoredKeyboardKeys("M2", profile.ButtonM2?.KeyboardKeys ?? new List<int>());
                 SetStoredKeyboardKeys("M3", profile.ButtonM3?.KeyboardKeys ?? new List<int>());
-                SetStoredKeyboardKeys("Desktop", profile.ButtonDesktop?.KeyboardKeys ?? new List<int>());
+                SetStoredKeyboardKeys("Desktop", desktopMapping?.KeyboardKeys ?? new List<int>());
                 SetStoredKeyboardKeys("Page", profile.ButtonPage?.KeyboardKeys ?? new List<int>());
 
                 // Store gamepad combo/turbo metadata before applying UI
@@ -1339,7 +1363,7 @@ namespace XboxGamingBar
                 SetStoredGamepadComboActions("M1", profile.ButtonM1?.GamepadActions ?? new List<int>());
                 SetStoredGamepadComboActions("M2", profile.ButtonM2?.GamepadActions ?? new List<int>());
                 SetStoredGamepadComboActions("M3", profile.ButtonM3?.GamepadActions ?? new List<int>());
-                SetStoredGamepadComboActions("Desktop", profile.ButtonDesktop?.GamepadActions ?? new List<int>());
+                SetStoredGamepadComboActions("Desktop", desktopMapping?.GamepadActions ?? new List<int>());
                 SetStoredGamepadComboActions("Page", profile.ButtonPage?.GamepadActions ?? new List<int>());
 
                 SetStoredButtonTurbo("Y1", profile.ButtonY1?.Turbo == true);
@@ -1348,7 +1372,7 @@ namespace XboxGamingBar
                 SetStoredButtonTurbo("M1", profile.ButtonM1?.Turbo == true);
                 SetStoredButtonTurbo("M2", profile.ButtonM2?.Turbo == true);
                 SetStoredButtonTurbo("M3", profile.ButtonM3?.Turbo == true);
-                SetStoredButtonTurbo("Desktop", profile.ButtonDesktop?.Turbo == true);
+                SetStoredButtonTurbo("Desktop", desktopMapping?.Turbo == true);
                 SetStoredButtonTurbo("Page", profile.ButtonPage?.Turbo == true);
 
                 SetStoredButtonGamepadMode("Y1", (profile.ButtonY1?.GamepadMode == 1 || (profile.ButtonY1?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
@@ -1357,7 +1381,7 @@ namespace XboxGamingBar
                 SetStoredButtonGamepadMode("M1", (profile.ButtonM1?.GamepadMode == 1 || (profile.ButtonM1?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
                 SetStoredButtonGamepadMode("M2", (profile.ButtonM2?.GamepadMode == 1 || (profile.ButtonM2?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
                 SetStoredButtonGamepadMode("M3", (profile.ButtonM3?.GamepadMode == 1 || (profile.ButtonM3?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
-                SetStoredButtonGamepadMode("Desktop", (profile.ButtonDesktop?.GamepadMode == 1 || (profile.ButtonDesktop?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
+                SetStoredButtonGamepadMode("Desktop", (desktopMapping?.GamepadMode == 1 || (desktopMapping?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
                 SetStoredButtonGamepadMode("Page", (profile.ButtonPage?.GamepadMode == 1 || (profile.ButtonPage?.GamepadActions?.Count ?? 0) > 1) ? 1 : 0);
 
                 // Apply button mappings (with full type support)
@@ -1367,7 +1391,7 @@ namespace XboxGamingBar
                 ApplyButtonMappingToUI("M1", profile.ButtonM1);
                 ApplyButtonMappingToUI("M2", profile.ButtonM2);
                 ApplyButtonMappingToUI("M3", profile.ButtonM3);
-                ApplyButtonMappingToUI("Desktop", profile.ButtonDesktop);
+                ApplyButtonMappingToUI("Desktop", desktopMapping);
                 ApplyButtonMappingToUI("Page", profile.ButtonPage);
 
                 // Apply Nintendo layout (with event unsubscription to prevent handler firing)
@@ -1888,6 +1912,18 @@ namespace XboxGamingBar
                 // Save to per-game controller profile
                 gameControllerProfile = GetCurrentControllerProfileFromUI();
 
+                // Front (Desktop) button is global-only for now: the UI shows the GLOBAL Desktop
+                // mapping, so never write it into the per-game profile. Restore the value already
+                // stored for this game so the per-game LegionButtonDesktop stays intact (kept for a
+                // future per-game UI). All other buttons save per-game as captured from the UI.
+                try
+                {
+                    var storedGame = new ControllerProfile();
+                    LoadControllerProfileFromStorage($"Game_{currentGameName}", storedGame);
+                    gameControllerProfile.ButtonDesktop = storedGame.ButtonDesktop;
+                }
+                catch (Exception ex) { Logger.Warn($"Preserve per-game Desktop mapping failed: {ex.Message}"); }
+
                 // STEP 5: Gyro Target = Disabled → proactively reset all other gyro values.
                 // When gyro is off, the other values are irrelevant and should not persist
                 // as stale data. This keeps profiles clean and predictable.
@@ -1976,8 +2012,11 @@ namespace XboxGamingBar
                     legionButtonM2?.SendMapping(profile.ButtonM2.ToJson());
                 if (profile.ButtonM3 != null)
                     legionButtonM3?.SendMapping(profile.ButtonM3.ToJson());
-                if (profile.ButtonDesktop != null)
-                    legionButtonDesktop?.SendMapping(profile.ButtonDesktop.ToJson());
+                // Front (Desktop) button is global-only for now: always send the GLOBAL mapping, never
+                // the per-game one — so the single-click action is identical in every game.
+                var desktopGlobal = GetGlobalDesktopButtonMapping();
+                if (desktopGlobal != null)
+                    legionButtonDesktop?.SendMapping(desktopGlobal.ToJson());
                 if (profile.ButtonPage != null)
                     legionButtonPage?.SendMapping(profile.ButtonPage.ToJson());
 

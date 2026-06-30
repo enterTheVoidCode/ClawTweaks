@@ -237,11 +237,53 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// True when the virtual controller is actually providing input: the master toggle is ON AND
+        /// the running game is not using the HW-controller exception (which app-side stops the virtual
+        /// pad for the native HW controller while leaving the master toggle ON). Every controller
+        /// feature — remaps, gyro, vibration, deadzones, front buttons — is read-only when this is false.
+        /// </summary>
+        private bool IsVirtualControllerActive()
+        {
+            bool hwExceptionActive = HasValidGame(currentGameName) && HwControllerExceptionToggle?.IsOn == true;
+            return controllerEmulationSupported
+                && ControllerEmulationEnabledToggle?.IsOn == true
+                && !hwExceptionActive;
+        }
+
+        /// <summary>
+        /// Force-collapses an expandable controller section and disables its expand chevron when the
+        /// virtual controller is inactive, so the settings can't be opened or edited. Re-enables the
+        /// chevron (without auto-opening) when active.
+        /// </summary>
+        private void GateControllerSection(bool active,
+            Windows.UI.Xaml.Controls.Primitives.ToggleButton toggle,
+            Windows.UI.Xaml.UIElement content,
+            Windows.UI.Xaml.Controls.FontIcon icon,
+            ref bool expandedFlag)
+        {
+            if (toggle != null) toggle.IsEnabled = active;
+            if (!active)
+            {
+                expandedFlag = false;
+                if (content != null) content.Visibility = Windows.UI.Xaml.Visibility.Collapsed;
+                if (icon != null) icon.Glyph = "\uE70D"; // collapsed chevron
+                if (toggle != null) toggle.IsChecked = false;
+            }
+        }
+
         private void UpdateControllerEmulationControlState()
         {
-            bool enabled = controllerEmulationSupported &&
-                           ControllerEmulationEnabledToggle != null &&
-                           ControllerEmulationEnabledToggle.IsOn;
+            bool enabled = IsVirtualControllerActive();
+
+            // Expandable controller sections (Virtual Controller body incl. front buttons, Gyro,
+            // Button Remapping, Vibration & Deadzone): collapse + lock when the virtual controller is
+            // inactive — master off, or the HW-controller exception is active in-game — so every
+            // controller setting is read-only and the menus can't be expanded.
+            GateControllerSection(enabled, ControllerEmulationExpandButton, ControllerEmulationContent, ControllerEmulationExpandIcon, ref isControllerEmulationExpanded);
+            GateControllerSection(enabled, GyroSettingsExpandToggle, GyroSettingsContent, GyroSettingsExpandIcon, ref isGyroSettingsExpanded);
+            GateControllerSection(enabled, ButtonRemappingExpandToggle, ButtonRemappingContent, ButtonRemappingExpandIcon, ref isButtonRemappingExpanded);
+            GateControllerSection(enabled, TouchpadVibrationExpandToggle, TouchpadVibrationContent, TouchpadVibrationExpandIcon, ref isTouchpadVibrationExpanded);
 
             if (ControllerEmulationHideStockControllerToggle != null)
             {

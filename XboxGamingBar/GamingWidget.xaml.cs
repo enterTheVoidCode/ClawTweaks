@@ -3438,6 +3438,12 @@ namespace XboxGamingBar
         /// </summary>
         private void HwControllerExceptionToggle_Toggled(object sender, RoutedEventArgs e)
         {
+            // Re-evaluate controller-section gating whenever the HW-controller exception changes —
+            // including the helper's push at game start, which stops the virtual controller for the
+            // running game (native HW). Runs before the user-action guards below so a helper-synced
+            // change still locks/unlocks the controller settings.
+            UpdateControllerEmulationControlState();
+
             if (hwControllerException != null && hwControllerException.IsUpdatingUI) return;
             if (WidgetSliderProperty.HelperSyncCount > 0) return;
             if (HwControllerExceptionHint == null) return;
