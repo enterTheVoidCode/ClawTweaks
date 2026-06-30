@@ -810,6 +810,29 @@ namespace XboxGamingBarHelper
                             try { performanceManager?.TDP?.ApplyConnectAuthority(profileManager.CurrentProfile.TDP, WIDGET_CONNECT_SUPPRESS_MS); }
                             catch (Exception ex2) { Logger.Warn($"Widget connect TDP authority failed: {ex2.Message}"); }
                         }
+                        else
+                        {
+                            // No per-game profile → the GLOBAL TDP applies. The widget's batch-sync on
+                            // connect can push a stale/desynced global TDP slider value (e.g. its raised
+                            // default) a few seconds AFTER connect — past the boot-time startup-authority
+                            // window — which would overwrite the helper-persisted global TDP and the
+                            // hardware (the reboot "resets to 30W" regression). The helper is the source
+                            // of truth for the global TDP (persisted as GlobalTDP, seeded into TDP.Value
+                            // at startup). Re-assert it as authoritative for the connect window so the
+                            // stale push is ignored (apply + save), and FORCE-push it back to the widget
+                            // so its slider corrects to the real value and stops re-pushing the stale one.
+                            try
+                            {
+                                int globalTdp = performanceManager?.TDP?.Value ?? 0;
+                                if (globalTdp > 0)
+                                {
+                                    performanceManager.TDP.ApplyConnectAuthority(globalTdp, WIDGET_CONNECT_SUPPRESS_MS);
+                                    performanceManager.TDP.ForceSetValue(globalTdp); // sync widget slider → resolves the desync
+                                    Logger.Info($"Widget connect: no game running → re-asserting authoritative global TDP {globalTdp}W and syncing it to the widget");
+                                }
+                            }
+                            catch (Exception ex2) { Logger.Warn($"Widget connect global TDP authority failed: {ex2.Message}"); }
+                        }
                     }
                     catch (Exception ex) { Logger.Warn($"Widget connect suppress-window setup failed: {ex.Message}"); }
                     // Snapshot every saved per-mode fan curve + unlock state so the

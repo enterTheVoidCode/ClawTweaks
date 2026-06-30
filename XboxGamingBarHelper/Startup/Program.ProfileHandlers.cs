@@ -773,8 +773,26 @@ namespace XboxGamingBarHelper
             }
         }
 
+        // True ONLY while the helper is processing an incoming Function.TDP Set from the widget,
+        // i.e. the user just moved the TDP slider. Set/cleared around the property dispatch in
+        // HandlePipePropertyRequest. The single source of truth for "may persist TDP": a TDP value
+        // is written to storage ONLY on a genuine user slider change. Every other change to the TDP
+        // property (profile apply, AC/DC reapply, startup/connect authority, game-end restore) still
+        // raises PropertyChanged and still applies to hardware, but must NEVER write storage — that
+        // unattributed persistence was the root cause of the recurring TDP clobber.
+        internal static bool tdpPersistFromUserSlider;
+
         private static void TDP_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            // Persist ONLY on a genuine user slider change. This is the core invariant: nothing but
+            // the user's slider may save a TDP value (global when no per-game profile is active, the
+            // per-game profile otherwise). Internal applies fall through here too but must not persist.
+            if (!tdpPersistFromUserSlider)
+            {
+                Logger.Debug($"Skipping TDP persist - not a user slider change (TDP={performanceManager.TDP})");
+                return;
+            }
+
             // Skip during profile application to prevent cross-contamination
             // (e.g., writing game profile TDP to global profile during switch)
             if (isApplyingProfile)

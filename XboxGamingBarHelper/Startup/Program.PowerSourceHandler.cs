@@ -236,12 +236,17 @@ namespace XboxGamingBarHelper
 
                 bool isLegionCustomMode = legionManager != null && legionManager.CurrentPerformanceMode == 255;
                 bool powerSourceProfileEnabled = PowerSourceProfileState.AutoSwitchEnabled;
-                bool tdpGateAllowed = isLegionCustomMode || powerSourceProfileEnabled;
+                // The GLOBAL profile has NO AC/DC split: while no per-game profile is active, the AC/DC
+                // handler must never apply or reassert a TDP. A single global TDP holds on both AC and
+                // DC. AC/DC TDP values are only meaningful for a running game's per-game profile. This
+                // is the fix for the AC/DC tick re-applying/clobbering the user's global TDP.
+                bool perGameActive = profileManager?.CurrentProfile.Use == true;
+                bool tdpGateAllowed = perGameActive && (isLegionCustomMode || powerSourceProfileEnabled);
 
-                // 2a) TDP / TDPBoost — gated by Legion Custom or Power-Source-Profile.
+                // 2a) TDP / TDPBoost — only for a per-game profile (global has no AC/DC split).
                 if (!tdpGateAllowed)
                 {
-                    Logger.Debug("Helper-side AC/DC handler: skipping TDP/TDPBoost reapply — not in Legion Custom mode and Power-Source Profile auto-switch is off (extended fields below still apply)");
+                    Logger.Debug("Helper-side AC/DC handler: skipping TDP/TDPBoost reapply — global profile (no AC/DC split) or AC/DC source inactive (extended fields below still apply)");
                 }
                 else
                 {

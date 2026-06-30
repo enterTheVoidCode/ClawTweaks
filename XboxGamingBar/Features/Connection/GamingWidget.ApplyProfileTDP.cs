@@ -141,13 +141,29 @@ namespace XboxGamingBar
                     if (tdp != null && isCustomMode)
                     {
                         int targetTDP = (int)profile.TDP;
-                        Logger.Info($"Applying profile TDP to helper: {targetTDP}W (profile: {currentProfileName})");
 
-                        // Invalidate cached value first to force send even if values match
-                        // This is needed because profile was loaded before connection, so the cached
-                        // value matches but was never sent to hardware
-                        tdp.SetValueSilent(-1);
-                        tdp.SetValue(targetTDP, DateTime.Now.Ticks);
+                        // GLOBAL profile: the helper is the single source of truth for the global TDP.
+                        // It persists the value, applies it at startup, and syncs it DOWN to this slider
+                        // on connect. Pushing it back UP here is a connect-time SYNC, not a user action —
+                        // but at the helper it is indistinguishable from a real slider drag and (with a
+                        // fresh timestamp) beats the startup-authority window, so it would wrongly persist
+                        // and clobber the user's global TDP. Therefore push ONLY for a per-game profile;
+                        // for global, do nothing and let the helper's authoritative value win.
+                        bool perGameActive = PerGameProfileToggle?.IsOn == true && HasValidGame(currentGameName);
+                        if (!perGameActive)
+                        {
+                            Logger.Info($"Skipping connect-time global TDP push ({targetTDP}W) - helper is authoritative for the global TDP (profile: {currentProfileName})");
+                        }
+                        else
+                        {
+                            Logger.Info($"Applying profile TDP to helper: {targetTDP}W (profile: {currentProfileName})");
+
+                            // Invalidate cached value first to force send even if values match
+                            // This is needed because profile was loaded before connection, so the cached
+                            // value matches but was never sent to hardware
+                            tdp.SetValueSilent(-1);
+                            tdp.SetValue(targetTDP, DateTime.Now.Ticks);
+                        }
 
                         // Update Sticky TDP target if enabled
                         if (StickyTDPToggle?.IsOn == true)

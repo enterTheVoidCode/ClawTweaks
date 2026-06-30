@@ -2449,9 +2449,25 @@ namespace XboxGamingBarHelper
                 }
                 else
                 {
-                    // Convert to ValueSet and use the existing property handling
-                    var valueSet = request.ToValueSet();
-                    response = properties.HandlePipeMessage(valueSet);
+                    // A TDP value may be persisted ONLY when the user moves the slider. An incoming
+                    // Function.TDP Set is exactly that signal: the widget slider only emits on a real
+                    // user ValueChanged (helper-sync pushes are suppressed via IsUpdatingUI/
+                    // HelperSyncCount), so nothing else reaches here as a TDP Set. Mark the change as
+                    // user-initiated for the synchronous duration of the property dispatch; TDP_-
+                    // PropertyChanged reads this flag and persists only while it is set.
+                    bool isUserTdpSet = functionValue == (int)Function.TDP
+                                        && request.Command == Shared.Enums.Command.Set;
+                    if (isUserTdpSet) tdpPersistFromUserSlider = true;
+                    try
+                    {
+                        // Convert to ValueSet and use the existing property handling
+                        var valueSet = request.ToValueSet();
+                        response = properties.HandlePipeMessage(valueSet);
+                    }
+                    finally
+                    {
+                        if (isUserTdpSet) tdpPersistFromUserSlider = false;
+                    }
                 }
 
                 if (response != null && pipeServer != null && pipeServer.IsConnected)
