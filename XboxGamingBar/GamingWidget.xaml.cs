@@ -1607,14 +1607,16 @@ namespace XboxGamingBar
             return !normalized.Equals("No game detected", StringComparison.OrdinalIgnoreCase);
         }
 
-        // Sanitize game name for consistent storage
+        // Sanitize game name for consistent storage / display. Beyond trimming, strip invisible
+        // Unicode (zero-width chars, exotic spaces) that some titles inject into their window title
+        // — e.g. ARC Raiders, whose name otherwise varies per launch and breaks name-based profile
+        // matching and display. Same cleaner the helper uses, so both sides agree on the label.
         private string SanitizeGameName(string gameName)
         {
             if (string.IsNullOrWhiteSpace(gameName))
                 return "";
 
-            // Trim whitespace, normalize spaces
-            return gameName.Trim();
+            return Shared.Utilities.StringHelper.CleanGameName(gameName);
         }
 
         private string GetPerGamePowerSourceProfileSettingKey(string gameName)

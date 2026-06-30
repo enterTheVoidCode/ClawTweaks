@@ -153,6 +153,40 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Fire a Special-Controller-Button Steam action from a Quick Settings TILE. A tile is clicked
+        /// with Game Bar OPEN, so (in widget mode) we close it first (Win+G) and wait, then have the
+        /// HELPER run the action via ExecuteLeftClawAction — the same dispatch the front button uses.
+        /// That keeps the injection correct per action: Steam BPM (Ctrl+1/2) needs the legacy
+        /// keybd_event path because Big Picture ignores SendInput, while the in-game overlay (Shift+Tab)
+        /// needs the SendInput InputInjector with staged modifiers; action 77 chooses BPM vs in-game by
+        /// game-running state helper-side. Mirrors SendCustomShortcutAsync's Game-Bar-close sequence.
+        /// </summary>
+        private async Task SendSteamControllerActionViaHelperAsync(int actionId, string tileName)
+        {
+            try
+            {
+                Logger.Info($"Steam controller action tile clicked: {tileName} -> action {actionId}");
+
+                // Only close Game Bar if we're running as a widget (front button skips this).
+                if (widget != null)
+                {
+                    await SendKeyboardShortcutViaHelper("Win+G");
+                    Logger.Debug("Win+G sent to close Game Bar before Steam controller action");
+                    await Task.Delay(150);
+                }
+
+                var message = new Windows.Foundation.Collections.ValueSet();
+                message.Add("ExecuteControllerAction", actionId);
+                await SendHelperMessageAsync(message);
+                Logger.Info($"Sent ExecuteControllerAction {actionId} to helper");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending Steam controller action {actionId}: {ex.Message}");
+            }
+        }
+
         private void SavePowerPlanSettings()
         {
             try

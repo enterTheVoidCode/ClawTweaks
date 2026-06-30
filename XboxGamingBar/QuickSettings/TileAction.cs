@@ -60,6 +60,13 @@ namespace XboxGamingBar.QuickSettings
         // Ctrl+2 = Quick Access (right). Value 74 kept stable so existing button assignments survive.
         SteamBpmSteamMenu      = 74,   // keybd_event Ctrl+1 → Steam menu (left)
         SteamBpmQuickAccess    = 75,   // keybd_event Ctrl+2 → Quick Access (right)
+        // In-game Steam overlay via Shift+Tab. Unlike the BPM shortcuts above (keybd_event), the
+        // in-game overlay reacts to the normal SendInput injector path, so this goes through the
+        // helper's SendKeyboardShortcutViaInputInjector("Shift+Tab") staged-modifier injection.
+        SteamGameOverlay       = 76,   // SendInput Shift+Tab → Steam in-game overlay
+        // Context-sensitive: while a game is running, fire the in-game overlay (3, Shift+Tab);
+        // otherwise fire the Steam BPM left menu (1, Ctrl+1). One button, right menu per context.
+        SteamMenuContextual    = 77,
 
         // ── Launch Website (60–69) ─────────────────────────────────────────
         OpenExophase           = 60,
@@ -106,8 +113,10 @@ namespace XboxGamingBar.QuickSettings
                 case TileActionType.OpenChrome:         return "Open Chrome";
                 case TileActionType.OpenSpotify:        return "Open Spotify";
                 case TileActionType.EmulateXboxGuide:       return "Xbox Button";
-                case TileActionType.SteamBpmSteamMenu:      return "Steam BPM Left Menu";
-                case TileActionType.SteamBpmQuickAccess:    return "Steam BPM Right Quick Access";
+                case TileActionType.SteamBpmSteamMenu:      return "Steam BPM Left Menu (1)";
+                case TileActionType.SteamBpmQuickAccess:    return "Steam BPM Right Quick Access (2)";
+                case TileActionType.SteamGameOverlay:       return "Steam Game Menu (Shift + Tab) (3)";
+                case TileActionType.SteamMenuContextual:    return "Steam Menu (1)/(3) context-sensitive";
                 case TileActionType.OpenExophase:           return "Open Exophase (Achievements)";
                 case TileActionType.OpenRetroAchievements:  return "Open Retro Achievements";
                 case TileActionType.OpenGoogle:             return "Open Google";
@@ -192,7 +201,8 @@ namespace XboxGamingBar.QuickSettings
             if (v >= 40 && v < 50) return "Launcher";  // Launcher actions (Steam BP, Playnite, Xbox)
             if (v >= 50 && v < 60) return "Program";   // Program Actions (browser/store/chrome/spotify/user)
             if (v >= 60 && v < 70) return "Website";   // Launch Website (defaults + user URLs)
-            if (v >= 70 && v < 80) return "Controller"; // Special Controller Buttons (Xbox Button)
+            if (v >= 74 && v < 80) return "Steam";      // Steam buttons (BPM + in-game overlay + context)
+            if (v >= 70 && v < 80) return "Controller"; // Special Controller Buttons (Xbox Button) — bottom
             if (v >= 20) return "App";
             return "";
         }
@@ -206,6 +216,7 @@ namespace XboxGamingBar.QuickSettings
                 case "Launcher": return "— Launcher Actions —";
                 case "Program":  return "— Program Actions —";
                 case "Website":  return "— Launch Website —";
+                case "Steam":    return "— Steam Buttons —";
                 case "Controller": return "— Special Controller Buttons —";
                 default:         return "— ClawTweaks Actions —";
             }
@@ -390,6 +401,13 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.Playnite;
             yield return TileActionType.XboxApp;
             yield return TileActionType.OpenClawTweaksWindow;
+            // Steam Buttons group — placed above Program Actions. BPM library shortcuts use the
+            // keybd_event path (Big Picture ignores SendInput); the in-game overlay (Shift+Tab) uses
+            // the SendInput InputInjector; the context-sensitive variant picks BPM vs in-game by state.
+            yield return TileActionType.SteamBpmSteamMenu;
+            yield return TileActionType.SteamBpmQuickAccess;
+            yield return TileActionType.SteamGameOverlay;
+            yield return TileActionType.SteamMenuContextual;
             // Program group (defaults; user programs appended dynamically by BuildChoices)
             yield return TileActionType.OpenDefaultBrowser;
             yield return TileActionType.OpenWindowsStore;
@@ -402,11 +420,8 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.OpenYouTube;
             yield return TileActionType.OpenClawTweaksReleases;
             yield return TileActionType.OpenClawTweaksFaq;
-            // Special Controller Buttons group
+            // Special Controller Buttons group — kept at the very bottom (just the Xbox Button).
             yield return TileActionType.EmulateXboxGuide;
-            // Steam Big Picture library shortcuts (keybd_event path)
-            yield return TileActionType.SteamBpmSteamMenu;
-            yield return TileActionType.SteamBpmQuickAccess;
         }
     }
 

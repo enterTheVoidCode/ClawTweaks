@@ -3091,6 +3091,17 @@ namespace XboxGamingBar
                         emulateXboxGuide?.Trigger("tap" + (++_emulateXboxGuideSeq));
                         break;
 
+                    // Steam menu actions on a TILE: close Game Bar, then the helper injects with the
+                    // method that fits the target — Steam BPM uses keybd_event (Big Picture ignores
+                    // SendInput), the in-game overlay uses Shift+Tab via SendInput, and 77 picks per
+                    // game-running state. Without this the tiles fell through and did nothing.
+                    case TileActionType.SteamBpmSteamMenu:
+                    case TileActionType.SteamBpmQuickAccess:
+                    case TileActionType.SteamGameOverlay:
+                    case TileActionType.SteamMenuContextual:
+                        await SendSteamControllerActionViaHelperAsync((int)actionType, actionName);
+                        break;
+
                     // ── Launcher actions ────────────────────────────────────
                     // Launched by the helper (user session, works whether the launcher is
                     // already running or not). Close Game Bar first so the launcher takes
