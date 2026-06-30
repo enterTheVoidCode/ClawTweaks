@@ -523,7 +523,20 @@ namespace XboxGamingBarHelper
                 return; // Relaunching elevated via scheduled task, exit this instance
             }
 
-            // Ensure only one instance of the helper runs at a time
+            // Newest-wins single instance. The mutex below is "first wins" — which is WRONG for
+            // updates: the already-running OLD-version helper holds the mutex, so a freshly launched
+            // NEW-version helper would get createdNew=false and exit, leaving the stale old build
+            // running. With both alive during the transition, each runs its own Left-CLAW WMI watcher
+            // → one physical press fires the event twice → the click detector reads every single press
+            // as a double-click (single-click stops working). That is the long-standing "doubled helper
+            // after update" problem. So before claiming the mutex, forcibly terminate every OTHER helper
+            // process (by name, except self) — the latest-launched helper deterministically takes over,
+            // regardless of version, mutex timing, or session. KillOtherHelperInstances also waits for
+            // their hardware handles (LHM/PawnIO/KX/WMI) to free before we open ours.
+            ElevationBootstrapper.KillOtherHelperInstances("startup takeover");
+
+            // Ensure only one instance of the helper runs at a time. After the takeover kill above this
+            // is normally uncontested; it remains a guard for a rare truly-simultaneous double launch.
             const string mutexName = "Global\\XboxGamingBarHelper_SingleInstance";
             bool createdNew;
 

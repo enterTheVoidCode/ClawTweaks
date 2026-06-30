@@ -310,6 +310,19 @@ namespace XboxGamingBarHelper
                     break;
                 case 74: Windows.User32.SendCtrlComboViaKeybdEvent(0x31); break; // Steam BPM: Steam menu (Ctrl+1)
                 case 75: Windows.User32.SendCtrlComboViaKeybdEvent(0x32); break; // Steam BPM: Quick Access (Ctrl+2)
+                case 76: SendKeyboardShortcutViaInputInjector("Shift+Tab"); break; // Steam in-game overlay (Shift+Tab, SendInput path)
+                case 77: // Steam menu, context-sensitive: in-game → Shift+Tab overlay; otherwise → Steam BPM left (Ctrl+1)
+                    if (systemManager?.RunningGame?.Value.IsValid() == true)
+                    {
+                        Logger.Info("MSIClaw: contextual Steam menu — game running → Shift+Tab (in-game overlay)");
+                        SendKeyboardShortcutViaInputInjector("Shift+Tab");
+                    }
+                    else
+                    {
+                        Logger.Info("MSIClaw: contextual Steam menu — no game → Ctrl+1 (Steam BPM left)");
+                        Windows.User32.SendCtrlComboViaKeybdEvent(0x31);
+                    }
+                    break;
                 default:
                     // App actions that need widget state — try widget (may not work when suspended)
                     FireTileHotkeyToWidget($"__action__{actionType}", actionName);

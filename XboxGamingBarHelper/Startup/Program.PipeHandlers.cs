@@ -83,6 +83,27 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Run a Special-Controller-Button action requested from a Quick Settings TILE. Tiles
+                // (unlike the front button, which the helper handles directly while Game Bar is closed)
+                // are clicked with Game Bar OPEN, so the widget closes it first and then asks the helper
+                // to execute. We route through the SAME ExecuteLeftClawAction dispatch the front button
+                // uses, so the action's injection method is correct per type: Steam BPM (Ctrl+1/2) uses
+                // the legacy keybd_event path (Big Picture ignores SendInput), the in-game overlay uses
+                // Shift+Tab via the SendInput InputInjector, and action 77 picks BPM vs in-game by the
+                // game-running state — all in one place.
+                if (pipeMsg.Extra.TryGetValue("ExecuteControllerAction", out object ecaValue))
+                {
+                    int ecaId = -1;
+                    try { ecaId = Convert.ToInt32(ecaValue); } catch { }
+                    if (ecaId >= 0)
+                    {
+                        Logger.Info($"Pipe: ExecuteControllerAction {ecaId} (from tile)");
+                        ExecuteLeftClawAction(ecaId, "");
+                    }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+
                 // Handle close game request
                 if (pipeMsg.Extra.ContainsKey("CloseGame"))
                 {

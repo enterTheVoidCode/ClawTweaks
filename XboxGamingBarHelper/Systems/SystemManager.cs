@@ -573,7 +573,11 @@ namespace XboxGamingBarHelper.Systems
                            : (Path.GetFileNameWithoutExtension(path) ?? "");
                 int cut = raw.IndexOf('|');
                 if (cut > 0) raw = raw.Substring(0, cut);
-                return raw.Trim();
+                // Strip invisible/zero-width Unicode that some titles inject (e.g. ARC Raiders'
+                // window title is "A​R​﻿C Raiders" with a per-launch-varying
+                // pattern) so the same game always yields the same name string. Keys still resolve
+                // on the stable path/TitleId; this only cleans the name label/key.
+                return Shared.Utilities.StringHelper.CleanGameName(raw);
             }
 
             // RTSS: always read first — shared-memory read is cheap and both the fast path and the

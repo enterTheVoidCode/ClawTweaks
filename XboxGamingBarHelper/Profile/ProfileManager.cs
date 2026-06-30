@@ -117,6 +117,21 @@ namespace XboxGamingBarHelper.Profile
                     var gameProfile = XmlHelper.FromXMLFile<GameProfile>(filePath);
                     gameProfile.Path = filePath;
                     gameProfile.Cache = gameProfiles;
+
+                    // One-time migration: older profiles may have stored a name polluted with invisible
+                    // Unicode (zero-width chars / exotic spaces) captured from a game's window title
+                    // (e.g. ARC Raiders). Clean it so the name matches the now-sanitized detection and
+                    // the profile shows correctly in the UI. The file is keyed by Path (filename), so
+                    // rewriting the name never changes the file's identity.
+                    var cleanedName = StringHelper.CleanGameName(gameProfile.GameId.Name);
+                    if (cleanedName != gameProfile.GameId.Name)
+                    {
+                        Logger.Info($"[Migration] Cleaned polluted profile name '{gameProfile.GameId.Name}' -> '{cleanedName}' ({filePath})");
+                        gameProfile.GameId.Name = cleanedName;
+                        try { XmlHelper.ToXMLFile(gameProfile, filePath); }
+                        catch (Exception mEx) { Logger.Warn($"[Migration] Failed to rewrite cleaned name for {filePath}: {mEx.Message}"); }
+                    }
+
                     gameProfiles.Add(gameProfile.GameId, gameProfile);
                 }
                 catch (Exception ex)

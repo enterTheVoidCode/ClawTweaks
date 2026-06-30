@@ -41,8 +41,10 @@ namespace XboxGamingBarHelper
                 case 64: return "Open ClawTweaks FAQ";
                 case 65: return "Open YouTube";
                 case 69: return "Website (User)";
-                case 74: return "Steam BPM Left Menu";
-                case 75: return "Steam BPM Right Quick Access";
+                case 74: return "Steam BPM Left Menu (1)";
+                case 75: return "Steam BPM Right Quick Access (2)";
+                case 76: return "Steam Game Menu (Shift + Tab) (3)";
+                case 77: return "Steam Menu (1)/(3) context-sensitive";
                 default: return $"Action {actionType}";
             }
         }
