@@ -215,6 +215,12 @@ namespace XboxGamingBar
             bool gameRunning = HasValidGame(currentGameName);
             bool show = controllerEmulationSupported && !gameRunning;
             ControllerEmulationCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            // The master-toggle card and the Mouse Settings card follow the same gate — both must be
+            // completely hidden in-game (little screen space) and while emulation is unsupported.
+            if (VirtualControllerMasterCard != null)
+                VirtualControllerMasterCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            if (MouseSettingsCard != null)
+                MouseSettingsCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
             Logger.Debug($"[VCtrl] Card visibility: supported={controllerEmulationSupported} gameRunning={gameRunning} → {(show ? "Visible" : "Collapsed")}");
 
             // Drive the expand-chevron discovery glow: pulses only while the card is
@@ -287,6 +293,8 @@ namespace XboxGamingBar
             // "Vibration & Deadzone" card (ControllerFeedback*) is the one actually shown on the MSI Claw
             // (TouchpadVibration* is hidden on devices without a HID touchpad). Gate it the same way.
             GateControllerSection(enabled, ControllerFeedbackExpandToggle, ControllerFeedbackContent, ControllerFeedbackExpandIcon, ref _controllerFeedbackExpanded);
+            // Mouse Settings card (split out of the old Virtual Controller card) — gate it the same way.
+            GateControllerSection(enabled, MouseSettingsExpandToggle, MouseSettingsContent, MouseSettingsExpandIcon, ref _mouseSettingsExpanded);
 
             if (ControllerEmulationHideStockControllerToggle != null)
             {
@@ -487,13 +495,13 @@ namespace XboxGamingBar
             }
             else if (!isOn)
             {
-                ControllerEmulationStatusText.Text = "Controller emulation is disabled.";
+                ControllerEmulationStatusText.Text = "Off — button remapping, gyro and Mouse Mode are unavailable while this is off.";
                 ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 210, 170, 90));
             }
             else
             {
-                ControllerEmulationStatusText.Text = "Controller emulation is enabled.";
-                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 120, 200, 120));
+                ControllerEmulationStatusText.Text = "Turn the virtual controller and mouse runtime on or off.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
             }
         }
 
@@ -553,22 +561,12 @@ namespace XboxGamingBar
                 return;
             }
 
-            bool available = ControllerEmulationCard != null &&
-                             ControllerEmulationCard.Visibility == Visibility.Visible &&
-                             ControllerEmulationEnabledToggle != null &&
-                             ControllerEmulationEnabledToggle.IsOn &&
-                             ControllerEmulationModeComboBox != null &&
-                             ControllerEmulationModeComboBox.IsEnabled;
-
+            // Mouse settings now live in their own "Mouse Settings" card whose visibility is owned by
+            // the MouseSettingsContent expander + the in-game/inactive gate — no longer tied to the
+            // (hidden legacy) gyro-simulation "Mouse" mode. The panel itself stays visible inside the
+            // expander; we only keep the XYFocus wiring below valid.
             bool isMouseMode = ControllerEmulationModeComboBox != null &&
                                ControllerEmulationModeComboBox.SelectedIndex == 0;
-
-            if (ControllerEmulationMouseSettingsPanel != null)
-            {
-                ControllerEmulationMouseSettingsPanel.Visibility = (available && isMouseMode)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-            }
 
             DependencyObject firstModeDetailControl = AutoHibernateToggle;
             if (isMouseMode && ControllerEmulationMouseSensitivitySlider != null)

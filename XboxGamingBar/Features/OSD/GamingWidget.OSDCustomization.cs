@@ -1279,103 +1279,20 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Starts or stops the expand-chevron glow based on current state. Pulses only when
-        /// the card is visible (= no game running), still collapsed, and not yet discovered.
+        /// No-op: the expand-chevron discovery glow was removed when the Front Buttons card adopted
+        /// the same plain chevron as the other controller cards (visual consistency). Kept as an
+        /// empty method so existing callers stay valid.
         /// </summary>
         internal void UpdateControllerEmulationExpandHint()
         {
-            bool cardVisible = ControllerEmulationCard != null &&
-                               ControllerEmulationCard.Visibility == Visibility.Visible;
-            bool shouldPulse = cardVisible && !isControllerEmulationExpanded && !EmuExpandHintSeen;
-
-            if (shouldPulse)
-            {
-                StartControllerEmulationExpandHint();
-            }
-            else
-            {
-                StopControllerEmulationExpandHint();
-            }
         }
 
         private void StartControllerEmulationExpandHint()
         {
-            if (ControllerEmulationExpandGlow == null ||
-                ControllerEmulationExpandScale == null ||
-                ControllerEmulationExpandIconBrush == null)
-            {
-                return;
-            }
-
-            if (_emuExpandGlowStoryboard == null)
-            {
-                var sb = new Storyboard { RepeatBehavior = RepeatBehavior.Forever, AutoReverse = true };
-                var dur = new Duration(TimeSpan.FromMilliseconds(900));
-
-                var glow = new DoubleAnimation
-                {
-                    From = 0.0,
-                    To = 0.5,
-                    Duration = dur,
-                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-                };
-                Storyboard.SetTarget(glow, ControllerEmulationExpandGlow);
-                Storyboard.SetTargetProperty(glow, "Opacity");
-                sb.Children.Add(glow);
-
-                var scaleX = new DoubleAnimation
-                {
-                    From = 1.0,
-                    To = 1.18,
-                    Duration = dur,
-                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-                };
-                Storyboard.SetTarget(scaleX, ControllerEmulationExpandScale);
-                Storyboard.SetTargetProperty(scaleX, "ScaleX");
-                sb.Children.Add(scaleX);
-
-                var scaleY = new DoubleAnimation
-                {
-                    From = 1.0,
-                    To = 1.18,
-                    Duration = dur,
-                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-                };
-                Storyboard.SetTarget(scaleY, ControllerEmulationExpandScale);
-                Storyboard.SetTargetProperty(scaleY, "ScaleY");
-                sb.Children.Add(scaleY);
-
-                var color = new ColorAnimation
-                {
-                    From = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF),
-                    To = Windows.UI.Color.FromArgb(0xFF, 0x4C, 0xC2, 0xFF),
-                    Duration = dur,
-                    EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
-                };
-                Storyboard.SetTarget(color, ControllerEmulationExpandIconBrush);
-                Storyboard.SetTargetProperty(color, "Color");
-                sb.Children.Add(color);
-
-                _emuExpandGlowStoryboard = sb;
-            }
-
-            try { _emuExpandGlowStoryboard.Begin(); } catch { }
         }
 
         private void StopControllerEmulationExpandHint()
         {
-            try { _emuExpandGlowStoryboard?.Stop(); } catch { }
-
-            if (ControllerEmulationExpandGlow != null) ControllerEmulationExpandGlow.Opacity = 0.0;
-            if (ControllerEmulationExpandScale != null)
-            {
-                ControllerEmulationExpandScale.ScaleX = 1.0;
-                ControllerEmulationExpandScale.ScaleY = 1.0;
-            }
-            if (ControllerEmulationExpandIconBrush != null)
-            {
-                ControllerEmulationExpandIconBrush.Color = Windows.UI.Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
-            }
         }
 
         // ControllerEmulationInputNotesExpandButton_Click removed \u2014 UI element was removed
