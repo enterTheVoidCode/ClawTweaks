@@ -3552,7 +3552,15 @@
                              previous release so the user can jump forward or roll back. -->
                         <muxc:Expander x:Name="AppUpdateExpander" Margin="0,0,0,10"
                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                       CornerRadius="8"
                                        IsExpanded="False" Expanding="AppUpdateExpander_Expanding">
+                            <!-- Accent frame around the whole expander (header + content), collapsed and expanded. -->
+                            <muxc:Expander.Resources>
+                                <StaticResource x:Key="ExpanderHeaderBorderBrush" ResourceKey="ThemeAccentBrush"/>
+                                <StaticResource x:Key="ExpanderContentBorderBrush" ResourceKey="ThemeAccentBrush"/>
+                                <Thickness x:Key="ExpanderHeaderBorderThickness">1</Thickness>
+                                <Thickness x:Key="ExpanderContentDownBorderThickness">1</Thickness>
+                            </muxc:Expander.Resources>
                             <muxc:Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <FontIcon Glyph="&#xE895;" FontSize="14" Foreground="#5B8DEF" Margin="0,0,8,0" VerticalAlignment="Center"/>
@@ -3602,7 +3610,14 @@
                                        Margin="0,0,0,10"
                                        HorizontalAlignment="Stretch"
                                        HorizontalContentAlignment="Stretch"
+                                       CornerRadius="8"
                                        IsExpanded="False">
+                            <muxc:Expander.Resources>
+                                <StaticResource x:Key="ExpanderHeaderBorderBrush" ResourceKey="ThemeAccentBrush"/>
+                                <StaticResource x:Key="ExpanderContentBorderBrush" ResourceKey="ThemeAccentBrush"/>
+                                <Thickness x:Key="ExpanderHeaderBorderThickness">1</Thickness>
+                                <Thickness x:Key="ExpanderContentDownBorderThickness">1</Thickness>
+                            </muxc:Expander.Resources>
                             <muxc:Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE8D7;" FontSize="14" Foreground="#5B8DEF" Margin="0,0,8,0" VerticalAlignment="Center"/>
@@ -3722,7 +3737,14 @@
                                        Margin="0,0,0,10"
                                        HorizontalAlignment="Stretch"
                                        HorizontalContentAlignment="Stretch"
+                                       CornerRadius="8"
                                        IsExpanded="False">
+                            <muxc:Expander.Resources>
+                                <StaticResource x:Key="ExpanderHeaderBorderBrush" ResourceKey="ThemeAccentBrush"/>
+                                <StaticResource x:Key="ExpanderContentBorderBrush" ResourceKey="ThemeAccentBrush"/>
+                                <Thickness x:Key="ExpanderHeaderBorderThickness">1</Thickness>
+                                <Thickness x:Key="ExpanderContentDownBorderThickness">1</Thickness>
+                            </muxc:Expander.Resources>
                             <muxc:Expander.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE74D;" FontSize="14" Foreground="#CC6644" Margin="0,0,8,0" VerticalAlignment="Center"/>
@@ -6514,7 +6536,7 @@
                                                    Text="Steam's &quot;Xbox Extended Feature Support&quot; driver is active. It intercepts HID reports and prevents virtual controller emulation. Disable it in Steam → Settings → Controller → uncheck &quot;Xbox Extended Feature Support&quot;."/>
                                     </Grid>
                                 </Border>
-                                <Grid Margin="0,12,0,0">
+                                <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
@@ -6657,7 +6679,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7FC;" FontSize="16"
+                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7C9;" FontSize="16"
                                                       Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
                                             <TextBlock Text="Front Buttons" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
                                         </StackPanel>
@@ -7908,7 +7930,11 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Mouse Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE962;" FontSize="16"
+                                                      Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Mouse Settings" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Text="Mouse Mode sensitivity, buttons and sticks" Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="MouseSettingsExpandToggle" Grid.Column="1" IsChecked="False"
@@ -8315,7 +8341,11 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Button Remapping" Style="{StaticResource CardTitleStyle}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7FC;" FontSize="16"
+                                                      Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Button Remapping" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Text="Map buttons to gamepad, keyboard, or mouse"
                                                    Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
@@ -8665,7 +8695,11 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Gyro" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="0">
+                                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7AD;" FontSize="16"
+                                                  Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Gyro" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                     <!-- Expand toggle: only visible when per-game profile is active -->
                                     <ToggleButton x:Name="GyroSettingsExpandToggle"
                                                   Grid.Column="1"
@@ -8870,7 +8904,11 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Vibration &amp; Deadzone" Style="{StaticResource CardTitleStyle}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE877;" FontSize="16"
+                                                      Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Vibration &amp; Deadzone" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                        </StackPanel>
                                         <TextBlock Text="Rumble strength + stick deadzones" Style="{StaticResource CardCaptionStyle}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="ControllerFeedbackExpandToggle"
@@ -9115,7 +9153,11 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Saved Controller Profiles" Style="{StaticResource CardTitleStyle}" Grid.Column="0"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="0">
+                                        <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74E;" FontSize="16"
+                                                  Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Saved Controller Profiles" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                    </StackPanel>
                                     <ToggleButton x:Name="SavedProfilesExpandToggle"
                                                   Grid.Column="1"
                                                   IsChecked="False"
