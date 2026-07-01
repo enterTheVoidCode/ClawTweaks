@@ -495,8 +495,8 @@ namespace XboxGamingBar
             }
             else if (!isOn)
             {
-                ControllerEmulationStatusText.Text = "Off — button remapping, gyro and Mouse Mode are unavailable while this is off.";
-                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 210, 170, 90));
+                ControllerEmulationStatusText.Text = "Enable controller emulation to use button remapping, gyro, Mouse Mode and more.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
             }
             else
             {
