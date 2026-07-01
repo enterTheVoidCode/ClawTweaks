@@ -1178,11 +1178,16 @@ namespace XboxGamingBar
                 }
                 if (asyncDownload)
                 {
-                    // Large download running in background
+                    // Large download running in background (e.g. Intel Arc Graphics is 800 MB+).
                     // "Downloading\u2026" stays until OnDriverInstallComplete restores button.
                     button.Content = "Downloading\u2026";
                     _driverInstallInFlightButton = button;
                     _driverInstallInFlightOriginalLabel = originalLabel;
+                    // Big driver packages can take a very long time to download; make it clear this
+                    // is running in the background and the setup will launch on its own when it's done.
+                    message = "Downloading in the background \u2014 this can take a while for large drivers "
+                            + "(the Intel Arc package is 800 MB+). You can keep using the device; the "
+                            + "installer will start on its own once the download finishes.";
                 }
                 if (DriverUpdatesStatusText != null)
                     DriverUpdatesStatusText.Text = message;
