@@ -164,6 +164,19 @@ namespace XboxGamingBar
                 ControllerFeedbackExpandIcon.Glyph = _controllerFeedbackExpanded ? "" : "";
         }
 
+        // Mouse Settings card expander (Mouse Mode options split out of the old Virtual Controller
+        // card; collapsed by default, gated + hidden in-game like the other controller sections).
+        private bool _mouseSettingsExpanded;
+        internal void MouseSettingsExpandToggle_Click(object sender, RoutedEventArgs e)
+        {
+            _mouseSettingsExpanded = !_mouseSettingsExpanded;
+            if (MouseSettingsContent != null)
+                MouseSettingsContent.Visibility = _mouseSettingsExpanded ? Visibility.Visible : Visibility.Collapsed;
+            // E70E = ChevronUp (expanded), E70D = ChevronDown (collapsed)
+            if (MouseSettingsExpandIcon != null)
+                MouseSettingsExpandIcon.Glyph = _mouseSettingsExpanded ? "" : "";
+        }
+
         // Fires a short test rumble pulse at the current intensity (no game needed).
         // Send a UNIQUE value each press — the trigger property dedupes equal values, so a constant
         // "test" would only fire once. The helper ignores the content (it just checks for a Set).

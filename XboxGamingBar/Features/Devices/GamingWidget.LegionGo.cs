@@ -1266,6 +1266,13 @@ namespace XboxGamingBar
             button.IsEnabled = false;
             button.Content = "Installing\u2026";
 
+            // The 800 MB+ Intel Arc graphics package is the only download big enough to warrant the
+            // background-download notice. Other Intel downloads (Bluetooth, Wi-Fi) also run async but
+            // are small, so the Arc-specific message + dialog must NOT fire for them.
+            bool isGraphicsDriver =
+                (displayItem != null && (displayItem.Category ?? "").IndexOf("graphic", StringComparison.OrdinalIgnoreCase) >= 0)
+                || url.IndexOf("gfx_win", StringComparison.OrdinalIgnoreCase) >= 0;
+
             bool asyncDownload = false;
             try
             {
@@ -1301,24 +1308,25 @@ namespace XboxGamingBar
                 }
                 if (asyncDownload)
                 {
-                    // Large download running in background (e.g. Intel Arc Graphics is 800 MB+).
-                    // "Downloading\u2026" stays until OnDriverInstallComplete restores button.
+                    // Background download running; "Downloading\u2026" stays until OnDriverInstallComplete
+                    // restores the button. The Arc-specific 800 MB wording is only for the graphics driver.
                     button.Content = "Downloading\u2026";
                     _driverInstallInFlightButton = button;
                     _driverInstallInFlightOriginalLabel = originalLabel;
-                    // Big driver packages can take a very long time to download; make it clear this
-                    // is running in the background and the setup will launch on its own when it's done.
-                    message = "Downloading in the background \u2014 this can take a while for large drivers "
-                            + "(the Intel Arc package is 800 MB+). You can keep using the device; the "
-                            + "installer will start on its own once the download finishes.";
+                    message = isGraphicsDriver
+                        ? "Downloading in the background \u2014 this can take a while for large drivers "
+                          + "(the Intel Arc package is 800 MB+). You can keep using the device; the "
+                          + "installer will start on its own once the download finishes."
+                        : "Downloading in the background \u2014 you can keep using the device; the installer "
+                          + "will start on its own once the download finishes.";
                 }
                 if (DriverUpdatesStatusText != null)
                     DriverUpdatesStatusText.Text = message;
 
-                if (asyncDownload)
+                if (asyncDownload && isGraphicsDriver)
                 {
-                    // The status line above sits at the top of the tab and is easy to miss, so also
-                    // pop a one-shot dialog explaining the long background download.
+                    // Only the big Intel Arc graphics package gets the one-shot dialog \u2014 the top-of-tab
+                    // status line is easy to miss and this download can take a very long time.
                     try
                     {
                         var dlg = new ContentDialog

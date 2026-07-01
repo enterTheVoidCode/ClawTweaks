@@ -720,6 +720,14 @@ namespace XboxGamingBar
                 ButtonRemappingExpandToggle?.Focus(FocusState.Programmatic);
                 return true;
             }
+            if (fe == MouseSettingsContent && _mouseSettingsExpanded)
+            {
+                _mouseSettingsExpanded = false;
+                MouseSettingsContent.Visibility = Visibility.Collapsed;
+                if (MouseSettingsExpandIcon != null) MouseSettingsExpandIcon.Glyph = "";
+                MouseSettingsExpandToggle?.Focus(FocusState.Programmatic);
+                return true;
+            }
             if (fe == StickDeadzonesContent && isStickDeadzonesExpanded)
             {
                 isStickDeadzonesExpanded = false;
