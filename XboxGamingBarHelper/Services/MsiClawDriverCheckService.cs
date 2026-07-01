@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using NLog;
 
@@ -234,6 +235,11 @@ namespace XboxGamingBarHelper.Services
                 // drops out of the update count + "Update all". A newer version has a
                 // different key, so the mute auto-expires when an update ships.
                 ApplyMutes(result);
+
+                // Attach any installer files still on disk from earlier downloads so the widget
+                // can offer re-run/downgrade/delete per file.
+                PopulateCachedInstallers(result);
+
                 Logger.Info($"MsiClawDriverCheck: model={result.ModelCode}, BIOS={result.BiosVersion}, " +
                             $"manifest={manifestEntries.Count}, total rows={result.Drivers.Count}, live={result.LiveFetchSucceeded}");
 
@@ -963,6 +969,195 @@ namespace XboxGamingBarHelper.Services
         /// the user's browser instead, where the challenge auto-solves.</summary>
         internal const string WafBlockedMarker = "__WAF_BLOCKED__";
 
+        // ------------------------------------------------------------------
+        // Cached-installer management: list / delete / re-launch installer files
+        // left on disk from earlier downloads so the widget can free space or
+        // re-run (downgrade to) an older version. Files live in exactly two
+        // folders — the helper's temp download dir and the user's Downloads.
+
+        private static string TempInstallerDir =>
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "GoTweaksClawInstallers");
+
+        private static string DownloadsDir =>
+            System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
+        private static readonly string[] ManagedInstallerExts = { ".exe", ".msi", ".zip" };
+
+        /// <summary>Derives a conservative match stem from a driver's download URL filename by
+        /// stripping trailing version/build tokens. e.g. "gfx_win_101.8860.exe" → "gfx_win".
+        /// Returns (stem, ext); stem is null when nothing usable remains (→ list nothing).</summary>
+        private static (string stem, string ext) DeriveInstallerStem(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return (null, null);
+            string fileName;
+            try { fileName = System.IO.Path.GetFileName(new Uri(url).LocalPath); }
+            catch { return (null, null); }
+            if (string.IsNullOrWhiteSpace(fileName)) return (null, null);
+
+            string ext = (System.IO.Path.GetExtension(fileName) ?? "").ToLowerInvariant();
+            string stem = System.IO.Path.GetFileNameWithoutExtension(fileName);
+
+            // Peel version/build groups off the end (e.g. "_101.8860", "-1.2.3", " (2)").
+            string prev;
+            do
+            {
+                prev = stem;
+                stem = Regex.Replace(stem, @"[ _\-.\(]*\d[\d._\-\) ]*$", "");
+            } while (stem != prev && stem.Length > 0);
+
+            stem = stem.Trim(' ', '_', '-', '.');
+            if (stem.Length < 3) return (null, null); // too generic → don't match anything
+            return (stem, ext);
+        }
+
+        /// <summary>Strips a browser "name (1)" dedup suffix so re-downloads match the same stem.</summary>
+        private static string StripBrowserDedupSuffix(string nameNoExt) =>
+            Regex.Replace(nameNoExt ?? "", @"\s*\(\d+\)$", "");
+
+        /// <summary>Lists installer files on disk that belong to the given driver (by download URL).
+        /// Scans the temp download dir + Downloads for same-extension files whose (dedup-stripped)
+        /// name begins with the derived stem. Never throws.</summary>
+        internal static List<CachedInstallerInfo> ListCachedInstallers(string url)
+        {
+            var list = new List<CachedInstallerInfo>();
+            var (stem, ext) = DeriveInstallerStem(url);
+            if (stem == null || string.IsNullOrEmpty(ext)) return list;
+            if (Array.IndexOf(ManagedInstallerExts, ext) < 0) return list;
+
+            foreach (var (dir, label) in new[] { (TempInstallerDir, "Temp"), (DownloadsDir, "Downloads") })
+            {
+                try
+                {
+                    if (!System.IO.Directory.Exists(dir)) continue;
+                    foreach (var path in System.IO.Directory.EnumerateFiles(dir, "*" + ext))
+                    {
+                        string nameNoExt = StripBrowserDedupSuffix(System.IO.Path.GetFileNameWithoutExtension(path));
+                        if (!nameNoExt.StartsWith(stem, StringComparison.OrdinalIgnoreCase)) continue;
+
+                        System.IO.FileInfo fi;
+                        try { fi = new System.IO.FileInfo(path); } catch { continue; }
+                        list.Add(new CachedInstallerInfo
+                        {
+                            FullPath = path,
+                            FileName = System.IO.Path.GetFileName(path),
+                            Version = ExtractVersionFromName(System.IO.Path.GetFileNameWithoutExtension(path)),
+                            SizeBytes = fi.Exists ? fi.Length : 0,
+                            LastWriteUtc = fi.Exists ? fi.LastWriteTimeUtc.ToString("o") : "",
+                            Folder = label,
+                        });
+                    }
+                }
+                catch (Exception ex) { Logger.Debug($"ListCachedInstallers scan '{dir}' failed: {ex.Message}"); }
+            }
+
+            // Newest first.
+            list.Sort((a, b) => string.CompareOrdinal(b.LastWriteUtc, a.LastWriteUtc));
+            return list;
+        }
+
+        /// <summary>Best-effort version token from an installer filename (first dotted digit group).</summary>
+        private static string ExtractVersionFromName(string nameNoExt)
+        {
+            if (string.IsNullOrWhiteSpace(nameNoExt)) return "";
+            var m = Regex.Match(nameNoExt, @"\d+(?:[._]\d+){1,3}");
+            return m.Success ? m.Value.Replace('_', '.') : "";
+        }
+
+        /// <summary>True only when the path is a real file directly inside one of the two managed
+        /// folders and has a managed installer extension. Blocks deleting/launching anything else.</summary>
+        internal static bool IsManagedInstallerPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            string full;
+            try { full = System.IO.Path.GetFullPath(path); }
+            catch { return false; }
+
+            string ext = (System.IO.Path.GetExtension(full) ?? "").ToLowerInvariant();
+            if (Array.IndexOf(ManagedInstallerExts, ext) < 0) return false;
+
+            string parent;
+            try { parent = System.IO.Path.GetFullPath(System.IO.Path.GetDirectoryName(full) ?? ""); }
+            catch { return false; }
+
+            bool inManagedDir =
+                string.Equals(parent, System.IO.Path.GetFullPath(TempInstallerDir), StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(parent, System.IO.Path.GetFullPath(DownloadsDir), StringComparison.OrdinalIgnoreCase);
+            if (!inManagedDir) return false;
+
+            return System.IO.File.Exists(full);
+        }
+
+        /// <summary>Deletes a cached installer after the safety check. Returns a result JSON.</summary>
+        internal static string DeleteCachedInstaller(string path)
+        {
+            if (!IsManagedInstallerPath(path))
+            {
+                Logger.Warn($"DeleteCachedInstaller: refused path outside managed folders: {path}");
+                return "{\"success\":false,\"message\":\"Path is not a managed installer.\"}";
+            }
+            try
+            {
+                System.IO.File.Delete(path);
+                Logger.Info($"DeleteCachedInstaller: deleted {System.IO.Path.GetFileName(path)}");
+                return "{\"success\":true,\"message\":\"Deleted.\"}";
+            }
+            catch (Exception ex)
+            {
+                return "{\"success\":false,\"message\":\"Delete failed: " + ex.Message.Replace("\"", "'") + "\"}";
+            }
+        }
+
+        /// <summary>Re-launches a cached .exe/.msi installer after the safety check (reuses the
+        /// same ShellExecute launch as InstallDriverAsync). .zip is not auto-launched.</summary>
+        internal static string LaunchCachedInstaller(string path)
+        {
+            if (!IsManagedInstallerPath(path))
+            {
+                Logger.Warn($"LaunchCachedInstaller: refused path outside managed folders: {path}");
+                return "{\"success\":false,\"message\":\"Path is not a managed installer.\"}";
+            }
+            string ext = (System.IO.Path.GetExtension(path) ?? "").ToLowerInvariant();
+            if (ext != ".exe" && ext != ".msi")
+                return "{\"success\":true,\"launched\":false,\"message\":\"Open the file manually to install.\"}";
+            try
+            {
+                var psi = new System.Diagnostics.ProcessStartInfo { FileName = path, UseShellExecute = true };
+                System.Diagnostics.Process.Start(psi);
+                Logger.Info($"LaunchCachedInstaller: launched {System.IO.Path.GetFileName(path)}");
+                return "{\"success\":true,\"launched\":true,\"message\":\"Installer launched.\"}";
+            }
+            catch (Exception ex)
+            {
+                return "{\"success\":false,\"message\":\"Launch failed: " + ex.Message.Replace("\"", "'") + "\"}";
+            }
+        }
+
+        /// <summary>JSON array of cached installers for a driver — used by the ManageDriverInstaller
+        /// pipe handler (list + refresh-after-delete).</summary>
+        internal static string CachedInstallersJson(string url)
+        {
+            return JsonSerializer.Serialize(ListCachedInstallers(url), new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            });
+        }
+
+        /// <summary>Fills each driver row's CachedInstallers from disk. Best-effort; never throws.</summary>
+        private static void PopulateCachedInstallers(MsiDriverUpdateResult result)
+        {
+            if (result?.Drivers == null) return;
+            foreach (var d in result.Drivers)
+            {
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(d.DownloadUrl))
+                        d.CachedInstallers = ListCachedInstallers(d.DownloadUrl);
+                }
+                catch (Exception ex) { Logger.Debug($"PopulateCachedInstallers('{d.Name}') failed: {ex.Message}"); }
+            }
+        }
+
         /// <summary>Cheap sanity check that a downloaded file is a real Windows installer:
         /// 'MZ' for PE/EXE, or the OLE compound-doc magic (D0 CF 11 E0) for MSI. Anything
         /// smaller than 4 KB (e.g. a challenge/landing page) is rejected outright.</summary>
@@ -1224,6 +1419,10 @@ namespace XboxGamingBarHelper.Services
         /// <summary>True when the user muted this update for its current latest version
         /// (excluded from the update count + "Update all"; reappears when a newer version ships).</summary>
         public bool Ignored { get; set; }
+        /// <summary>Installer files already downloaded for this driver that are still on disk
+        /// (in %TEMP%\GoTweaksClawInstallers or the user's Downloads folder). Lets the widget
+        /// offer re-run/downgrade/delete per file. Serialised as "cachedInstallers".</summary>
+        public List<CachedInstallerInfo> CachedInstallers { get; set; } = new List<CachedInstallerInfo>();
 
         // Manifest-only hints (not serialised to the widget).
         [JsonIgnore] public string DeviceIdMatch { get; set; } = "";
@@ -1233,5 +1432,18 @@ namespace XboxGamingBarHelper.Services
         // HKLM\SOFTWARE\WOW6432Node\MSI\MSI Center M : Package_Version).
         [JsonIgnore] public string RegistryPath { get; set; } = "";
         [JsonIgnore] public string RegistryValue { get; set; } = "";
+    }
+
+    /// <summary>One installer file left on disk from a previous download of a driver.
+    /// Serialised camelCase (fullPath, fileName, version, sizeBytes, lastWriteUtc, folder).</summary>
+    internal sealed class CachedInstallerInfo
+    {
+        public string FullPath { get; set; } = "";
+        public string FileName { get; set; } = "";
+        public string Version { get; set; } = "";
+        public long SizeBytes { get; set; }
+        public string LastWriteUtc { get; set; } = "";
+        /// <summary>"Temp" or "Downloads" — where the file lives.</summary>
+        public string Folder { get; set; } = "";
     }
 }

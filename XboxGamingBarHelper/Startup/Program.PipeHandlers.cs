@@ -1312,6 +1312,62 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Manage installer files left on disk from earlier driver downloads:
+                // list / delete / re-launch (downgrade). All file ops run elevated here and
+                // are guarded to the two managed folders (see IsManagedInstallerPath).
+                // Payload JSON: { "action":"list|delete|launch", "url":"<driver downloadUrl>", "path":"<full path>" }.
+                if (pipeMsg.Extra.TryGetValue("ManageDriverInstaller", out object mgrObj))
+                {
+                    string resultJson = "{\"success\":false,\"message\":\"Bad request.\"}";
+                    try
+                    {
+                        string payload = mgrObj?.ToString() ?? "";
+                        string mgrAction = "", mgrUrl = "", mgrPath = "";
+                        if (System.Text.Json.JsonDocument.Parse(payload).RootElement is var root)
+                        {
+                            if (root.TryGetProperty("action", out var a)) mgrAction = a.GetString() ?? "";
+                            if (root.TryGetProperty("url", out var u)) mgrUrl = u.GetString() ?? "";
+                            if (root.TryGetProperty("path", out var p)) mgrPath = p.GetString() ?? "";
+                        }
+                        Logger.Info($"Pipe: ManageDriverInstaller action='{mgrAction}' path='{mgrPath}'");
+
+                        switch (mgrAction)
+                        {
+                            case "list":
+                                resultJson = "{\"success\":true,\"installers\":" +
+                                    Services.MsiClawDriverCheckService.CachedInstallersJson(mgrUrl) + "}";
+                                break;
+                            case "delete":
+                                var del = Services.MsiClawDriverCheckService.DeleteCachedInstaller(mgrPath);
+                                resultJson = "{\"success\":" + (del.Contains("\"success\":true") ? "true" : "false") +
+                                    ",\"installers\":" + Services.MsiClawDriverCheckService.CachedInstallersJson(mgrUrl) + "}";
+                                break;
+                            case "launch":
+                                resultJson = Services.MsiClawDriverCheckService.LaunchCachedInstaller(mgrPath);
+                                break;
+                            default:
+                                resultJson = "{\"success\":false,\"message\":\"Unknown action.\"}";
+                                break;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: ManageDriverInstaller threw: {ex.Message}");
+                        resultJson = "{\"success\":false,\"message\":\"" + ex.Message.Replace("\"", "'") + "\"}";
+                    }
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet
+                        {
+                            { "DriverInstallerResult", resultJson },
+                        };
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
                 // Handle display brightness adjustment request (+/- percentage delta)
                 if (pipeMsg.Extra.TryGetValue("AdjustBrightness", out object brightnessObj))
                 {

@@ -522,6 +522,8 @@ namespace XboxGamingBar
                             ? Windows.UI.Xaml.Visibility.Visible
                             : Windows.UI.Xaml.Visibility.Collapsed;
 
+                        var cachedList = ParseCachedInstallers(d, downloadUrl, installed);
+
                         items.Add(new DriverDisplay
                         {
                             Name = GetD("name"),
@@ -547,6 +549,7 @@ namespace XboxGamingBar
                             MuteButtonLabel = muteLabel,
                             MuteButtonVisibility = muteVis,
                             Highlights = GetD("highlights"),
+                            CachedInstallers = cachedList,
                         });
                     }
                 }
@@ -605,6 +608,88 @@ namespace XboxGamingBar
             }
         }
 
+        // Parses the helper's "cachedInstallers" array on a driver JSON object into the
+        // widget's CachedInstaller rows (formatting size/date and flagging older-than-installed).
+        private System.Collections.Generic.List<CachedInstaller> ParseCachedInstallers(
+            Windows.Data.Json.JsonObject d, string matchUrl, string installedVersion)
+        {
+            var list = new System.Collections.Generic.List<CachedInstaller>();
+            try
+            {
+                if (d == null || !d.TryGetValue("cachedInstallers", out var arrVal)
+                    || arrVal.ValueType != Windows.Data.Json.JsonValueType.Array)
+                    return list;
+
+                foreach (var el in arrVal.GetArray())
+                {
+                    if (el.ValueType != Windows.Data.Json.JsonValueType.Object) continue;
+                    var o = el.GetObject();
+                    string S(string k) => (o.TryGetValue(k, out var vv) && vv.ValueType == Windows.Data.Json.JsonValueType.String)
+                        ? vv.GetString() ?? "" : "";
+                    double N(string k) => (o.TryGetValue(k, out var vv) && vv.ValueType == Windows.Data.Json.JsonValueType.Number)
+                        ? vv.GetNumber() : 0;
+
+                    string version = S("version");
+                    string dateText = "";
+                    if (DateTimeOffset.TryParse(S("lastWriteUtc"), out var dto))
+                        dateText = dto.ToLocalTime().ToString("yyyy-MM-dd");
+
+                    list.Add(new CachedInstaller
+                    {
+                        FullPath = S("fullPath"),
+                        FileName = S("fileName"),
+                        VersionText = version,
+                        SizeText = FormatBytes((long)N("sizeBytes")),
+                        DateText = dateText,
+                        FolderText = S("folder"),
+                        MatchUrl = matchUrl,
+                        IsOlderThanInstalled = CompareVersions(version, installedVersion) < 0,
+                    });
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"ParseCachedInstallers failed: {ex.Message}"); }
+            return list;
+        }
+
+        private static string FormatBytes(long bytes)
+        {
+            if (bytes <= 0) return "";
+            string[] units = { "B", "KB", "MB", "GB" };
+            double v = bytes; int u = 0;
+            while (v >= 1024 && u < units.Length - 1) { v /= 1024; u++; }
+            return (u >= 2 ? v.ToString("0.#") : v.ToString("0")) + " " + units[u];
+        }
+
+        // Best-effort dotted-numeric version compare. Returns <0 if a<b, 0 if equal/unknown, >0 if a>b.
+        private static int CompareVersions(string a, string b)
+        {
+            if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return 0;
+            var pa = a.Split(new[] { '.', '_' }, StringSplitOptions.RemoveEmptyEntries);
+            var pb = b.Split(new[] { '.', '_' }, StringSplitOptions.RemoveEmptyEntries);
+            int n = Math.Max(pa.Length, pb.Length);
+            for (int i = 0; i < n; i++)
+            {
+                int va = (i < pa.Length && int.TryParse(pa[i], out var x)) ? x : 0;
+                int vb = (i < pb.Length && int.TryParse(pb[i], out var y)) ? y : 0;
+                if (va != vb) return va.CompareTo(vb);
+            }
+            return 0;
+        }
+
+        // Replaces one driver row's cached-installer list (matched by download URL) and re-renders
+        // the list in place — no full re-check, no network. Used after delete/run.
+        private void UpdateCachedInstallersForDriver(string matchUrl, System.Collections.Generic.List<CachedInstaller> newList)
+        {
+            if (_allDriverDisplays == null) return;
+            foreach (var dd in _allDriverDisplays)
+            {
+                if (string.Equals(dd.DownloadUrl, matchUrl, StringComparison.OrdinalIgnoreCase))
+                    dd.CachedInstallers = newList ?? new System.Collections.Generic.List<CachedInstaller>();
+            }
+            // Reassigning ItemsSource forces the nested per-row ItemsControls to rebuild.
+            ApplyDriverFilters();
+        }
+
         private static string CategoryToIconGlyph(string category)
         {
             if (string.IsNullOrEmpty(category)) return "";
@@ -659,6 +744,44 @@ namespace XboxGamingBar
             public string Highlights { get; set; } = "";
             public Windows.UI.Xaml.Visibility HighlightsVisibility =>
                 string.IsNullOrWhiteSpace(Highlights) ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
+            /// <summary>Installer files still on disk from earlier downloads of this driver
+            /// (re-run/downgrade/delete). Populated from the helper's "cachedInstallers".</summary>
+            public System.Collections.Generic.List<CachedInstaller> CachedInstallers { get; set; }
+                = new System.Collections.Generic.List<CachedInstaller>();
+            public Windows.UI.Xaml.Visibility CachedInstallersVisibility =>
+                (CachedInstallers != null && CachedInstallers.Count > 0)
+                    ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
+            public string CachedInstallersHeader =>
+                $"Downloaded installers ({CachedInstallers?.Count ?? 0})";
+        }
+
+        /// <summary>One installer file left on disk from a previous download (bound per-row in the
+        /// driver card). Mirrors the helper's CachedInstallerInfo JSON.</summary>
+        private sealed class CachedInstaller
+        {
+            public string FullPath { get; set; } = "";
+            public string FileName { get; set; } = "";
+            public string VersionText { get; set; } = "";
+            public string SizeText { get; set; } = "";
+            public string DateText { get; set; } = "";
+            public string FolderText { get; set; } = "";
+            /// <summary>The driver's download URL — needed to refresh this row's list after a delete.</summary>
+            public string MatchUrl { get; set; } = "";
+            public bool IsOlderThanInstalled { get; set; }
+            public string RunButtonLabel => IsOlderThanInstalled ? "Run (older)" : "Run";
+            /// <summary>Compact detail line: "1.2.3 • 812 MB • Downloads • 2026-07-01".</summary>
+            public string DetailText
+            {
+                get
+                {
+                    var parts = new System.Collections.Generic.List<string>();
+                    if (!string.IsNullOrWhiteSpace(VersionText)) parts.Add(VersionText);
+                    if (!string.IsNullOrWhiteSpace(SizeText)) parts.Add(SizeText);
+                    if (!string.IsNullOrWhiteSpace(FolderText)) parts.Add(FolderText);
+                    if (!string.IsNullOrWhiteSpace(DateText)) parts.Add(DateText);
+                    return string.Join("  •  ", parts);
+                }
+            }
         }
 
         // Cached full driver list so the "Show utilities and diagnostics"
@@ -1191,6 +1314,27 @@ namespace XboxGamingBar
                 }
                 if (DriverUpdatesStatusText != null)
                     DriverUpdatesStatusText.Text = message;
+
+                if (asyncDownload)
+                {
+                    // The status line above sits at the top of the tab and is easy to miss, so also
+                    // pop a one-shot dialog explaining the long background download.
+                    try
+                    {
+                        var dlg = new ContentDialog
+                        {
+                            Title = "Download started in the background",
+                            Content = "This is a large driver package (the Intel Arc download is over 800 MB), "
+                                    + "so it can take a long while.\n\nIt downloads in the background \u2014 you can "
+                                    + "keep using the device. The driver setup will start on its own once the "
+                                    + "download finishes.",
+                            CloseButtonText = "OK"
+                        };
+                        if (this.XamlRoot != null) dlg.XamlRoot = this.XamlRoot;
+                        await dlg.ShowAsync();
+                    }
+                    catch (Exception ex) { Logger.Warn($"Driver download dialog failed: {ex.Message}"); }
+                }
             }
             catch (Exception ex)
             {
@@ -1207,6 +1351,152 @@ namespace XboxGamingBar
                     button.IsEnabled = true;
                 }
             }
+        }
+
+        // Re-runs a cached installer file (reinstall or downgrade to that version). The helper
+        // guards the path to the two managed folders and launches it elevated.
+        private async void DriverCachedRunButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (!((sender as Windows.UI.Xaml.Controls.Button)?.Tag is CachedInstaller ci)) return;
+            if (!App.IsConnected)
+            {
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = "Helper not connected — can't run installer.";
+                return;
+            }
+            try
+            {
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "ManageDriverInstaller", BuildManageInstallerPayload("launch", ci.MatchUrl, ci.FullPath) },
+                };
+                var response = await App.SendMessageAsync(request);
+                string msg = ReadInstallerResultMessage(response, "Installer launched.");
+                if (DriverUpdatesStatusText != null) DriverUpdatesStatusText.Text = msg;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"DriverCachedRunButton_Click failed: {ex.Message}");
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = $"Run failed: {ex.Message}";
+            }
+        }
+
+        // Deletes a cached installer file (after confirmation) and refreshes the row in place.
+        private async void DriverCachedDeleteButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (!((sender as Windows.UI.Xaml.Controls.Button)?.Tag is CachedInstaller ci)) return;
+            if (!App.IsConnected)
+            {
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = "Helper not connected — can't delete.";
+                return;
+            }
+
+            try
+            {
+                var confirm = new ContentDialog
+                {
+                    Title = "Delete downloaded installer?",
+                    Content = $"Delete this file from disk?\n\n{ci.FileName}\n({ci.SizeText} • {ci.FolderText})",
+                    PrimaryButtonText = "Delete",
+                    CloseButtonText = "Cancel",
+                    DefaultButton = ContentDialogButton.Close
+                };
+                if (this.XamlRoot != null) confirm.XamlRoot = this.XamlRoot;
+                if (await confirm.ShowAsync() != ContentDialogResult.Primary) return;
+
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "ManageDriverInstaller", BuildManageInstallerPayload("delete", ci.MatchUrl, ci.FullPath) },
+                };
+                var response = await App.SendMessageAsync(request);
+                if (response != null && response.TryGetValue("DriverInstallerResult", out var payloadObj)
+                    && payloadObj is string payload
+                    && Windows.Data.Json.JsonObject.TryParse(payload, out var root))
+                {
+                    bool success = root.TryGetValue("success", out var s)
+                        && s.ValueType == Windows.Data.Json.JsonValueType.Boolean && s.GetBoolean();
+                    // Rebuild this driver's cached list from the fresh array the helper returned.
+                    var newList = new System.Collections.Generic.List<CachedInstaller>();
+                    if (root.TryGetValue("installers", out var arrVal)
+                        && arrVal.ValueType == Windows.Data.Json.JsonValueType.Array)
+                    {
+                        newList = ParseCachedInstallersArray(arrVal.GetArray(), ci.MatchUrl);
+                    }
+                    UpdateCachedInstallersForDriver(ci.MatchUrl, newList);
+                    if (DriverUpdatesStatusText != null)
+                        DriverUpdatesStatusText.Text = success ? "Installer deleted." : "Delete failed.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"DriverCachedDeleteButton_Click failed: {ex.Message}");
+                if (DriverUpdatesStatusText != null)
+                    DriverUpdatesStatusText.Text = $"Delete failed: {ex.Message}";
+            }
+        }
+
+        private static string BuildManageInstallerPayload(string action, string url, string path)
+        {
+            var o = new Windows.Data.Json.JsonObject
+            {
+                { "action", Windows.Data.Json.JsonValue.CreateStringValue(action ?? "") },
+                { "url", Windows.Data.Json.JsonValue.CreateStringValue(url ?? "") },
+                { "path", Windows.Data.Json.JsonValue.CreateStringValue(path ?? "") },
+            };
+            return o.ToString();
+        }
+
+        private static string ReadInstallerResultMessage(Windows.Foundation.Collections.ValueSet response, string fallback)
+        {
+            try
+            {
+                if (response != null && response.TryGetValue("DriverInstallerResult", out var payloadObj)
+                    && payloadObj is string payload
+                    && Windows.Data.Json.JsonObject.TryParse(payload, out var root))
+                {
+                    string msg = root.TryGetValue("message", out var m)
+                        && m.ValueType == Windows.Data.Json.JsonValueType.String ? m.GetString() : "";
+                    if (!string.IsNullOrWhiteSpace(msg)) return msg;
+                }
+            }
+            catch { }
+            return fallback;
+        }
+
+        // Parses a JsonArray of cachedInstaller objects (from a delete refresh) into CachedInstaller rows.
+        private System.Collections.Generic.List<CachedInstaller> ParseCachedInstallersArray(
+            Windows.Data.Json.JsonArray arr, string matchUrl)
+        {
+            var list = new System.Collections.Generic.List<CachedInstaller>();
+            try
+            {
+                foreach (var el in arr)
+                {
+                    if (el.ValueType != Windows.Data.Json.JsonValueType.Object) continue;
+                    var o = el.GetObject();
+                    string S(string k) => (o.TryGetValue(k, out var vv) && vv.ValueType == Windows.Data.Json.JsonValueType.String)
+                        ? vv.GetString() ?? "" : "";
+                    double N(string k) => (o.TryGetValue(k, out var vv) && vv.ValueType == Windows.Data.Json.JsonValueType.Number)
+                        ? vv.GetNumber() : 0;
+                    string dateText = "";
+                    if (DateTimeOffset.TryParse(S("lastWriteUtc"), out var dto))
+                        dateText = dto.ToLocalTime().ToString("yyyy-MM-dd");
+                    list.Add(new CachedInstaller
+                    {
+                        FullPath = S("fullPath"),
+                        FileName = S("fileName"),
+                        VersionText = S("version"),
+                        SizeText = FormatBytes((long)N("sizeBytes")),
+                        DateText = dateText,
+                        FolderText = S("folder"),
+                        MatchUrl = matchUrl,
+                    });
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"ParseCachedInstallersArray failed: {ex.Message}"); }
+            return list;
         }
 
         private void OnDriverInstallComplete(string resultJson)
