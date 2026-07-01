@@ -5525,6 +5525,49 @@
                                                                             Click="DriverInstallButton_Click"/>
                                                                 </StackPanel>
                                                             </Grid>
+
+                                                            <!-- Installer files already downloaded for this driver:
+                                                                 re-run (downgrade to) or delete to free space. -->
+                                                            <muxc:Expander Visibility="{Binding CachedInstallersVisibility}"
+                                                                           Margin="0,6,0,0"
+                                                                           HorizontalAlignment="Stretch"
+                                                                           HorizontalContentAlignment="Stretch"
+                                                                           IsExpanded="False">
+                                                                <muxc:Expander.Header>
+                                                                    <TextBlock Text="{Binding CachedInstallersHeader}" FontSize="11" Foreground="#9098A0"/>
+                                                                </muxc:Expander.Header>
+                                                                <ItemsControl ItemsSource="{Binding CachedInstallers}"
+                                                                              XYFocusKeyboardNavigation="Enabled">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <Grid Margin="0,3,0,0" ColumnSpacing="8">
+                                                                                <Grid.ColumnDefinitions>
+                                                                                    <ColumnDefinition Width="*"/>
+                                                                                    <ColumnDefinition Width="Auto"/>
+                                                                                </Grid.ColumnDefinitions>
+                                                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                                                    <TextBlock Text="{Binding FileName}" FontSize="11" Foreground="#D0D0D0" TextWrapping="Wrap"/>
+                                                                                    <TextBlock Text="{Binding DetailText}" FontSize="10" Foreground="#808890" TextWrapping="Wrap"/>
+                                                                                </StackPanel>
+                                                                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                                                    <Button Content="{Binding RunButtonLabel}"
+                                                                                            Tag="{Binding}"
+                                                                                            Style="{StaticResource ModernButtonStyle}"
+                                                                                            FontSize="11"
+                                                                                            Padding="10,4"
+                                                                                            Click="DriverCachedRunButton_Click"/>
+                                                                                    <Button Content="Delete"
+                                                                                            Tag="{Binding}"
+                                                                                            Style="{StaticResource ModernButtonStyle}"
+                                                                                            FontSize="11"
+                                                                                            Padding="10,4"
+                                                                                            Click="DriverCachedDeleteButton_Click"/>
+                                                                                </StackPanel>
+                                                                            </Grid>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </muxc:Expander>
                                                         </StackPanel>
                                                     </Grid>
                                                 </Border>
