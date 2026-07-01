@@ -90,6 +90,9 @@ namespace XboxGamingBar
             public bool HasDualButtons { get; set; } = false;
             public Button LeftButton { get; set; }
             public Button RightButton { get; set; }
+
+            // Wide tile (spans 2 logical columns in the live grid). Used by the media-slider tile.
+            public bool IsWide { get; set; } = false;
         }
 
         // List of custom shortcut tiles
@@ -303,6 +306,9 @@ namespace XboxGamingBar
             // AddTileDefinition("RadeonChill", "Chill", "\uE9CA", order: order++);  // removed: AMD-only feature
             AddTileDefinition("Profile", "Profile", "\uE77B", order: order++);   // moved before CPU Boost
             AddTileDefinition("Power", "Power", "\uE7E8", order: order++);       // power menu (sleep/reboot/...)
+            // Wide (2-cell) media tile: brightness slider on top, volume slider on bottom.
+            AddTileDefinition("MediaSliders", "Brightness / Volume", "\uE706", order: order++, actionType: TileActionType.MediaSliders);
+            if (qsTileMap.TryGetValue("MediaSliders", out var mediaDef)) mediaDef.IsWide = true;
             AddTileDefinition("CPUBoost", "CPU Boost", "\uE7F4", order: order++);
 
             // Row 3 - Display
@@ -649,6 +655,15 @@ namespace XboxGamingBar
 
                 // Apply default tile hotkeys before loading saved values so user overrides win
                 ApplyTileHotkeyDefaults(settings);
+
+                // One-time reslot: the media-slider tile shipped later than its intended position.
+                // Drop its stale saved order once so it picks up the new default (before CPU Boost);
+                // the user can freely move it afterwards and that choice persists.
+                if (!(settings.Values.TryGetValue("QS_MediaReslotV1", out var reslotVal) && reslotVal is bool reslotDone && reslotDone))
+                {
+                    settings.Values.Remove("QS_MediaSliders_Order");
+                    settings.Values["QS_MediaReslotV1"] = true;
+                }
 
                 foreach (var tile in qsTileDefinitions)
                 {

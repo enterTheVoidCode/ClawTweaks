@@ -52,6 +52,9 @@ namespace XboxGamingBar.QuickSettings
         OpenSpotify        = 53,
         LaunchUserProgram  = 59,  // generic: launches the exe/ps1 path carried in ActionParam
 
+        // ── Wide widget-rendered tiles (80–89) ─────────────────────────────
+        MediaSliders           = 80,   // 2-cell-wide tile: brightness (top) + volume (bottom) sliders
+
         // ── Special Controller Buttons (70–79) ─────────────────────────────
         EmulateXboxGuide       = 70,   // momentary Xbox Guide tap on the virtual ViGEm controller
 

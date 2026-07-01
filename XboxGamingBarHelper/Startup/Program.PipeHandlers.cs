@@ -1412,6 +1412,53 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Absolute set for the media-slider tile (brightness top, volume bottom).
+                if (pipeMsg.Extra.TryGetValue("SetBrightnessLevel", out object setBrightObj))
+                {
+                    try
+                    {
+                        int level = ParsePipeInt(setBrightObj);
+                        level = Math.Max(0, Math.Min(100, level));
+                        Sidebar.BrightnessManager.SetBrightness(level);
+                        Logger.Info($"Pipe: SetBrightnessLevel {level}%");
+                    }
+                    catch (Exception ex) { Logger.Warn($"Pipe: SetBrightnessLevel threw: {ex.Message}"); }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+                if (pipeMsg.Extra.TryGetValue("SetVolumeLevel", out object setVolObj))
+                {
+                    try
+                    {
+                        int level = ParsePipeInt(setVolObj);
+                        level = Math.Max(0, Math.Min(100, level));
+                        using var mgr = new Sidebar.Audio.AudioManager();
+                        mgr.SetVolume(level);
+                        Logger.Info($"Pipe: SetVolumeLevel {level}%");
+                    }
+                    catch (Exception ex) { Logger.Warn($"Pipe: SetVolumeLevel threw: {ex.Message}"); }
+                    SendPipeAck(pipeMsg.RequestId);
+                    return;
+                }
+                // Current brightness + volume for initialising the media-slider tile.
+                if (pipeMsg.Extra.ContainsKey("GetMediaLevels"))
+                {
+                    int brightness = 50, volume = 50;
+                    try { brightness = Sidebar.BrightnessManager.GetBrightness(); } catch (Exception ex) { Logger.Warn($"GetMediaLevels brightness: {ex.Message}"); }
+                    try { using var mgr = new Sidebar.Audio.AudioManager(); volume = mgr.GetVolume(); } catch (Exception ex) { Logger.Warn($"GetMediaLevels volume: {ex.Message}"); }
+                    if (pipeServer != null && pipeServer.IsConnected)
+                    {
+                        var response = new global::Windows.Foundation.Collections.ValueSet
+                        {
+                            { "MediaLevels", "{\"brightness\":" + brightness + ",\"volume\":" + volume + "}" },
+                        };
+                        var responseMsg = Shared.IPC.PipeMessage.FromValueSet(response);
+                        responseMsg.RequestId = pipeMsg.RequestId;
+                        pipeServer.SendMessage(responseMsg.ToJson());
+                    }
+                    return;
+                }
+
                 // Handle controller-button query from widget's binding flyout.
                 // The widget's DispatcherTimer polls every ~100 ms while the binding UI is open.
                 // Returns the current raw XInput button bitmask read by ControllerHotkeyMonitor
@@ -2850,6 +2897,19 @@ namespace XboxGamingBarHelper
                 Logger.Info($"AdjustTDPByWatts: {current}W → {next}W (delta={delta})");
             }
             catch (Exception ex) { Logger.Warn($"AdjustTDPByWatts failed: {ex.Message}"); }
+        }
+
+        // Parses a pipe payload int that may arrive as int/long/double/string (JSON numbers deserialize as long).
+        private static int ParsePipeInt(object o)
+        {
+            switch (o)
+            {
+                case int i: return i;
+                case long l: return (int)l;
+                case double d: return (int)d;
+                case string s: return int.TryParse(s, out var v) ? v : 0;
+                default: return 0;
+            }
         }
 
         internal static void AdjustVolume(int delta)

@@ -62,11 +62,24 @@ namespace XboxGamingBar
             // Build rows of tiles (3 or 4 columns based on setting)
             Grid currentRow = null;
             int colIndex = 0;
+            // Track the element occupying each logical column in the previous / current row, so a wide
+            // tile's inner sliders can point XYFocusUp at the tile directly above (otherwise up-nav from
+            // the top slider escapes all the way to the tab bar).
+            var aboveByCol = new FrameworkElement[qsColumnCount];
+            var thisRowByCol = new FrameworkElement[qsColumnCount];
 
             for (int i = 0; i < tilesToShow.Count; i++)
             {
-                if (colIndex == 0)
+                var tile = tilesToShow[i];
+                // A wide tile spans 2 logical columns; keep them uniform so it never overflows.
+                int span = (tile.IsWide && qsColumnCount >= 2) ? 2 : 1;
+
+                // Start a new row when at the start, or when a wide tile wouldn't fit the remaining columns.
+                if (colIndex == 0 || colIndex + span > qsColumnCount)
                 {
+                    colIndex = 0;
+                    aboveByCol = thisRowByCol;
+                    thisRowByCol = new FrameworkElement[qsColumnCount];
                     currentRow = new Grid { Margin = new Thickness(0, 4, 0, 4) };
                     // Add column definitions dynamically based on qsColumnCount
                     for (int c = 0; c < qsColumnCount; c++)
@@ -77,12 +90,22 @@ namespace XboxGamingBar
                     QuickSettingsTilesContainer.Children.Add(currentRow);
                 }
 
-                var tile = tilesToShow[i];
                 var tileButton = CreateTileButton(tile);
                 Grid.SetColumn(tileButton, colIndex * 2);
+                // 2 logical columns = tile col + spacer + tile col = 3 physical grid columns.
+                if (span > 1) Grid.SetColumnSpan(tileButton, span * 2 - 1);
                 currentRow.Children.Add(tileButton);
+                for (int c = colIndex; c < colIndex + span && c < qsColumnCount; c++)
+                    thisRowByCol[c] = tileButton;
 
-                colIndex++;
+                // Media tile: point the top (brightness) slider's up-focus at the tile directly above.
+                if (tile.ActionType == TileActionType.MediaSliders && _mediaBrightnessSlider != null
+                    && colIndex < aboveByCol.Length && aboveByCol[colIndex] != null)
+                {
+                    _mediaBrightnessSlider.XYFocusUp = aboveByCol[colIndex];
+                }
+
+                colIndex += span;
                 if (colIndex >= qsColumnCount)
                 {
                     colIndex = 0;
@@ -126,8 +149,178 @@ namespace XboxGamingBar
         /// <summary>
         /// Create a tile button for the given definition
         /// </summary>
+        // Media-slider tile (2 cells wide): brightness on top, volume on bottom, 5-step.
+        private Slider _mediaBrightnessSlider;
+        private Slider _mediaVolumeSlider;
+        private TextBlock _mediaBrightnessValue;
+        private TextBlock _mediaVolumeValue;
+        // True while we're pushing helper-reported levels into the sliders, so their
+        // ValueChanged handlers don't echo the value straight back to the helper.
+        private bool _mediaSlidersUpdating;
+
+        private Brush MediaAccentBrush()
+        {
+            if (this.Resources.TryGetValue("ThemeAccentBrush", out var ab) && ab is Brush b1) return b1;
+            if (Application.Current.Resources.TryGetValue("ThemeAccentBrush", out var ab2) && ab2 is Brush b2) return b2;
+            return new SolidColorBrush(Windows.UI.Color.FromArgb(255, 138, 180, 248));
+        }
+
+        private FrameworkElement CreateMediaSliderTile(TileDefinition tile)
+        {
+            var accent = MediaAccentBrush();
+
+            Slider MakeSlider()
+            {
+                return new Slider
+                {
+                    Minimum = 0,
+                    Maximum = 100,
+                    StepFrequency = 5,
+                    SmallChange = 5,
+                    LargeChange = 10,
+                    TickFrequency = 5,
+                    Value = 50,
+                    Style = Resources["ModernSliderStyle"] as Style,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+            }
+
+            var brightnessSlider = MakeSlider();
+            var volumeSlider = MakeSlider();
+            _mediaBrightnessSlider = brightnessSlider;
+            _mediaVolumeSlider = volumeSlider;
+
+            var brightnessValue = new TextBlock { Text = "50%" };
+            var volumeValue = new TextBlock { Text = "50%" };
+            _mediaBrightnessValue = brightnessValue;
+            _mediaVolumeValue = volumeValue;
+
+            // Keep vertical focus INSIDE the tile: down = brightness->volume, up = volume->brightness.
+            // Without the explicit up link, up-nav from the volume slider escaped to the tabs.
+            brightnessSlider.XYFocusDown = volumeSlider;
+            volumeSlider.XYFocusUp = brightnessSlider;
+
+            brightnessSlider.ValueChanged += (s, e) =>
+            {
+                int val = (int)Math.Round(e.NewValue);
+                brightnessValue.Text = val + "%";
+                if (_mediaSlidersUpdating) return;
+                _ = SendMediaLevelAsync("SetBrightnessLevel", val);
+            };
+            volumeSlider.ValueChanged += (s, e) =>
+            {
+                int val = (int)Math.Round(e.NewValue);
+                volumeValue.Text = val + "%";
+                if (_mediaSlidersUpdating) return;
+                _ = SendMediaLevelAsync("SetVolumeLevel", val);
+            };
+
+            StackPanel Row(string glyph, Slider slider, TextBlock valueLabel)
+            {
+                var header = new Grid { Margin = new Thickness(2, 0, 2, 0) };
+                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var icon = new FontIcon
+                {
+                    Glyph = glyph,
+                    FontSize = 16,
+                    Foreground = accent,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
+                Grid.SetColumn(icon, 0);
+
+                valueLabel.Foreground = accent;
+                valueLabel.FontSize = 13;
+                valueLabel.FontWeight = Windows.UI.Text.FontWeights.SemiBold;
+                valueLabel.HorizontalAlignment = HorizontalAlignment.Right;
+                valueLabel.VerticalAlignment = VerticalAlignment.Center;
+                Grid.SetColumn(valueLabel, 1);
+
+                header.Children.Add(icon);
+                header.Children.Add(valueLabel);
+
+                var row = new StackPanel { Spacing = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
+                row.Children.Add(header);
+                row.Children.Add(slider);
+                return row;
+            }
+
+            var content = new StackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Stretch };
+            content.Children.Add(Row("", brightnessSlider, brightnessValue)); // brightness (top)
+            content.Children.Add(Row("", volumeSlider, volumeValue));         // volume (bottom)
+
+            var bg = new LinearGradientBrush { StartPoint = new Windows.Foundation.Point(0, 0), EndPoint = new Windows.Foundation.Point(0, 1) };
+            bg.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 42, 48, 74), Offset = 0 });
+            bg.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 30, 34, 54), Offset = 1 });
+
+            var border = new Border
+            {
+                Tag = tile.Id,
+                Background = bg,
+                BorderBrush = accent,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(14, 12, 14, 12),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
+                Child = content
+            };
+
+            // Pull the current brightness/volume once the tile exists.
+            _ = RefreshMediaSliderLevelsAsync();
+            return border;
+        }
+        // Fetches current brightness + volume from the helper and pushes them into the sliders
+        // (guarded so it doesn't echo back). Safe to call whenever the Quick tab is shown.
+        internal async System.Threading.Tasks.Task RefreshMediaSliderLevelsAsync()
+        {
+            if (_mediaBrightnessSlider == null && _mediaVolumeSlider == null) return;
+            if (!App.IsConnected) return;
+            try
+            {
+                var request = new Windows.Foundation.Collections.ValueSet { { "GetMediaLevels", "1" } };
+                var response = await App.SendMessageAsync(request);
+                if (response == null || !response.TryGetValue("MediaLevels", out var payloadObj)
+                    || !(payloadObj is string payload)
+                    || !Windows.Data.Json.JsonObject.TryParse(payload, out var root))
+                    return;
+
+                double bright = root.TryGetValue("brightness", out var b) && b.ValueType == Windows.Data.Json.JsonValueType.Number ? b.GetNumber() : 50;
+                double vol = root.TryGetValue("volume", out var v) && v.ValueType == Windows.Data.Json.JsonValueType.Number ? v.GetNumber() : 50;
+
+                _mediaSlidersUpdating = true;
+                try
+                {
+                    if (_mediaBrightnessSlider != null) _mediaBrightnessSlider.Value = bright;
+                    if (_mediaVolumeSlider != null) _mediaVolumeSlider.Value = vol;
+                    if (_mediaBrightnessValue != null) _mediaBrightnessValue.Text = (int)Math.Round(bright) + "%";
+                    if (_mediaVolumeValue != null) _mediaVolumeValue.Text = (int)Math.Round(vol) + "%";
+                }
+                finally { _mediaSlidersUpdating = false; }
+            }
+            catch (Exception ex) { Logger.Warn($"RefreshMediaSliderLevels failed: {ex.Message}"); }
+        }
+
+        private async System.Threading.Tasks.Task SendMediaLevelAsync(string key, int level)
+        {
+            if (!App.IsConnected) return;
+            try
+            {
+                var request = new Windows.Foundation.Collections.ValueSet { { key, level } };
+                await App.SendMessageAsync(request);
+            }
+            catch (Exception ex) { Logger.Warn($"SendMediaLevel {key} failed: {ex.Message}"); }
+        }
+
         private FrameworkElement CreateTileButton(TileDefinition tile)
         {
+            // Wide media tile renders sliders instead of a button.
+            if (tile.ActionType == TileActionType.MediaSliders)
+                return CreateMediaSliderTile(tile);
+
             // Action tiles get a distinct background color
             var bgBrush = tile.IsAction
                 ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 37, 32, 48))  // Dark purple for action tiles
