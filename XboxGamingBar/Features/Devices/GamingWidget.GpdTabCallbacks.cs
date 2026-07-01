@@ -284,6 +284,9 @@ namespace XboxGamingBar
             GateControllerSection(enabled, GyroSettingsExpandToggle, GyroSettingsContent, GyroSettingsExpandIcon, ref isGyroSettingsExpanded);
             GateControllerSection(enabled, ButtonRemappingExpandToggle, ButtonRemappingContent, ButtonRemappingExpandIcon, ref isButtonRemappingExpanded);
             GateControllerSection(enabled, TouchpadVibrationExpandToggle, TouchpadVibrationContent, TouchpadVibrationExpandIcon, ref isTouchpadVibrationExpanded);
+            // "Vibration & Deadzone" card (ControllerFeedback*) is the one actually shown on the MSI Claw
+            // (TouchpadVibration* is hidden on devices without a HID touchpad). Gate it the same way.
+            GateControllerSection(enabled, ControllerFeedbackExpandToggle, ControllerFeedbackContent, ControllerFeedbackExpandIcon, ref _controllerFeedbackExpanded);
 
             if (ControllerEmulationHideStockControllerToggle != null)
             {
