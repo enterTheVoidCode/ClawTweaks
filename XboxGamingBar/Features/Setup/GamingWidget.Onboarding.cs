@@ -56,6 +56,10 @@ namespace XboxGamingBar
         // completion state instead of assuming "incomplete" — otherwise the yellow badge flashed on
         // every start for users who long finished onboarding (gates default to false until confirmed).
         private bool _onbVigemReported, _onbHidHideReported, _onbRtssReported, _onbPawnReported, _onbUsbipReported;
+        // Sticky once onboarding has been complete this session. A tool's install status can briefly
+        // flip to its default (false) during a property re-sync (e.g. on foreground/reconnect); without
+        // this latch that transient re-pinned the Setup tab to the front and flashed the badge.
+        private bool _onbCompletedThisSession;
         private bool OnbToolStatesKnown
         {
             get
@@ -214,16 +218,23 @@ namespace XboxGamingBar
                 // Until the helper has reported every tool's real state, fall back to the persisted
                 // last-known completion state so completed users don't get a yellow-badge flash on start.
                 bool complete = known ? OnbAllToolsInstalled : GetPersistedOnboardingComplete();
-                ApplyOnboardingTabLayout(complete);
+
+                // Latch completion for the session: once onboarding is complete, keep the tab/badge
+                // stable so a transient tool-status flicker (a re-sync momentarily resetting e.g. the
+                // RTSS-installed property to its default) doesn't re-pin the Setup tab or flash the badge.
+                if (complete) _onbCompletedThisSession = true;
+                bool completeForUi = complete || _onbCompletedThisSession;
+
+                ApplyOnboardingTabLayout(completeForUi);
 
                 // Auto-expand the Setup section while onboarding is still pending so the user
                 // immediately sees what is missing. Never auto-collapse once they've opened it.
-                if (SetupExpander != null && !complete)
+                if (SetupExpander != null && !completeForUi)
                     SetupExpander.IsExpanded = true;
 
                 if (OnboardingNavBadge != null)
                 {
-                    OnboardingNavBadge.Visibility = complete ? Visibility.Collapsed : Visibility.Visible;
+                    OnboardingNavBadge.Visibility = completeForUi ? Visibility.Collapsed : Visibility.Visible;
                 }
 
                 // Persist only the *confirmed* state so the next cold start initialises from truth.
