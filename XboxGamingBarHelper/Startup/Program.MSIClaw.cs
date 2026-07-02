@@ -1979,9 +1979,13 @@ namespace XboxGamingBarHelper
                     {
                         try
                         {
-                            _msiClawOwnsSuppression = suppression.Enable(
-                                DeviceType.MSIClaw,
-                                controllerEmulationManager?.HideTarget ?? 0);
+                            int hideTarget = controllerEmulationManager?.HideTarget ?? 0;
+                            // With a virtual pad mounted, verify the physical controller is REALLY hidden
+                            // and self-heal the rare boot race where it leaks (= doubled input). Without a
+                            // pad (External Gamepad Mode) keep the plain one-shot hide.
+                            _msiClawOwnsSuppression = mountVigem
+                                ? suppression.EnsureHidden(DeviceType.MSIClaw, hideTarget)
+                                : suppression.Enable(DeviceType.MSIClaw, hideTarget);
                             Logger.Info($"[MSIClaw] HidHide suppression => {_msiClawOwnsSuppression}");
                         }
                         catch (Exception ex)

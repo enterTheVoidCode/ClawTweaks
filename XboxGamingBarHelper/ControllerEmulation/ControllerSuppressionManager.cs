@@ -139,6 +139,52 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
         }
 
+        /// <summary>
+        /// True iff every CURRENT target device instance (e.g. the MSI Claw PID_1902 DInput gamepad)
+        /// is actually in the block-set and cloaking is on. Catches the boot race where the device
+        /// re-enumerated to a new instance-id after <see cref="Enable"/> hid the old one, so HidHide
+        /// reports "hidden" yet apps still see the live instance (= doubled input). Compares the live
+        /// target enumeration against the manager's hidden set under the same lock.
+        /// </summary>
+        public bool VerifyAllTargetsHidden(DeviceType deviceType, int hideTargetMode, out string diag)
+        {
+            lock (syncRoot)
+            {
+                var desired = new HashSet<string>(
+                    EnumerateDeviceInstanceIds(deviceType, hideTargetMode),
+                    StringComparer.OrdinalIgnoreCase);
+                int missing = desired.Count(id => !hiddenDeviceIds.Contains(id));
+                bool ok = desired.Count > 0 && missing == 0 && cloakingEnabled;
+                diag = $"targets={desired.Count} hidden={hiddenDeviceIds.Count} missing={missing} cloak={cloakingEnabled}";
+                return ok;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="Enable"/> + verify, re-applying on a detected leak. Fixes the rare boot where the
+        /// physical controller stays visible alongside the virtual pad because the DInput device
+        /// re-enumerated mid-hide. Re-running Enable re-queries the now-stable instance and blocks it —
+        /// exactly what the manual emulation off→on does. Hard-capped retries (no loop).
+        /// </summary>
+        public bool EnsureHidden(DeviceType deviceType, int hideTargetMode, IReadOnlyCollection<string> excludedDeviceIds = null)
+        {
+            bool ok = Enable(deviceType, hideTargetMode, excludedDeviceIds);
+            for (int attempt = 1; attempt <= 2; attempt++)
+            {
+                System.Threading.Thread.Sleep(700); // let any re-enumeration from Enable settle
+                if (VerifyAllTargetsHidden(deviceType, hideTargetMode, out string diag))
+                {
+                    Logger.Info($"HidHide EnsureHidden: verified hidden (attempt {attempt}, {diag})");
+                    return true;
+                }
+                Logger.Warn($"HidHide EnsureHidden: leak detected (attempt {attempt}, {diag}) → re-applying");
+                ok = Enable(deviceType, hideTargetMode, excludedDeviceIds);
+            }
+            bool finalOk = VerifyAllTargetsHidden(deviceType, hideTargetMode, out string finalDiag);
+            Logger.Info($"HidHide EnsureHidden: final hidden={finalOk} ({finalDiag}); lastEnable={ok}");
+            return finalOk;
+        }
+
         private bool EnableWithCli(DeviceType deviceType, int hideTargetMode, IReadOnlyCollection<string> excludedDeviceIds)
         {
             EnsureInverseApplicationListDisabled();
