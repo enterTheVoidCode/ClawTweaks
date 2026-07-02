@@ -240,6 +240,36 @@ namespace XboxGamingBar
             UpdateQuickSettingsTileStates();
         }
 
+        /// <summary>
+        /// LED-color-by-battery toggle. In battery mode the hue is dictated by the charge level, so the
+        /// colour wheel is hidden (only the brightness slider stays). Turning it ON proactively pushes
+        /// the current colour/brightness so the helper applies the battery tint immediately — instead of
+        /// waiting for the next 10% band crossing.
+        /// </summary>
+        private void LedColorBySocToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            bool on = LedColorBySocToggle?.IsOn == true;
+            UpdateLedColorPickerForSocMode(on);
+
+            // Apply now (helper tints the current colour by battery level). Uses the current brightness
+            // slider value; no-op if not connected. Skipped while the UI is restoring saved state.
+            if (on && !_msiLedLoading && MsiLedColorPicker != null)
+            {
+                var c = MsiLedColorPicker.Color;
+                _ = SendMsiLedColorAsync(c.R, c.G, c.B, GetMsiLedBrightness());
+            }
+        }
+
+        /// <summary>
+        /// In battery-colour mode hide the colour wheel (hue is fixed by charge level) but keep the
+        /// value/brightness slider, which still controls the LED — and the battery colour's brightness.
+        /// </summary>
+        private void UpdateLedColorPickerForSocMode(bool socOn)
+        {
+            if (MsiLedColorPicker != null)
+                MsiLedColorPicker.IsColorSpectrumVisible = !socOn;
+        }
+
         // ── MSI Claw LED on/off (drives the LED quick-settings tile) ─────────────────────
         // The MSI Claw LED has no brightness slider; the tile turns it off (brightness 0) and back
         // on (brightness 100, last saved color) via the same MsiLedColor pipe path.

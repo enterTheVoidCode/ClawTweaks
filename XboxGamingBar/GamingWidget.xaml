@@ -4290,6 +4290,12 @@
                                                       HorizontalAlignment="Left"
                                                       ColorChanged="MsiLedColorPicker_ColorChanged"/>
 
+                                    <!-- Labels the ColorPicker's value slider (directly above), which
+                                         doubles as the LED brightness control (and drives the battery
+                                         colour's brightness too). -->
+                                    <TextBlock x:Name="MsiLedBrightnessLabel" Text="Brightness"
+                                               FontSize="11" Foreground="#AAAAAA" Margin="2,2,0,0"/>
+
                                     <!-- Boot colour cycle on/off (red while loading → your colour).
                                          REMOVED from the UI (Collapsed). The helper forces cycle-off
                                          (MsiLedColorStore.LoadBootCycle returns false), so the red
@@ -4324,12 +4330,13 @@
                                             <TextBlock Text="LED color based on battery" FontSize="13" Foreground="#FFFFFF"/>
                                             <TextBlock Text="Levels: ≥90% blue · 80–89% teal · 70–79% green · 60–69% lime · 50–59% yellow · 40–49% orange · 30–39% orange-red · 20–29% red · &lt;20% purple. Only while the LED is on."
                                                        FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
-                                            <TextBlock Text="Note: the color may only update once the charge crosses into a new 10% band, or after a reboot."
+                                            <TextBlock Text="Note: applied right away; afterwards the color updates when the charge crosses into a new 10% band. Brightness follows the slider above."
                                                        FontSize="11" Foreground="#777777" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="LedColorBySocToggle" Grid.Column="1"
                                                       OnContent="" OffContent="" IsOn="False"
-                                                      Style="{StaticResource ModernToggleStyle}"/>
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="LedColorBySocToggle_Toggled"/>
                                     </Grid>
                                 </StackPanel>
                             </StackPanel>
