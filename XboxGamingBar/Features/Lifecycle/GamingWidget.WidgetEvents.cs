@@ -73,6 +73,11 @@ namespace XboxGamingBar
                 {
                     ApplyTabPrefs();
                     ApplyDefaultTabOnOpen();
+
+                    // Re-read current brightness/volume so the media sliders reflect changes made
+                    // outside the app (hardware keys, Windows quick settings) while the Game Bar was
+                    // closed. Retrying variant: VisibleChanged can fire before the pipe reconnects.
+                    _ = RefreshMediaSliderLevelsSoonAsync();
                 }
 
                 // Resize to full height on first activation.
