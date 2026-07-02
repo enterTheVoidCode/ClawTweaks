@@ -66,6 +66,19 @@ namespace XboxGamingBarHelper
             catch (Exception ex) { Logger.Warn($"[LedSoC] Init failed: {ex.Message}"); }
         }
 
+        /// <summary>
+        /// Scales a fixed band colour by the HSV Value (brightness) the user set on the LED colour
+        /// slider — i.e. the max channel of the stored user colour. So the LED brightness slider drives
+        /// the battery colour's brightness just like it drives a normal colour. No stored colour → full.
+        /// </summary>
+        private static (byte r, byte g, byte b) ScaleByUserValue((byte R, byte G, byte B) band, byte ur, byte ug, byte ub)
+        {
+            int mx = Math.Max(ur, Math.Max(ug, ub));
+            if (mx <= 0) return band;                 // nothing to scale from → keep full band colour
+            double v = mx / 255.0;
+            return ((byte)Math.Round(band.R * v), (byte)Math.Round(band.G * v), (byte)Math.Round(band.B * v));
+        }
+
         private static void LedSocTick()
         {
             try
@@ -76,7 +89,7 @@ namespace XboxGamingBarHelper
 
                 // Only drive the LED if the user has it ON. MsiLedColorStore is the single source of
                 // truth for "user chose a custom LED state"; brightness 0 = LED off.
-                if (!MsiLedColorStore.TryLoad(out _, out _, out _, out byte brightness)) return;
+                if (!MsiLedColorStore.TryLoad(out byte ur, out byte ug, out byte ub, out byte brightness)) return;
                 if (brightness == 0)
                 {
                     _lastSocBand = -1;   // LED off → don't touch; re-apply when it comes back on
@@ -89,12 +102,14 @@ namespace XboxGamingBarHelper
                 int band = ComputeSocBand(soc);
                 if (band == _lastSocBand) return;    // no band change → no HID write (anti-spam)
 
-                var c = LedSocBandColors[band];
-                bool ok = MsiClawLedController.TrySetLedColor(c.R, c.G, c.B, brightness);
+                // Apply the band hue at the brightness the user set on the LED brightness slider — the
+                // slider's value is the HSV Value of the stored colour, so scale the band colour by it.
+                var (br, bg, bb) = ScaleByUserValue(LedSocBandColors[band], ur, ug, ub);
+                bool ok = MsiClawLedController.TrySetLedColor(br, bg, bb, brightness);
                 if (ok)
                 {
                     _lastSocBand = band;
-                    Logger.Info($"[LedSoC] SoC={soc}% → band {band} → LED {c.R},{c.G},{c.B} @ {brightness}%");
+                    Logger.Info($"[LedSoC] SoC={soc}% → band {band} → LED {br},{bg},{bb} @ {brightness}%");
                 }
             }
             catch (Exception ex) { Logger.Debug($"[LedSoC] tick threw: {ex.Message}"); }
@@ -113,7 +128,10 @@ namespace XboxGamingBarHelper
             int soc = (int)(performanceManager?.BatteryLevel?.Value ?? -1f);
             if (soc <= 0 || soc > 100) return false;
             var c = LedSocBandColors[ComputeSocBand(soc)];
-            r = c.R; g = c.G; b = c.B;
+            // Match the runtime path: honour the user's LED brightness slider (stored colour's Value).
+            if (MsiLedColorStore.TryLoad(out byte ur, out byte ug, out byte ub, out _))
+                (r, g, b) = ScaleByUserValue(c, ur, ug, ub);
+            else { r = c.R; g = c.G; b = c.B; }
             return true;
         }
 
