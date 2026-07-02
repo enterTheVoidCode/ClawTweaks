@@ -115,6 +115,7 @@ namespace XboxGamingBarHelper
         private static MsiCenterManager msiCenterManager;
         private static MsiClawControllerModeManager msiClawControllerModeManager;
         private static ExternalGamepadModeManager externalGamepadModeManager;
+        private static MsiClawHwMouseManager msiClawHwMouseManager;
         private static List<IManager> Managers;
 
         public static OnScreenDisplayProperty onScreenDisplay;
@@ -1158,6 +1159,8 @@ namespace XboxGamingBarHelper
             msiClawControllerModeManager = new MsiClawControllerModeManager();
             // ExternalGamepadModeManager: hide all handheld controllers for an external gamepad.
             externalGamepadModeManager = new ExternalGamepadModeManager();
+            // MsiClawHwMouseManager: HW-mouse killswitch (firmware Desktop mouse mode) tile/action.
+            msiClawHwMouseManager = new MsiClawHwMouseManager();
             wave3Timer.Stop();
             Logger.Info($"[TIMING] Wave 3: {wave3Timer.ElapsedMilliseconds}ms");
 
@@ -1359,6 +1362,7 @@ namespace XboxGamingBarHelper
                 msiCenterManager.MsiCenterActive,
                 msiClawControllerModeManager.MsiClawControllerMode,
                 externalGamepadModeManager.ExternalGamepadMode,
+                msiClawHwMouseManager.MsiClawHwMouse,
                 settingsManager.IsForeground,
                 losslessScalingManager.LosslessScalingInstalled,
                 losslessScalingManager.LosslessScalingRunning,

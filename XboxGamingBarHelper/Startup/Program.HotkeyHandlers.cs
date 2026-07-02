@@ -717,6 +717,10 @@ namespace XboxGamingBarHelper
                                 ToggleControllerMouseModeInHelper(); // shows its own "Hotkey: Mouse/Controller" notification
                                 skipGenericNotification = true;
                                 break;
+                            case 71: // ToggleHwMouse — force firmware HW mouse (UAC-clickable) / back to controller
+                                ToggleHwMouseInHelper(); // shows its own "Hotkey: HW Mouse/Controller" notification
+                                skipGenericNotification = true;
+                                break;
                             case 40: // SteamBigPicture — launcher action, runs helper-side (GameBar closed)
                                 LaunchLauncher("SteamBigPicture");
                                 break;
@@ -913,6 +917,36 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Error($"ToggleControllerMouseModeInHelper: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// HW-mouse killswitch toggle from a controller hotkey. Sets the helper-authoritative property,
+        /// which routes to Enter/ExitHwMouseKillswitch and syncs the tile. Note: while HW mouse is ON the
+        /// controller buttons drive the OS cursor, so a CONTROLLER hotkey can reliably turn it ON but not
+        /// OFF — the tile (clickable with the HW mouse) or a keyboard combo is the way back.
+        /// </summary>
+        private static void ToggleHwMouseInHelper()
+        {
+            try
+            {
+                if (msiClawHwMouseManager == null)
+                {
+                    Logger.Warn("ToggleHwMouseInHelper: msiClawHwMouseManager not available");
+                    return;
+                }
+
+                bool current = msiClawHwMouseManager.MsiClawHwMouse?.Value ?? false;
+                bool newState = !current;
+                msiClawHwMouseManager.MsiClawHwMouse?.SetValue(newState);
+
+                string label = newState ? "HW Mouse" : "Controller";
+                Logger.Info($"ToggleHwMouseInHelper: toggled → {label}");
+                // OSD is shown by Enter/ExitHwMouseKillswitch (covers all trigger paths); no duplicate here.
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"ToggleHwMouseInHelper: {ex.Message}");
             }
         }
 

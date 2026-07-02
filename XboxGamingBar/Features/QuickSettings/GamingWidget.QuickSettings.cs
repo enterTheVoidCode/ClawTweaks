@@ -358,11 +358,21 @@ namespace XboxGamingBar
             // External Gamepad Mode: hide ALL handheld controllers (MSI native + virtual ViGEm) via
             // HidHide so only an externally connected gamepad is seen. MSI Claw only (ShouldSkipTile).
             AddTileDefinition("ExternalGamepadMode", "Ext. Pad", "\uE7FC", order: order++);
+            // HW-mouse killswitch: force the Claw FIRMWARE mouse (works on the UAC secure desktop,
+            // where the software mouse can't). Breaks controller input while active \u2192 highlighted red.
+            // MSI Claw only (ShouldSkipTile). \uE962 = Segoe Fluent mouse glyph.
+            AddTileDefinition("MsiClawHwMouse", "HW Mouse", "\uE962", order: order++);
             // AddTileDefinition("LegionLightMode", "Light Mode", "\uE781", order: order++);  // removed: Legion-specific RGB light mode
             // AddTileDefinition("LegionPowerLight", "Power Light", "\uE7E8", order: order++);  // removed: not used
             // AddTileDefinition("LegionChargeLimit", "Charge Limit", "\uE83F", order: order++);  // removed: not used on MSI Claw
             // AddTileDefinition("LegionFanFullSpeed", "Fan Max", "\uE9CA", order: order++);  // removed: Legion-only feature
             // AddTileDefinition("Battery", "Battery", "\uE83F", order: order++);  // removed: battery display not needed
+
+            // User preference: put the HW-mouse killswitch in the Fullscreen slot \u2014 swap their default order.
+            if (qsTileMap.TryGetValue("Fullscreen", out var fsDefSwap) && qsTileMap.TryGetValue("MsiClawHwMouse", out var hwDefSwap))
+            {
+                int tmp = fsDefSwap.Order; fsDefSwap.Order = hwDefSwap.Order; hwDefSwap.Order = tmp;
+            }
 
             // Load custom shortcut tiles from storage
             LoadCustomShortcutTiles();
@@ -663,6 +673,15 @@ namespace XboxGamingBar
                 {
                     settings.Values.Remove("QS_MediaSliders_Order");
                     settings.Values["QS_MediaReslotV1"] = true;
+                }
+
+                // One-time: swap the HW-mouse killswitch into the Fullscreen slot. Drop both stale saved
+                // orders once so they pick up the new swapped defaults (user can move them freely after).
+                if (!(settings.Values.TryGetValue("QS_HwMouseFullscreenSwapV1", out var swapVal) && swapVal is bool swapDone && swapDone))
+                {
+                    settings.Values.Remove("QS_Fullscreen_Order");
+                    settings.Values.Remove("QS_MsiClawHwMouse_Order");
+                    settings.Values["QS_HwMouseFullscreenSwapV1"] = true;
                 }
 
                 foreach (var tile in qsTileDefinitions)

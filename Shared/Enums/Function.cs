@@ -518,6 +518,13 @@
         // or virtual controller after every reboot).
         ExternalGamepadMode,         // bool - true = hide all handheld controllers (external gamepad only)
 
+        // HW-mouse killswitch (MSI Claw): force the CLAW FIRMWARE into its native Desktop mouse mode
+        // (stick→cursor, A→click) — a real hardware HID mouse that works on the UAC secure desktop,
+        // where software SendInput cannot. Orthogonal to MsiClawControllerMode: the virtual controller
+        // state is preserved (Viiper stays mounted, monitor suspended), so OFF restores it exactly.
+        // NOT persisted: always starts OFF after a helper start (helper always boots in controller mode).
+        MsiClawHwMouse,              // bool - true = firmware Desktop mouse forced on; false = controller
+
         // Special Controller Buttons — fire a momentary Xbox Guide tap on the virtual ViGEm Xbox 360
         // controller (Xbox360Button.Guide press+release). This is the button that opens Steam Big
         // Picture / the in-game Steam overlay. Used by the "Xbox Button" app action assigned to a

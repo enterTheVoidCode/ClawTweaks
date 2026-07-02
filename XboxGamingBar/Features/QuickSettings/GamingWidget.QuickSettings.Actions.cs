@@ -228,6 +228,9 @@ namespace XboxGamingBar
                             case "ExternalGamepadMode":
                                 ToggleExternalGamepadMode();
                                 break;
+                            case "MsiClawHwMouse":
+                                ToggleMsiClawHwMouse();
+                                break;
                     }
 
                     // Update tile states after action
@@ -2737,6 +2740,22 @@ namespace XboxGamingBar
             RequestControllerState();
         }
 
+        /// <summary>
+        /// Toggle the HW-mouse killswitch: force the CLAW FIRMWARE into its native Desktop mouse mode
+        /// (stick→cursor, A→click) — a real hardware HID mouse that works on the UAC secure desktop,
+        /// where software SendInput cannot. Orthogonal to the software Controller/Mouse mode: the
+        /// virtual controller state is preserved (Viiper stays mounted, monitor suspended), so toggling
+        /// off restores it exactly. Not persisted — always starts off after a helper start. The helper
+        /// is authoritative and pushes state back, so the tile highlight follows reality (incl. auto-recovery).
+        /// </summary>
+        private void ToggleMsiClawHwMouse()
+        {
+            if (msiClawHwMouse == null) return;
+            bool newState = !msiClawHwMouse.Value;
+            msiClawHwMouse.SetValue(newState);
+            Logger.Info($"HW-mouse killswitch toggled → on={newState}");
+        }
+
         // ──────────────────────────────────────────────────────────────────────
         // Tile type selector (Keyboard ↔ Action) in the Add Custom Tile panel
         // ──────────────────────────────────────────────────────────────────────
@@ -2964,6 +2983,9 @@ namespace XboxGamingBar
                     case TileActionType.ToggleControllerMouseMode:
                         ToggleMSIClawDesktopMode();
                         break;
+                    case TileActionType.ToggleHwMouse:
+                        ToggleMsiClawHwMouse();
+                        break;
                     // Special Controller Buttons — momentary Xbox Guide tap (Steam BPM / overlay).
                     case TileActionType.EmulateXboxGuide:
                         emulateXboxGuide?.Trigger("tap" + (++_emulateXboxGuideSeq));
@@ -3083,6 +3105,10 @@ namespace XboxGamingBar
 
                     case TileActionType.ToggleControllerMouseMode:
                         ToggleMSIClawDesktopMode();
+                        break;
+
+                    case TileActionType.ToggleHwMouse:
+                        ToggleMsiClawHwMouse();
                         break;
 
                     // ── Special Controller Buttons ──────────────────────────

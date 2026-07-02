@@ -336,6 +336,8 @@
     <Compile Include="MSI\MsiCenterActiveProperty.cs" />
     <Compile Include="MSI\ExternalGamepadModeManager.cs" />
     <Compile Include="MSI\ExternalGamepadModeProperty.cs" />
+    <Compile Include="MSI\MsiClawHwMouseManager.cs" />
+    <Compile Include="MSI\MsiClawHwMouseProperty.cs" />
     <Compile Include="MSI\MsiClawControllerModeManager.cs" />
     <Compile Include="MSI\MsiClawControllerModeProperty.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
@@ -409,6 +411,7 @@
     <Compile Include="Devices\LegionGoS\LegionGoSConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawHidController.cs" />
+    <Compile Include="Devices\MSIClaw\MsiClawHwMouseWatcher.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawLedController.cs" />
     <Compile Include="Devices\MSIClaw\MsiLedColorStore.cs" />
     <Compile Include="Devices\MSIClaw\MsiLedBoot.cs" />

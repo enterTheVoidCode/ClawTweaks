@@ -1054,6 +1054,12 @@ namespace XboxGamingBar
                 return true;
             }
 
+            // HW-mouse killswitch forces the Claw FIRMWARE mouse — MSI Claw only.
+            if (tile.Id == "MsiClawHwMouse" && !isMsiClaw)
+            {
+                return true;
+            }
+
             return false;
         }
 

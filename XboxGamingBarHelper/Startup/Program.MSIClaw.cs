@@ -87,6 +87,32 @@ namespace XboxGamingBarHelper
         private static readonly object _msiClawMouseForwarderLock = new object();
 
         /// <summary>
+        /// HW-mouse killswitch INTENT. True only while OUR tile/action has forced the firmware into
+        /// its native Desktop/mouse mode (SwitchMode(Desktop)). The auto-recovery watcher reads this
+        /// to distinguish an intentional HW mouse (leave it) from an accidental one — long-press Start,
+        /// booted-in-mouse-mode, etc. — which must be switched back to the controller. Defaults false,
+        /// so every helper start begins in controller intent (Req: always controller mode at startup).
+        /// </summary>
+        internal static bool HwMouseIntended => _hwMouseIntended;
+        private static volatile bool _hwMouseIntended;
+        private static readonly object _hwMouseLock = new object();
+
+        /// <summary>
+        /// While an exit/re-establish is in flight, the watcher must NOT re-trigger — otherwise it fires
+        /// again mid-transition and its SwitchMode fights the monitor's, so the firmware never settles and
+        /// the controller churns/flickers. Set to a short deadline whenever ExitHwMouseKillswitch runs.
+        /// </summary>
+        private static long _hwMouseRecoverBlockUntilTicks;
+
+        /// <summary>
+        /// Watches the Claw mouse collection for an UNINTENDED firmware mouse (long-press Start,
+        /// booted-in-mouse-mode) and switches back to the controller. Started once per session after
+        /// BOOT COMPLETE (off the boot critical path). Never fires for our own intentional killswitch.
+        /// </summary>
+        private static Devices.MSIClaw.MsiClawHwMouseWatcher _hwMouseWatcher;
+        private static readonly object _hwMouseWatcherLock = new object();
+
+        /// <summary>
         /// Start the MSI Claw DInput-based virtual controller emulation.
         ///
         /// Adapted from HC DClawController + ClawA1M:
@@ -912,6 +938,9 @@ namespace XboxGamingBarHelper
                 // External Gamepad Mode tile → hide/restore all handheld controllers.
                 MSI.ExternalGamepadModeManager.OnChanged = OnExternalGamepadModeChanged;
 
+                // HW-mouse killswitch tile/action → force firmware Desktop mouse mode / restore controller.
+                MSI.MsiClawHwMouseManager.OnChanged = OnMsiClawHwMouseChanged;
+
                 // Experimental VIIPER backend toggle (Debug menu) → always deactivate
                 // controller emulation so the Claw HW controller is restored. The next
                 // manual re-enable mounts VIIPER instead of ViGEm. Seed the flag from the
@@ -1148,6 +1177,114 @@ namespace XboxGamingBarHelper
         {
             Logger.Info($"MSIClaw: MsiClawControllerMode changed → {(controllerOn ? "Controller" : "Mouse")}");
             OnMSIClawEmulationEnabledChanged(controllerOn);
+        }
+
+        // ── HW-mouse killswitch (firmware Desktop mouse mode) ────────────────────────────────
+        //
+        // Distinct from the software Controller/Mouse mode above: this forces the CLAW FIRMWARE into
+        // its native Desktop mouse mode (stick→cursor, A→click) — a real hardware HID mouse that works
+        // on the UAC secure desktop, where software SendInput cannot. It is transient and orthogonal:
+        // the virtual controller state is untouched (Viiper stays mounted, monitor only suspended), so
+        // turning it off restores the exact prior state. Only OUR tile/action may turn it on; anything
+        // else that lands the firmware in mouse mode is treated as accidental and switched back.
+
+        /// <summary>
+        /// HW-mouse killswitch ON. Forces the firmware Desktop mouse mode without disturbing the
+        /// virtual controller. No-op when the virtual controller isn't running (nothing to suspend).
+        /// </summary>
+        /// <summary>OnChanged callback from the killswitch tile/action. true = ON, false = OFF.</summary>
+        private static void OnMsiClawHwMouseChanged(bool on)
+        {
+            Logger.Info($"MSIClaw: HW-mouse killswitch tile/action → {(on ? "ON" : "OFF")}");
+            if (on) EnterHwMouseKillswitch();
+            else    ExitHwMouseKillswitch();
+        }
+
+        internal static void EnterHwMouseKillswitch()
+        {
+            Labs.ClawButtonMonitor monitor;
+            lock (clawButtonMonitorLock) monitor = clawButtonMonitor;
+            if (monitor == null || !monitor.IsRunning)
+            {
+                Logger.Info("MSIClaw: HW-mouse killswitch ON requested but ClawButtonMonitor not running — ignoring");
+                // Correct the tile back to OFF: there is no running controller to switch.
+                msiClawHwMouseManager?.SetStateFromHelper(false);
+                return;
+            }
+            bool ok;
+            lock (_hwMouseLock)
+            {
+                _hwMouseIntended = true;
+                ok = monitor.EnterHwMouseMode();
+                if (!ok) _hwMouseIntended = false; // switch didn't land → stay in controller mode
+            }
+            if (!ok)
+            {
+                msiClawHwMouseManager?.SetStateFromHelper(false); // correct the tile back to OFF
+                Logger.Warn("MSIClaw: HW-mouse killswitch ON failed — SwitchMode(Desktop) did not land; staying in controller");
+                return;
+            }
+            msiClawHwMouseManager?.SetStateFromHelper(true);
+            // Strong, always-visible cue (Game Bar may be closed): the controller is paused while active.
+            rtssManager?.ShowNotification("HW Mouse ON — controller paused. Click the HW Mouse tile or press the keyboard hotkey to return.", 6000);
+            Logger.Info("MSIClaw: HW-mouse killswitch ON — firmware Desktop mouse; virtual controller suspended (state preserved)");
+        }
+
+        /// <summary>
+        /// HW-mouse killswitch OFF (tile/action or auto-recovery). Breaks the firmware mouse mode and
+        /// re-establishes the controller. Clears the intent flag so the watcher stops treating mouse
+        /// reports as ours.
+        /// </summary>
+        internal static void ExitHwMouseKillswitch()
+        {
+            // Block the watcher from re-triggering during the ~5 s re-establish (else its SwitchMode
+            // fights the monitor's and the controller churns/flickers). Generous window covers the worst
+            // case (XInput→settle→DInput→settle); if the mouse is still active afterwards it retries.
+            _hwMouseRecoverBlockUntilTicks = DateTime.UtcNow.Ticks + TimeSpan.FromSeconds(9).Ticks;
+
+            Labs.ClawButtonMonitor monitor;
+            lock (clawButtonMonitorLock) monitor = clawButtonMonitor;
+            // Restore EXACTLY the software mode that was active before the killswitch (virtual Controller
+            // OR virtual Mouse), read from the authoritative Controller/Mouse tile — not always Controller.
+            bool controllerModeOn = msiClawControllerModeManager?.MsiClawControllerMode?.Value ?? true;
+            lock (_hwMouseLock)
+            {
+                _hwMouseIntended = false;
+                monitor?.ExitHwMouseMode();
+                // Re-assert the pre-killswitch software mode on the resumed monitor (the volatile flag is
+                // read lazily by the poll loop after it re-acquires DInput, so setting it now is safe).
+                monitor?.SetMouseMode(!controllerModeOn);
+            }
+            msiClawHwMouseManager?.SetStateFromHelper(false);
+            rtssManager?.ShowNotification(controllerModeOn ? "Controller restored" : "Virtual mouse restored", 3000);
+            Logger.Info($"MSIClaw: HW-mouse killswitch OFF — restored {(controllerModeOn ? "controller" : "virtual mouse")} mode (mouseMode={!controllerModeOn})");
+        }
+
+        /// <summary>
+        /// Called by MsiClawHwMouseWatcher when the Claw's own mouse collection emits reports. If this
+        /// is NOT our intentional killswitch and a virtual controller is actually running, the firmware
+        /// mouse was triggered by something else (long-press Start, booted-in-mouse-mode) → switch back.
+        /// </summary>
+        /// <summary>True while the ClawButtonMonitor (virtual controller) is running — gates the HW-mouse poll.</summary>
+        private static bool IsClawMonitorRunning()
+        {
+            lock (clawButtonMonitorLock) return clawButtonMonitor?.IsRunning == true;
+        }
+
+        internal static void RecoverFromUnintendedHwMouse()
+        {
+            if (_hwMouseIntended) return; // our own killswitch mouse → leave it
+
+            // A recovery/re-establish is already in flight → don't re-trigger (would fight the monitor's
+            // in-progress SwitchMode and cause the controller to churn/flicker).
+            if (DateTime.UtcNow.Ticks < _hwMouseRecoverBlockUntilTicks) return;
+
+            Labs.ClawButtonMonitor monitor;
+            lock (clawButtonMonitorLock) monitor = clawButtonMonitor;
+            if (monitor == null || !monitor.IsRunning) return; // no virtual controller expected → leave it
+
+            Logger.Warn("MSIClaw: unintended HW mouse detected (Claw mouse reports without killswitch) → auto-recovering to controller");
+            ExitHwMouseKillswitch();
         }
 
         // ── Game Bar auto-navigation (RB hop to ClawTweaks on open) ──────────────────────────
@@ -2001,6 +2138,18 @@ namespace XboxGamingBarHelper
                     // interval after boot.
                     _clawControllerReady = true;
                     ReassertLedColorBySocIfActive();
+
+                    // Start the unintended-HW-mouse watcher once per session (off the boot critical
+                    // path — this is after BOOT COMPLETE). Detects an accidental firmware mouse and
+                    // switches back to the controller; never touches our own intentional killswitch.
+                    lock (_hwMouseWatcherLock)
+                    {
+                        if (_hwMouseWatcher == null)
+                        {
+                            _hwMouseWatcher = new Devices.MSIClaw.MsiClawHwMouseWatcher(RecoverFromUnintendedHwMouse, IsClawMonitorRunning);
+                            _hwMouseWatcher.Start();
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {

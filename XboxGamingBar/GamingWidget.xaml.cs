@@ -1558,6 +1558,7 @@ namespace XboxGamingBar
         // MSI Claw — Controller / Mouse mode Quick Settings tile
         private readonly MsiClawControllerModeProperty msiClawControllerMode;
         private readonly ExternalGamepadModeProperty externalGamepadMode;
+        private readonly MsiClawHwMouseProperty msiClawHwMouse;
 
         // Profile management
         private PerformanceProfile globalProfile = new PerformanceProfile();
@@ -2345,6 +2346,7 @@ namespace XboxGamingBar
             msiClawControllerMode = new MsiClawControllerModeProperty();
             // MSI Claw — External Gamepad Mode Quick Settings tile (hide all handheld controllers)
             externalGamepadMode = new ExternalGamepadModeProperty();
+            msiClawHwMouse = new MsiClawHwMouseProperty();
 
             // Profile Detection Settings
             profileMatchByExe = new ProfileMatchByExeProperty(ProfileMatchByExeToggle, this);
@@ -2596,6 +2598,7 @@ namespace XboxGamingBar
                 msiCenterActive,
                 msiClawControllerMode,
                 externalGamepadMode,
+                msiClawHwMouse,
                 osPowerMode,
                 tdpLimits,
                 cpuCoreConfig,
@@ -2939,6 +2942,8 @@ namespace XboxGamingBar
                 msiClawControllerMode.PropertyChanged += QuickSettingsProperty_Changed;
             if (externalGamepadMode != null)
                 externalGamepadMode.PropertyChanged += QuickSettingsProperty_Changed;
+            if (msiClawHwMouse != null)
+                msiClawHwMouse.PropertyChanged += QuickSettingsProperty_Changed;
             // Controller emulation enable/disable is a dependency-gate input — recompute the gate
             // when the helper confirms the state (async), not just on the local toggle handler.
             if (controllerEmulationEnabled != null)
@@ -4852,6 +4857,12 @@ namespace XboxGamingBar
                     // helper can drive its startup LED indicator (red → green-on-ready → saved color)
                     // on the next boot without the widget being open. No-op if no custom color saved.
                     ResendMsiLedColorToHelper();
+
+                    // Re-read current brightness/volume into the media-slider tile. The VisibleChanged
+                    // refresh can run before the pipe reconnects (Game Bar close disconnects it), so it
+                    // no-ops on !IsConnected; here the connection is guaranteed up, so external changes
+                    // (hardware keys, Windows quick settings) made while closed are reflected on open.
+                    _ = RefreshMediaSliderLevelsAsync();
 
                     // Refresh USBIP prereq status line. PropertyChanged-driven refresh misses
                     // the case where the helper's value matches the widget's default (false),

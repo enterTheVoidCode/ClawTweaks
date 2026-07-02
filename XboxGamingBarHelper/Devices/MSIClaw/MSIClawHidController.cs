@@ -94,6 +94,52 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             return TrySendModeCmd(SwitchModeDesktopCmd, "Desktop");
         }
 
+        // GamepadMode values (HC ClawA1M): Offline=0, XInput=1, DirectInput=2, MSI=3, Desktop=4, BIOS=5.
+        public const int GamepadModeDirectInput = 2;
+        public const int GamepadModeDesktop     = 4;
+
+        /// <summary>
+        /// Reads the controller's current firmware GamepadMode via the command interface.
+        /// Sends ReadGamepadMode (0x26) and parses the GamepadModeAck (0x27) response — verified on device:
+        ///   request  { 0F 00 00 3C 26 }  →  response { 10 00 00 3C 27 &lt;mode&gt; ... }.
+        /// Returns the mode byte (e.g. 2 = DirectInput/controller, 4 = Desktop/HW-mouse), or -1 on failure.
+        /// This is the deterministic way to detect the HW mouse mode (long-press Start → Desktop), unlike
+        /// device enumeration (identical in both modes) or behavioural mouse watching.
+        /// </summary>
+        public static int TryReadGamepadMode()
+        {
+            try
+            {
+                HidDevice device = FindClawHidDevice();
+                if (device == null) return -1;
+
+                byte[] msg = new byte[64];
+                msg[0] = 0x0F; msg[3] = 0x3C; msg[4] = 0x26; // ReadGamepadMode
+
+                using (HidStream stream = device.Open())
+                {
+                    stream.WriteTimeout = 300;
+                    stream.ReadTimeout = 300;
+                    stream.Write(msg);
+
+                    byte[] buf = new byte[64];
+                    // Skip any unrelated input report; accept only the GamepadModeAck (0x27).
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int n;
+                        try { n = stream.Read(buf); }
+                        catch (TimeoutException) { break; }
+                        if (n >= 6 && buf[4] == 0x27) return buf[5];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[MSIClawHidController] TryReadGamepadMode failed: {ex.Message}");
+            }
+            return -1;
+        }
+
         private static bool TrySendModeCmd(byte[] cmd, string modeName)
         {
             try

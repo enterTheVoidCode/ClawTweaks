@@ -148,6 +148,14 @@ namespace XboxGamingBarHelper.Labs
         private Thread _thread;
         private volatile bool _running;
 
+        // HW-mouse killswitch: when true the firmware is intentionally in its native Desktop/mouse
+        // mode (SwitchMode(Desktop)) so the physical Claw drives the OS cursor (works on the UAC
+        // secure desktop, where software SendInput cannot). While suspended the MonitorLoop must NOT
+        // touch the DInput joystick or re-open/re-switch — otherwise its self-heal would yank the
+        // firmware straight back out of mouse mode. The virtual pad (ViGEm/VIIPER) stays mounted the
+        // whole time; only input translation pauses, so exiting restores the exact prior state.
+        private volatile bool _suspendModeManagement;
+
         // True once the M1/M2/SyncToROM firmware block has been sent in the current emulation session.
         // The mapping is persisted to ROM, so a transient re-open (HidHide cycle-port → InputLost →
         // re-acquire) doesn't need to resend it. Reset in Start() so a fresh off→on cycle reconfigures.
@@ -681,6 +689,9 @@ namespace XboxGamingBarHelper.Labs
             // Fresh emulation session → resend the firmware block once on the first OpenClawInterfaces.
             _firmwareConfigSent = false;
 
+            // A fresh start is always controller mode — clear any leftover HW-mouse suspension.
+            _suspendModeManagement = false;
+
             // Drop any cached rumble interface so it re-resolves for this session. After a reboot the
             // HidHide cycle-port re-enumeration shuffles HID enumeration order, and the resolver must
             // re-pick the DInput controller (PID 0x1902) rather than a stale/wrong cached handle.
@@ -817,6 +828,84 @@ namespace XboxGamingBarHelper.Labs
 
             Logger.Info("ClawButtonMonitor: Stopped");
         }
+
+        /// <summary>
+        /// HW-mouse killswitch ON: put the firmware into its native Desktop/mouse mode
+        /// (SwitchMode(Desktop=0x04)) so the physical Claw drives the OS cursor — this is a real
+        /// hardware HID mouse and works on the UAC secure desktop, where software SendInput cannot.
+        ///
+        /// The virtual pad (ViGEm/VIIPER) is NOT torn down; the MonitorLoop is only suspended, so
+        /// turning the killswitch off restores the exact prior controller state. Safe to call while
+        /// running; a no-op-ish log if the command interface is momentarily unavailable.
+        /// </summary>
+        /// <returns>true if the firmware actually took Desktop mode; false leaves the controller running.</returns>
+        public bool EnterHwMouseMode()
+        {
+            // Suspend FIRST so the monitor loop stops touching the device — this removes the race where
+            // the loop nulls/re-acquires _cmdDevice (or a rumble write opens it) mid-send, which is what
+            // made an occasional SwitchMode(Desktop) come back sent=False.
+            _suspendModeManagement = true;
+
+            // Always refresh the command interface (a cached handle can be stale after re-enumeration),
+            // then send with a short retry — right after a prior switch the device can be briefly busy.
+            _cmdDevice = FindCommandDevice();
+            bool ok = _cmdDevice != null && SendSwitchMode(MODE_DESKTOP);
+            int waited = 0;
+            while (!ok && waited < 1500)
+            {
+                Thread.Sleep(250);
+                waited += 250;
+                _cmdDevice = FindCommandDevice();
+                ok = _cmdDevice != null && SendSwitchMode(MODE_DESKTOP);
+            }
+
+            if (ok)
+            {
+                Logger.Info($"ClawButtonMonitor: EnterHwMouseMode — SwitchMode(Desktop=0x04) OK after {waited}ms; monitor suspended, virtual pad stays mounted");
+            }
+            else
+            {
+                // Firmware did not take mouse mode → revert so the controller keeps working.
+                _suspendModeManagement = false;
+                Logger.Warn($"ClawButtonMonitor: EnterHwMouseMode — SwitchMode(Desktop) FAILED after {waited}ms; staying in controller mode");
+            }
+            return ok;
+        }
+
+        /// <summary>
+        /// HW-mouse killswitch OFF: break the firmware mouse mode with a DIRECT Desktop→DInput switch —
+        /// verified on device (ReadGamepadMode reads 2 afterwards) and, unlike the old XInput detour, it
+        /// does NOT re-enumerate the USB device (Desktop and DInput are both PID_1902), so the already-
+        /// enumerated DInput joystick is re-acquired fast (transient re-open path — no 2500 ms settle, no
+        /// M1/M2 resend) → one clean transition, minimal flicker. The switch is verified via the firmware
+        /// mode read and retried briefly if it didn't take. The virtual pad stayed mounted throughout.
+        /// </summary>
+        public void ExitHwMouseMode()
+        {
+            if (_cmdDevice == null) _cmdDevice = FindCommandDevice();
+            bool ok = SendSwitchMode(MODE_DINPUT);
+
+            // Verify Desktop→DInput actually took (the monitor is still suspended here, so reading the
+            // command interface is safe); retry a couple of times if the firmware is still in Desktop.
+            int waited = 0;
+            while (Devices.MSIClaw.MSIClawHidController.TryReadGamepadMode() == Devices.MSIClaw.MSIClawHidController.GamepadModeDesktop
+                   && waited < 1200)
+            {
+                Thread.Sleep(200);
+                waited += 200;
+                _cmdDevice = FindCommandDevice();
+                ok = SendSwitchMode(MODE_DINPUT);
+            }
+            Logger.Info($"ClawButtonMonitor: ExitHwMouseMode — SwitchMode(DInput=0x02) sent={ok} (verified, +{waited}ms); re-acquiring DInput joystick");
+
+            // Keep _firmwareConfigSent=true → the resume takes the fast transient re-open (poll for the
+            // already-present joystick), not the slow first-open (SwitchMode + 2500 ms settle + M1/M2).
+            CleanupHandles();
+            _suspendModeManagement = false;
+        }
+
+        /// <summary>True while the HW-mouse killswitch has the firmware in Desktop/mouse mode.</summary>
+        public bool IsHwMouseSuspended => _suspendModeManagement;
 
         public void Dispose()
         {
@@ -1134,6 +1223,15 @@ namespace XboxGamingBarHelper.Labs
 
             while (_running)
             {
+                // HW-mouse killswitch active → the firmware owns the cursor (Desktop mode). Do NOT
+                // read the joystick or re-open/re-switch, or we'd fight our own intended mouse mode.
+                // Just idle; the virtual pad stays mounted and resumes on ExitHwMouseMode().
+                if (_suspendModeManagement)
+                {
+                    Thread.Sleep(50);
+                    continue;
+                }
+
                 // Ensure joystick is open and acquired
                 if (_joystick == null || _joystick.IsDisposed)
                 {

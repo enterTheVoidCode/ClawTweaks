@@ -273,6 +273,17 @@ namespace XboxGamingBar
             _ = RefreshMediaSliderLevelsAsync();
             return border;
         }
+        // Like RefreshMediaSliderLevelsAsync, but tolerates being called before the pipe has (re)connected
+        // — e.g. from VisibleChanged on Game Bar open, which can run before the helper pipe is back up.
+        // Retries briefly until connected so external brightness/volume changes are still picked up.
+        internal async System.Threading.Tasks.Task RefreshMediaSliderLevelsSoonAsync()
+        {
+            if (_mediaBrightnessSlider == null && _mediaVolumeSlider == null) return;
+            for (int i = 0; i < 8 && !App.IsConnected; i++)
+                await System.Threading.Tasks.Task.Delay(250);
+            await RefreshMediaSliderLevelsAsync();
+        }
+
         // Fetches current brightness + volume from the helper and pushes them into the sliders
         // (guarded so it doesn't echo back). Safe to call whenever the Quick tab is shown.
         internal async System.Threading.Tasks.Task RefreshMediaSliderLevelsAsync()
@@ -1377,6 +1388,42 @@ namespace XboxGamingBar
                     extPadTile.TileButton.Background = on
                         ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 40, 80)) // purple-tinted active background
                         : tileOffBrush;
+                }
+
+                // HW-mouse killswitch tile (forces the Claw FIRMWARE mouse — works on the UAC secure
+                // desktop). It BREAKS controller input while active, so the ON state is highlighted
+                // strongly in red/warning. Disabled with a hint when the virtual controller isn't running
+                // (there is nothing to switch away from — EnterHwMouseKillswitch would no-op).
+                if (qsTileMap.TryGetValue("MsiClawHwMouse", out var hwMouseTile) && hwMouseTile.TileButton != null)
+                {
+                    bool emulationActive = controllerEmulationAvailable?.Value == true
+                                          && controllerEmulationEnabled?.Value == true
+                                          && msiCenterActive?.Value != true;
+                    bool on = msiClawHwMouse?.Value == true;
+                    var warnForeground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 120, 120)); // red-ish
+
+                    if (!emulationActive && !on)
+                    {
+                        if (hwMouseTile.StateText != null)
+                        {
+                            hwMouseTile.StateText.Text = "Emulation off";
+                            hwMouseTile.StateText.Foreground = offForeground;
+                        }
+                        hwMouseTile.TileButton.Background = tileOffBrush;
+                        hwMouseTile.TileButton.IsEnabled = false;
+                    }
+                    else
+                    {
+                        hwMouseTile.TileButton.IsEnabled = true;
+                        if (hwMouseTile.StateText != null)
+                        {
+                            hwMouseTile.StateText.Text = on ? "HW Mouse" : "Controller";
+                            hwMouseTile.StateText.Foreground = on ? warnForeground : offForeground;
+                        }
+                        hwMouseTile.TileButton.Background = on
+                            ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 90, 30, 30)) // strong red active background
+                            : tileOffBrush;
+                    }
                 }
 
                 // Fan Full Speed tile (Legion or GPD)
