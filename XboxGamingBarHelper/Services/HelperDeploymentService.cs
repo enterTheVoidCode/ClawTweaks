@@ -342,8 +342,11 @@ namespace XboxGamingBarHelper.Services
                     Logger.Warn($"Could not write version file: {ex.Message}");
                 }
 
-                Logger.Info($"Deployment complete: {successCount} files copied, {failCount} failures");
-                return successCount > 0 && File.Exists(DeployedExePath);
+                bool exeOk = File.Exists(DeployedExePath) && new FileInfo(DeployedExePath).Length > 0;
+                if (!exeOk)
+                    Logger.Error($"Deployment INVALID: helper exe missing or 0 bytes at {DeployedExePath} — caller should retry");
+                Logger.Info($"Deployment complete: {successCount} files copied, {failCount} failures, exeOk={exeOk}");
+                return successCount > 0 && exeOk;
             }
             catch (Exception ex)
             {
@@ -388,6 +391,16 @@ namespace XboxGamingBarHelper.Services
                     }
 
                     File.Copy(sourcePath, targetPath, overwrite: true);
+
+                    // Verify the copy is complete. An interrupted copy (e.g. the elevated setup process
+                    // is killed mid-write, or the destination is still locked by a just-terminated helper)
+                    // can leave a 0-byte or short file. For the helper exe this leaves the app permanently
+                    // stuck on "Setup running". Treat a size mismatch as a failure so the retry loop re-copies.
+                    long srcLen = new FileInfo(sourcePath).Length;
+                    long dstLen = new FileInfo(targetPath).Length;
+                    if (dstLen != srcLen)
+                        throw new IOException($"Copy verification failed for '{Path.GetFileName(targetPath)}': {dstLen} bytes, expected {srcLen}");
+
                     return; // Success
                 }
                 catch (Exception ex)
