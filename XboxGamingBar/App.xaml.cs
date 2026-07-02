@@ -41,6 +41,10 @@ namespace XboxGamingBar
         /// of the app-mode window can hang off JustUpdated later).
         /// </summary>
         public static bool JustUpdated { get; private set; } = false;
+        // True on the very first launch after a fresh install (no previous version recorded). Like
+        // JustUpdated, this is a Windows auto-launch that collides with the Game Bar widget activation,
+        // so we show the notice window instead of the full standalone widget.
+        public static bool IsFirstRun { get; private set; } = false;
         public static string PreviousRunVersion { get; private set; } = "";
         public static string CurrentRunVersion { get; private set; } = "";
         private static bool _versionTransitionEvaluated = false;
@@ -71,7 +75,8 @@ namespace XboxGamingBar
 
                 if (string.IsNullOrEmpty(previous))
                 {
-                    Logger.Info($"[VersionTransition] entry={entryPoint}: first recorded run (current={current}, no previous version stored) — not treated as an update.");
+                    IsFirstRun = true;
+                    Logger.Info($"[VersionTransition] entry={entryPoint}: first recorded run (current={current}, no previous version stored) — fresh install.");
                 }
                 else if (previous != current)
                 {
@@ -558,6 +563,26 @@ namespace XboxGamingBar
                 return;
             }
 
+            // First launch right after an in-app (MSIX) update: Windows auto-launches the updated
+            // package, which lands here (fresh process, no Game Bar widget yet) and would pop the big
+            // standalone widget window on top of Game Bar. ClawTweaks lives in the Game Bar, so instead
+            // of the full app show a small notice telling the user to close it and open Game Bar. (Just
+            // closing the window left the OS splash screen hanging.)
+            if (JustUpdated || IsFirstRun)
+            {
+                Logger.Info($"OnLaunched on a Windows auto-launch (justUpdated={JustUpdated}, firstRun={IsFirstRun}, {PreviousRunVersion} -> {CurrentRunVersion}) — showing the notice instead of the standalone widget window (avoids a cross-thread clash with the Game Bar widget activation).");
+                try
+                {
+                    ShowPostUpdateNotice();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"Post-update notice failed ({ex.Message}) — closing window instead.");
+                    try { Window.Current?.Close(); } catch { }
+                }
+                return;
+            }
+
             // Standalone "app mode": launch compact (not stretched across the whole screen). Set the
             // preferred size before the view is activated; this only affects the standalone desktop
             // window — the Game Bar host sizes the widget from the manifest, not this.
@@ -614,6 +639,93 @@ namespace XboxGamingBar
                 }
                 catch (Exception ex) { Logger.Warn($"App-mode window setup failed: {ex.Message}"); }
             }
+        }
+
+        /// <summary>
+        /// Post-update notice window: shown instead of the standalone widget window on the first launch
+        /// right after an in-app update (see OnLaunched / JustUpdated). Replaces the hanging OS splash
+        /// with a clear "close this and open Game Bar" message. Auto-closes after a short while.
+        /// </summary>
+        private void ShowPostUpdateNotice()
+        {
+            var title = new Windows.UI.Xaml.Controls.TextBlock
+            {
+                Text = JustUpdated ? "ClawTweaks updated" : "ClawTweaks installed",
+                FontSize = 24,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Colors.White),
+                HorizontalAlignment = Windows.UI.Xaml.HorizontalAlignment.Center,
+                TextAlignment = Windows.UI.Xaml.TextAlignment.Center,
+                TextWrapping = Windows.UI.Xaml.TextWrapping.Wrap
+            };
+            var body = new Windows.UI.Xaml.Controls.TextBlock
+            {
+                Text = "This window closes automatically in a moment. ClawTweaks runs inside the Xbox Game Bar — press Win + G to open it, and approve the administrator prompt if it appears.",
+                FontSize = 15,
+                Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 205)),
+                HorizontalAlignment = Windows.UI.Xaml.HorizontalAlignment.Center,
+                TextAlignment = Windows.UI.Xaml.TextAlignment.Center,
+                TextWrapping = Windows.UI.Xaml.TextWrapping.Wrap,
+                MaxWidth = 460,
+                Margin = new Windows.UI.Xaml.Thickness(0, 14, 0, 0)
+            };
+            // No button: Window.Current.Close() is a no-op on the primary app view, so the notice can't
+            // reliably close itself that way. Instead it auto-closes by exiting the process (the notice
+            // IS the whole app at this point — an auto-launch with no widget yet). If a Game Bar widget
+            // somehow exists in this process by then, don't kill it — just leave the window (the shell X
+            // still works).
+            void DismissNotice()
+            {
+                if (gamingXboxGameBarWidget == null && gamingSettingsXboxGameBarWidget == null)
+                {
+                    try { Application.Current.Exit(); } catch { }
+                }
+            }
+
+            var stack = new Windows.UI.Xaml.Controls.StackPanel
+            {
+                HorizontalAlignment = Windows.UI.Xaml.HorizontalAlignment.Center,
+                VerticalAlignment = Windows.UI.Xaml.VerticalAlignment.Center,
+                MaxWidth = 480,
+                Margin = new Windows.UI.Xaml.Thickness(24)
+            };
+            stack.Children.Add(title);
+            stack.Children.Add(body);
+
+            var root = new Windows.UI.Xaml.Controls.Grid
+            {
+                Background = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 22, 22, 26))
+            };
+            root.Children.Add(stack);
+
+            Window.Current.Content = root;
+            try
+            {
+                ApplicationView.GetForCurrentView()?.TryResizeView(new Size(560, 360));
+            }
+            catch { }
+            Window.Current.Activate();
+
+            // If the user opens Game Bar (widget activation) before the auto-close fires, the guarded
+            // Exit() is skipped so the widget survives — but then this notice would linger. Register it
+            // so the widget-activation path (OnActivated -> CloseAppModeWindowIfOpen) closes it: once the
+            // widget view exists this primary view is no longer the only one, so it can be closed.
+            try
+            {
+                appModeCoreWindow = Window.Current?.CoreWindow;
+                appModeDispatcher = Window.Current?.Dispatcher;
+            }
+            catch { }
+
+            // Auto-close: show the notice long enough to read, then exit the process so the window
+            // closes on its own (no button — see DismissNotice for why).
+            try
+            {
+                var timer = new Windows.UI.Xaml.DispatcherTimer { Interval = TimeSpan.FromSeconds(6) };
+                timer.Tick += (s, ev) => { timer.Stop(); DismissNotice(); };
+                timer.Start();
+            }
+            catch { }
         }
 
         private void AppModeWindow_Closed(object sender, Windows.UI.Core.CoreWindowEventArgs e)
