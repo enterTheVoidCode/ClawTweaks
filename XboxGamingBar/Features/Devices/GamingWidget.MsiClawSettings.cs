@@ -261,13 +261,66 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// In battery-colour mode hide the colour wheel (hue is fixed by charge level) but keep the
-        /// value/brightness slider, which still controls the LED — and the battery colour's brightness.
+        /// In battery-colour mode the hue is fixed by charge level, so swap the whole colour wheel for a
+        /// dedicated brightness slider (the ColorPicker renders badly with only its value slider). The
+        /// slider is seeded from the current colour's brightness (HSV value = its max channel).
         /// </summary>
         private void UpdateLedColorPickerForSocMode(bool socOn)
         {
             if (MsiLedColorPicker != null)
-                MsiLedColorPicker.IsColorSpectrumVisible = !socOn;
+                MsiLedColorPicker.Visibility = socOn ? Visibility.Collapsed : Visibility.Visible;
+            if (MsiLedBrightnessLabel != null)
+                MsiLedBrightnessLabel.Visibility = socOn ? Visibility.Visible : Visibility.Collapsed;
+            if (MsiLedBrightnessSlider != null)
+            {
+                MsiLedBrightnessSlider.Visibility = socOn ? Visibility.Visible : Visibility.Collapsed;
+                if (socOn)
+                {
+                    var c = MsiLedColorPicker?.Color ?? Color.FromArgb(255, 255, 255, 255);
+                    int mx = Math.Max(c.R, Math.Max(c.G, c.B));
+                    _msiLedLoading = true;   // programmatic set — don't treat as a user edit
+                    try { MsiLedBrightnessSlider.Value = (int)Math.Round(mx / 255.0 * 100.0); }
+                    finally { _msiLedLoading = false; }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Dedicated brightness slider (battery mode). Rescales the current colour to the chosen HSV value
+        /// (preserving hue), so the user's colour isn't clobbered and battery-mode brightness is honoured;
+        /// LedSocTick scales the band colour by this value. Debounced via the shared LED apply timer.
+        /// </summary>
+        private void MsiLedBrightnessSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (_msiLedLoading || MsiLedColorPicker == null) return;
+
+            var c = MsiLedColorPicker.Color;
+            int mx = Math.Max(c.R, Math.Max(c.G, c.B));
+            byte br, bg, bb;
+            if (mx == 0) { br = bg = bb = 255; }   // black base → treat as white so brightness can scale up
+            else { br = c.R; bg = c.G; bb = c.B; }
+
+            int denom = Math.Max((int)br, Math.Max((int)bg, (int)bb));
+            if (denom < 1) denom = 1;
+            double f = (e.NewValue / 100.0) * 255.0 / denom;
+            byte nr = (byte)Math.Max(0, Math.Min(255, Math.Round(br * f)));
+            byte ng = (byte)Math.Max(0, Math.Min(255, Math.Round(bg * f)));
+            byte nb = (byte)Math.Max(0, Math.Min(255, Math.Round(bb * f)));
+            var newColor = Color.FromArgb(255, nr, ng, nb);
+
+            // Reflect in the picker so toggling battery mode off restores the hue at this brightness.
+            _msiLedLoading = true;
+            try { MsiLedColorPicker.Color = newColor; } finally { _msiLedLoading = false; }
+
+            // Debounce the apply (same 600 ms timer the colour wheel uses).
+            _pendingLedColor = newColor;
+            if (_msiLedDebounceTimer == null)
+            {
+                _msiLedDebounceTimer = new Windows.UI.Xaml.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+                _msiLedDebounceTimer.Tick += (s, ev) => { _msiLedDebounceTimer.Stop(); ApplyAndSaveLedColor(_pendingLedColor); };
+            }
+            _msiLedDebounceTimer.Stop();
+            _msiLedDebounceTimer.Start();
         }
 
         // ── MSI Claw LED on/off (drives the LED quick-settings tile) ─────────────────────

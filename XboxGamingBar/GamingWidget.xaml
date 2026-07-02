@@ -4290,11 +4290,17 @@
                                                       HorizontalAlignment="Left"
                                                       ColorChanged="MsiLedColorPicker_ColorChanged"/>
 
-                                    <!-- Labels the ColorPicker's value slider (directly above), which
-                                         doubles as the LED brightness control (and drives the battery
-                                         colour's brightness too). -->
+                                    <!-- Battery mode: the hue is fixed by charge level, so the full colour
+                                         wheel is hidden and this dedicated brightness slider is shown instead
+                                         (the ColorPicker renders badly with only its value slider). It sets
+                                         the LED brightness, which also drives the battery colour's brightness.
+                                         Both are Collapsed until battery mode is on. -->
                                     <TextBlock x:Name="MsiLedBrightnessLabel" Text="Brightness"
-                                               FontSize="11" Foreground="#AAAAAA" Margin="2,2,0,0"/>
+                                               FontSize="12" Foreground="#DDDDDD" Margin="0,4,0,2"
+                                               Visibility="Collapsed"/>
+                                    <Slider x:Name="MsiLedBrightnessSlider" Minimum="0" Maximum="100"
+                                            Width="280" HorizontalAlignment="Left" Visibility="Collapsed"
+                                            ValueChanged="MsiLedBrightnessSlider_ValueChanged"/>
 
                                     <!-- Boot colour cycle on/off (red while loading → your colour).
                                          REMOVED from the UI (Collapsed). The helper forces cycle-off
