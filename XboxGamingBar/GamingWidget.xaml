@@ -236,6 +236,12 @@
             <Setter Property="FontSize" Value="16"/>
         </Style>
 
+        <!-- Secondary "hint" text colour (the small sub-labels under a control, e.g. "Change the
+             widget appearance"). Single knob for all of them: previously hard-coded #888888 inline
+             everywhere, which read too dark across themes. Brightened here so it can be tuned (and
+             theme-overridden) in one place. -->
+        <SolidColorBrush x:Key="HintTextBrush" Color="#B4B4B4"/>
+
         <!-- Card Value Style -->
         <Style x:Key="CardValueStyle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="18"/>
@@ -1010,7 +1016,7 @@
                                                         </Grid.ColumnDefinitions>
                                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                             <TextBlock Text="{Binding DisplayName}" FontSize="14" Foreground="#FFFFFF"/>
-                                                            <TextBlock Text="{Binding Path}" FontSize="11" Foreground="#888888" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding Path}" FontSize="11" Foreground="{StaticResource HintTextBrush}" TextTrimming="CharacterEllipsis"/>
                                                         </StackPanel>
                                                         <Button Grid.Column="1" FontSize="12" Padding="8,4" Background="#2A2A2A"
                                                                 Click="ProgramActionDeleteButton_Click" Tag="{Binding}"
@@ -1159,7 +1165,7 @@
                                                 Visibility="Collapsed">
                                             <StackPanel>
                                                 <TextBlock Text="Reorder (drag or use arrows)"
-                                                           Foreground="#888888"
+                                                           Foreground="{StaticResource HintTextBrush}"
                                                            FontSize="10"
                                                            Margin="0,0,0,6"/>
                                                 <StackPanel x:Name="MetricsReorderList" Spacing="4"/>
@@ -1225,7 +1231,7 @@
                                                    VerticalAlignment="Center"/>
                                         <TextBlock Text=" - "
                                                    FontSize="14"
-                                                   Foreground="#888888"
+                                                   Foreground="{StaticResource HintTextBrush}"
                                                    VerticalAlignment="Center"
                                                    x:Name="DefaultProfileSeparator"
                                                    Visibility="Collapsed"/>
@@ -1638,7 +1644,7 @@
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Use Custom Presets" FontSize="14" Foreground="#FFFFFF"/>
                                             <TextBlock Text="Override default TDP values for modes"
-                                                       FontSize="11" Foreground="#888888"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="UseCustomTDPPresetsToggle"
                                                       Grid.Column="1"
@@ -1658,7 +1664,7 @@
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <TextBlock Text="Use Lenovo Modes" FontSize="13" Foreground="#FFFFFF"/>
                                                 <TextBlock Text="Use hardware modes for Quiet/Balanced/Performance"
-                                                           FontSize="11" Foreground="#888888"/>
+                                                           FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                             </StackPanel>
                                             <ToggleSwitch x:Name="UseLenovoModesToggle"
                                                           Grid.Column="1"
@@ -1714,7 +1720,7 @@
                                                         <TextBlock Grid.Column="3"
                                                                    Text="Default"
                                                                    FontSize="11"
-                                                                   Foreground="#888888"
+                                                                   Foreground="{StaticResource HintTextBrush}"
                                                                    VerticalAlignment="Center"
                                                                    Margin="8,0"
                                                                    Visibility="{Binding IsBuiltIn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
@@ -2617,7 +2623,7 @@
                                     </StackPanel>
                                     <StackPanel x:Name="ECFloorLegendPanel" Orientation="Horizontal" Margin="0,4,0,0" HorizontalAlignment="Center">
                                         <Line X1="0" Y1="0" X2="20" Y2="0" Stroke="#FF8800" StrokeThickness="2" StrokeDashArray="4,2" VerticalAlignment="Center"/>
-                                        <TextBlock Text=" EC Protection Floor" FontSize="10" Foreground="#888888" VerticalAlignment="Center"/>
+                                        <TextBlock Text=" EC Protection Floor" FontSize="10" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>
@@ -2783,8 +2789,8 @@
                                     <TextBlock Grid.Row="2" Grid.Column="0" x:Name="GlobalProfileCPUStateLabel" Text="TDP Overboost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GlobalProfileCPUStateText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                    <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GlobalProfilePL2Label" Text="  PL2" FontSize="11" Foreground="#888888" Margin="0,2,0,0" Visibility="Collapsed"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GlobalProfilePL2Text" Text="37W" FontSize="11" Foreground="#888888" Margin="0,2,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GlobalProfilePL2Label" Text="  PL2" FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,2,0,0" Visibility="Collapsed"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GlobalProfilePL2Text" Text="37W" FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,2,0,0" Visibility="Collapsed"/>
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GlobalProfileCPUBoostLabel" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                     <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GlobalProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
@@ -3123,8 +3129,8 @@
                                         <TextBlock Grid.Row="2" Grid.Column="0" x:Name="GameProfileTDPBoostLabel" Text="TDP Overboost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="2" Grid.Column="1" x:Name="GameProfileTDPBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
 
-                                        <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameProfilePL2Label" Text="  PL2" FontSize="11" Foreground="#888888" Margin="0,2,0,0" Visibility="Collapsed"/>
-                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameProfilePL2Text" Text="37W" FontSize="11" Foreground="#888888" Margin="0,2,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="0" x:Name="GameProfilePL2Label" Text="  PL2" FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,2,0,0" Visibility="Collapsed"/>
+                                        <TextBlock Grid.Row="3" Grid.Column="1" x:Name="GameProfilePL2Text" Text="37W" FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,2,0,0" Visibility="Collapsed"/>
 
                                         <TextBlock Grid.Row="4" Grid.Column="0" x:Name="GameProfileCPUBoostLabel" Text="CPU Boost" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" Visibility="Collapsed"/>
                                         <TextBlock Grid.Row="4" Grid.Column="1" x:Name="GameProfileCPUBoostText" Text="Off" FontSize="11" Foreground="#FFFFFF" Margin="0,3,0,0" Visibility="Collapsed"/>
@@ -3180,7 +3186,7 @@
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Saved Profiles" Style="{StaticResource CardTitleStyle}"/>
                                         <TextBlock Text="Your saved per-game performance &amp; display profiles"
-                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="PerfSavedProfilesExpandButton" Grid.Column="1" IsChecked="False"
                                                   VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
@@ -3294,7 +3300,7 @@
                                                        Foreground="#FFFFFF"/>
                                             <TextBlock Text="Use .exe name, fall back to window title if unavailable"
                                                        FontSize="11"
-                                                       Foreground="#888888"/>
+                                                       Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="ProfileMatchByExeToggle"
                                                       Grid.Column="1"
@@ -3313,7 +3319,7 @@
                                                        Foreground="#FFFFFF"/>
                                             <TextBlock Text="Detect apps with FPS (RTSS) or added to Xbox Game Bar"
                                                        FontSize="11"
-                                                       Foreground="#888888"/>
+                                                       Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="ProfileGamesOnlyToggle"
                                                       Grid.Column="1"
@@ -3327,7 +3333,7 @@
                                     <StackPanel>
                                         <TextBlock Text="Current apps"
                                                    FontSize="11"
-                                                   Foreground="#888888"
+                                                   Foreground="{StaticResource HintTextBrush}"
                                                    Margin="0,0,0,4"/>
                                         <StackPanel x:Name="ForegroundAppsContainer" Spacing="4">
                                             <TextBlock x:Name="ForegroundAppsEmptyText"
@@ -3344,7 +3350,7 @@
                                                    Foreground="#FFFFFF"/>
                                         <TextBlock Text="Apps always treated as games"
                                                    FontSize="11"
-                                                   Foreground="#888888"/>
+                                                   Foreground="{StaticResource HintTextBrush}"/>
                                         <TextBlock x:Name="CustomGamesEmptyText"
                                                    Text="No custom games added"
                                                    FontSize="11"
@@ -3362,7 +3368,7 @@
                                                    Foreground="#FFFFFF"/>
                                         <TextBlock Text="Apps never treated as games"
                                                    FontSize="11"
-                                                   Foreground="#888888"/>
+                                                   Foreground="{StaticResource HintTextBrush}"/>
                                         <TextBlock x:Name="BlacklistEmptyText"
                                                    Text="No apps blacklisted"
                                                    FontSize="11"
@@ -3660,7 +3666,7 @@
                                      (downloaded signed Inno-Setup installer, runs silently). -->
                                 <Grid Margin="0,2,0,0">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="OnbUsbipStatus" Text="usbip-win2: Checking..." FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="OnbUsbipStatus" Text="usbip-win2: Checking..." FontSize="11" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                     <Button x:Name="OnbUsbipInstallBtn" Grid.Column="1" Content="Install usbip-win2"
                                             Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
                                             Click="OnbUsbipInstall_Click"/>
@@ -3675,18 +3681,18 @@
                                 <Border Background="#15151F" BorderBrush="#33333F" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,4,0,0">
                                     <StackPanel>
                                         <TextBlock Text="„Check &amp; install tools“ installs everything in this box in one go (everything except usbip-win2)."
-                                                   FontSize="10" Foreground="#888888" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                                                   FontSize="10" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,0,0,4"/>
 
                                         <!-- Read-only per-tool status (refreshed after the run) + what each tool does -->
-                                        <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..."  FontSize="11" Foreground="#888888" Margin="0,4,0,0"/>
+                                        <TextBlock x:Name="OnbHidHideStatus" Text="HidHide: Checking..."  FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,4,0,0"/>
                                         <TextBlock Text="Hides the Claw's built-in controller while emulation runs, so games see only the virtual pad — prevents double input."
                                                    FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
 
-                                        <TextBlock x:Name="OnbRtssStatus"    Text="RTSS: Checking..."     FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
+                                        <TextBlock x:Name="OnbRtssStatus"    Text="RTSS: Checking..."     FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,8,0,0"/>
                                         <TextBlock Text="RivaTuner Statistics Server. Draws the on-screen overlay (FPS, TDP, temps) and enforces the FPS limiter."
                                                    FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
 
-                                        <TextBlock x:Name="OnbPawnIOStatus"  Text="PawnIO: Checking..."   FontSize="11" Foreground="#888888" Margin="0,8,0,0"/>
+                                        <TextBlock x:Name="OnbPawnIOStatus"  Text="PawnIO: Checking..."   FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,8,0,0"/>
                                         <TextBlock Text="Kernel sensor driver. Exposes CPU/GPU power and temperature to the overlay — without it the power readout stays at 0 W."
                                                    FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,1,0,0"/>
 
@@ -3717,7 +3723,7 @@
                                 <TextBlock Text="2. Disable MSI Center M" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
                                 <Grid Margin="0,6,0,0">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="OnbMsiCenterStatus" Text="Checking MSI Center M..." FontSize="11" Foreground="#888888" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock x:Name="OnbMsiCenterStatus" Text="Checking MSI Center M..." FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <Button x:Name="OnbMsiCenterBtn" Grid.Column="1" Content="Disable" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbMsiCenterDisable_Click"/>
                                 </Grid>
                             </StackPanel>
@@ -3729,7 +3735,7 @@
                                 <TextBlock Text="3. Enable controller emulation" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
                                 <Grid Margin="0,6,0,0">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="OnbEmulationStatus" Text="Controller emulation: off" FontSize="11" Foreground="#888888" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock x:Name="OnbEmulationStatus" Text="Controller emulation: off" FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                     <Button x:Name="OnbEmulationBtn" Grid.Column="1" Content="Enable" IsEnabled="False" Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4" Click="OnbEmulationEnable_Click"/>
                                 </Grid>
                             </StackPanel>
@@ -3742,7 +3748,7 @@
                                 <TextBlock Text="Legacy (ViGEm)" FontSize="13" FontWeight="SemiBold" Foreground="#AAAAAA"/>
                                 <TextBlock Text="ViGEmBus is the old controller-emulation driver. The default backend is now VIIPER (usbip-win2), so ViGEm is optional — only install it if you switch the backend to Legacy under System → Debug. It does not affect onboarding completion while VIIPER is active."
                                            FontSize="10" Foreground="#777777" TextWrapping="Wrap" Margin="0,2,0,6"/>
-                                <TextBlock x:Name="OnbViGEmStatus" Text="ViGEmBus: Checking..." FontSize="11" Foreground="#888888"/>
+                                <TextBlock x:Name="OnbViGEmStatus" Text="ViGEmBus: Checking..." FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                             </StackPanel>
                         </Border>
                             </StackPanel>
@@ -3779,7 +3785,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock x:Name="DebugUsbipStatusText" Text="usbip-win2: Checking..."
-                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
                                                 <Button x:Name="DebugUsbipInstallButton" Content="Install usbip-win2"
                                                         Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
@@ -3799,7 +3805,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock x:Name="ControllerEmulationViGEmBusStatusText" Text="ViGEmBus: Checking..."
-                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
                                                 <Button x:Name="ControllerEmulationViGEmBusInstallButton" Content="Install ViGEmBus"
                                                         Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
@@ -3819,7 +3825,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock x:Name="ControllerEmulationHidHideStatusText" Text="HidHide: Checking..."
-                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
                                                 <Button x:Name="ControllerEmulationHidHideInstallButton" Content="Install HidHide"
                                                         Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
@@ -3839,7 +3845,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock x:Name="DebugRtssStatusText" Text="RTSS: Checking..."
-                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
                                                 <Button x:Name="DebugRtssInstallButton" Content="Install RTSS"
                                                         Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
@@ -3859,7 +3865,7 @@
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
                                             <TextBlock x:Name="DebugPawnIOStatusText" Text="PawnIO: Checking..."
-                                                       FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="12,0,0,0">
                                                 <Button x:Name="DebugPawnIOInstallButton" Content="Install PawnIO"
                                                         Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
@@ -3890,7 +3896,7 @@
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
                                     <TextBlock Text="Factory Reset" FontSize="14" Foreground="#CC4444" FontWeight="SemiBold"/>
                                     <TextBlock Text="Deletes all profiles, controller settings, custom tiles, TDP presets and Quick Settings. Charge limit is disabled and reset to 100 %. The app restarts with factory defaults."
-                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,3,0,0"/>
                                 </StackPanel>
                                 <Button x:Name="FactoryResetButton"
                                         Grid.Column="1"
@@ -3921,7 +3927,7 @@
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
                                     <TextBlock Text="Uninstall ClawTweaks" FontSize="14" Foreground="#AAAAAA" FontWeight="SemiBold"/>
                                     <TextBlock Text="Opens Windows Settings → Apps so you can remove ClawTweaks. Run Factory Reset first to clean up all profiles and settings."
-                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,3,0,0"/>
                                 </StackPanel>
                                 <Button Grid.Column="1"
                                         Content="Uninstall"
@@ -3946,7 +3952,7 @@
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Tab Settings" Style="{StaticResource CardTitleStyle}"/>
                                         <TextBlock Text="Reorder tabs, hide the ones you don't need, optionally pick a default tab."
-                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="TabSettingsExpandButtonOnboarding" Grid.Column="1" IsChecked="False"
                                                   VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
@@ -3959,7 +3965,7 @@
                                 <StackPanel x:Name="TabSettingsContentOnboarding" Visibility="Collapsed" Margin="0,12,0,0"
                                             XYFocusKeyboardNavigation="Enabled">
                                     <TextBlock Text="System and Setup can't be hidden."
-                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                                     <ItemsControl x:Name="TabSettingsItemsControlOnboarding">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -3999,7 +4005,7 @@
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
                                             <TextBlock Text="Open a specific tab on Game Bar open"
                                                        FontSize="14" Foreground="#E0E0E0" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                            <TextBlock Text="Off = reopen at the last tab (default)." FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Off = reopen at the last tab (default)." FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="DefaultTabToggleOnboarding" Grid.Column="1" VerticalAlignment="Center"
                                                       MinWidth="0" HorizontalAlignment="Right" Toggled="DefaultTabToggle_Toggled"/>
@@ -4016,10 +4022,10 @@
                             <StackPanel>
                                 <TextBlock Text="Controller Guide button" Style="{StaticResource CardTitleStyle}"/>
                                 <TextBlock Text="Stops the virtual controller's Xbox/Guide button from opening the Windows Game Bar (turns off Windows' controller-to-Game-Bar shortcuts in the registry). Note: the Xbox button can currently still open the Xbox app, but it does not open Steam Big Picture or the Steam overlay — so this is geared toward Xbox-app users rather than Steam."
-                                           FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                           FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,2,0,8"/>
                                 <Button x:Name="OnbGuideGameBarBtn" Content="Disable Game Bar on Guide button"
                                         Click="OnbDisableGuideGameBar_Click" HorizontalAlignment="Left"/>
-                                <TextBlock x:Name="OnbGuideGameBarStatus" FontSize="11" Foreground="#888888"
+                                <TextBlock x:Name="OnbGuideGameBarStatus" FontSize="11" Foreground="{StaticResource HintTextBrush}"
                                            TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
                             </StackPanel>
                         </Border>
@@ -4042,7 +4048,7 @@
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Tab Settings" Style="{StaticResource CardTitleStyle}"/>
                                         <TextBlock Text="Reorder tabs, hide the ones you don't need, optionally pick a default tab."
-                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="TabSettingsExpandButtonSystem" Grid.Column="1" IsChecked="False"
                                                   VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
@@ -4056,7 +4062,7 @@
                                 <StackPanel x:Name="TabSettingsContentSystem" Visibility="Collapsed" Margin="0,12,0,0"
                                             XYFocusKeyboardNavigation="Enabled">
                                     <TextBlock Text="System and Setup can't be hidden."
-                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                                     <ItemsControl x:Name="TabSettingsItemsControlSystem">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -4096,7 +4102,7 @@
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
                                             <TextBlock Text="Open a specific tab on Game Bar open"
                                                        FontSize="14" Foreground="#E0E0E0" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                                            <TextBlock Text="Off = reopen at the last tab (default)." FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Off = reopen at the last tab (default)." FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="DefaultTabToggleSystem" Grid.Column="1" VerticalAlignment="Center"
                                                       MinWidth="0" HorizontalAlignment="Right" Toggled="DefaultTabToggle_Toggled"/>
@@ -4120,7 +4126,7 @@
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Appearance" Style="{StaticResource CardTitleStyle}"/>
                                     <TextBlock Text="Theme, app font and glass effect for the widget UI"
-                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                               Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <ToggleButton x:Name="ThemeExpandButton" Grid.Column="1" IsChecked="False"
                                               VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
@@ -4138,7 +4144,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Theme" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Change the widget appearance" FontSize="11" Foreground="#888888"/>
+                                    <TextBlock Text="Change the widget appearance" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                 </StackPanel>
                                 <ComboBox x:Name="ThemeComboBox"
                                           Grid.Column="1"
@@ -4181,7 +4187,7 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="App Font" Style="{StaticResource CardTitleStyle}"/>
-                                    <TextBlock Text="Font for the widget UI" FontSize="11" Foreground="#888888"/>
+                                    <TextBlock Text="Font for the widget UI" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                 </StackPanel>
                                 <ComboBox x:Name="AppFontComboBox"
                                           Grid.Column="1"
@@ -4213,7 +4219,7 @@
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="Glass effect" FontSize="13" Foreground="#FFFFFF"/>
                                     <TextBlock Text="Glassy sheen + shimmer on tiles (all themes). Applies when you reopen Quick Settings."
-                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
                                 </StackPanel>
                                 <ToggleSwitch x:Name="GlassEffectToggle"
                                               Grid.Column="1"
@@ -4261,7 +4267,7 @@
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Enable charge limit" FontSize="13" Foreground="#FFFFFF"/>
                                         <TextBlock Text="Stop charging once the battery reaches the level below."
-                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                                   FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="MsiChargeLimitToggle"
                                                   Grid.Column="1"
@@ -4294,7 +4300,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock x:Name="MsiChargeLimitStatusText" Grid.Column="0"
-                                                   Text="" FontSize="11" Foreground="#888888"
+                                                   Text="" FontSize="11" Foreground="{StaticResource HintTextBrush}"
                                                    TextWrapping="Wrap" VerticalAlignment="Center"/>
                                         <Button x:Name="MsiChargeLimitVerifyButton" Grid.Column="1"
                                                 Content="Verify" FontSize="12" Padding="12,4"
@@ -4347,7 +4353,7 @@
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Sync right stick, left stick &amp; buttons" FontSize="13" Foreground="#FFFFFF"/>
                                             <TextBlock Text="Off lets you give the right stick, left stick and buttons their own individual colors and effects."
-                                                       FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="MsiLedSyncToggle" Grid.Column="1"
                                                       OnContent="" OffContent="" IsOn="True"
@@ -4445,7 +4451,7 @@
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Rainbow" FontSize="13" Foreground="#FFFFFF"/>
                                             <TextBlock x:Name="MsiLedRainbowCaption" Text="On = rainbow. Off = your colour(s)."
-                                                       FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="MsiLedRainbowToggle" Grid.Column="1"
                                                       OnContent="" OffContent="" IsOn="False"
@@ -4525,7 +4531,7 @@
                                     <!-- ── Color Cycle note (shown only in Color Cycle mode) ──────────── -->
                                     <TextBlock x:Name="MsiLedCycleNote" Visibility="Collapsed" Margin="0,14,0,0"
                                                Text="Color Cycle sweeps smoothly through a colour spectrum. Custom cycle colours are coming in a follow-up."
-                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
 
                                     <!-- ── Brightness (Static + Battery only) ─────────────────────────── -->
                                     <TextBlock x:Name="MsiLedBrightnessLabel" Text="Brightness"
@@ -4537,7 +4543,7 @@
                                     <!-- ── Battery note (shown only in Battery mode) ──────────────────── -->
                                     <TextBlock x:Name="MsiLedBatteryNote" Visibility="Collapsed" Margin="0,10,0,0"
                                                Text="Battery: the LED hue follows the charge level (≥90% blue → &lt;20% purple), updated when it crosses a 10% band. The slider above sets its brightness."
-                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
 
                                     <!-- Legacy compat controls — kept Collapsed so their existing code-behind
                                          handlers keep compiling (boot-cycle is disabled helper-side; the old
@@ -4934,7 +4940,7 @@
                                     <!-- Note about hotkeys -->
                                     <TextBlock Text="Hotkeys work when the widget is running, even when not visible."
                                                FontSize="11"
-                                               Foreground="#888888"
+                                               Foreground="{StaticResource HintTextBrush}"
                                                TextWrapping="Wrap"
                                                Margin="0,12,0,0"/>
                                 </StackPanel>
@@ -5085,7 +5091,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Enable Debug Tools" FontSize="14" Foreground="#FF6B6B"/>
-                                            <TextBlock Text="Enables Debug log level + PawnIO diagnostic tools" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Enables Debug log level + PawnIO diagnostic tools" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="EnableDebugToolsToggle"
                                                       Grid.Column="1"
@@ -5104,11 +5110,11 @@
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="Use VIIPER emulation (recommended)" FontSize="14" Foreground="#FFC107"/>
                                             </StackPanel>
-                                            <TextBlock Text="Replaces the legacy ViGEm controller emulation with VIIPER (USBIP-based). Requires usbip-win2. Toggling restarts controller emulation." FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                            <TextBlock Text="Replaces the legacy ViGEm controller emulation with VIIPER (USBIP-based). Requires usbip-win2. Toggling restarts controller emulation." FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
                                             <TextBlock x:Name="UsbipPrereqStatusLine"
                                                        FontSize="11"
                                                        Margin="0,4,0,0"
-                                                       Foreground="#888888"
+                                                       Foreground="{StaticResource HintTextBrush}"
                                                        Text="usbip-win2 driver: checking..."/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="ViiperEmulationToggle"
@@ -5147,7 +5153,7 @@
                                         <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
                                             <StackPanel>
                                                 <TextBlock Text="PawnIO SMU Tools" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
-                                                <TextBlock Text="Direct SMU commands - changes apply immediately" FontSize="11" Foreground="#888888" Margin="0,2,0,8"/>
+                                                <TextBlock Text="Direct SMU commands - changes apply immediately" FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,2,0,8"/>
 
                                                 <!-- CPU Info -->
                                                 <TextBlock x:Name="PawnIOCpuInfoText" Text="CPU: Not detected" FontSize="12" Foreground="#A0A0A0" Margin="0,0,0,8"/>
@@ -5161,7 +5167,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                         <TextBlock Text="Curve Optimizer (All Cores)" FontSize="13" Foreground="#FFFFFF"/>
-                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="#888888"/>
+                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="{StaticResource HintTextBrush}"/>
                                                     </StackPanel>
                                                     <TextBlock x:Name="PawnIOCoAllValue" Grid.Column="1" Text="0" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -5179,7 +5185,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                         <TextBlock Text="Curve Optimizer (iGPU)" FontSize="13" Foreground="#FFFFFF"/>
-                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="#888888"/>
+                                                        <TextBlock Text="Undervolt: negative, Overvolt: positive" FontSize="10" Foreground="{StaticResource HintTextBrush}"/>
                                                     </StackPanel>
                                                     <TextBlock x:Name="PawnIOCoGfxValue" Grid.Column="1" Text="0" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -5197,7 +5203,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                         <TextBlock Text="iGPU Clock (MHz)" FontSize="13" Foreground="#FFFFFF"/>
-                                                        <TextBlock Text="Set iGPU frequency" FontSize="10" Foreground="#888888"/>
+                                                        <TextBlock Text="Set iGPU frequency" FontSize="10" Foreground="{StaticResource HintTextBrush}"/>
                                                     </StackPanel>
                                                     <TextBlock x:Name="PawnIOGfxClkValue" Grid.Column="1" Text="800" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -5215,7 +5221,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                         <TextBlock Text="Tctl Temp Limit (°C)" FontSize="13" Foreground="#FFFFFF"/>
-                                                        <TextBlock Text="CPU temperature limit" FontSize="10" Foreground="#888888"/>
+                                                        <TextBlock Text="CPU temperature limit" FontSize="10" Foreground="{StaticResource HintTextBrush}"/>
                                                     </StackPanel>
                                                     <TextBlock x:Name="PawnIOTctlValue" Grid.Column="1" Text="95" FontSize="13" Foreground="#4CAF50" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                                     <StackPanel Grid.Column="2" Orientation="Horizontal">
@@ -5266,7 +5272,7 @@
                                         <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
                                             <StackPanel>
                                                 <TextBlock Text="Intel thermal stack (IPF/DTT) — diagnostic only" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
-                                                <TextBlock Text="Does NOT fix the fan panic. The panic is an EC firmware latch that only a full shutdown clears. For investigation only — stopping these tasks can make a stuck fan worse." FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                <TextBlock Text="Does NOT fix the fan panic. The panic is an EC firmware latch that only a full shutdown clears. For investigation only — stopping these tasks can make a stuck fan worse." FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,2,0,8"/>
                                                 <StackPanel Orientation="Horizontal">
                                                     <Button x:Name="IntelThermalStopButton"
                                                             Content="Stop Intel tasks"
@@ -5304,7 +5310,7 @@
                                         <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
                                             <StackPanel>
                                                 <TextBlock Text="Fan max test (Full Blast) — diagnostic only" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
-                                                <TextBlock Text="Forces the EC full-speed override to check whether 100% (EC 150) is really the absolute fan max. Turn ON, wait a few seconds, Read RPM; compare with Aggressive@100%. Turn OFF afterwards." FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                <TextBlock Text="Forces the EC full-speed override to check whether 100% (EC 150) is really the absolute fan max. Turn ON, wait a few seconds, Read RPM; compare with Aggressive@100%. Turn OFF afterwards." FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,2,0,8"/>
                                                 <StackPanel Orientation="Horizontal">
                                                     <Button x:Name="FanFullBlastOnButton"
                                                             Content="Full Blast ON"
@@ -5343,7 +5349,7 @@
                                         <Border Background="#402020" CornerRadius="6" Padding="12" Margin="0,0,0,8">
                                             <StackPanel>
                                                 <TextBlock Text="Fan override probe — diagnostic only" FontSize="14" FontWeight="SemiBold" Foreground="#FF6B6B"/>
-                                                <TextBlock Text="Writes a raw byte to an EC block (default 152) to find a proportional fan-duty register. Sweep + Write, then listen. Set value back to 0 when done." FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                <TextBlock Text="Writes a raw byte to an EC block (default 152) to find a proportional fan-duty register. Sweep + Write, then listen. Set value back to 0 when done." FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,2,0,8"/>
                                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                                     <TextBlock Text="Block" FontSize="12" Foreground="#C0C0C0" VerticalAlignment="Center"/>
                                                     <TextBox x:Name="FanProbeBlockText" Text="152" Width="56" Margin="8,0,0,0"/>
@@ -5589,7 +5595,7 @@
                                                        Foreground="#FFFFFF"/>
                                             <TextBlock Text="Automatically check GitHub for new versions"
                                                        FontSize="11"
-                                                       Foreground="#888888"/>
+                                                       Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="AutoUpdateCheckToggle"
                                                       Grid.Column="1"
@@ -5607,7 +5613,7 @@
                                         </Border>
                                         <TextBlock Text="Scan to support on Ko-fi"
                                                    FontSize="11"
-                                                   Foreground="#888888"
+                                                   Foreground="{StaticResource HintTextBrush}"
                                                    HorizontalAlignment="Center"
                                                    Margin="0,6,0,0"/>
                                     </StackPanel>
@@ -5680,7 +5686,7 @@
                                     <TextBlock x:Name="DriverUpdatesStatusText"
                                                Text="Tap 'Check for updates' to scan installed driver versions."
                                                FontSize="11"
-                                               Foreground="#888888"
+                                               Foreground="{StaticResource HintTextBrush}"
                                                TextWrapping="Wrap"/>
 
 
@@ -5727,7 +5733,7 @@
                                                                     <TextBlock Text="{Binding StatusLabel}" FontSize="10" Foreground="#FFFFFF"/>
                                                                 </Border>
                                                             </Grid>
-                                                            <TextBlock FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,0">
+                                                            <TextBlock FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,2,0,0">
                                                                 <Run Text="{Binding Category}"/><Run Text=" • "/><Run Text="{Binding Severity}"/>
                                                             </TextBlock>
                                                             <TextBlock FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,2,0,0">
@@ -6759,7 +6765,7 @@
                                         <TextBlock Text="Enable Virtual Controller &amp; Mouse" FontSize="14" Foreground="#FFFFFF"/>
                                         <TextBlock x:Name="ControllerEmulationStatusText"
                                                    Text="Turn the virtual controller and mouse runtime on or off"
-                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                                   FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="ControllerEmulationEnabledToggle"
                                                   Grid.Column="1" IsOn="False"
@@ -7079,7 +7085,7 @@
                                         <TextBlock Text="Improved Controller Emulation" FontSize="14" Foreground="#FFFFFF"/>
                                         <TextBlock Text="Use Legion HID gamepad reads instead of stock XInput reads (Legion Go / Go 2)"
                                                    FontSize="11"
-                                                   Foreground="#888888"
+                                                   Foreground="{StaticResource HintTextBrush}"
                                                    TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="ControllerEmulationImprovedInputToggle"
@@ -7101,7 +7107,7 @@
                                         <TextBlock Text="Hide Stock Controller" FontSize="14" Foreground="#FFFFFF"/>
                                         <TextBlock Text="Hide physical input when virtual controller modes are active"
                                                    FontSize="11"
-                                                   Foreground="#888888"/>
+                                                   Foreground="{StaticResource HintTextBrush}"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="ControllerEmulationHideStockControllerToggle"
                                                   Grid.Column="1"
@@ -7122,7 +7128,7 @@
                                         <TextBlock Text="Hide Target" FontSize="14" Foreground="#FFFFFF"/>
                                         <TextBlock Text="Select which physical gamepad family to cloak"
                                                    FontSize="11"
-                                                   Foreground="#888888"/>
+                                                   Foreground="{StaticResource HintTextBrush}"/>
                                     </StackPanel>
                                     <ComboBox x:Name="ControllerEmulationHideTargetComboBox"
                                               Grid.Column="1"
@@ -7146,7 +7152,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Gyro Activation" FontSize="14" Foreground="#FFFFFF" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Source, simulation mode, and activation settings" FontSize="11" Foreground="#888888"/>
+                                        <TextBlock Text="Source, simulation mode, and activation settings" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="GyroActivationExpandToggle"
                                                   Grid.Column="1" IsChecked="False"
@@ -7163,7 +7169,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Gyroscope Source" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Select which gyroscope to use" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Select which gyroscope to use" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="ControllerEmulationGyroSourceComboBox"
                                                   Grid.Column="1" Width="180"
@@ -7184,7 +7190,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Calibrate Gyro" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Hold controllers still during calibration" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Hold controllers still during calibration" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <Button x:Name="CalibrateGyroButton" Grid.Column="1"
                                                 Content="Calibrate" Style="{StaticResource ModernButtonStyle}"
@@ -7198,7 +7204,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Gyro Simulation" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Choose how gyro motion is emulated" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Choose how gyro motion is emulated" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="ControllerEmulationModeComboBox"
                                                   Grid.Column="1" Width="180"
@@ -7219,7 +7225,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Gyro Activation" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Always on, hold, or toggle by button" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Always on, hold, or toggle by button" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="ControllerEmulationGyroActivationModeComboBox"
                                                   Grid.Column="1" Width="180"
@@ -7239,7 +7245,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Activation Button" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Button used for hold or toggle activation" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Button used for hold or toggle activation" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="ControllerEmulationGyroActivationButtonComboBox"
                                                   Grid.Column="1" Width="180"
@@ -7279,7 +7285,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="DS4 Orientation" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Parallel or Orthogonal handheld posture" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Parallel or Orthogonal handheld posture" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="ControllerEmulationDs4OrientationComboBox"
                                                   Grid.Column="1" Width="180"
@@ -7300,7 +7306,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Features" FontSize="14" Foreground="#FFFFFF" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Touchpad, LED, rumble, and button layout" FontSize="11" Foreground="#888888"/>
+                                        <TextBlock Text="Touchpad, LED, rumble, and button layout" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="FeaturesExpandToggle"
                                                   Grid.Column="1" IsChecked="False"
@@ -7317,7 +7323,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Touchpad Emulation" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Forward right touchpad input to virtual DS4 touchpad" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Forward right touchpad input to virtual DS4 touchpad" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="ControllerEmulationPs4TouchpadToggle"
                                                       Grid.Column="1" IsOn="True"
@@ -7331,7 +7337,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="LED Forwarding" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Forward game LED requests to physical controller" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Forward game LED requests to physical controller" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="ControllerEmulationLedForwardingToggle"
                                                       Grid.Column="1" IsOn="False"
@@ -7345,7 +7351,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Rumble Profile" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Tune vibration response for virtual gamepad rumble" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Tune vibration response for virtual gamepad rumble" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="ControllerEmulationRumbleProfileComboBox"
                                                   Grid.Column="1" Width="180"
@@ -7396,7 +7402,7 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="Joystick Output" FontSize="14" Foreground="#FFFFFF" FontWeight="SemiBold"/>
-                                        <TextBlock Text="Gyro-to-stick pipeline settings" FontSize="11" Foreground="#888888"/>
+                                        <TextBlock Text="Gyro-to-stick pipeline settings" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                     </StackPanel>
                                     <ToggleButton x:Name="JoystickOutputExpandToggle"
                                                   Grid.Column="1" IsChecked="False"
@@ -7429,7 +7435,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="3DOF to 2D Conversion" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Map gyro axes to stick output" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Map gyro axes to stick output" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="StickConversionComboBox"
                                                   Grid.Column="1" Width="180"
@@ -7448,7 +7454,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Gyro Orientation" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Handheld posture for stick output" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Handheld posture for stick output" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="StickOrientationV2ComboBox"
                                                   Grid.Column="1" Width="180"
@@ -7505,7 +7511,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Min Gyro Input Speed" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Ignore motion below this speed" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Ignore motion below this speed" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <TextBlock x:Name="StickMinGyroSpeedValueText" Grid.Column="1" Text="0°/s"
                                                    FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -7523,7 +7529,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Max Gyro Input Speed" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Speed for full stick deflection" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Speed for full stick deflection" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <TextBlock x:Name="StickMaxGyroSpeedValueText" Grid.Column="1" Text="220°/s"
                                                    FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -7541,7 +7547,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Min Joystick Output" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Anti-deadzone: minimum output when moving" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Anti-deadzone: minimum output when moving" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <TextBlock x:Name="StickMinOutputValueText" Grid.Column="1" Text="0%"
                                                    FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -7574,7 +7580,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Power Curve" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="0.1 = aggressive, 1.0 = linear, 4.0 = relaxed" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="0.1 = aggressive, 1.0 = linear, 4.0 = relaxed" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <TextBlock x:Name="StickPowerCurveValueText" Grid.Column="1" Text="1.0"
                                                    FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -7592,7 +7598,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Gyro Speed Deadzone" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Smooth recovery above threshold" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Smooth recovery above threshold" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <TextBlock x:Name="StickDeadzoneValueText" Grid.Column="1" Text="2°/s"
                                                    FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -7610,7 +7616,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Precision Speed" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Reduces sensitivity below this speed" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Reduces sensitivity below this speed" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <TextBlock x:Name="StickPrecisionSpeedValueText" Grid.Column="1" Text="Off"
                                                    FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -7628,7 +7634,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Output Mix" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Balance between vertical and horizontal output" FontSize="11" Foreground="#888888"/>
+                                            <TextBlock Text="Balance between vertical and horizontal output" FontSize="11" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <TextBlock x:Name="StickOutputMixValueText" Grid.Column="1" Text="Balanced"
                                                    FontSize="13" Foreground="#4CAF50" FontWeight="SemiBold" VerticalAlignment="Center"/>
@@ -7757,7 +7763,7 @@
                                                 </Border>
                                             </Grid>
                                             <TextBlock Text="Synthesizes a stick contribution from gyro motion for emulated targets without a native motion field (Xbox 360, Xbox Elite 2, Switch Pro)."
-                                                       FontSize="11" Foreground="#888888" TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,2,0,8"/>
 
                                             <!-- Master enable.
                                                  Off = raw stick passthrough (legacy behavior pre-2152). On = synthesize gyro
@@ -7770,7 +7776,7 @@
                                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                     <TextBlock Text="Enable gyro → stick" FontSize="13" Foreground="#FFFFFF"/>
                                                     <TextBlock Text="Off = raw stick passthrough; processor short-circuits."
-                                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
                                                 </StackPanel>
                                                 <ToggleSwitch x:Name="ViiperStickGyroEnabledToggle"
                                                               Grid.Column="1"
@@ -7819,7 +7825,7 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="Sensitivity" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="#CCCCCC"/>
-                                                <TextBlock x:Name="ViiperStickGyroSensitivityValueText" Grid.Column="1" Text="1.00x" FontSize="12" Foreground="#888888"/>
+                                                <TextBlock x:Name="ViiperStickGyroSensitivityValueText" Grid.Column="1" Text="1.00x" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                             </Grid>
                                             <Slider x:Name="ViiperStickGyroSensitivitySlider"
                                                     Minimum="1" Maximum="400" StepFrequency="1" SmallChange="5" LargeChange="25"
@@ -7831,7 +7837,7 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Text="Deadzone" Grid.Column="0" VerticalAlignment="Center" FontSize="12" Foreground="#CCCCCC"/>
-                                                <TextBlock x:Name="ViiperStickGyroDeadzoneValueText" Grid.Column="1" Text="2°/s" FontSize="12" Foreground="#888888"/>
+                                                <TextBlock x:Name="ViiperStickGyroDeadzoneValueText" Grid.Column="1" Text="2°/s" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                             </Grid>
                                             <Slider x:Name="ViiperStickGyroDeadzoneSlider"
                                                     Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" LargeChange="5"
@@ -7947,7 +7953,7 @@
                                                         <TextBlock Text="Min gyro input speed" FontSize="12" Foreground="#CCCCCC"/>
                                                         <TextBlock Text="Ignore motion below this speed (filters drift / micro-shake)." FontSize="10" Foreground="#666666" TextWrapping="Wrap"/>
                                                     </StackPanel>
-                                                    <TextBlock x:Name="ViiperStickGyroMinGyroSpeedValueText" Grid.Column="1" VerticalAlignment="Center" Text="0°/s" FontSize="12" Foreground="#888888"/>
+                                                    <TextBlock x:Name="ViiperStickGyroMinGyroSpeedValueText" Grid.Column="1" VerticalAlignment="Center" Text="0°/s" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                                 </Grid>
                                                 <Slider x:Name="ViiperStickGyroMinGyroSpeedSlider"
                                                         Minimum="0" Maximum="100" StepFrequency="1" SmallChange="1" LargeChange="5"
@@ -7963,7 +7969,7 @@
                                                         <TextBlock Text="Max gyro input speed" FontSize="12" Foreground="#CCCCCC"/>
                                                         <TextBlock Text="Speed at which the stick reaches full deflection." FontSize="10" Foreground="#666666" TextWrapping="Wrap"/>
                                                     </StackPanel>
-                                                    <TextBlock x:Name="ViiperStickGyroMaxGyroSpeedValueText" Grid.Column="1" VerticalAlignment="Center" Text="220°/s" FontSize="12" Foreground="#888888"/>
+                                                    <TextBlock x:Name="ViiperStickGyroMaxGyroSpeedValueText" Grid.Column="1" VerticalAlignment="Center" Text="220°/s" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                                 </Grid>
                                                 <Slider x:Name="ViiperStickGyroMaxGyroSpeedSlider"
                                                         Minimum="50" Maximum="720" StepFrequency="1" SmallChange="5" LargeChange="50"
@@ -7979,7 +7985,7 @@
                                                         <TextBlock Text="Min joystick output" FontSize="12" Foreground="#CCCCCC"/>
                                                         <TextBlock Text="Anti-deadzone: minimum stick magnitude when any motion is detected." FontSize="10" Foreground="#666666" TextWrapping="Wrap"/>
                                                     </StackPanel>
-                                                    <TextBlock x:Name="ViiperStickGyroMinOutputValueText" Grid.Column="1" VerticalAlignment="Center" Text="0%" FontSize="12" Foreground="#888888"/>
+                                                    <TextBlock x:Name="ViiperStickGyroMinOutputValueText" Grid.Column="1" VerticalAlignment="Center" Text="0%" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                                 </Grid>
                                                 <Slider x:Name="ViiperStickGyroMinOutputSlider"
                                                         Minimum="0" Maximum="100" StepFrequency="1" SmallChange="1" LargeChange="5"
@@ -7995,7 +8001,7 @@
                                                         <TextBlock Text="Max joystick output" FontSize="12" Foreground="#CCCCCC"/>
                                                         <TextBlock Text="Cap the synthesized stick magnitude. Lower for slower, calmer aim." FontSize="10" Foreground="#666666" TextWrapping="Wrap"/>
                                                     </StackPanel>
-                                                    <TextBlock x:Name="ViiperStickGyroMaxOutputValueText" Grid.Column="1" VerticalAlignment="Center" Text="100%" FontSize="12" Foreground="#888888"/>
+                                                    <TextBlock x:Name="ViiperStickGyroMaxOutputValueText" Grid.Column="1" VerticalAlignment="Center" Text="100%" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                                 </Grid>
                                                 <Slider x:Name="ViiperStickGyroMaxOutputSlider"
                                                         Minimum="1" Maximum="100" StepFrequency="1" SmallChange="1" LargeChange="5"
@@ -8011,7 +8017,7 @@
                                                         <TextBlock Text="Power curve" FontSize="12" Foreground="#CCCCCC"/>
                                                         <TextBlock Text="0.1 = aggressive (small motion → big stick), 1.0 = linear, 4.0 = relaxed." FontSize="10" Foreground="#666666" TextWrapping="Wrap"/>
                                                     </StackPanel>
-                                                    <TextBlock x:Name="ViiperStickGyroPowerCurveValueText" Grid.Column="1" VerticalAlignment="Center" Text="1.0" FontSize="12" Foreground="#888888"/>
+                                                    <TextBlock x:Name="ViiperStickGyroPowerCurveValueText" Grid.Column="1" VerticalAlignment="Center" Text="1.0" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                                 </Grid>
                                                 <Slider x:Name="ViiperStickGyroPowerCurveSlider"
                                                         Minimum="10" Maximum="400" StepFrequency="1" SmallChange="5" LargeChange="25"
@@ -8027,7 +8033,7 @@
                                                         <TextBlock Text="Precision speed" FontSize="12" Foreground="#CCCCCC"/>
                                                         <TextBlock Text="Slow-tilt damping. 0 = off." FontSize="10" Foreground="#666666" TextWrapping="Wrap"/>
                                                     </StackPanel>
-                                                    <TextBlock x:Name="ViiperStickGyroPrecisionSpeedValueText" Grid.Column="1" VerticalAlignment="Center" Text="Off" FontSize="12" Foreground="#888888"/>
+                                                    <TextBlock x:Name="ViiperStickGyroPrecisionSpeedValueText" Grid.Column="1" VerticalAlignment="Center" Text="Off" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                                 </Grid>
                                                 <Slider x:Name="ViiperStickGyroPrecisionSpeedSlider"
                                                         Minimum="0" Maximum="100" StepFrequency="1" SmallChange="1" LargeChange="5"
@@ -8043,7 +8049,7 @@
                                                         <TextBlock Text="Output mix" FontSize="12" Foreground="#CCCCCC"/>
                                                         <TextBlock Text="Negative bias = vertical, positive = horizontal, 0 = balanced." FontSize="10" Foreground="#666666" TextWrapping="Wrap"/>
                                                     </StackPanel>
-                                                    <TextBlock x:Name="ViiperStickGyroOutputMixValueText" Grid.Column="1" VerticalAlignment="Center" Text="Balanced" FontSize="12" Foreground="#888888"/>
+                                                    <TextBlock x:Name="ViiperStickGyroOutputMixValueText" Grid.Column="1" VerticalAlignment="Center" Text="Balanced" FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                                 </Grid>
                                                 <Slider x:Name="ViiperStickGyroOutputMixSlider"
                                                         Minimum="-100" Maximum="100" StepFrequency="1" SmallChange="5" LargeChange="25"
@@ -8103,7 +8109,7 @@
                                                            Foreground="#CCCCCC"/>
                                                 <TextBlock Text="DualShock 4 / DualSense Edge only — when on, game-driven LED color overrides the picker color you chose for the Legion Go sticks. Off keeps your saved stick color."
                                                            FontSize="11"
-                                                           Foreground="#888888"
+                                                           Foreground="{StaticResource HintTextBrush}"
                                                            TextWrapping="Wrap"
                                                            Margin="0,2,0,0"/>
                                             </StackPanel>
@@ -8314,7 +8320,7 @@
                                             <TextBlock Text="Axis Select" FontSize="13" Foreground="#FFFFFF"/>
                                             <TextBlock Text="Choose gyro axes for mouse"
                                                        FontSize="11"
-                                                       Foreground="#888888"/>
+                                                       Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ComboBox x:Name="ControllerEmulationMouseAxisComboBox"
                                                   Grid.Column="1"
@@ -8535,7 +8541,7 @@
                                 <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7C1;" FontSize="16"
                                           Foreground="#666666" VerticalAlignment="Center"/>
                                 <TextBlock Text="Editing global controller profile. Launch a game to use per-game settings."
-                                           Foreground="#888888" FontSize="12"
+                                           Foreground="{StaticResource HintTextBrush}" FontSize="12"
                                            VerticalAlignment="Center" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
@@ -8825,7 +8831,7 @@
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Re-Map Specific Buttons to Another Button" FontSize="14" Foreground="#888888" VerticalAlignment="Center"/>
+                                    <TextBlock Text="Re-Map Specific Buttons to Another Button" FontSize="14" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                     <Button x:Name="LegionGamepadResetAllButton" Grid.Column="1" Content="Reset All Re-Mappings Below"
                                             Style="{StaticResource ModernButtonStyle}" Padding="8,4" FontSize="11"
                                             Background="#3C3C3C" Foreground="#AAAAAA"/>
@@ -9099,7 +9105,7 @@
                                     <TextBlock x:Name="LegionCalibrateGyroStatus"
                                                Text="Hold the controllers still and press the button — bias is captured by the controller firmware."
                                                FontSize="11"
-                                               Foreground="#888888"
+                                               Foreground="{StaticResource HintTextBrush}"
                                                TextWrapping="Wrap"
                                                Margin="0,6,0,0"/>
                                 </StackPanel>
@@ -9155,7 +9161,7 @@
                                                 Click="TestVibrationButton_Click"/>
                                     </StackPanel>
                                     <!-- Stick Deadzones -->
-                                    <TextBlock Text="Stick Deadzones" FontSize="12" Foreground="#888888" Margin="0,4,0,0"/>
+                                    <TextBlock Text="Stick Deadzones" FontSize="12" Foreground="{StaticResource HintTextBrush}" Margin="0,4,0,0"/>
                                     <StackPanel>
                                         <Grid>
                                             <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
@@ -9280,7 +9286,7 @@
                                          and stays collapsed (not wired on MSI Claw). -->
 
                                     <!-- Trigger Travel Section -->
-                                    <TextBlock Text="Trigger Travel" FontSize="12" Foreground="#888888" Margin="0,16,0,4"/>
+                                    <TextBlock Text="Trigger Travel" FontSize="12" Foreground="{StaticResource HintTextBrush}" Margin="0,16,0,4"/>
 
                                     <!-- Hair Triggers Toggle -->
                                     <Grid Margin="0,0,0,8">
@@ -9419,14 +9425,14 @@
                                                                        FontSize="14"
                                                                        FontWeight="SemiBold"/>
                                                             <TextBlock Text="{Binding SettingsSummary}"
-                                                                       Foreground="#888888"
+                                                                       Foreground="{StaticResource HintTextBrush}"
                                                                        FontSize="11"
                                                                        TextWrapping="NoWrap"
                                                                        TextTrimming="CharacterEllipsis"/>
                                                         </StackPanel>
                                                         <Button Grid.Column="2"
                                                                 Background="Transparent"
-                                                                Foreground="#888888"
+                                                                Foreground="{StaticResource HintTextBrush}"
                                                                 BorderThickness="0"
                                                                 Padding="10,6"
                                                                 VerticalAlignment="Center"
@@ -9474,7 +9480,7 @@
 
                                 <StackPanel x:Name="SpecialRemappingContent" Visibility="Collapsed" Margin="0,12,0,0">
                                     <!-- Legion Buttons Section -->
-                                    <TextBlock Text="LEGION BUTTONS" FontSize="11" FontWeight="SemiBold" Foreground="#888888" Margin="0,0,0,8"/>
+                                    <TextBlock Text="LEGION BUTTONS" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource HintTextBrush}" Margin="0,0,0,8"/>
 
                                     <!-- Legion L Row -->
                                     <Grid>
@@ -9597,7 +9603,7 @@
                                         <Border Background="#333333" Height="1" Margin="0,16,0,16"/>
 
                                         <!-- Scroll Wheel Header -->
-                                        <TextBlock Text="SCROLL WHEEL" FontSize="11" FontWeight="SemiBold" Foreground="#888888" Margin="0,0,0,8"/>
+                                        <TextBlock Text="SCROLL WHEEL" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource HintTextBrush}" Margin="0,0,0,8"/>
 
                                     <!-- Scroll Wheel Row (unified - direction not available) -->
                                     <Grid>
@@ -9724,7 +9730,7 @@
                                                        FontSize="11" Foreground="#AAAAAA" TextWrapping="Wrap"/>
                                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                                 <TextBlock x:Name="ViGEmBusStatusText" Text="Status: Checking..."
-                                                           FontSize="11" Foreground="#888888" VerticalAlignment="Center"/>
+                                                           FontSize="11" Foreground="{StaticResource HintTextBrush}" VerticalAlignment="Center"/>
                                                 <Button x:Name="ViGEmBusInstallButton" Content="Install ViGEmBus"
                                                         Style="{StaticResource ModernButtonStyle}"
                                                         FontSize="11" Padding="10,4" Margin="12,0,0,0"
@@ -10131,7 +10137,7 @@
                                     <Border Background="#1E2A3E" BorderBrush="#3D5A80" BorderThickness="1" CornerRadius="6" Padding="12">
                                         <StackPanel>
                                             <TextBlock Text="VIIPER Device" FontSize="13" FontWeight="SemiBold" Foreground="#4AB3F4"/>
-                                            <TextBlock Text="Active backend: VIIPER (USBIP). Changes take effect immediately (hot-swap). Note: any virtual device other than Xbox 360 can cause problems due to Game Bar incompatibilities — please test it and report back with feedback." FontSize="11" Foreground="#888888" Margin="0,2,0,10" TextWrapping="Wrap"/>
+                                            <TextBlock Text="Active backend: VIIPER (USBIP). Changes take effect immediately (hot-swap). Note: any virtual device other than Xbox 360 can cause problems due to Game Bar incompatibilities — please test it and report back with feedback." FontSize="11" Foreground="{StaticResource HintTextBrush}" Margin="0,2,0,10" TextWrapping="Wrap"/>
 
                                             <TextBlock Text="Virtual device" FontSize="12" Foreground="#CCCCCC" Margin="0,0,0,4"/>
                                             <ComboBox x:Name="ViiperDeviceTypeComboBox" HorizontalAlignment="Stretch">
@@ -10171,7 +10177,7 @@
                                                                Foreground="#CCCCCC"/>
                                                     <TextBlock Text="When a non-Xbox device (e.g. DualShock 4) is emulated, temporarily present it as an Xbox 360 pad while the Game Bar is open so the overlay navigates cleanly (some pads spam the right trigger). Swaps back on close. Briefly disconnects the virtual controller — a running game may notice."
                                                                FontSize="11"
-                                                               Foreground="#888888"
+                                                               Foreground="{StaticResource HintTextBrush}"
                                                                TextWrapping="Wrap"
                                                                Margin="0,2,0,0"/>
                                                 </StackPanel>
@@ -10202,7 +10208,7 @@
                                 <TextBlock x:Name="GPDConnectionStatusText"
                                            Text="Detecting..."
                                            FontSize="14"
-                                           Foreground="#888888"
+                                           Foreground="{StaticResource HintTextBrush}"
                                            Margin="0,4,0,0"/>
                             </StackPanel>
                         </Border>
@@ -10229,7 +10235,7 @@
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="Fan Curve" Foreground="#FFFFFF" FontSize="14"/>
                                             <TextBlock Text="Software-controlled fan curve based on CPU temperature"
-                                                       FontSize="12" Foreground="#888888"/>
+                                                       FontSize="12" Foreground="{StaticResource HintTextBrush}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="GPDFanCurveToggle"
                                                       Grid.Column="1"
@@ -10252,7 +10258,7 @@
                                                 <TextBlock x:Name="GPDFanModeText"
                                                            Text="Auto"
                                                            FontSize="12"
-                                                           Foreground="#888888"/>
+                                                           Foreground="{StaticResource HintTextBrush}"/>
                                             </StackPanel>
                                             <ToggleSwitch x:Name="GPDFanModeToggle"
                                                           Grid.Column="1"
