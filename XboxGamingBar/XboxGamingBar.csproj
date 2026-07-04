@@ -89,6 +89,7 @@
     <Compile Include="Converter\InverseBooleanToVisibilityConverter.cs" />
     <Compile Include="Converter\RadeonBoostResolutionStringConverter.cs" />
     <Compile Include="Converter\SharpnessPercentStringConverter.cs" />
+    <Compile Include="Converters\GamepadButtonIconConverter.cs" />
     <Compile Include="Data\AMD\AMDRadeonAntiLagEnabledProperty.cs" />
     <Compile Include="Data\AMD\AMDRadeonAntiLagSupportedProperty.cs" />
     <Compile Include="Data\AutoHibernateEnabledProperty.cs" />
@@ -423,6 +424,9 @@
     <Compile Include="Features\Devices\GamingWidget.MsiClawSettings.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Devices\GamingWidget.MsiLedEffect.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Devices\GamingWidget.Display.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
@@ -559,6 +563,34 @@
     <Content Include="Assets\ColorReference2.png" />
     <Content Include="Assets\ColorReference3.png" />
     <Content Include="Assets\kofi-qr.png" />
+    <Content Include="Assets\ButtonIcons\xbox_button_color_a.png" />
+    <Content Include="Assets\ButtonIcons\xbox_button_color_b.png" />
+    <Content Include="Assets\ButtonIcons\xbox_button_color_x.png" />
+    <Content Include="Assets\ButtonIcons\xbox_button_color_y.png" />
+    <Content Include="Assets\ButtonIcons\xbox_button_menu.png" />
+    <Content Include="Assets\ButtonIcons\xbox_button_start.png" />
+    <Content Include="Assets\ButtonIcons\xbox_button_view.png" />
+    <Content Include="Assets\ButtonIcons\xbox_dpad_down_outline.png" />
+    <Content Include="Assets\ButtonIcons\xbox_dpad_left_outline.png" />
+    <Content Include="Assets\ButtonIcons\xbox_dpad_right_outline.png" />
+    <Content Include="Assets\ButtonIcons\xbox_dpad_up_outline.png" />
+    <Content Include="Assets\ButtonIcons\xbox_guide.png" />
+    <Content Include="Assets\ButtonIcons\xbox_lb.png" />
+    <Content Include="Assets\ButtonIcons\xbox_lt.png" />
+    <Content Include="Assets\ButtonIcons\xbox_rb.png" />
+    <Content Include="Assets\ButtonIcons\xbox_rt.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_click_l.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_click_r.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_l.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_r.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_l_down.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_l_left.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_l_right.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_l_up.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_r_down.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_r_left.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_r_right.png" />
+    <Content Include="Assets\ButtonIcons\xbox_stick_r_up.png" />
     <Content Include="Assets\Icons\icon.light.targetsize-16.png" />
     <Content Include="Assets\Icons\icon.light.targetsize-20.png" />
     <Content Include="Assets\Icons\icon.light.targetsize-24.png" />
