@@ -146,17 +146,7 @@ namespace XboxGamingBar
 
             var mainContent = new Grid();
             mainContent.Children.Add(stack);
-
-            // Order number badge (bottom-left)
-            mainContent.Children.Add(new TextBlock
-            {
-                Text = (index + 1).ToString(),
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(128, 255, 255, 255)),
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Bottom,
-                Margin = new Thickness(4, 0, 0, 2)
-            });
+            _ = index; // order-position badge removed (looked cluttered); index kept for signature/compat
 
             // Custom shortcut pin indicator (bottom-right)
             if (!string.IsNullOrEmpty(tile.CustomShortcut))
@@ -728,8 +718,25 @@ namespace XboxGamingBar
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     Margin = new Thickness(0, 0, 0, 14)
                 };
+                // Each item shows the matching Xbox button icon (same asset set as the button-remap
+                // dropdowns) next to the label. Selection is by index (see BtnBindCombo_SelectionChanged),
+                // so the custom item content doesn't affect the mapping to ClawButtonDefs.
+                var btnIconConv = new GamepadButtonIconConverter();
                 foreach (var (label, _) in ClawButtonDefs)
-                    combo.Items.Add(label);
+                {
+                    var itemPanel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+                    var iconSrc = btnIconConv.Convert(label, typeof(Windows.UI.Xaml.Media.ImageSource), null, null)
+                                  as Windows.UI.Xaml.Media.ImageSource;
+                    if (iconSrc != null)
+                        itemPanel.Children.Add(new Windows.UI.Xaml.Controls.Image
+                        {
+                            Source = iconSrc, Width = 18, Height = 18, VerticalAlignment = VerticalAlignment.Center
+                        });
+                    else
+                        itemPanel.Children.Add(new Border { Width = 18, Height = 18 });  // spacer so labels align (M1/M2)
+                    itemPanel.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
+                    combo.Items.Add(new Windows.UI.Xaml.Controls.ComboBoxItem { Content = itemPanel });
+                }
                 combo.SelectionChanged += BtnBindCombo_SelectionChanged;
                 panel.Children.Add(combo);
 
