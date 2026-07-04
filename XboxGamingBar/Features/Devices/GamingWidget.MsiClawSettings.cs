@@ -363,6 +363,28 @@ namespace XboxGamingBar
                 ChargeLimitExpandIcon.Glyph = _chargeLimitExpanded ? "" : "";
         }
 
+        // Saved Profiles card (relocated to the Performance tab) — collapsed by default.
+        private bool _savedProfilesExpanded;
+        internal void PerfSavedProfilesExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            _savedProfilesExpanded = !_savedProfilesExpanded;
+            if (PerfSavedProfilesContent != null)
+                PerfSavedProfilesContent.Visibility = _savedProfilesExpanded ? Visibility.Visible : Visibility.Collapsed;
+            if (PerfSavedProfilesExpandIcon != null)
+                PerfSavedProfilesExpandIcon.Glyph = _savedProfilesExpanded ? "" : "";
+        }
+
+        // CPU card (Performance tab) — collapsed by default.
+        private bool _cpuCardExpanded;
+        internal void CpuCardExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            _cpuCardExpanded = !_cpuCardExpanded;
+            if (CpuSectionContent != null)
+                CpuSectionContent.Visibility = _cpuCardExpanded ? Visibility.Visible : Visibility.Collapsed;
+            if (CpuCardExpandIcon != null)
+                CpuCardExpandIcon.Glyph = _cpuCardExpanded ? "" : "";
+        }
+
         internal void MsiChargeLimitSlider_ValueChanged(object sender,
             Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
