@@ -452,12 +452,50 @@ namespace XboxGamingBarHelper.Services
                 }
             }
 
+            // MSI BIOS IDs like "E1T52IMS.10D" vs "E1T52IMS.112" — the numeric parser can't read
+            // the hex "10D"-style revision, so compare the hex suffix directly.
+            var biosCompare = CompareMsiBiosCodes(installed, latest);
+            if (biosCompare.HasValue) return biosCompare.Value;
+
             var codeCompare = CompareLetterCodes(installed, latest);
             if (codeCompare.HasValue) return codeCompare.Value;
 
             return string.Equals(installed, latest, StringComparison.OrdinalIgnoreCase)
                 ? DriverUpdateStatus.UpToDate
                 : DriverUpdateStatus.Unknown;
+        }
+
+        private static readonly System.Text.RegularExpressions.Regex _msiBiosRegex =
+            new System.Text.RegularExpressions.Regex(@"^(?<prefix>[A-Z0-9]+)\.(?<code>[0-9A-F]{2,6})$",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        /// <summary>
+        /// MSI motherboard/handheld BIOS IDs look like "E1T52IMS.112" — a fixed board prefix and a
+        /// HEXADECIMAL revision counter (…10D, 10E, 10F, 110, 111, 112). The generic numeric parser
+        /// can't read the letter-bearing "10D" codes, so when both IDs share the same prefix, compare
+        /// the hex suffix directly. Returns null when the format doesn't match so the caller falls
+        /// through to the letter-code / equality logic. Only reached when the standard numeric parse
+        /// of <c>installed</c> already failed, so it never hijacks normal dotted versions.
+        /// </summary>
+        public static DriverUpdateStatus? CompareMsiBiosCodes(string installed, string latest)
+        {
+            var mi = _msiBiosRegex.Match(installed?.Trim().ToUpperInvariant() ?? "");
+            var ml = _msiBiosRegex.Match(latest?.Trim().ToUpperInvariant() ?? "");
+            if (!mi.Success || !ml.Success) return null;
+            if (!string.Equals(mi.Groups["prefix"].Value, ml.Groups["prefix"].Value, StringComparison.Ordinal))
+                return null;
+
+            long a, b;
+            try
+            {
+                a = Convert.ToInt64(mi.Groups["code"].Value, 16);
+                b = Convert.ToInt64(ml.Groups["code"].Value, 16);
+            }
+            catch { return null; }
+
+            if (a < b) return DriverUpdateStatus.UpdateAvailable;
+            if (a > b) return DriverUpdateStatus.UpToDate;
+            return DriverUpdateStatus.UpToDate;
         }
 
         public static long[] ParseVersion(string s)
