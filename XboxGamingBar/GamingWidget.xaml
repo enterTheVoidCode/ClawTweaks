@@ -4102,9 +4102,29 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Appearance / Theme (moved out of Debug to the top of the System tab) -->
+                        <!-- Appearance / Theme (collapsible like the Tab Settings card above) -->
                         <Border Style="{StaticResource CardStyle}" Margin="0,8,0,0">
                             <StackPanel>
+                            <!-- Header: title + expand toggle -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Appearance" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Theme, app font and glass effect for the widget UI"
+                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ToggleButton x:Name="ThemeExpandButton" Grid.Column="1" IsChecked="False"
+                                              VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                              Click="ThemeExpandButton_Click" UseSystemFocusVisuals="True">
+                                    <FontIcon x:Name="ThemeExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                </ToggleButton>
+                            </Grid>
+
+                            <!-- Collapsible content -->
+                            <StackPanel x:Name="ThemeContent" Visibility="Collapsed" Margin="0,12,0,0">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -4196,6 +4216,7 @@
                                               Toggled="GlassEffectToggle_Toggled"/>
                             </Grid>
                             </StackPanel>
+                            </StackPanel>
                         </Border>
 
                         <!-- ═══ MSI CLAW FEATURES — shown only on MSI Claw hardware ═══ -->
@@ -4203,6 +4224,9 @@
                         <!-- Charge Limit Card (MSI Claw A1M / A2VM) -->
                         <Border x:Name="MsiChargeLimitCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
+                                <!-- Header: title + expand toggle. The enable toggle lives inside the
+                                     collapsible body (there is a separate Quick Settings tile that shows
+                                     the charge limit), so the header stays clean when collapsed. -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
@@ -4212,6 +4236,26 @@
                                         <TextBlock Text="Charge Limit" Style="{StaticResource CardTitleStyle}"/>
                                         <TextBlock Text="Limit battery charging to extend long-term lifespan"
                                                    Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ChargeLimitExpandButton" Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  Click="ChargeLimitExpandButton_Click" UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="ChargeLimitExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <!-- Collapsible content -->
+                                <StackPanel x:Name="MsiChargeLimitContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                <!-- Enable toggle (moved out of the header) -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Enable charge limit" FontSize="13" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Stop charging once the battery reaches the level below."
+                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="MsiChargeLimitToggle"
                                                   Grid.Column="1"
@@ -4254,6 +4298,7 @@
                                     <TextBlock Text="Note: the limit is enforced by the controller (EC) itself, so it keeps working while the Claw is asleep or shut down but plugged in. The EC value can be cleared by an EC reset, BIOS update or a full battery drain — use Verify to re-check the live value after sleep / hibernation."
                                                FontSize="11" Foreground="#FF8C00"
                                                TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

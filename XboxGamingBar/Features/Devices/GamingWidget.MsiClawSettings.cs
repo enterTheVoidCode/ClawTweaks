@@ -71,7 +71,7 @@ namespace XboxGamingBar
             // Just fetch a fresh state on init.
             RequestControllerState();
 
-            RestoreMsiLedColorFromSettings();
+            RestoreMsiLedEffectFromSettings();
             RestoreMsiLedBootCycleFromSettings();
             RestoreMsiChargeLimitFromSettings();
             RestoreGameBarWidgetPositionFromSettings();
@@ -129,29 +129,6 @@ namespace XboxGamingBar
 
         // ── LED Color ────────────────────────────────────────────────────────────────
 
-        private void RestoreMsiLedColorFromSettings()
-        {
-            try
-            {
-                _msiLedLoading = true;
-                var s = ApplicationData.Current.LocalSettings.Values;
-                if (s.TryGetValue(MsiLedColorKey, out var colorObj) && colorObj is string colorStr)
-                {
-                    var parts = colorStr.Split(',');
-                    if (parts.Length == 3
-                        && byte.TryParse(parts[0], out byte r)
-                        && byte.TryParse(parts[1], out byte g)
-                        && byte.TryParse(parts[2], out byte b))
-                    {
-                        if (MsiLedColorPicker != null)
-                            MsiLedColorPicker.Color = Color.FromArgb(255, r, g, b);
-                    }
-                }
-            }
-            catch (Exception ex) { Logger.Warn($"[MsiLed] Restore color failed: {ex.Message}"); }
-            finally { _msiLedLoading = false; }
-        }
-
         // Vibration & Deadzone card expander (matches Button Remapping; collapsed by default).
         private bool _controllerFeedbackExpanded;
         internal void ControllerFeedbackExpandToggle_Click(object sender, RoutedEventArgs e)
@@ -196,174 +173,51 @@ namespace XboxGamingBar
             if (MsiLedExpandIcon != null) MsiLedExpandIcon.Glyph      = _msiLedExpanded ? "" : "";
         }
 
+        // Static/Breathing colour picker (in the swatch flyout) → the editor's colour for the current zone.
         internal void MsiLedColorPicker_ColorChanged(Microsoft.UI.Xaml.Controls.ColorPicker sender,
                                                       Microsoft.UI.Xaml.Controls.ColorChangedEventArgs args)
         {
             if (_msiLedLoading) return;
-            _pendingLedColor = args.NewColor;
-
-            // Debounce: apply 600 ms after the user stops dragging
-            if (_msiLedDebounceTimer == null)
-            {
-                _msiLedDebounceTimer = new Windows.UI.Xaml.DispatcherTimer
-                {
-                    Interval = TimeSpan.FromMilliseconds(600)
-                };
-                _msiLedDebounceTimer.Tick += (s, ev) =>
-                {
-                    _msiLedDebounceTimer.Stop();
-                    ApplyAndSaveLedColor(_pendingLedColor);
-                };
-            }
-            _msiLedDebounceTimer.Stop();
-            _msiLedDebounceTimer.Start();
+            OnEditorColorChanged(args.NewColor);
         }
 
-        internal void MsiLedApplyButton_Click(object sender, RoutedEventArgs e)
-        {
-            _msiLedDebounceTimer?.Stop();
-            if (MsiLedColorPicker != null)
-                ApplyAndSaveLedColor(MsiLedColorPicker.Color);
-        }
+        // Legacy LED-by-battery toggle — SUPERSEDED by the "Battery" LED mode (per zone). Kept Collapsed
+        // so this handler compiles; neutralized.
+        private void LedColorBySocToggle_Toggled(object sender, RoutedEventArgs e) { }
 
-        private void ApplyAndSaveLedColor(Color c)
-        {
-            // Persist color. Picking a color implies the LED should be visible, so reset brightness
-            // to full (turns it back on if the LED on/off tile had set it to 0).
-            ApplicationData.Current.LocalSettings.Values[MsiLedColorKey] = $"{c.R},{c.G},{c.B}";
-            SetMsiLedBrightness(100);
-
-            // Send to helper at full brightness.
-            _ = SendMsiLedColorAsync(c.R, c.G, c.B, 100);
-
-            // Setting a colour re-enables the LED, so the on/off tile must flip back to "on".
-            UpdateQuickSettingsTileStates();
-        }
-
-        /// <summary>
-        /// LED-color-by-battery toggle. In battery mode the hue is dictated by the charge level, so the
-        /// colour wheel is hidden (only the brightness slider stays). Turning it ON proactively pushes
-        /// the current colour/brightness so the helper applies the battery tint immediately — instead of
-        /// waiting for the next 10% band crossing.
-        /// </summary>
-        private void LedColorBySocToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            bool on = LedColorBySocToggle?.IsOn == true;
-            UpdateLedColorPickerForSocMode(on);
-
-            // Apply now (helper tints the current colour by battery level). Uses the current brightness
-            // slider value; no-op if not connected. Skipped while the UI is restoring saved state.
-            if (on && !_msiLedLoading && MsiLedColorPicker != null)
-            {
-                var c = MsiLedColorPicker.Color;
-                _ = SendMsiLedColorAsync(c.R, c.G, c.B, GetMsiLedBrightness());
-            }
-        }
-
-        /// <summary>
-        /// In battery-colour mode the hue is fixed by charge level, so swap the whole colour wheel for a
-        /// dedicated brightness slider (the ColorPicker renders badly with only its value slider). The
-        /// slider is seeded from the current colour's brightness (HSV value = its max channel).
-        /// </summary>
-        private void UpdateLedColorPickerForSocMode(bool socOn)
-        {
-            if (MsiLedColorPicker != null)
-                MsiLedColorPicker.Visibility = socOn ? Visibility.Collapsed : Visibility.Visible;
-            if (MsiLedBrightnessLabel != null)
-                MsiLedBrightnessLabel.Visibility = socOn ? Visibility.Visible : Visibility.Collapsed;
-            if (MsiLedBrightnessSlider != null)
-            {
-                MsiLedBrightnessSlider.Visibility = socOn ? Visibility.Visible : Visibility.Collapsed;
-                if (socOn)
-                {
-                    var c = MsiLedColorPicker?.Color ?? Color.FromArgb(255, 255, 255, 255);
-                    int mx = Math.Max(c.R, Math.Max(c.G, c.B));
-                    _msiLedLoading = true;   // programmatic set — don't treat as a user edit
-                    try { MsiLedBrightnessSlider.Value = (int)Math.Round(mx / 255.0 * 100.0); }
-                    finally { _msiLedLoading = false; }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Dedicated brightness slider (battery mode). Rescales the current colour to the chosen HSV value
-        /// (preserving hue), so the user's colour isn't clobbered and battery-mode brightness is honoured;
-        /// LedSocTick scales the band colour by this value. Debounced via the shared LED apply timer.
-        /// </summary>
+        /// <summary>Global LED brightness slider (applies to all zones; 0 = off). Debounced.</summary>
         private void MsiLedBrightnessSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
-            if (_msiLedLoading || MsiLedColorPicker == null) return;
-
-            var c = MsiLedColorPicker.Color;
-            int mx = Math.Max(c.R, Math.Max(c.G, c.B));
-            byte br, bg, bb;
-            if (mx == 0) { br = bg = bb = 255; }   // black base → treat as white so brightness can scale up
-            else { br = c.R; bg = c.G; bb = c.B; }
-
-            int denom = Math.Max((int)br, Math.Max((int)bg, (int)bb));
-            if (denom < 1) denom = 1;
-            double f = (e.NewValue / 100.0) * 255.0 / denom;
-            byte nr = (byte)Math.Max(0, Math.Min(255, Math.Round(br * f)));
-            byte ng = (byte)Math.Max(0, Math.Min(255, Math.Round(bg * f)));
-            byte nb = (byte)Math.Max(0, Math.Min(255, Math.Round(bb * f)));
-            var newColor = Color.FromArgb(255, nr, ng, nb);
-
-            // Reflect in the picker so toggling battery mode off restores the hue at this brightness.
-            _msiLedLoading = true;
-            try { MsiLedColorPicker.Color = newColor; } finally { _msiLedLoading = false; }
-
-            // Debounce the apply (same 600 ms timer the colour wheel uses).
-            _pendingLedColor = newColor;
-            if (_msiLedDebounceTimer == null)
-            {
-                _msiLedDebounceTimer = new Windows.UI.Xaml.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
-                _msiLedDebounceTimer.Tick += (s, ev) => { _msiLedDebounceTimer.Stop(); ApplyAndSaveLedColor(_pendingLedColor); };
-            }
-            _msiLedDebounceTimer.Stop();
-            _msiLedDebounceTimer.Start();
+            if (_msiLedLoading) return;
+            OnGlobalBrightnessChanged((int)Math.Round(e.NewValue));
         }
 
         // ── MSI Claw LED on/off (drives the LED quick-settings tile) ─────────────────────
-        // The MSI Claw LED has no brightness slider; the tile turns it off (brightness 0) and back
-        // on (brightness 100, last saved color) via the same MsiLedColor pipe path.
         internal int GetMsiLedBrightness()
         {
-            var s = ApplicationData.Current.LocalSettings.Values;
-            if (s.TryGetValue(MsiLedBrightnessKey, out var v) && v is int i) return Math.Max(0, Math.Min(100, i));
-            return 100; // default on
-        }
-
-        private void SetMsiLedBrightness(int brightness)
-        {
-            ApplicationData.Current.LocalSettings.Values[MsiLedBrightnessKey] = Math.Max(0, Math.Min(100, brightness));
+            EnsureCompositeLoaded();   // read the saved config, not a stale default (tile can run pre-Restore)
+            return _ledComposite != null ? _ledComposite.Brightness : 100;
         }
 
         internal bool IsMsiLedOn() => GetMsiLedBrightness() > 0;
 
-        /// <summary>Turns the MSI Claw LED on (full, last saved color) or off (brightness 0).</summary>
+        /// <summary>Turns the MSI Claw LED on (brightness 100) or off (0), keeping the current effect.</summary>
         internal void ApplyMsiLedOnOff(bool on)
         {
-            byte r = 255, g = 255, b = 255;
-            var s = ApplicationData.Current.LocalSettings.Values;
-            if (s.TryGetValue(MsiLedColorKey, out var colorObj) && colorObj is string colorStr)
+            EnsureCompositeLoaded();   // operate on the persisted composite, never a pre-Restore default
+            _ledComposite.Brightness = on ? 100 : 0;
+            if (MsiLedBrightnessSlider != null)
             {
-                var parts = colorStr.Split(',');
-                if (parts.Length >= 3
-                    && byte.TryParse(parts[0], out var pr) && byte.TryParse(parts[1], out var pg) && byte.TryParse(parts[2], out var pb))
-                { r = pr; g = pg; b = pb; }
+                _msiLedLoading = true;
+                try { MsiLedBrightnessSlider.Value = _ledComposite.Brightness; } finally { _msiLedLoading = false; }
             }
-            int brightness = on ? 100 : 0;
-            SetMsiLedBrightness(brightness);
-            _ = SendMsiLedColorAsync(r, g, b, brightness);
+            SendCompositeNow();
             Logger.Info($"[MsiLed] LED tile → {(on ? "ON (100%)" : "OFF (0%)")}");
         }
 
         /// <summary>
-        /// Re-pushes the stored LED color to the helper on pipe (re)connect — but only if the user
-        /// actually saved a custom color. This seeds the helper's own color store (msi_led_color.txt),
-        /// which the helper uses to drive its startup LED indicator (red → green-on-ready → this color)
-        /// on the next boot, even before the widget is open. When no color was ever saved, nothing is
-        /// sent and MSI's own LED color is left untouched.
+        /// Re-pushes the composite + startup-cycle preference to the helper on pipe (re)connect (widget is
+        /// authoritative). Kept under the original name so the pipe-connect caller stays unchanged.
         /// </summary>
         internal void ResendMsiLedColorToHelper()
         {
@@ -371,23 +225,9 @@ namespace XboxGamingBar
             {
                 if (!IsMsiClawDevice()) return;
                 var s = ApplicationData.Current.LocalSettings.Values;
-
-                // Always seed the helper with the startup-cycle preference (default on if unset),
-                // so it's correct on the next boot even before the user touches the toggle.
                 bool cycleOn = !(s.TryGetValue(MsiLedBootCycleKey, out var cv) && cv is bool cb) || cb;
                 _ = SendMsiLedBootCycleAsync(cycleOn);
-
-                if (!(s.TryGetValue(MsiLedColorKey, out var colorObj) && colorObj is string colorStr)) return;
-
-                var parts = colorStr.Split(',');
-                if (parts.Length >= 3
-                    && byte.TryParse(parts[0], out byte r)
-                    && byte.TryParse(parts[1], out byte g)
-                    && byte.TryParse(parts[2], out byte b))
-                {
-                    _ = SendMsiLedColorAsync(r, g, b, GetMsiLedBrightness());
-                    Logger.Info($"[MsiLed] Re-pushed stored color on connect R={r} G={g} B={b}");
-                }
+                ResendMsiLedEffectToHelper();
             }
             catch (Exception ex) { Logger.Warn($"[MsiLed] ResendMsiLedColorToHelper: {ex.Message}"); }
         }
@@ -498,6 +338,29 @@ namespace XboxGamingBar
             ApplicationData.Current.LocalSettings.Values[MsiChargeLimitPercentKey] = pct;
             _ = SendMsiChargeLimitAsync(on, pct);
             Logger.Info($"[BattMgr] Toggle → enabled={on} pct={pct}");
+        }
+
+        // ── Collapsible cards (System tab): Appearance/Theme + Charge Limit ──────────
+        // Same custom pattern as the Tab Settings card above (ToggleButton + chevron glyph
+        // flip E70D↔E70E + manual Visibility). Both start collapsed.
+        private bool _themeExpanded;
+        internal void ThemeExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            _themeExpanded = !_themeExpanded;
+            if (ThemeContent != null)
+                ThemeContent.Visibility = _themeExpanded ? Visibility.Visible : Visibility.Collapsed;
+            if (ThemeExpandIcon != null)
+                ThemeExpandIcon.Glyph = _themeExpanded ? "" : "";
+        }
+
+        private bool _chargeLimitExpanded;
+        internal void ChargeLimitExpandButton_Click(object sender, RoutedEventArgs e)
+        {
+            _chargeLimitExpanded = !_chargeLimitExpanded;
+            if (MsiChargeLimitContent != null)
+                MsiChargeLimitContent.Visibility = _chargeLimitExpanded ? Visibility.Visible : Visibility.Collapsed;
+            if (ChargeLimitExpandIcon != null)
+                ChargeLimitExpandIcon.Glyph = _chargeLimitExpanded ? "" : "";
         }
 
         internal void MsiChargeLimitSlider_ValueChanged(object sender,
