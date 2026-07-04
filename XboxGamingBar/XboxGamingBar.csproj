@@ -406,6 +406,9 @@
     <Compile Include="Features\Debug\GamingWidget.DebugPanel.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Controller\GamingWidget.ButtonComboIcons.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Controller\GamingWidget.TriggerTravel.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>

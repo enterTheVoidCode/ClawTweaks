@@ -41,6 +41,17 @@ namespace XboxGamingBar
             { "Select",      "xbox_button_menu" },   // Select == Xbox "View/Menu" glyph (per user)
             { "Start",       "xbox_button_start" },
             { "Xbox Button", "xbox_guide" },         // Guide glyph (per user)
+
+            // Long-label aliases used by the controller-emulation / gyro-activation dropdowns.
+            { "Left Bumper",       "xbox_lb" },
+            { "Right Bumper",      "xbox_rb" },
+            { "Left Trigger",      "xbox_lt" },
+            { "Right Trigger",     "xbox_rt" },
+            { "Left Stick Click",  "xbox_stick_click_l" },
+            { "Right Stick Click", "xbox_stick_click_r" },
+            { "Back",              "xbox_button_view" },
+            { "Left Stick",        "xbox_stick_l" },   // cursor/scroll stick pickers
+            { "Right Stick",       "xbox_stick_r" },
         };
 
         public object Convert(object value, Type targetType, object parameter, string language)

@@ -2194,6 +2194,8 @@ namespace XboxGamingBar
             controllerEmulationMouseRightClickButton = new ControllerEmulationMouseRightClickButtonProperty(ControllerEmulationMouseRightClickButtonComboBox, this);
             controllerEmulationMouseCursorStick = new ControllerEmulationMouseCursorStickProperty(ControllerEmulationMouseCursorStickComboBox, this);
             controllerEmulationMouseScrollStick = new ControllerEmulationMouseScrollStickProperty(ControllerEmulationMouseScrollStickComboBox, this);
+            // Add Xbox button/stick icons to these pickers (mouse mapping, gyro activation, cursor/scroll).
+            DecorateAllButtonComboBoxes();
             controllerEmulationMouseAxis = new ControllerEmulationMouseAxisProperty(ControllerEmulationMouseAxisComboBox, this);
             controllerEmulationMouseInvertX = new ControllerEmulationMouseInvertXProperty(ControllerEmulationMouseInvertXToggle, this);
             controllerEmulationMouseInvertY = new ControllerEmulationMouseInvertYProperty(ControllerEmulationMouseInvertYToggle, this);
