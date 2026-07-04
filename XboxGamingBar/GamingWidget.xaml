@@ -20,6 +20,16 @@
         <converter:SharpnessPercentStringConverter x:Key="SharpnessPercentStringConverter"/>
         <converter:RadeonBoostResolutionStringConverter x:Key="RadeonBoostResolutionStringConverter"/>
 
+        <!-- Xbox glyph next to each gamepad-action name in the button-remap dropdowns. -->
+        <local:GamepadButtonIconConverter x:Key="GamepadButtonIconConverter"/>
+        <DataTemplate x:Key="GamepadActionItemTemplate">
+            <StackPanel Orientation="Horizontal">
+                <Image Width="20" Height="20" Margin="0,0,8,0" VerticalAlignment="Center"
+                       Source="{Binding Converter={StaticResource GamepadButtonIconConverter}}"/>
+                <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+            </StackPanel>
+        </DataTemplate>
+
         <!-- ════════════════════════════════════════════════════════════════════
              THEME ACCENT BRUSHES — driven entirely by the in-app theme (NOT the
              Windows system accent). Their colours are mutated at runtime in
@@ -4274,76 +4284,217 @@
                                         <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12" Foreground="#888888"/>
                                     </ToggleButton>
                                 </Grid>
-                                <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <!-- Hex + RGB/HSV channel text inputs (and their dropdown) are hidden, not
-                                         removed (IsHexInputVisible / IsColorChannelTextInputVisible = False) — the
-                                         colour wheel, the selected-colour preview and the brightness slider are
-                                         enough. Flip these back to True to bring the numeric inputs back. -->
-                                    <muxc:ColorPicker x:Name="MsiLedColorPicker"
-                                                      IsEnabled="True"
-                                                      ColorSpectrumShape="Ring"
-                                                      IsAlphaEnabled="False"
-                                                      IsAlphaSliderVisible="False"
-                                                      IsHexInputVisible="False"
-                                                      IsColorChannelTextInputVisible="False"
-                                                      IsMoreButtonVisible="False"
-                                                      HorizontalAlignment="Left"
-                                                      ColorChanged="MsiLedColorPicker_ColorChanged"/>
+                                <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0"
+                                            XYFocusKeyboardNavigation="Enabled">
 
-                                    <!-- Battery mode: the hue is fixed by charge level, so the full colour
-                                         wheel is hidden and this dedicated brightness slider is shown instead
-                                         (the ColorPicker renders badly with only its value slider). It sets
-                                         the LED brightness, which also drives the battery colour's brightness.
-                                         Both are Collapsed until battery mode is on. -->
-                                    <TextBlock x:Name="MsiLedBrightnessLabel" Text="Brightness"
-                                               FontSize="12" Foreground="#DDDDDD" Margin="0,4,0,2"
-                                               Visibility="Collapsed"/>
-                                    <Slider x:Name="MsiLedBrightnessSlider" Minimum="0" Maximum="100"
-                                            Width="280" HorizontalAlignment="Left" Visibility="Collapsed"
-                                            ValueChanged="MsiLedBrightnessSlider_ValueChanged"/>
-
-                                    <!-- Boot colour cycle on/off (red while loading → your colour).
-                                         REMOVED from the UI (Collapsed). The helper forces cycle-off
-                                         (MsiLedColorStore.LoadBootCycle returns false), so the red
-                                         loading flash never runs; the saved colour is still applied at
-                                         startup. The toggle element is kept (Collapsed) only so the
-                                         existing code-behind compiles; it is never user-visible. -->
-                                    <Grid Margin="0,14,0,0" Visibility="Collapsed">
+                                    <!-- ── Sync all zones ─────────────────────────────────────────────── -->
+                                    <Grid Margin="0,0,0,12">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Startup colour cycle" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Red while the controller loads, green when it's ready, then your colour."
+                                            <TextBlock Text="Sync right stick, left stick &amp; buttons" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Off lets you give the right stick, left stick and buttons their own individual colors and effects."
                                                        FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="MsiLedBootCycleToggle" Grid.Column="1"
+                                        <ToggleSwitch x:Name="MsiLedSyncToggle" Grid.Column="1"
                                                       OnContent="" OffContent="" IsOn="True"
                                                       Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="MsiLedBootCycleToggle_Toggled"/>
+                                                      Toggled="MsiLedSyncToggle_Toggled"/>
                                     </Grid>
 
-                                    <!-- LED color based on battery State of Charge. The LED is only
-                                         re-coloured when the charge crosses a 10% band (no HID spam),
-                                         and only while the LED is on. -->
-                                    <Grid Margin="0,14,0,0">
+                                    <!-- ── Zone selector (only when NOT synced) ───────────────────────── -->
+                                    <StackPanel x:Name="MsiLedZoneRow" Margin="0,0,0,12" Visibility="Collapsed">
+                                        <TextBlock Text="Zone" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="MsiLedZoneCombo" Width="280" HorizontalAlignment="Left"
+                                                  SelectionChanged="MsiLedZoneCombo_SelectionChanged">
+                                            <ComboBoxItem>
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_r.png" Width="20" Height="20"/>
+                                                    <TextBlock Text="Right stick" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </ComboBoxItem>
+                                            <ComboBoxItem>
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_l.png" Width="20" Height="20"/>
+                                                    <TextBlock Text="Left stick" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </ComboBoxItem>
+                                            <ComboBoxItem>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_a.png" Width="20" Height="20"/>
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_b.png" Width="20" Height="20"/>
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_x.png" Width="20" Height="20"/>
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_y.png" Width="20" Height="20"/>
+                                                    <TextBlock Text="Buttons" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                                </StackPanel>
+                                            </ComboBoxItem>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- ── Mode selector (per zone) ───────────────────────────────────── -->
+                                    <TextBlock Text="Mode" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MsiLedModeCombo" Width="280" HorizontalAlignment="Left"
+                                              SelectionChanged="MsiLedModeCombo_SelectionChanged">
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE790;" FontSize="16"/><TextBlock Text="Static" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE706;" FontSize="16"/><TextBlock Text="Breathing" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE895;" FontSize="16"/><TextBlock Text="Color Cycle" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE72C;" FontSize="16"/><TextBlock Text="Wave" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE83F;" FontSize="16"/><TextBlock Text="Battery" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                    </ComboBox>
+
+                                    <!-- ── Color (Static / Breathing-solid): swatch opens the colour wheel ── -->
+                                    <StackPanel x:Name="MsiLedColorRow" Margin="0,14,0,0">
+                                        <TextBlock Text="Color" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                        <Button x:Name="MsiLedColorSwatchButton" Padding="2" BorderThickness="1"
+                                                BorderBrush="#55FFFFFF" Background="#22FFFFFF" HorizontalAlignment="Left">
+                                            <Border x:Name="MsiLedColorSwatch" Width="56" Height="28" CornerRadius="3" Background="#FFFFFF"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedColorPicker"
+                                                                      ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False"
+                                                                      IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False"
+                                                                      Loaded="MsiLedPicker_Loaded"
+                                                                      ColorChanged="MsiLedColorPicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <!-- ── Rainbow toggle (Breathing + Wave) ──────────────────────────── -->
+                                    <Grid x:Name="MsiLedRainbowRow" Margin="0,14,0,0" Visibility="Collapsed">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="LED color based on battery" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Levels: ≥90% blue · 80–89% teal · 70–79% green · 60–69% lime · 50–59% yellow · 40–49% orange · 30–39% orange-red · 20–29% red · &lt;20% purple. Only while the LED is on."
+                                            <TextBlock Text="Rainbow" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock x:Name="MsiLedRainbowCaption" Text="On = rainbow. Off = your colour(s)."
                                                        FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
-                                            <TextBlock Text="Note: applied right away; afterwards the color updates when the charge crosses into a new 10% band. Brightness follows the slider above."
-                                                       FontSize="11" Foreground="#777777" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                         </StackPanel>
-                                        <ToggleSwitch x:Name="LedColorBySocToggle" Grid.Column="1"
+                                        <ToggleSwitch x:Name="MsiLedRainbowToggle" Grid.Column="1"
                                                       OnContent="" OffContent="" IsOn="False"
                                                       Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="LedColorBySocToggle_Toggled"/>
+                                                      Toggled="MsiLedRainbowToggle_Toggled"/>
                                     </Grid>
+
+                                    <!-- ── Wave custom colours: 4 swatches (Wave, Rainbow off) ────────── -->
+                                    <StackPanel x:Name="MsiLedWaveSwatchRow" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" Visibility="Collapsed">
+                                        <Button x:Name="MsiLedWaveSwatchButton0" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
+                                            <Border x:Name="MsiLedWaveSwatch0" Width="40" Height="28" CornerRadius="3" Background="#FF0000"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker0" Tag="0" ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                        <Button x:Name="MsiLedWaveSwatchButton1" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
+                                            <Border x:Name="MsiLedWaveSwatch1" Width="40" Height="28" CornerRadius="3" Background="#FFFF00"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker1" Tag="1" ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                        <Button x:Name="MsiLedWaveSwatchButton2" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
+                                            <Border x:Name="MsiLedWaveSwatch2" Width="40" Height="28" CornerRadius="3" Background="#00FF00"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker2" Tag="2" ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                        <Button x:Name="MsiLedWaveSwatchButton3" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
+                                            <Border x:Name="MsiLedWaveSwatch3" Width="40" Height="28" CornerRadius="3" Background="#0000FF"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker3" Tag="3" ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <!-- ── Speed (Breathing / Color Cycle / Wave) ─────────────────────── -->
+                                    <StackPanel x:Name="MsiLedSpeedRow" Margin="0,14,0,0" Visibility="Collapsed">
+                                        <TextBlock Text="Speed" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="MsiLedSpeedCombo" Width="280" HorizontalAlignment="Left"
+                                                  SelectionChanged="MsiLedSpeedCombo_SelectionChanged">
+                                            <ComboBoxItem Content="Slow"/>
+                                            <ComboBoxItem Content="Medium"/>
+                                            <ComboBoxItem Content="Fast"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- ── Direction (Wave) ───────────────────────────────────────────── -->
+                                    <StackPanel x:Name="MsiLedDirectionRow" Margin="0,14,0,0" Visibility="Collapsed">
+                                        <TextBlock Text="Direction" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="MsiLedDirectionCombo" Width="280" HorizontalAlignment="Left"
+                                                  SelectionChanged="MsiLedDirectionCombo_SelectionChanged">
+                                            <ComboBoxItem Content="Clockwise"/>
+                                            <ComboBoxItem Content="Counter-clockwise"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- ── Color Cycle note (shown only in Color Cycle mode) ──────────── -->
+                                    <TextBlock x:Name="MsiLedCycleNote" Visibility="Collapsed" Margin="0,14,0,0"
+                                               Text="Color Cycle sweeps smoothly through a colour spectrum. Custom cycle colours are coming in a follow-up."
+                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+
+                                    <!-- ── Brightness (Static + Battery only) ─────────────────────────── -->
+                                    <TextBlock x:Name="MsiLedBrightnessLabel" Text="Brightness"
+                                               FontSize="12" Foreground="#DDDDDD" Margin="0,14,0,2"/>
+                                    <Slider x:Name="MsiLedBrightnessSlider" Minimum="0" Maximum="100"
+                                            Width="280" HorizontalAlignment="Left"
+                                            ValueChanged="MsiLedBrightnessSlider_ValueChanged"/>
+
+                                    <!-- ── Battery note (shown only in Battery mode) ──────────────────── -->
+                                    <TextBlock x:Name="MsiLedBatteryNote" Visibility="Collapsed" Margin="0,10,0,0"
+                                               Text="Battery: the LED hue follows the charge level (≥90% blue → &lt;20% purple), updated when it crosses a 10% band. The slider above sets its brightness."
+                                               FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+
+                                    <!-- Legacy compat controls — kept Collapsed so their existing code-behind
+                                         handlers keep compiling (boot-cycle is disabled helper-side; the old
+                                         battery toggle is superseded by the Battery mode above). -->
+                                    <ToggleSwitch x:Name="MsiLedBootCycleToggle" Visibility="Collapsed"
+                                                  OnContent="" OffContent="" IsOn="True" Toggled="MsiLedBootCycleToggle_Toggled"/>
+                                    <ToggleSwitch x:Name="LedColorBySocToggle" Visibility="Collapsed"
+                                                  OnContent="" OffContent="" IsOn="False" Toggled="LedColorBySocToggle_Toggled"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -8392,7 +8543,7 @@
                                             <x:String>Keyboard</x:String>
                                             <x:String>Mouse</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonY1ComboBox" Grid.Column="2"
+                                        <ComboBox x:Name="LegionButtonY1ComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
@@ -8436,7 +8587,7 @@
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonY2ComboBox" Grid.Column="2"
+                                        <ComboBox x:Name="LegionButtonY2ComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
@@ -8474,7 +8625,7 @@
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonY3ComboBox" Grid.Column="2"
+                                        <ComboBox x:Name="LegionButtonY3ComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
@@ -8512,7 +8663,7 @@
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonM1ComboBox" Grid.Column="2"
+                                        <ComboBox x:Name="LegionButtonM1ComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
@@ -8550,7 +8701,7 @@
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonM2ComboBox" Grid.Column="2"
+                                        <ComboBox x:Name="LegionButtonM2ComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
@@ -8588,7 +8739,7 @@
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonM3ComboBox" Grid.Column="2"
+                                        <ComboBox x:Name="LegionButtonM3ComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
@@ -8653,7 +8804,7 @@
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <!-- Button selector -->
-                                        <ComboBox x:Name="LegionGamepadButtonSelectorComboBox" Width="100" Margin="0,0,8,0"
+                                        <ComboBox x:Name="LegionGamepadButtonSelectorComboBox" Width="100" Margin="0,0,8,0" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
                                             <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
@@ -8668,7 +8819,7 @@
                                             <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String>
                                         </ComboBox>
                                         <!-- Gamepad action dropdown -->
-                                        <ComboBox x:Name="LegionGamepadActionComboBox" Grid.Column="2"
+                                        <ComboBox x:Name="LegionGamepadActionComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
