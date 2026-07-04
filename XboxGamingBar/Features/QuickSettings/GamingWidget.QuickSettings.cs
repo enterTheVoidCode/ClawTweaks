@@ -956,11 +956,137 @@ namespace XboxGamingBar
         /// (SVG) icon — the new Program / Website / media actions — this renders a crisp PathIcon
         /// in a Viewbox; everything else falls back to the Segoe MDL2 glyph as before.
         /// </summary>
+        // ── Charge Limiter battery visual ───────────────────────────────────────────
+        // Live references for the MAIN Charge Limiter tile so the state refresh can update
+        // the fill (current SoC) and the limit line without rebuilding the whole tile.
+        private Windows.UI.Xaml.Shapes.Rectangle _chgBatteryFill;
+        private Windows.UI.Xaml.Shapes.Rectangle _chgBatteryLimitLine;
+        private double _chgBatteryInnerHeight;
+
+        /// <summary>
+        /// Custom battery-shaped icon for the Charge Limiter tile: a rounded body with a terminal
+        /// "pin" on top. Prio 1 = the limit shown as a horizontal line; prio 2 = the current SoC
+        /// shown as a fill from the bottom. Only the main tile (captureRefs) is kept live.
+        /// </summary>
+        private FrameworkElement BuildChargeLimitBatteryIcon(double size, bool captureRefs, Windows.UI.Xaml.Media.Brush outlineBrush)
+        {
+            double bodyW  = size * 1.25;
+            double bodyH  = size * 1.60;
+            double pinH   = Math.Max(3.0, size * 0.16);
+            double pinW   = bodyW * 0.42;
+            double border = Math.Max(1.5, size * 0.09);
+            double corner = size * 0.26;
+            double pad    = 2.0;
+            double innerH = bodyH - 2 * border - 2 * pad;
+            double lineH  = Math.Max(2.0, size * 0.09);
+
+            var outline = outlineBrush ?? tileIconBrush ?? new SolidColorBrush(Windows.UI.Colors.White);
+
+            var container = new Windows.UI.Xaml.Controls.Grid
+            {
+                Width = bodyW,
+                Height = bodyH + pinH,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            container.RowDefinitions.Add(new Windows.UI.Xaml.Controls.RowDefinition { Height = new GridLength(pinH) });
+            container.RowDefinitions.Add(new Windows.UI.Xaml.Controls.RowDefinition { Height = new GridLength(bodyH) });
+
+            // Terminal pin on top (two cuts in the top edge leave this centred nub).
+            var pin = new Windows.UI.Xaml.Controls.Border
+            {
+                Width = pinW,
+                Height = pinH,
+                Background = outline,
+                CornerRadius = new CornerRadius(pinH * 0.5, pinH * 0.5, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Bottom
+            };
+            Windows.UI.Xaml.Controls.Grid.SetRow(pin, 0);
+            container.Children.Add(pin);
+
+            // Battery body (rounded so it fits the theme).
+            var body = new Windows.UI.Xaml.Controls.Border
+            {
+                Width = bodyW,
+                Height = bodyH,
+                BorderBrush = outline,
+                BorderThickness = new Thickness(border),
+                CornerRadius = new CornerRadius(corner),
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(38, 255, 255, 255))
+            };
+            Windows.UI.Xaml.Controls.Grid.SetRow(body, 1);
+
+            var inner = new Windows.UI.Xaml.Controls.Grid { Margin = new Thickness(pad) };
+
+            // Prio 2: SoC fill from the bottom.
+            var fill = new Windows.UI.Xaml.Shapes.Rectangle
+            {
+                Fill = new SolidColorBrush(Windows.UI.Color.FromArgb(225, 92, 196, 106)),  // battery green
+                RadiusX = corner * 0.45,
+                RadiusY = corner * 0.45,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Height = 0
+            };
+            // Prio 1: limit line.
+            var limitLine = new Windows.UI.Xaml.Shapes.Rectangle
+            {
+                Fill = new SolidColorBrush(Windows.UI.Colors.White),
+                Height = lineH,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(0)
+            };
+            inner.Children.Add(fill);
+            inner.Children.Add(limitLine);
+            body.Child = inner;
+            container.Children.Add(body);
+
+            if (captureRefs)
+            {
+                _chgBatteryFill = fill;
+                _chgBatteryLimitLine = limitLine;
+                _chgBatteryInnerHeight = innerH;
+            }
+            ApplyChargeBatteryValues(fill, limitLine, innerH);
+            return container;
+        }
+
+        private void ApplyChargeBatteryValues(Windows.UI.Xaml.Shapes.Rectangle fill,
+                                              Windows.UI.Xaml.Shapes.Rectangle limitLine, double innerH)
+        {
+            if (fill == null || limitLine == null || innerH <= 0) return;
+
+            int limit = ChargeLimiterPercent();
+            int soc;
+            try { soc = Windows.System.Power.PowerManager.RemainingChargePercent; } catch { soc = 0; }
+            if (limit < 0) limit = 0; else if (limit > 100) limit = 100;
+            if (soc   < 0) soc   = 0; else if (soc   > 100) soc   = 100;
+
+            fill.Height = innerH * soc / 100.0;
+
+            double lineH = limitLine.Height;
+            double pos = innerH * limit / 100.0 - lineH / 2.0;
+            if (pos < 0) pos = 0; else if (pos > innerH - lineH) pos = innerH - lineH;
+            limitLine.Margin = new Thickness(0, 0, 0, pos);
+        }
+
+        /// <summary>Refresh the main Charge Limiter tile's battery visual (SoC fill + limit line).</summary>
+        private void UpdateChargeLimitBatteryVisual()
+        {
+            ApplyChargeBatteryValues(_chgBatteryFill, _chgBatteryLimitLine, _chgBatteryInnerHeight);
+        }
+
         private FrameworkElement BuildTileIconElement(TileActionType actionType, string tileId, string glyph, double size, Windows.UI.Xaml.Media.Brush foreground)
         {
             // Main tiles pass null → use the theme's tile-icon tint (light azure for Next Gen Claw,
             // white otherwise). The edit-mode mini tiles pass an explicit visible/disabled brush.
             if (foreground == null) foreground = tileIconBrush;
+
+            // Charge Limiter gets a custom battery visual (fill = SoC, line = limit) instead of a glyph.
+            if (tileId == "ChargeLimiter")
+                return BuildChargeLimitBatteryIcon(size, captureRefs: size >= 24, outlineBrush: foreground);
 
             string path = TileActionHelper.GetFluentIconPath(actionType)
                           ?? TileActionHelper.GetFluentIconPathForTileId(tileId);

@@ -1141,6 +1141,8 @@ namespace XboxGamingBar
                         chgTile.StateText.Foreground = on ? accentForeground : offForeground;
                         chgTile.TileButton.Background = on ? tileOnBrush : tileOffBrush;
                     }
+                    // Update the battery visual (SoC fill + limit line) on the main tile.
+                    UpdateChargeLimitBatteryVisual();
                 }
 
                 // EPP tile
