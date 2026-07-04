@@ -1,0 +1,56 @@
+using System;
+using System.Collections.Generic;
+using Windows.UI.Xaml.Data;
+using Windows.UI.Xaml.Media.Imaging;
+
+namespace XboxGamingBar
+{
+    /// <summary>
+    /// Maps a gamepad-action name (the ComboBox string item, e.g. "LS Click", "A", "Xbox Button") to its
+    /// Xbox glyph in Assets/ButtonIcons. Returns null for names without an icon (e.g. "Disabled") so the
+    /// bound Image simply shows nothing. Used by the button-remap action dropdowns' ItemTemplate.
+    /// </summary>
+    public sealed class GamepadButtonIconConverter : IValueConverter
+    {
+        private static readonly Dictionary<string, string> Map = new Dictionary<string, string>
+        {
+            { "LS",          "xbox_stick_click_l" },  // tile-hotkey dropdown uses the short "LS"/"RS" labels
+            { "RS",          "xbox_stick_click_r" },
+            { "LS Click",    "xbox_stick_click_l" },
+            { "LS Up",       "xbox_stick_l_up" },
+            { "LS Down",     "xbox_stick_l_down" },
+            { "LS Left",     "xbox_stick_l_left" },
+            { "LS Right",    "xbox_stick_l_right" },
+            { "RS Click",    "xbox_stick_click_r" },
+            { "RS Up",       "xbox_stick_r_up" },
+            { "RS Down",     "xbox_stick_r_down" },
+            { "RS Left",     "xbox_stick_r_left" },
+            { "RS Right",    "xbox_stick_r_right" },
+            { "D-Pad Up",    "xbox_dpad_up_outline" },
+            { "D-Pad Down",  "xbox_dpad_down_outline" },
+            { "D-Pad Left",  "xbox_dpad_left_outline" },
+            { "D-Pad Right", "xbox_dpad_right_outline" },
+            { "A",           "xbox_button_color_a" },
+            { "B",           "xbox_button_color_b" },
+            { "X",           "xbox_button_color_x" },
+            { "Y",           "xbox_button_color_y" },
+            { "LB",          "xbox_lb" },
+            { "LT",          "xbox_lt" },
+            { "RB",          "xbox_rb" },
+            { "RT",          "xbox_rt" },
+            { "Select",      "xbox_button_menu" },   // Select == Xbox "View/Menu" glyph (per user)
+            { "Start",       "xbox_button_start" },
+            { "Xbox Button", "xbox_guide" },         // Guide glyph (per user)
+        };
+
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is string s && Map.TryGetValue(s, out string file))
+                return new BitmapImage(new Uri($"ms-appx:///Assets/ButtonIcons/{file}.png"));
+            return null;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+            => throw new NotSupportedException();
+    }
+}
