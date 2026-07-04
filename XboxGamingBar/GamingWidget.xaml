@@ -1287,35 +1287,39 @@
                                                FontSize="13"
                                                FontWeight="SemiBold"
                                                Foreground="#FFFFFF"/>
-                                    <!-- Status badge: orange = global, green = per-game active.
-                                         Auto-width so the full label fits (no marquee/sliding). -->
-                                    <Border x:Name="ActiveProfileBadge"
-                                            Background="#37260C" BorderBrush="#A06E28" BorderThickness="1"
-                                            CornerRadius="4" Padding="8,2" Margin="0,4,0,0"
-                                            HorizontalAlignment="Left">
-                                        <TextBlock x:Name="ActiveProfileText"
-                                                   Text="Editing Global Profile"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#FFAA46"/>
-                                    </Border>
-                                    <!-- Detected game name — shown when game runs -->
-                                    <Canvas x:Name="DetectedGameTextCanvas"
-                                            Height="14"
-                                            Margin="0,2,0,0"
-                                            HorizontalAlignment="Left">
-                                        <Canvas.Clip>
-                                            <RectangleGeometry Rect="0,0,200,14"/>
-                                        </Canvas.Clip>
-                                        <TextBlock x:Name="DetectedGameText"
-                                                   Text="No app/game detected"
-                                                   FontSize="11"
-                                                   Foreground="#666666">
-                                            <TextBlock.RenderTransform>
-                                                <TranslateTransform x:Name="DetectedGameTextTransform"/>
-                                            </TextBlock.RenderTransform>
-                                        </TextBlock>
-                                    </Canvas>
+                                    <!-- Badge + detected game on one row: badge left, game status to
+                                         its right (uses the freed vertical space). -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0" VerticalAlignment="Center">
+                                        <!-- Status badge: orange = global, green = per-game active. -->
+                                        <Border x:Name="ActiveProfileBadge"
+                                                Background="#37260C" BorderBrush="#A06E28" BorderThickness="1"
+                                                CornerRadius="4" Padding="8,2"
+                                                VerticalAlignment="Center" HorizontalAlignment="Left">
+                                            <TextBlock x:Name="ActiveProfileText"
+                                                       Text="Editing Global Profile"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#FFAA46"/>
+                                        </Border>
+                                        <!-- Detected game name — shown when game runs -->
+                                        <Canvas x:Name="DetectedGameTextCanvas"
+                                                Height="14"
+                                                Margin="10,0,0,0"
+                                                VerticalAlignment="Center"
+                                                HorizontalAlignment="Left">
+                                            <Canvas.Clip>
+                                                <RectangleGeometry Rect="0,0,200,14"/>
+                                            </Canvas.Clip>
+                                            <TextBlock x:Name="DetectedGameText"
+                                                       Text="No app/game detected"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource HintTextBrush}">
+                                                <TextBlock.RenderTransform>
+                                                    <TranslateTransform x:Name="DetectedGameTextTransform"/>
+                                                </TextBlock.RenderTransform>
+                                            </TextBlock>
+                                        </Canvas>
+                                    </StackPanel>
                                 </StackPanel>
 
                                 <!-- Right: toggle top-aligned -->
@@ -10126,7 +10130,6 @@
                                         <TextBlock x:Name="ControllerStateXInputValue" Text="–" Style="{StaticResource CardValueStyle}"/>
                                     </Grid>
 
-                                </StackPanel>
                                 <!-- VIIPER device picker (relocated here from the Controller Emulation card).
                                      On the MSI Claw only the virtual device TYPE is functional: VIIPER is fed
                                      from ClawButtonMonitor's submit point, so the GoTweaks forwarder settings
@@ -10189,6 +10192,7 @@
                                             </Grid>
                                         </StackPanel>
                                     </Border>
+                                </StackPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
