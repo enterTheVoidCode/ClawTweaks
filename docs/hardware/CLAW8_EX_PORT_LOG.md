@@ -315,3 +315,30 @@ Re-ran `Diagnostics/Claw8EXProbes/GyroProbe.exe` once already while still docked
 null, confirming the dock state hadn't changed yet. Waiting on Kyle to physically undock
 before re-testing. **Do not conclude "no gyro hardware" until this retest is done** — see
 next log entry for the result.
+
+### Dock-mode retest result: hypothesis ruled out
+
+Kyle physically unplugged the device from its dock/hub accessory. Confirmed the disconnect
+took effect at the OS level: `Win32_Battery.BatteryStatus = 1` (Discharging — i.e. running
+on battery, dock was supplying AC power). `Get-PnpDevice -Class Sensor` list is byte-for-
+byte unchanged before/after (still just "Simple Device Orientation Sensor" and "HID Sensor
+Collection V2", both `Status=OK`). Re-ran `GyroProbe.exe` twice after undocking (once
+immediately, once after attempting a `pnputil /scan-devices` forced rescan — the rescan
+itself failed on a UAC cancellation and wasn't retried, but Windows enumerates sensors
+dynamically regardless so this doesn't invalidate the result): **`Gyrometer.GetDefault()`
+and `Accelerometer.GetDefault()` are still both null.**
+
+**Conclusion: dock/undock state is not the cause.** This was a good hypothesis to test
+(cheap, physically plausible, would have been a trivial non-issue if true) but is now
+ruled out with direct evidence. The null Gyrometer stands as a real finding, not a
+transient mode artifact. Per Phase 2's research, there is no known prior-art fix for this
+— HandheldCompanion's own gyro path depends on the same WinRT API and has no working
+internal-HID fallback for the Claw family. Next step (Phase 3 P1) is to parse the raw HID
+report descriptor of the Intel ISH "HID Sensor Collection V2" node
+(`HID\VID_8087&PID_0AC2\7&38CDE06&0&0000`) directly — via HidSharp, similar to the
+`HidInventory` probe already built — to determine whether a Gyroscope (HID Sensor usage
+page 0x0020, usage 0x0076) sub-collection is declared at all under that node. If yes, the
+EX gyro would need a new raw-HID sensor adapter (real new work, no shortcut). If no
+Gyroscope usage is declared anywhere in that descriptor, the honest conclusion is this
+device may simply not expose a gyroscope to the OS, and gyro-to-stick/gyro-to-mouse would
+need to be marked unsupported on the EX rather than forced.
