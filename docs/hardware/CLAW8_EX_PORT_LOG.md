@@ -158,3 +158,59 @@ To avoid the churn entirely, prefer building just the in-scope project
   `release/v0.3.98.0` @ `f8a31cf`.
 - Port log contains the exact "No matching device config found" line, plus the full
   Generic-fallback feature-flag dump.
+
+---
+
+## 2026-07-03 — Phase 1: Hardware enumeration and diff
+
+Full raw probe output and the diff table live in
+[CLAW8_EX_HARDWARE.md](CLAW8_EX_HARDWARE.md). Summary of what matched A2VM vs what didn't:
+
+**Matches A2VM assumptions (VERIFIED-IDENTICAL):**
+- WMI Vendor string ("Micro-Star International Co., Ltd.").
+- Controller VID/PID in XInput mode: `0x0DB0`/`0x1901`.
+- Command-interface UsagePage/Usage in XInput mode: `0xFFA0`/`0x0001`, 64-byte in/out
+  reports — measured live via a new HidSharp-based probe
+  (`Diagnostics/Claw8EXProbes/HidInventory`), not just PnP enumeration.
+- `MSI_ACPI` WMI class exists at instance `ACPI\PNP0C14\0_0`, exactly matching the
+  hardcoded path in `MsiClawWmi.cs`. Note: querying this instance **requires
+  elevation** — a non-elevated `Get-CimInstance` silently returns 0 instances (no error
+  surfaced unless you drop `-ErrorAction SilentlyContinue`), which looks identical to
+  "class not present." Anyone re-probing this later should elevate first or they'll get a
+  false negative.
+- `MSI_ACPI`'s method set is a superset of what the plan expected (includes all the
+  Get_AP/Set_AP-style methods, plus newer ones like `Get_EC2`, `*_64` variants) — the newer
+  MSI Center M SDK (v3.0.2605.2101, confirmed installed) exposes more surface than A2VM's
+  presumably older SDK, but nothing A2VM uses looks removed.
+
+**Diverges from A2VM assumptions (needs real investigation, not just detection-string
+changes):**
+- **Board ID is `MS-1T91`**, not `MS-1T52` (expected — different hardware generation, this
+  is just a fact to bake into the new device config, not a problem).
+- **`Windows.Devices.Sensors.Gyrometer.GetDefault()` returns null on this device.** Built
+  a dedicated probe (`Diagnostics/Claw8EXProbes/GyroProbe`, calls the same WinRT API
+  `WindowsSensorGyroSourceAdapter` uses) to confirm this wasn't a fluke — confirmed null for
+  both Gyrometer and Accelerometer. Checked the obvious mundane cause first (Windows motion
+  sensor privacy/consent) — `sensors.custom` consent is `Allow` at both HKLM and HKCU, so
+  that's not it. An Intel Sensor Hub (`HID\VID_8087&PID_0AC2`, PnP class `Sensor`) IS present,
+  but its HardwareID (`HID\VID_8087&UP:0020_U:0001`) only proves a generic HID Sensor
+  collection exists, not that a Gyroscope (usage 0x76) sub-collection is declared under it —
+  didn't parse the raw HID report descriptor to check in Phase 1, that's Phase 3 P1 work.
+  **This is the single biggest open risk in the whole port**: if there is genuinely no
+  gyroscope exposed to Windows on this device, `ClawGyroSourceAdapter`/
+  `WindowsSensorGyroSourceAdapter` cannot be reused as-is for the EX, and gyro-to-stick /
+  gyro-to-mouse features may need a different data source (raw HID sensor reports) or may
+  simply be unsupported on this device. Do not write any gyro remap code in Phase 4 until
+  Phase 3 P1 resolves this one way or the other.
+- DInput-mode PID/usage-page (`0x1902`/`0xFFF0`/`0x0040`) and firmware-version/M1-M2-param
+  reads were NOT captured — device was in XInput mode throughout Phase 1 and switching
+  modes is explicitly Phase 3 (P2) work, not Phase 1 (read-only enumeration only).
+
+**Probes committed:** `Diagnostics/Claw8EXProbes/HidInventory` (net472 console app,
+references the repo's existing `packages/HidSharp.2.1.0`) and
+`Diagnostics/Claw8EXProbes/GyroProbe` (net8.0-windows10.0.19041.0 console app, calls the
+WinRT Sensor API directly). Both build clean and were run on-device to produce the results
+above.
+
+**Phase 1 acceptance criteria: met**, with the gyro divergence flagged as the standout risk
+to carry forward rather than silently resolved.
