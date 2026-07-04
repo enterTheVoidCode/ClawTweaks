@@ -624,7 +624,9 @@
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
-                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Profiles (Performance &amp; Display)">
+                    <!-- Profiles tab hidden: its content moved into the Performance tab. The nav item,
+                         GameScrollViewer and the "Game" tag mapping are kept as a template for a future tab. -->
+                    <RadioButton x:Name="ProfilesNavItem" Tag="Game" Visibility="Collapsed" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Profiles (Performance &amp; Display)">
                         <RadioButton.Content>
                             <!-- Floppy disk (save) — saved performance & display profiles -->
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
@@ -2651,10 +2653,16 @@
                                                   MinWidth="0"
                                                   IsEnabled="False"
                                                   KeyDown="CPUBoostToggle_KeyDown"/>
+                                    <!-- Collapse/expand chevron (collapsed by default) -->
+                                    <ToggleButton x:Name="CpuCardExpandButton" Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  Click="CpuCardExpandButton_Click" UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="CpuCardExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
                                 </Grid>
 
-                                <!-- Always-expanded content (the "More settings" expander was removed). -->
-                                <StackPanel x:Name="CpuSectionContent" Visibility="Visible" Margin="0,12,0,0" Spacing="10">
+                                <!-- Collapsible content (collapsed by default). -->
+                                <StackPanel x:Name="CpuSectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="10">
                                     <!-- Boost Mode (single control — includes "Off" since the on/off toggle is hidden) -->
                                     <StackPanel>
                                         <TextBlock Text="Boost Mode" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
@@ -2727,47 +2735,6 @@
                                         </ComboBox>
                                     </StackPanel>
                                 </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                    </StackPanel>
-                </ScrollViewer>
-
-                <!-- GAME TAB -->
-                <ScrollViewer x:Name="GameScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
-                              BringIntoViewOnFocusChange="True">
-                    <StackPanel Padding="16,8,16,16">
-
-                        <!-- Current Game Card -->
-                        <Border Style="{StaticResource CardStyle}">
-                            <StackPanel>
-                                <TextBlock Text="Current Game" Style="{StaticResource CardTitleStyle}"/>
-                                <Grid Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <!-- Game Icon -->
-                                    <Image x:Name="CurrentGameIcon"
-                                           Grid.Column="0"
-                                           Width="32" Height="32"
-                                           Margin="0,0,10,0"
-                                           Stretch="UniformToFill"
-                                           VerticalAlignment="Center"
-                                           Visibility="Collapsed"/>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock x:Name="RunningGameText"
-                                                   Text="No game detected"
-                                                   FontSize="16"
-                                                   Foreground="White"
-                                                   TextWrapping="Wrap"/>
-                                        <TextBlock x:Name="CurrentGameProfileStatus"
-                                                   Text=""
-                                                   FontSize="11"
-                                                   Foreground="#888888"
-                                                   Visibility="Collapsed"/>
-                                    </StackPanel>
-                                </Grid>
                             </StackPanel>
                         </Border>
 
@@ -3199,37 +3166,57 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Saved Profiles Section -->
-                        <Grid Margin="0,24,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Saved Profiles"
-                                       FontSize="16"
-                                       Foreground="#00C8FF"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center"/>
-                            <!--
-                                Sort dropdown for the saved-profiles list. Selection is
-                                persisted to LocalSettings["ProfileSortMode"] so it
-                                survives across widget re-opens. Tags are read by the
-                                C# code-behind in UpdateAllGameProfilesDisplay to drive
-                                ordering.
-                            -->
-                            <ComboBox x:Name="ProfileSortComboBox"
-                                      Grid.Column="1"
-                                      Width="150"
-                                      SelectionChanged="ProfileSortComboBox_SelectionChanged"
-                                      Style="{StaticResource ModernComboBoxStyle}">
-                                <ComboBoxItem Tag="name" Content="Name (A→Z)" IsSelected="True"/>
-                                <ComboBoxItem Tag="modified" Content="Last Modified"/>
-                                <ComboBoxItem Tag="tdp" Content="TDP (high → low)"/>
-                            </ComboBox>
-                        </Grid>
+                        <!-- Saved Profiles (collapsible, own expandable region; collapsed by default) -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,16,0,0">
+                            <StackPanel>
+                                <!-- Header: title + expand toggle -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Saved Profiles" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Your saved per-game performance &amp; display profiles"
+                                                   FontSize="11" Foreground="#888888" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="PerfSavedProfilesExpandButton" Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  Click="PerfSavedProfilesExpandButton_Click" UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="PerfSavedProfilesExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
 
-                        <!-- Container for dynamically created game profile cards -->
-                        <StackPanel x:Name="AllGameProfilesContainer"/>
+                                <!-- Collapsible content: sort dropdown + the dynamically built profile cards -->
+                                <StackPanel x:Name="PerfSavedProfilesContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Sort by" FontSize="12" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        <!--
+                                            Sort dropdown for the saved-profiles list. Selection is
+                                            persisted to LocalSettings["ProfileSortMode"] so it
+                                            survives across widget re-opens. Tags are read by the
+                                            C# code-behind in UpdateAllGameProfilesDisplay to drive ordering.
+                                        -->
+                                        <ComboBox x:Name="ProfileSortComboBox"
+                                                  Grid.Column="1"
+                                                  Width="150"
+                                                  SelectionChanged="ProfileSortComboBox_SelectionChanged"
+                                                  Style="{StaticResource ModernComboBoxStyle}">
+                                            <ComboBoxItem Tag="name" Content="Name (A→Z)" IsSelected="True"/>
+                                            <ComboBoxItem Tag="modified" Content="Last Modified"/>
+                                            <ComboBoxItem Tag="tdp" Content="TDP (high → low)"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Container for dynamically created game profile cards -->
+                                    <StackPanel x:Name="AllGameProfilesContainer"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
                         <!-- Power Source Profile Card.
                              AC/DC split is removed for the GLOBAL profile, so this card is only shown
@@ -3549,6 +3536,23 @@
                                 </StackPanel>
                             </StackPanel>
                         </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- GAME TAB -->
+                <ScrollViewer x:Name="GameScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+
+                        <!-- Profiles content moved into the Performance tab. This tab is hidden (see TabSettings) and kept as an empty template for a future tab. -->
+
+                        <!-- Hidden legacy elements from the removed "Current Game" card. Retained (Collapsed)
+                             so the existing code-behind that updates them still compiles; the live
+                             "current game" display is now the ActiveProfileCard at the top of the Performance tab. -->
+                        <Image     x:Name="CurrentGameIcon"          Visibility="Collapsed" IsHitTestVisible="False"/>
+                        <TextBlock x:Name="RunningGameText"          Visibility="Collapsed" Text="No game detected"/>
+                        <TextBlock x:Name="CurrentGameProfileStatus" Visibility="Collapsed"/>
 
                     </StackPanel>
                 </ScrollViewer>

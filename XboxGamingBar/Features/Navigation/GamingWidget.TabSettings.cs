@@ -61,7 +61,9 @@ namespace XboxGamingBar
             new TabDef("Display",     "Display"),
             new TabDef("Fan",         "Fan"),
             new TabDef("Scaling",     "Lossless Scaling"),
-            new TabDef("Game",        "Profiles"),
+            // "Game" (Profiles) is hidden: its content moved into the Performance tab. Left out of the
+            // manageable list so it disappears from the Tab Settings reorder/hide UI and is dropped from
+            // any saved order for existing users. The nav item + GameScrollViewer stay as a template.
             new TabDef("Drivers",     "Drivers"),
             new TabDef("GPD",         "GPD"),
             new TabDef("AMD",         "Graphics"),
