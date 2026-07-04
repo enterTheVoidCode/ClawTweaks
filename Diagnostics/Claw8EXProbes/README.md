@@ -26,7 +26,49 @@ the same WinRT API `ControllerEmulation/GyroSourceAdapters.cs`'s
 
 **Phase 1 finding:** both `Gyrometer.GetDefault()` and `Accelerometer.GetDefault()`
 returned `null` on the EX, despite an Intel Sensor Hub HID collection being present in
-Device Manager. Not caused by Windows motion-sensor privacy settings (checked: `Allow`).
-Root cause not yet determined — see `docs/hardware/CLAW8_EX_HARDWARE.md` section 1c and
-the Phase 1 entry in `docs/hardware/CLAW8_EX_PORT_LOG.md`. This is the top open risk
-carried into Phase 2/3.
+Device Manager. Not caused by Windows motion-sensor privacy settings (checked: `Allow`),
+not caused by dock/undock state (tested both, see port log). Root cause not yet
+determined — see `docs/hardware/CLAW8_EX_HARDWARE.md` section 1c and the Phase 1/3 entries
+in `docs/hardware/CLAW8_EX_PORT_LOG.md`. This is the top open risk carried into Phase 4.
+
+## SensorDescriptorProbe
+
+`dotnet build -c Release` (net472). Hand-rolled HID report-descriptor walker (bypasses
+HidSharp's higher-level `ReportDescriptor`/`DeviceItem` abstraction, which only surfaces
+top-level Application collections) that tracks every Main/Global/Local item, so nested
+Collection/Usage announcements are visible — that's where a HID Sensor page (`0x0020`)
+device would declare a Gyroscope (`0x0076`) sub-collection. Filters to Intel (`VID_8087`)
+devices by default.
+
+**Phase 3 finding:** dead end before it could even parse anything — the Intel ISH's "HID
+Sensor Collection V2" node is claimed under PnP Class `Sensor`, not `HIDClass`, so its raw
+HID device interface isn't enumerable via HidSharp (or any generic HID API) at all. This
+is the Sensor Class Extension's exclusive-ownership-by-design, not something fixable from
+a probe.
+
+## ControllerMotionProbe
+
+`dotnet build -c Release` (net472). Sends HandheldCompanion's `SetMotionStatus` vendor HID
+command (`{0x0F,0,0,0x3C,0x2F,1}`, same wire format as `MSIClawHidController.cs`'s
+`SwitchMode`) to the Claw controller's command interface, then listens on every openable
+`VID_0DB0` HID interface for 12 seconds while the device is physically moved, looking for
+streamed motion data. Restores with `{0x0F,0,0,0x3C,0x2F,0}` before exiting.
+
+**Phase 3 finding:** zero input reports arrived on any interface. Tests the hypothesis
+that gyro data streams from the controller hardware itself (as opposed to the laptop
+chassis's Intel ISH) — came back empty too.
+
+## DInputMotionProbe
+
+`dotnet build -c Release` (net472). Switches the controller to DInput mode (same
+`SwitchMode` command pattern), then acquires it via `SharpDX.DirectInput` exactly like
+`ClawButtonMonitor.cs`'s `FindAndAcquireJoystick()`, and polls `JoystickState` for 12
+seconds looking for vendor-extended axes/sliders that a raw HID report read might not
+distinguish from noise. Restores XInput mode before exiting.
+
+**Phase 3 finding:** DirectInput enumerated zero gamepad/joystick/driving devices
+system-wide (not a VID/PID mismatch — a completely empty result). Another dead end.
+
+All four gyro-sourcing avenues (WinRT sensor, chassis raw HID, controller HID reports,
+DirectInput axes) came back empty — see the "Four gyro-sourcing avenues tried" entry in
+`docs/hardware/CLAW8_EX_PORT_LOG.md` for the full writeup and next steps.

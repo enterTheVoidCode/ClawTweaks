@@ -342,3 +342,66 @@ EX gyro would need a new raw-HID sensor adapter (real new work, no shortcut). If
 Gyroscope usage is declared anywhere in that descriptor, the honest conclusion is this
 device may simply not expose a gyroscope to the OS, and gyro-to-stick/gyro-to-mouse would
 need to be marked unsupported on the EX rather than forced.
+
+### Four gyro-sourcing avenues tried, all dead ends
+
+Kyle asserted there is definitely a physical gyroscope on this device (confident, not
+speculative). That raised the bar from "confirm whether gyro exists" to "find where it
+actually lives," since the WinRT Sensor API clearly isn't the answer. Tried, in order:
+
+1. **Intel ISH driver health check.** `pnputil /enum-drivers` confirms the FULL genuine
+   Intel ISH stack is installed: `ishheci.inf` (HECI transport), `ishipcm.inf` (IPC),
+   `ishhidbus.inf` (HID bus), `ishhidmini.inf` (HID mini-driver), `ishoed.inf`. Microsoft's
+   `sensorshidclassdriver.inf` (the standard HID-Sensor-Collection-to-WinRT bridge) is bound
+   on top, device `Status=OK`. This is not a missing/broken driver situation.
+2. **Raw HID descriptor parsing of the ISH collection** (`Diagnostics/Claw8EXProbes/
+   SensorDescriptorProbe`, hand-rolled HID report-descriptor walker, not HidSharp's
+   higher-level parser, specifically to see nested Collection/Usage announcements a
+   Gyroscope sub-collection would use). Dead end before it could even try: the ISH's "HID
+   Sensor Collection V2" node is claimed under PnP Class `Sensor`, not `HIDClass` — its raw
+   HID device interface isn't published for user-mode enumeration at all (confirmed via a
+   full unfiltered `HidSharp.DeviceList.GetHidDevices()` dump: PID 0x0AC2 does not appear
+   anywhere, even though Device Manager also shows a *separate* "Intel(R) ISS HID Device"
+   HIDClass node at the same VID/PID — that one didn't show up in HidSharp's enumeration
+   either). This is the Sensor Class Extension's exclusive-ownership-by-design behavior, not
+   something specific to the EX or fixable from a probe.
+3. **Controller-side motion streaming** (`Diagnostics/Claw8EXProbes/ControllerMotionProbe`).
+   Hypothesis: on many handhelds the gyro chip lives in the *controller* hardware, not the
+   chassis ISH — HandheldCompanion's `ClawA1M.cs` sends a `SetMotionStatus` vendor HID
+   command (report id `0x0F`, commandType `0x2F`, matching the exact wire format
+   `MSIClawHidController.cs` already uses for `SwitchMode`) to turn on IMU report
+   streaming, though HC's own readout path for it (`SensorFamily.Controller`) turned out to
+   have no implementation per Phase 2. Sent `{0x0F,0,0,0x3C,0x2F,1}` to the vendor command
+   interface, then listened on every openable `VID_0DB0` HID interface (the command channel
+   itself, the consumer-control collection, and the raw gamepad `IG_05` collection — the
+   keyboard and mouse collections couldn't be opened, exclusively claimed by Windows' own
+   input drivers) for 12 seconds while physically tilting the device. **Zero input reports
+   arrived on any interface.** Restored with `{0x0F,0,0,0x3C,0x2F,0}` after.
+4. **DirectInput axis/slider check** (`Diagnostics/Claw8EXProbes/DInputMotionProbe`).
+   Hypothesis: DirectInput sometimes surfaces vendor-extended axes/sliders a raw HID report
+   read wouldn't distinguish from noise. Switched the controller to DInput mode via the
+   same `SwitchMode` command `ClawButtonMonitor.cs`/`MSIClawHidController.cs` already use,
+   confirmed via `Get-PnpDevice` that `PID_1902` nodes did appear, then tried
+   `DirectInput().GetDevices(...)` across `Gamepad`, `Joystick`, and `Driving` device-type
+   filters, retrying for 8 seconds. **DirectInput enumerated zero devices of any of those
+   types, system-wide** — not a VID/PID mismatch, a complete empty result. Restored XInput
+   mode afterward; confirmed via `Get-PnpDevice` the command interface is back to `PID_1901`,
+   `Status=OK`.
+
+**All four avenues came back empty.** This is not "we tried once and gave up" — each probe
+targeted a structurally different place gyro data could plausibly live (chassis sensor via
+WinRT, chassis sensor via raw HID, controller via HID reports, controller via DirectInput
+axes), used the exact wire formats/patterns already proven correct elsewhere in this
+codebase (`MSIClawHidController`'s command format, `ClawButtonMonitor`'s DirectInput
+acquire pattern), and each was verified to at least partially work up to the point of
+failure (mode switches happened, HID opens succeeded, commands sent without error) — the
+absence of data is the finding, not a probe bug. Given Kyle's confidence that a gyroscope
+physically exists, the leading hypotheses now are: (a) an ISH/EC firmware or BIOS
+configuration issue gating exposure regardless of software probing (nothing found via
+Windows Update, MSI's site, or public reviews/specs — none confirm or deny a gyro for this
+SKU either), or (b) the gyro requires a vendor driver/config package (MSI Center M, not
+just the SDK that's currently installed) that provisions something none of the in-box
+Microsoft/Intel drivers do on their own. Installing the full MSI Center M app is the next
+step, pending on Kyle. **No gyro-related code should be written in Phase 4 until this
+resolves one way or the other** — there is nothing to port yet, because nothing has been
+found to read from.
