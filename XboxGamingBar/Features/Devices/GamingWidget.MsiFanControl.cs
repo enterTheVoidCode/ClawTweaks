@@ -835,6 +835,40 @@ namespace XboxGamingBar
             catch (Exception ex) { Logger.Error($"SendFanRegProbe({block},{value}): {ex.Message}"); }
         }
 
+        // ── EXPERIMENTAL: controller-HID probe + native MSI fan detection (Debug panel) ──────────
+        private async void ClawHidProbeSend_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!App.IsConnected) { if (ClawHidProbeResult != null) ClawHidProbeResult.Text = "Helper not connected."; return; }
+                string hex = ClawHidProbeInput?.Text?.Trim() ?? "";
+                bool read = ClawHidProbeReadCheck?.IsChecked == true;
+                if (ClawHidProbeResult != null) ClawHidProbeResult.Text = "Sent, waiting for response…";
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "ClawHidProbe", $"{hex}|{(read ? "1" : "0")}" } });
+                Logger.Info($"ClawHidProbe: '{hex}' read={read}");
+            }
+            catch (Exception ex) { Logger.Error($"ClawHidProbeSend: {ex.Message}"); }
+        }
+
+        private void ClawHidProbeReadMode_Click(object sender, RoutedEventArgs e)
+        {
+            if (ClawHidProbeInput != null) ClawHidProbeInput.Text = "0F 00 00 3C 26";
+            if (ClawHidProbeReadCheck != null) ClawHidProbeReadCheck.IsChecked = true;
+            ClawHidProbeSend_Click(sender, e);
+        }
+
+        private async void MsiFanDetect_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!App.IsConnected) { if (MsiFanDetectResult != null) MsiFanDetectResult.Text = "Helper not connected."; return; }
+                if (MsiFanDetectResult != null) MsiFanDetectResult.Text = "Reading EC…";
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "MsiFanDetect", "1" } });
+                Logger.Info("MsiFanDetect requested");
+            }
+            catch (Exception ex) { Logger.Error($"MsiFanDetect: {ex.Message}"); }
+        }
+
         /// <summary>Handles "MsiFanRegStatus":"block|wrote|readback|rpm" — shows what landed in the EC.</summary>
         internal void OnFanRegStatus(string payload)
         {
