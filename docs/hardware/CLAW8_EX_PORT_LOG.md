@@ -214,3 +214,104 @@ above.
 
 **Phase 1 acceptance criteria: met**, with the gyro divergence flagged as the standout risk
 to carry forward rather than silently resolved.
+
+---
+
+## 2026-07-03 — Phase 2: Reference research
+
+Ran two subagents in parallel: (1) web research on HandheldCompanion / msi-ec / Linux WMI
+driver prior art and any known "Gyrometer null on Panther Lake" issue, (2) exhaustive
+in-repo inventory of every MSIClaw-specific touchpoint. Full inventory output is long and
+was captured verbatim in the task transcript; key decisions below.
+
+### (1) Web research findings
+
+- **HandheldCompanion has no Panther Lake Claw class.** `HandheldCompanion/Devices/MSI/`
+  has exactly three classes: `ClawA1M.cs` (base, MS-1T41), `ClawA2VM.cs` (MS-1T42/MS-1T52,
+  Lunar Lake — extends A1M, only overrides TDP tables + `GyrometerAxis`), `ClawBZ2EM.cs`
+  (MS-1T8K, AMD Z2 Extreme "Claw A8"). No `MS-1T91` entry anywhere. **We are ahead of
+  upstream on this hardware** — nobody has documented `MS-1T91` / "Claw 8 EX AI+ CG3EM"
+  publicly before this port log, as far as the research could find.
+- **Gyro sourcing in HandheldCompanion is a dead end for our null-Gyrometer problem.**
+  `ClawA1M` sends an HID control command (`SetMotionStatus`, opcode `0x2F`) to tell the
+  controller firmware to turn its IMU stream on/off, but the actual *readout* path
+  (`IMUGyrometer.cs`, `SensorsManager.cs`) is `SensorFamily.Windows` → still just
+  `Gyrometer.GetDefault()` / `ReadingChanged` — the identical WinRT API we already found
+  returns null on our unit. There's a `SensorFamily.Controller` enum case that logs
+  "initialised" but **has no actual read implementation**. The only other working path is
+  `SensorFamily.SerialUSBIMU`, for external USB IMU dongles — not applicable to an internal
+  handheld sensor. **Conclusion: even upstream doesn't have a working internal-HID raw-gyro
+  fallback for the Claw family.** If Gyrometer stays null after the dock-mode retest (see
+  below), there is no existing prior-art path to copy — we'd be first to solve it, which is
+  a real scope risk for this port, not a quick fix.
+- Confirmed fan-table format matches what we already knew from the A2VM code: 8-byte
+  duty-cycle array, 0–150 scale, via the same `MSI_ACPI`/`ACPI\PNP0C14\0_0` WMI path.
+  `ClawA2VM` changes only TDP ceilings and clock ranges vs the base class — no EC/WMI
+  protocol differences A2VM vs A1M. Useful precedent: whatever the EX needs will likely
+  also be "same protocol, different numeric ceilings," not a new protocol.
+- Linux side: `msi-ec` (raw EC register driver) has no Claw board IDs at all. The actual
+  Linux Claw support effort is a *different*, newer driver — `msi-wmi-platform`
+  (in-tree docs at `docs.kernel.org/wmi/devices/msi-wmi-platform.html`), a 2025 patch
+  series aiming for fan/TDP/battery parity with MSI Center M, WMI-method-based (not raw EC
+  pokes) — consistent with what we're already doing. Predates the EX's release; doesn't
+  name it.
+- No confirmed root cause or known fix found anywhere for "Gyrometer.GetDefault() null on
+  Panther Lake" as a named issue. Intel's ISH docs describe accel/gyro/e-compass support as
+  aimed at detachables/convertibles, suggesting OEMs must explicitly wire up ISH exposure
+  per-SKU — plausible explanation for why a handheld might ship without it, but this is
+  inference, not confirmation. **Human (Kyle) has raised an alternative, much better
+  hypothesis: docked mode.** The device may currently be docked, and Panther Lake
+  ISH/Gyrometer exposure may depend on the device being in handheld/undocked mode. This
+  wasn't on our probe checklist and is a strong lead — testing now (see below), before
+  concluding "no gyro hardware" or writing any gyro-workaround code.
+
+### (2) In-repo touchpoint inventory (summary — this becomes the Phase 4 checklist)
+
+19 `DeviceType.MSIClaw` branch points across 8 files (mostly guard clauses in
+`Program.MSIClaw.cs`, `Program.LedSoc.cs`, plus routing in `PerformanceManager.cs`,
+`ControllerSuppressionManager.cs`, `ControllerEmulationManager.GyroSource.cs`,
+`ControllerEmulationManager.Normalize.cs`, `LegionManager.cs`, `ViiperEmulationManager.cs`).
+~50 hardcoded-constant references (`0x0DB0`/`0x1901`/`0x1902`/`0xFFA0`/`0xFFF0`) across 17
+files. 10 `MsiClawWmi.Get/Set` call sites (8 fan-related in `MsiClawFanController.cs`, 2
+battery-related in `MsiClawBatteryManager.cs`). 7 firmware-version branch points in
+`MsiClawLedController.cs`'s RGB-address table (`0x163`/`0x166`/`0x167`/`0x211`/`0x217`/
+`0x219`/`0x308`) plus the M1/M2 `GetM12` byte pairs in `ClawButtonMonitor.cs` gated on
+firmware `>= 0x166` vs `0x163`.
+
+Notable items the plan's placeholder list didn't call out, now added to the Phase 4
+checklist:
+- `MsiClawFanController.cs` also uses `Get_AP`/`Set_Data` (not just `Get_Fan`/`Set_Fan`) for
+  the fan-control-enable bit and a separate "full-speed override" bit at data block 152 —
+  more surface than just the 8-byte table.
+- `ControllerSuppressionManager.cs` has MSIClaw-specific HidHide filtering logic (hides only
+  PID 0x1902, preserves 0x1901) and a USB-port-cycling helper keyed on both PIDs — easy to
+  miss if only searching for `DeviceType.MSIClaw`.
+- `Core/ControllerHotkeyMonitor.cs` has a third PID, `0x1903`, in its product-ID array,
+  commented as "testing" — not mentioned anywhere else in the plan or code; flagged for
+  Phase 4, worth asking whether this is relevant to the EX or truly dead test code.
+- `MsiClawDriverCheckService.cs`'s `IsClawHardware()` check is looser than
+  `MSIClawConfig.Matches()` (matches "Micro-Star" OR "MSI" in vendor, no model-string
+  requirement) — this check will already treat the EX as Claw hardware today, even before
+  any Phase 4 changes, which matters for driver-download UX consistency.
+
+### Per-subsystem classification (carried into Phase 3)
+
+| Subsystem | Classification |
+|---|---|
+| Detection (WMI Vendor/Model match) | Known-different (Phase 1 measured: needs new config, EX name string known) |
+| Controller HID (VID/PID/usage pages, XInput mode) | Verified-identical (Phase 1) |
+| Controller HID (DInput mode, firmware/M1-M2 reads, mode switch) | Unknown — Phase 3 P2 |
+| Gyro | **Unresolved / actively being retested** (dock-mode hypothesis, see below) — no prior-art fallback exists if it stays null |
+| Fan control | Expected same protocol as A2VM, different tuning/ceilings — Phase 3 P3/P5 |
+| TDP | Expected same protocol (MSI ACPI WMI path, not kx.exe, per `PerformanceManager.cs:1139`) — ceiling values need Phase 3 P4 + real spec numbers, not guesses |
+| Battery charge limit | Expected identical protocol (`Get_Data`/`Set_Data` block 215) — Phase 3 P3/P6 |
+| LED | Expected new firmware-version table entry needed (EX firmware version unknown yet) — Phase 3 P2/P7 |
+
+### Live retest: dock-mode hypothesis for the null Gyrometer
+
+Kyle (human) proposed the null `Gyrometer.GetDefault()` result might simply be because the
+device is currently docked, and offered to switch to handheld/undocked mode for a retest.
+Re-ran `Diagnostics/Claw8EXProbes/GyroProbe.exe` once already while still docked — still
+null, confirming the dock state hadn't changed yet. Waiting on Kyle to physically undock
+before re-testing. **Do not conclude "no gyro hardware" until this retest is done** — see
+next log entry for the result.
