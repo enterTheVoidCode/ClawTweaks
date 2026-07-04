@@ -601,9 +601,11 @@
                     </RadioButton>
                     <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Controls">
                         <RadioButton.Content>
-                            <!-- Game controller with grip "horns" (Segoe Fluent Icons "Game", E7FC). -->
+                            <!-- Game controller icon — matches the MSI Controller-Firmware driver row
+                                 (Segoe MDL2 Assets "Game", E7FC). Same 18x18 Viewbox + inherited colour
+                                 as the other tab icons. -->
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7FC;"/>
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7FC;"/>
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
@@ -4330,7 +4332,7 @@
                                                   BorderThickness="0"
                                                   Padding="8,4"
                                                   Click="MsiLedExpandButton_Click">
-                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12" Foreground="#888888"/>
+                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
                                 </Grid>
                                 <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0"
@@ -5635,7 +5637,6 @@
                 <ScrollViewer x:Name="DriverScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="12,6,12,10">
-                        <TextBlock Text="DRIVER UPDATES" Style="{StaticResource SectionHeaderStyle}"/>
                         <Border x:Name="DriverUpdatesCard" Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <StackPanel VerticalAlignment="Center">
@@ -6779,17 +6780,33 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <TextBlock Text="Per-Game Controller Profile" Style="{StaticResource CardTitleStyle}"/>
-                                        <StackPanel Orientation="Horizontal">
-                                            <Image x:Name="LegionControllerProfileGameIcon"
-                                                   Width="16" Height="16"
-                                                   Margin="0,0,6,0"
-                                                   Stretch="UniformToFill"
-                                                   VerticalAlignment="Center"
-                                                   Visibility="Collapsed"/>
-                                            <TextBlock x:Name="LegionControllerProfileGameText"
-                                                       Text="No game detected"
-                                                       Style="{StaticResource CardCaptionStyle}"
-                                                       VerticalAlignment="Center"/>
+                                        <!-- Active profile mode badge moved up here, with the game status to its right -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                            <Border x:Name="ControllerProfileModeBadge"
+                                                    Background="#37260C"
+                                                    BorderBrush="#A06E28"
+                                                    BorderThickness="1"
+                                                    CornerRadius="4"
+                                                    Padding="8,3"
+                                                    VerticalAlignment="Center"
+                                                    HorizontalAlignment="Left">
+                                                <TextBlock x:Name="ControllerProfileModeText"
+                                                           Text="Editing Global Profile"
+                                                           FontSize="11"
+                                                           Foreground="#FFAA46"/>
+                                            </Border>
+                                            <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                <Image x:Name="LegionControllerProfileGameIcon"
+                                                       Width="16" Height="16"
+                                                       Margin="0,0,6,0"
+                                                       Stretch="UniformToFill"
+                                                       VerticalAlignment="Center"
+                                                       Visibility="Collapsed"/>
+                                                <TextBlock x:Name="LegionControllerProfileGameText"
+                                                           Text="No game detected"
+                                                           Style="{StaticResource CardCaptionStyle}"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
                                         </StackPanel>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="LegionControllerProfileToggle"
@@ -6799,20 +6816,6 @@
                                                   IsEnabled="False"
                                                   Toggled="LegionControllerProfileToggle_Toggled"/>
                                 </Grid>
-                                <!-- Active profile mode badge -->
-                                <Border x:Name="ControllerProfileModeBadge"
-                                        Background="#37260C"
-                                        BorderBrush="#A06E28"
-                                        BorderThickness="1"
-                                        CornerRadius="4"
-                                        Padding="8,3"
-                                        Margin="0,8,0,0"
-                                        HorizontalAlignment="Left">
-                                    <TextBlock x:Name="ControllerProfileModeText"
-                                               Text="Editing Global Profile"
-                                               FontSize="11"
-                                               Foreground="#FFAA46"/>
-                                </Border>
                                 <TextBlock x:Name="PerGameProfileHelpText"
                                            Text="Start a game to enable a per-game controller profile."
                                            Style="{StaticResource CardCaptionStyle}"
@@ -10068,12 +10071,62 @@
                                            TextWrapping="Wrap"
                                            Margin="22,4,0,0"/>
 
+
+                                <!-- Details (collapsed by default) -->
+                                <StackPanel x:Name="ControllerStateDetailsPanel" Spacing="8" Margin="0,14,0,0" Visibility="Collapsed">
+                                    <!-- Console-style controller list -->
+                                    <Border Background="#0D0D0D"
+                                            BorderBrush="#333333"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="10,8"
+                                            Margin="0,4,0,0">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="CONNECTED CONTROLLERS"
+                                                       FontFamily="Consolas, Courier New"
+                                                       FontSize="10"
+                                                       Foreground="#555555"
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock x:Name="ControllerListConsole"
+                                                       Text="scanning..."
+                                                       FontFamily="Consolas, Courier New"
+                                                       FontSize="11"
+                                                       Foreground="#DDDDDD"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Grid>
+                                        <TextBlock Text="Virtual ViGEm controller" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStateViGEmValue" Text="–" Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="Virtual VIIPER controller" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStateViiperValue" Text="–" Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="Game controllers" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStatePid1901Value" Text="–" Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="MSI Claw DInput (PID_1902)" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStatePid1902Value" Text="–" Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="HidHide blocked devices" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStateBlockedValue" Text="–" Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+                                    <Grid>
+                                        <TextBlock Text="XInput slots connected" FontSize="13" Foreground="#AAAAAA"/>
+                                        <TextBlock x:Name="ControllerStateXInputValue" Text="–" Style="{StaticResource CardValueStyle}"/>
+                                    </Grid>
+
+                                </StackPanel>
                                 <!-- VIIPER device picker (relocated here from the Controller Emulation card).
                                      On the MSI Claw only the virtual device TYPE is functional: VIIPER is fed
                                      from ClawButtonMonitor's submit point, so the GoTweaks forwarder settings
                                      (input/gyro source, IMU axis map, gyro→stick) don't apply and stay hidden in
                                      the (now never-shown) ViiperEmulationContent. Shown only while VIIPER is the
-                                     active backend; sits above the device-count details. -->
+                                     active backend; placed at the bottom of the controller-status card. -->
                                 <StackPanel x:Name="ViiperDeviceConfigPanel" Visibility="Collapsed" Margin="0,14,0,0">
                                     <Border Background="#1E2A3E" BorderBrush="#3D5A80" BorderThickness="1" CornerRadius="6" Padding="12">
                                         <StackPanel>
@@ -10128,56 +10181,6 @@
                                                               Style="{StaticResource ModernToggleStyle}"
                                                               IsOn="False"/>
                                             </Grid>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-
-                                <!-- Details (collapsed by default) -->
-                                <StackPanel x:Name="ControllerStateDetailsPanel" Spacing="8" Margin="0,14,0,0" Visibility="Collapsed">
-                                    <Grid>
-                                        <TextBlock Text="Virtual ViGEm controller" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock x:Name="ControllerStateViGEmValue" Text="–" Style="{StaticResource CardValueStyle}"/>
-                                    </Grid>
-                                    <Grid>
-                                        <TextBlock Text="Virtual VIIPER controller" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock x:Name="ControllerStateViiperValue" Text="–" Style="{StaticResource CardValueStyle}"/>
-                                    </Grid>
-                                    <Grid>
-                                        <TextBlock Text="Game controllers" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock x:Name="ControllerStatePid1901Value" Text="–" Style="{StaticResource CardValueStyle}"/>
-                                    </Grid>
-                                    <Grid>
-                                        <TextBlock Text="MSI Claw DInput (PID_1902)" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock x:Name="ControllerStatePid1902Value" Text="–" Style="{StaticResource CardValueStyle}"/>
-                                    </Grid>
-                                    <Grid>
-                                        <TextBlock Text="HidHide blocked devices" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock x:Name="ControllerStateBlockedValue" Text="–" Style="{StaticResource CardValueStyle}"/>
-                                    </Grid>
-                                    <Grid>
-                                        <TextBlock Text="XInput slots connected" FontSize="13" Foreground="#AAAAAA"/>
-                                        <TextBlock x:Name="ControllerStateXInputValue" Text="–" Style="{StaticResource CardValueStyle}"/>
-                                    </Grid>
-
-                                    <!-- Console-style controller list -->
-                                    <Border Background="#0D0D0D"
-                                            BorderBrush="#333333"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            Padding="10,8"
-                                            Margin="0,4,0,0">
-                                        <StackPanel Spacing="2">
-                                            <TextBlock Text="CONNECTED CONTROLLERS"
-                                                       FontFamily="Consolas, Courier New"
-                                                       FontSize="10"
-                                                       Foreground="#555555"
-                                                       Margin="0,0,0,4"/>
-                                            <TextBlock x:Name="ControllerListConsole"
-                                                       Text="scanning..."
-                                                       FontFamily="Consolas, Courier New"
-                                                       FontSize="11"
-                                                       Foreground="#DDDDDD"
-                                                       TextWrapping="Wrap"/>
                                         </StackPanel>
                                     </Border>
                                 </StackPanel>
