@@ -207,6 +207,41 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // EXPERIMENTAL controller-HID probe. Content = "<hex frame>|<read 0/1>", e.g. "0F 00 00 3C 26|1".
+                if (pipeMsg.Extra.TryGetValue("ClawHidProbe", out object hidProbeObj) && hidProbeObj is string hidProbeCmd)
+                {
+                    try
+                    {
+                        int sep = hidProbeCmd.LastIndexOf('|');
+                        string hex = sep >= 0 ? hidProbeCmd.Substring(0, sep) : hidProbeCmd;
+                        bool read = sep >= 0 && hidProbeCmd.Substring(sep + 1).Trim() == "1";
+                        ProbeClawHid(hex, read);
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: ClawHidProbe failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // EXPERIMENTAL: read the native MSI fan config from the EC and push MsiFanDetectResult.
+                if (pipeMsg.Extra.TryGetValue("MsiFanDetect", out object fanDetectObj) && fanDetectObj is string)
+                {
+                    try
+                    {
+                        DetectMsiFan();
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiFanDetect failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
                 // Diagnostic: force the EC full-speed override (block 152.7) on/off to compare our table
                 // max (=150) against the EC's true full-speed ceiling. "on"|"off".
                 if (pipeMsg.Extra.TryGetValue("MsiFanFullBlast", out object fullBlastObj) && fullBlastObj is string fullBlastCmd)
@@ -388,6 +423,59 @@ namespace XboxGamingBarHelper
                 //     catch (Exception ex) { Logger.Error($"Pipe: ControllerProfilePaths parse failed: {ex.Message}"); SendPipeAck(pipeMsg.RequestId, false); }
                 //     return;
                 // }
+
+                // ── MSI Claw: per-zone LED composite (left/right/buttons) ────────────────────
+                // Payload: "MsiLedComposite" = the LedCompositeSpec wire string.
+                if (pipeMsg.Extra.TryGetValue("MsiLedComposite", out object ledCompObj) && ledCompObj is string ledCompStr)
+                {
+                    try
+                    {
+                        if (Shared.Led.LedCompositeSpec.TryParse(ledCompStr, out var comp))
+                        {
+                            ApplyComposite(comp);
+                            SendPipeAck(pipeMsg.RequestId, true);
+                        }
+                        else
+                        {
+                            Logger.Warn($"Pipe: MsiLedComposite bad format: '{ledCompStr}'");
+                            SendPipeAck(pipeMsg.RequestId, false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiLedComposite failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // ── MSI Claw: LED effect (mode + per-mode settings) ──────────────────────────
+                // Payload: "MsiLedEffect" = the LedEffectSpec wire string
+                //   mode|speedIdx|dir|brightness|rainbow|r,g,b|r,g,b|r,g,b|r,g,b
+                // Drives Static/Breathing/ColorCycle/Wave/Battery; persists the full spec + base colour.
+                if (pipeMsg.Extra.TryGetValue("MsiLedEffect", out object ledEffObj) && ledEffObj is string ledEffStr)
+                {
+                    try
+                    {
+                        if (Devices.MSIClaw.LedEffectSpec.TryParse(ledEffStr, out var spec))
+                        {
+                            ApplyLedEffect(spec);
+                            Logger.Info($"Pipe: MsiLedEffect '{ledEffStr}' applied");
+                            SendPipeAck(pipeMsg.RequestId, true);
+                        }
+                        else
+                        {
+                            Logger.Warn($"Pipe: MsiLedEffect bad format: '{ledEffStr}'");
+                            SendPipeAck(pipeMsg.RequestId, false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiLedEffect failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
 
                 // ── MSI Claw: LED color ──────────────────────────────────────────────────────
                 // Payload: "MsiLedColor" = "R,G,B" or "R,G,B,Brightness" (bytes; brightness 0-100,

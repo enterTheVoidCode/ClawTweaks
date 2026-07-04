@@ -151,6 +151,28 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes the experimental controller-HID probe response (hex report).
+                if (message.TryGetValue("ClawHidProbeResult", out object hidProbeObj) && hidProbeObj is string hidProbeResult)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { if (ClawHidProbeResult != null) ClawHidProbeResult.Text = hidProbeResult; }
+                        catch (Exception ex) { Logger.Error($"ClawHidProbeResult dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // Helper pushes the experimental native-fan detection report.
+                if (message.TryGetValue("MsiFanDetectResult", out object fanDetObj) && fanDetObj is string fanDetResult)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { if (MsiFanDetectResult != null) MsiFanDetectResult.Text = fanDetResult; }
+                        catch (Exception ex) { Logger.Error($"MsiFanDetectResult dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper reports a resolved Left-MSI button click ("single"/"double") so the
                 // double-click settings UI can flash a detection indicator for fine-tuning.
                 if (message.TryGetValue("ClawClick", out object clawClickObj) && clawClickObj is string clawClick)

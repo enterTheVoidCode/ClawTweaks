@@ -52,6 +52,58 @@ namespace XboxGamingBarHelper.MSI
         public static readonly double[] Curve_Cooling    = { 0, 0, 0,  0,  3, 22, 38, 50, 65, 85, 100 };
 
         /// <summary>
+        /// EXPERIMENTAL: read the CURRENT native fan config straight from the EC and format a report.
+        /// Unlike the write-only LED path, the EC is readable — so this reflects whatever set the fan
+        /// last, INCLUDING MSI Center M. Reads the CPU fan table (block 1) + control bit, the
+        /// power-shift scenario (210), the software-control enable (212) and the full-speed override
+        /// (152.7), and matches the table to a known preset when possible. Used by the Debug harness to
+        /// learn each MSI Center M fan mode by its EC signature (set mode in MSI Center M → read here).
+        /// </summary>
+        public static string DetectNativeReport()
+        {
+            try
+            {
+                ReadStatus(out byte[] cpu, out bool ctrlOn);
+                int shift  = ReadDataBlock(210);
+                int enable = ReadDataBlock(212);
+                bool full  = ReadFullSpeedBit();
+
+                string shiftName =
+                    shift == 0xC0 ? "Comfort/None" :
+                    shift == 0xC1 ? "Green" :
+                    shift == 0xC2 ? "ECO" :
+                    shift == 0xC4 ? "Sport" :
+                    shift < 0     ? "n/a" : $"0x{shift:X2}";
+
+                string cpuHex = "n/a";
+                if (cpu != null && cpu.Length > 0)
+                {
+                    var csb = new System.Text.StringBuilder();
+                    for (int i = 0; i < 8 && i < cpu.Length; i++) { if (i > 0) csb.Append(','); csb.Append(cpu[i]); }
+                    cpuHex = csb.ToString();
+                }
+
+                return $"control={(ctrlOn ? "software (our curve)" : "firmware/EC")}; " +
+                       $"scenario(210)={shiftName}; enableBit(212)={(enable < 0 ? "n/a" : "0x" + enable.ToString("X2"))}; " +
+                       $"fullSpeed(152.7)={(full ? "ON" : "off")}; preset~={MatchFanTable(cpu)}; cpuTable(1)=[{cpuHex}]";
+            }
+            catch (System.Exception ex)
+            {
+                return "ERR: " + ex.Message;
+            }
+        }
+
+        private static string MatchFanTable(byte[] t)
+        {
+            if (t == null || t.Length < 8) return "unknown";
+            bool Eq(byte[] a) { for (int i = 0; i < 8; i++) if (t[i] != a[i]) return false; return true; }
+            if (Eq(LLFanTable_BetterBattery))     return "BetterBattery (firmware)";
+            if (Eq(LLFanTable_BetterPerformance)) return "BetterPerformance (firmware)";
+            if (Eq(LLFanTable_BestPerformance))   return "BestPerformance (firmware)";
+            return "custom";
+        }
+
+        /// <summary>
         /// A2VM fan scale: the 0–100 % UI curve maps onto the full MSI EC range 0–150, so 100 % UI =
         /// MSI 150 = hardware max. This was 100 (≈67 % of HW max), which structurally capped software
         /// cooling below the firmware curve and, under sustained full load, let the CPU climb until the

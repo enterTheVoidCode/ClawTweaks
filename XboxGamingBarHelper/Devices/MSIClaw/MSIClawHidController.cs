@@ -140,6 +140,64 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             return -1;
         }
 
+        /// <summary>
+        /// EXPERIMENTAL probe: send an arbitrary vendor frame (padded to 64 bytes) to the controller
+        /// and optionally read the response frames. Returns a human-readable hex report. Used by the
+        /// Debug "Controller HID Probe" harness to reverse-engineer button-remap / config opcodes the
+        /// same way the LED protocol was cracked (send + observe / read-back).
+        /// </summary>
+        public static string SendRawFrameHex(byte[] frame, bool read)
+        {
+            try
+            {
+                HidDevice device = FindClawHidDevice();
+                if (device == null) return "ERR: controller vendor HID not found (is emulation on?)";
+
+                byte[] msg = new byte[64];
+                Array.Copy(frame, msg, Math.Min(frame.Length, 64));
+
+                int fwBcd = 0;
+                try { fwBcd = device.ReleaseNumberBcd; } catch { }
+
+                using (HidStream stream = device.Open())
+                {
+                    stream.WriteTimeout = 300;
+                    stream.ReadTimeout = 300;
+                    stream.Write(msg);
+
+                    if (!read)
+                        return $"fw=0x{fwBcd:X3}  SENT (write-only): {BytesToHex(msg, 16)}";
+
+                    var sb = new System.Text.StringBuilder();
+                    sb.Append($"fw=0x{fwBcd:X3}  TX: {BytesToHex(msg, 16)}");
+                    // Read up to a few frames so the user can spot the vendor ACK (0x27-style) frame
+                    // amongst any regular input reports the controller may emit.
+                    for (int i = 0; i < 6; i++)
+                    {
+                        byte[] buf = new byte[64];
+                        int n;
+                        try { n = stream.Read(buf); }
+                        catch (TimeoutException) { break; }
+                        if (n <= 0) break;
+                        sb.Append($"\nRX{i}: {BytesToHex(buf, Math.Min(n, 24))}");
+                    }
+                    return sb.ToString();
+                }
+            }
+            catch (Exception ex)
+            {
+                return "ERR: " + ex.Message;
+            }
+        }
+
+        private static string BytesToHex(byte[] b, int count)
+        {
+            var sb = new System.Text.StringBuilder(count * 3);
+            for (int i = 0; i < count && i < b.Length; i++)
+                sb.Append(b[i].ToString("X2")).Append(' ');
+            return sb.ToString().TrimEnd();
+        }
+
         private static bool TrySendModeCmd(byte[] cmd, string modeName)
         {
             try

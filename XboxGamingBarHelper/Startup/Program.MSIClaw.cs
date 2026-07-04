@@ -529,6 +529,61 @@ namespace XboxGamingBarHelper
             }
         }
 
+        /// <summary>EXPERIMENTAL controller-HID probe: send an arbitrary vendor frame (hex string like
+        /// "0F 00 00 3C 26"), optionally read the response, and push "ClawHidProbeResult". This is the
+        /// harness for reverse-engineering the button-remap / config opcodes the same way the LED
+        /// protocol was cracked (send + observe / read-back).</summary>
+        internal static void ProbeClawHid(string hexFrame, bool read)
+        {
+            try
+            {
+                byte[] frame = ParseHexBytes(hexFrame);
+                string result = (frame == null || frame.Length == 0)
+                    ? "ERR: no valid hex bytes"
+                    : Devices.MSIClaw.MSIClawHidController.SendRawFrameHex(frame, read);
+                Logger.Info($"ProbeClawHid(read={read}) '{hexFrame}' -> {result}");
+                PushProbeResult("ClawHidProbeResult", result);
+            }
+            catch (Exception ex) { Logger.Warn($"ProbeClawHid failed: {ex.Message}"); }
+        }
+
+        /// <summary>EXPERIMENTAL: read the native MSI fan config straight from the EC and push
+        /// "MsiFanDetectResult". Set a fan mode in MSI Center M, then call this to learn its EC
+        /// signature.</summary>
+        internal static void DetectMsiFan()
+        {
+            try
+            {
+                string result = MsiClawFanController.DetectNativeReport();
+                Logger.Info($"DetectMsiFan -> {result}");
+                PushProbeResult("MsiFanDetectResult", result);
+            }
+            catch (Exception ex) { Logger.Warn($"DetectMsiFan failed: {ex.Message}"); }
+        }
+
+        private static void PushProbeResult(string key, string value)
+        {
+            if (pipeServer != null && pipeServer.IsConnected)
+                pipeServer.SendMessage("{\"" + key + "\":\"" + JsonEscape(value) + "\"}");
+        }
+
+        private static string JsonEscape(string s)
+            => (s ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "").Replace("\n", "\\n");
+
+        private static byte[] ParseHexBytes(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return null;
+            var tokens = s.Replace("0x", "").Replace("0X", "")
+                          .Split(new[] { ' ', ',', ';', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            var list = new System.Collections.Generic.List<byte>();
+            foreach (var t in tokens)
+            {
+                if (byte.TryParse(t, System.Globalization.NumberStyles.HexNumber, null, out byte b)) list.Add(b);
+                else return null;
+            }
+            return list.ToArray();
+        }
+
         /// <summary>
         /// Push the Intel thermal stack (IPF/DTT) status to the widget as
         /// "IntelThermalStatus":"&lt;state&gt;|&lt;detail&gt;" so the experimental Fan-tab controls can show
