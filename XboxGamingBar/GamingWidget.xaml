@@ -6089,36 +6089,40 @@
                                                       Width="160"
                                                       SelectionChanged="MsiFanPresetComboBox_SelectionChanged"
                                                       KeyDown="MsiFanPresetComboBox_KeyDown">
-                                                <ComboBoxItem Content="EC Quiet · Quiet" Tag="0"/>
-                                                <ComboBoxItem Content="EC Quiet · Default" Tag="1"/>
-                                                <ComboBoxItem Content="EC Sport · Aggressive" Tag="2"/>
-                                                <ComboBoxItem Content="EC Sport · Cooling (Early Ramp)" Tag="3"/>
-                                                <ComboBoxItem Content="EC Sport · Custom" Tag="4"/>
-                                                <ComboBoxItem Content="EC Sport (Default)" Tag="5" IsSelected="True"/>
+                                                <ComboBoxItem Content="MSI Default" Tag="0" IsSelected="True"/>
+                                                <ComboBoxItem Content="Quiet Idle" Tag="1"/>
+                                                <ComboBoxItem Content="Cooling · Early Ramp" Tag="2"/>
+                                                <ComboBoxItem Content="Custom" Tag="3"/>
+                                                <ComboBoxItem Content="EC Sport default (debug)" Tag="4"/>
                                             </ComboBox>
                                         </Grid>
 
                                         <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#999999" TextWrapping="Wrap"
-                                                   Text="EC Sport is the default MSI mode. EC Quiet curves auto-switch to EC Sport at 158 °F (70 °C); EC Sport curves keep the Sport power-shift active at all times. Use EC Quiet for lighter tasks — you can test whether the Auto Sport safety kicks in early enough to stay controlled under heavy gaming. If the fan ever stays uncontrollably loud, shut the device down, wait one minute, then reboot."/>
+                                                   Text="MSI fan curves on the real firmware breakpoints, same scale MSI Center M uses (fan % = raw EC value). MSI Default matches MSI's stock curve; Quiet Idle is quieter at low load; Cooling ramps ~10 °C earlier. Custom lets you edit each bar: drag the bar up/down for fan %, drag the temperature label under it left/right to change that breakpoint. If the fan ever stays uncontrollably loud, shut the device down, wait one minute, then reboot."/>
 
-                                        <!-- Drag editor: 11 control points (0,10,…,100 °C → 0–100 %). -->
-                                        <TextBlock Text="Fan %" FontSize="11" Foreground="#999999" Margin="0,12,0,4"/>
-                                        <Grid Height="150">
+                                        <!-- Extended range: unlock fan % above MSI's 75 % cap -->
+                                        <Grid Margin="0,10,0,0">
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="30"/>
                                                 <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Stretch">
-                                                <TextBlock Text="100" FontSize="10" Foreground="#666666"/>
-                                                <TextBlock Text="75" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
-                                                <TextBlock Text="50" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
-                                                <TextBlock Text="25" FontSize="10" Foreground="#666666" Margin="0,25,0,0"/>
-                                                <TextBlock Text="0" FontSize="10" Foreground="#666666" VerticalAlignment="Bottom"/>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Extended range (&gt;75%)" FontSize="13" Foreground="#E0E0E0"/>
+                                                <TextBlock Text="Allow fan % beyond what MSI does" FontSize="11" Foreground="#999999"/>
                                             </StackPanel>
+                                            <ToggleSwitch x:Name="MsiFanExtendedRangeToggle"
+                                                          Grid.Column="1"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          IsOn="False"
+                                                          VerticalAlignment="Center"
+                                                          Toggled="MsiFanExtendedRangeToggle_Toggled"/>
+                                        </Grid>
+
+                                        <!-- MSI-style bars: fan % per fixed breakpoint; the temperature is the label under each bar -->
+                                        <Grid Height="230" Margin="0,10,0,0">
                                             <!-- Focusable wrapper so the graph is reachable by controller
                                                  (Canvas itself is a Panel and cannot be a tab stop). -->
                                             <ContentControl x:Name="MsiFanCurveFocus"
-                                                            Grid.Column="1"
                                                             IsTabStop="True"
                                                             UseSystemFocusVisuals="True"
                                                             HorizontalContentAlignment="Stretch"
@@ -6133,18 +6137,24 @@
                                                         PointerReleased="MsiFanCurveCanvas_PointerReleased"
                                                         PointerCaptureLost="MsiFanCurveCanvas_PointerReleased"
                                                         SizeChanged="MsiFanCurveCanvas_SizeChanged">
-                                                    <Polygon x:Name="MsiFanCurveFill" Fill="#3300AAFF" Stroke="Transparent"/>
-                                                    <Polyline x:Name="MsiFanCurvePolyline" Stroke="#00AAFF" StrokeThickness="2" StrokeLineJoin="Round"/>
-                                                    <!-- Live CPU package temperature indicator -->
+                                                    <!-- "Beyond MSI" zone: above MSI's 75 % cap (only when extended range is on) -->
+                                                    <Rectangle x:Name="MsiFanBeyondBand" Fill="#1EF0603C" IsHitTestVisible="False"/>
+                                                    <!-- Retained (collapsed) from the old line-graph layout so code refs stay valid -->
+                                                    <Polygon x:Name="MsiFanCurveFill" Visibility="Collapsed"/>
+                                                    <Polyline x:Name="MsiFanCurvePolyline" Visibility="Collapsed"/>
+                                                    <!-- MSI max (75 %) reference line + label -->
+                                                    <Line x:Name="MsiFanMsiMaxLine" Stroke="#88F0603C" StrokeThickness="1" StrokeDashArray="3,3" IsHitTestVisible="False"/>
+                                                    <TextBlock x:Name="MsiFanMsiMaxLabel" Text="MSI max 75%" FontSize="12" Foreground="#F0A090" IsHitTestVisible="False"/>
                                                     <Line x:Name="MsiFanTempIndicatorLine"
                                                           Stroke="#FF8800" StrokeThickness="2" StrokeDashArray="4,2"
                                                           Visibility="Collapsed"/>
                                                 </Canvas>
                                             </ContentControl>
                                         </Grid>
-                                        <StackPanel Orientation="Horizontal" Margin="30,4,0,0">
-                                            <TextBlock Text="CPU package: " FontSize="11" Foreground="#999999"/>
-                                            <TextBlock x:Name="MsiFanTempLabel" Text="--&#xB0;C" FontSize="11" Foreground="#FF8800" FontWeight="SemiBold"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="2,8,0,0">
+                                            <TextBlock Text="CPU package: " FontSize="13" Foreground="#B0B0B0"/>
+                                            <TextBlock x:Name="MsiFanTempLabel" Text="--&#xB0;C" FontSize="13" Foreground="#FF8800" FontWeight="SemiBold"/>
                                         </StackPanel>
 
                                         <!-- Verify the values actually written to the EC against the graph -->
@@ -6161,26 +6171,9 @@
                                                        Foreground="#A0A0A0"
                                                        Text=""/>
                                         </StackPanel>
-                                        <Grid Margin="30,4,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="0&#xB0;C" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                            <TextBlock Grid.Column="1" Text="20" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                            <TextBlock Grid.Column="2" Text="40" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                            <TextBlock Grid.Column="3" Text="60" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                            <TextBlock Grid.Column="4" Text="80" FontSize="9" Foreground="#666666" HorizontalAlignment="Left"/>
-                                            <TextBlock Grid.Column="5" Text="100&#xB0;C" FontSize="9" Foreground="#666666" HorizontalAlignment="Right"/>
-                                        </Grid>
-
                                         <TextBlock Margin="0,8,0,0"
                                                    FontSize="11" Foreground="#A0A0A0" TextWrapping="Wrap"
-                                                   Text="Lunar Lake stays near-silent at idle. Drag the points to edit a custom curve; the curve is written to the EC, which drives the fan smoothly. Turn this off to return to MSI's firmware control."/>
+                                                   Text="Custom curve: drag a bar up/down for its fan %; drag the temperature label under a bar left/right to change that breakpoint. With a controller: D-Pad left/right to pick a bar, up/down to switch between the fan-% bar and its temperature, A to grab, D-Pad to adjust, A/B to release. The curve is written to the EC (both fans). Turn this off to return to MSI's firmware control."/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
