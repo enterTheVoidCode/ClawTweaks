@@ -861,7 +861,10 @@ namespace XboxGamingBarHelper
                 if (!_msiFanAutoSportEnabled) return; // dormant: not enabled in the MSI-axis software-curve model
                 if (_autoSportActive) return; // already handed to EC Sport — wait for game end
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
-                if (value < 0 || value > 1) return;
+                // Engage for ALL software-curve modes (0=Default, 1=Quiet, 2=Cooling, 3=Custom). The old
+                // `> 1` skipped Cooling/Custom — the exact modes users run — so the panic latch resurfaced
+                // there. Skip only firmware mode (<0) and the debug EC-Sport preset (4, already Sport).
+                if (value < 0 || value > 3) return;
 
                 float temp = performanceManager?.CPUTemperature?.Value ?? 0f;
                 if (temp >= AutoSportThresholdC)
