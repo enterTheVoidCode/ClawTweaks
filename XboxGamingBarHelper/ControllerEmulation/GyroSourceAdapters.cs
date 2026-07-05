@@ -3,6 +3,13 @@ using System.Threading;
 using NLog;
 using Windows.Devices.Sensors;
 using XboxGamingBarHelper.Labs;
+// Aliases for WinRT types referenced with qualification below: inside the
+// XboxGamingBarHelper namespace a qualified "Windows.*" would resolve to
+// XboxGamingBarHelper.Windows, so these keep the WinRT types reachable.
+using WinRTCustomSensor = Windows.Devices.Sensors.Custom.CustomSensor;
+using WinRTCustomSensorReading = Windows.Devices.Sensors.Custom.CustomSensorReading;
+using WinRTCustomSensorReadingChangedEventArgs = Windows.Devices.Sensors.Custom.CustomSensorReadingChangedEventArgs;
+using WinRTDeviceInformation = Windows.Devices.Enumeration.DeviceInformation;
 
 namespace XboxGamingBarHelper.ControllerEmulation
 {
@@ -377,6 +384,328 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 firstGyroSampleEvent?.Set();
                 // Fire outside the lock — 1:1 with HC's IMUGyrometer.ReadingChanged, which
                 // processes each sample event-driven instead of via a separate poll timer.
+                SampleReady?.Invoke(sampleForEvent);
+            }
+            catch
+            {
+                // Ignore transient sensor callback failures.
+            }
+        }
+
+        public void Dispose()
+        {
+            Stop();
+        }
+    }
+
+    /// <summary>
+    /// Gyro/accel source for devices whose IMU is published ONLY as HID *custom*
+    /// sensors — the MSI Claw 8 AI+ EX (Panther Lake) is the known case. On the EX,
+    /// the Intel Sensor Hub publishes "Physical Gyrometer"/"Physical Accelerometer"
+    /// device interfaces under HID-usage-derived interface classes
+    /// ({000000XX-766d-4333-8262-27e82dd158b1}, XX = HID sensor usage) and nothing
+    /// under the standard Gyrometer/Accelerometer interface classes, so
+    /// Gyrometer.GetDefault() returns null while the data streams fine through
+    /// Windows.Devices.Sensors.Custom.CustomSensor (~100 Hz gyro / ~500 Hz accel,
+    /// measured 2026-07-05; see Diagnostics/Claw8EXProbes/CustomSensorProbe and
+    /// docs/hardware/CLAW8_EX_PORT_LOG.md).
+    ///
+    /// Reading property-bag keys (verified against live device output):
+    ///   "{C458F8A7-4AE8-4777-9607-2E9BDD65110A} 161/162/163" = X/Y/Z data values
+    ///   (gyro in deg/s per HID sensor spec, accel in g — accel gravity vector
+    ///   verified; gyro scale pending a physical rotation test).
+    /// </summary>
+    internal sealed class CustomSensorGyroSourceAdapter : IGyroSourceAdapter
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        // HID-usage-derived custom-sensor interface classes: {000000XX-766d-...},
+        // XX = HID sensor usage page 0x20 usage (0x73 = Accelerometer 3D, 0x76 = Gyrometer 3D).
+        private static readonly Guid GyrometerInterfaceClass = new Guid("00000076-766d-4333-8262-27e82dd158b1");
+        private static readonly Guid AccelerometerInterfaceClass = new Guid("00000073-766d-4333-8262-27e82dd158b1");
+
+        // Reading property-bag keys, formatted "{propertyset-GUID} <PID>". PIDs 161/162/163
+        // are the X/Y/Z data fields (measured via CustomSensorProbe, 2026-07-05).
+        private const string KeyX = "{C458F8A7-4AE8-4777-9607-2E9BDD65110A} 161";
+        private const string KeyY = "{C458F8A7-4AE8-4777-9607-2E9BDD65110A} 162";
+        private const string KeyZ = "{C458F8A7-4AE8-4777-9607-2E9BDD65110A} 163";
+
+        private const uint FallbackReportIntervalMs = 10; // measured gyro MinimumReportInterval on the EX
+        private const int WarmupTimeoutMs = 1500;         // custom sensors deliver the first event a beat slower than WinRT ones
+
+        private readonly string name;
+        private readonly object sampleLock = new object();
+        private WinRTCustomSensor gyro;
+        private WinRTCustomSensor accel;
+        private bool started;
+        private long lastGyroTimestampTicksUtc;
+        private bool hasAccelSample;
+        private float latestAccelX;
+        private float latestAccelY;
+        private float latestAccelZ;
+        private GyroSample latestSample;
+        private bool hasUnreadSample;
+        private ManualResetEventSlim firstGyroSampleEvent;
+        private bool loggedMissingKeys;
+
+        public string Name => name;
+
+        public event Action<GyroSample> SampleReady;
+
+        public CustomSensorGyroSourceAdapter(string name)
+        {
+            this.name = name;
+        }
+
+        public bool Start()
+        {
+            try
+            {
+                gyro = OpenCustomSensor(GyrometerInterfaceClass, "gyrometer");
+                if (gyro == null)
+                {
+                    Logger.Warn($"Gyro source '{name}' unavailable: no custom-sensor gyrometer interface found");
+                    return false;
+                }
+
+                accel = OpenCustomSensor(AccelerometerInterfaceClass, "accelerometer");
+
+                lock (sampleLock)
+                {
+                    lastGyroTimestampTicksUtc = 0;
+                    hasAccelSample = false;
+                    latestAccelX = 0.0f;
+                    latestAccelY = 0.0f;
+                    latestAccelZ = 0.0f;
+                    latestSample = default;
+                    hasUnreadSample = false;
+                }
+
+                uint gyroInterval = gyro.MinimumReportInterval > 0 ? gyro.MinimumReportInterval : FallbackReportIntervalMs;
+                gyro.ReportInterval = gyroInterval;
+                if (accel != null)
+                {
+                    uint accelInterval = accel.MinimumReportInterval > 0 ? accel.MinimumReportInterval : FallbackReportIntervalMs;
+                    accel.ReportInterval = accelInterval;
+                }
+
+                firstGyroSampleEvent = new ManualResetEventSlim(false);
+                started = true;
+                gyro.ReadingChanged += OnGyroReadingChanged;
+                if (accel != null)
+                {
+                    accel.ReadingChanged += OnAccelReadingChanged;
+                }
+
+                if (!firstGyroSampleEvent.Wait(WarmupTimeoutMs))
+                {
+                    Logger.Warn($"Gyro source '{name}' warmup failed: no custom-sensor readings within {WarmupTimeoutMs}ms");
+                    Stop();
+                    return false;
+                }
+
+                Logger.Info($"Gyro source '{name}' started via CustomSensor (gyro interval: {gyro.ReportInterval}ms, accelerometer available: {accel != null})");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                started = false;
+                Logger.Warn($"Gyro source '{name}' failed to start: {ex.Message}");
+                return false;
+            }
+        }
+
+        private static WinRTCustomSensor OpenCustomSensor(Guid interfaceClass, string label)
+        {
+            try
+            {
+                string selector = WinRTCustomSensor.GetDeviceSelector(interfaceClass);
+                var matches = WinRTDeviceInformation.FindAllAsync(selector)
+                    .AsTask().GetAwaiter().GetResult();
+                if (matches.Count == 0)
+                {
+                    return null;
+                }
+
+                return WinRTCustomSensor.FromIdAsync(matches[0].Id)
+                    .AsTask().GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"CustomSensorGyroSourceAdapter: opening {label} failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        public void Stop()
+        {
+            started = false;
+
+            if (gyro != null)
+            {
+                try { gyro.ReadingChanged -= OnGyroReadingChanged; } catch { }
+            }
+            if (accel != null)
+            {
+                try { accel.ReadingChanged -= OnAccelReadingChanged; } catch { }
+            }
+
+            gyro = null;
+            accel = null;
+            firstGyroSampleEvent?.Dispose();
+            firstGyroSampleEvent = null;
+
+            lock (sampleLock)
+            {
+                lastGyroTimestampTicksUtc = 0;
+                hasAccelSample = false;
+                latestAccelX = 0.0f;
+                latestAccelY = 0.0f;
+                latestAccelZ = 0.0f;
+                latestSample = default;
+                hasUnreadSample = false;
+            }
+        }
+
+        public bool TryGetLatestSample(out GyroSample sample)
+        {
+            sample = default;
+            if (!started)
+            {
+                return false;
+            }
+
+            lock (sampleLock)
+            {
+                if (!hasUnreadSample)
+                {
+                    return false;
+                }
+
+                sample = latestSample;
+                hasUnreadSample = false;
+                return true;
+            }
+        }
+
+        private bool TryReadXyz(WinRTCustomSensorReading reading, out float x, out float y, out float z)
+        {
+            x = y = z = 0.0f;
+            if (!(reading.Properties.TryGetValue(KeyX, out object ox) && TryToFloat(ox, out x)) ||
+                !(reading.Properties.TryGetValue(KeyY, out object oy) && TryToFloat(oy, out y)) ||
+                !(reading.Properties.TryGetValue(KeyZ, out object oz) && TryToFloat(oz, out z)))
+            {
+                if (!loggedMissingKeys)
+                {
+                    loggedMissingKeys = true;
+                    var keys = new System.Text.StringBuilder();
+                    foreach (var kv in reading.Properties) keys.Append(kv.Key).Append('=').Append(kv.Value?.GetType().FullName ?? "null").Append("; ");
+                    Logger.Warn($"Gyro source '{name}': could not extract X/Y/Z from CustomSensor reading. Keys/types: {keys}");
+                }
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Extracts a float from a CustomSensor property-bag value. The boxed CLR type
+        /// differs between WinRT projections (observed: System.Double under .NET 8,
+        /// but not under the .NET Framework Windows.winmd projection — see the
+        /// 2026-07-05 port log), so accept any convertible numeric.
+        /// </summary>
+        private static bool TryToFloat(object value, out float result)
+        {
+            switch (value)
+            {
+                case double d: result = (float)d; return true;
+                case float f: result = f; return true;
+                case IConvertible c:
+                    try
+                    {
+                        result = c.ToSingle(System.Globalization.CultureInfo.InvariantCulture);
+                        return true;
+                    }
+                    catch
+                    {
+                        break;
+                    }
+            }
+
+            result = 0.0f;
+            return false;
+        }
+
+        private void OnAccelReadingChanged(WinRTCustomSensor sender, WinRTCustomSensorReadingChangedEventArgs args)
+        {
+            if (!started)
+            {
+                return;
+            }
+
+            try
+            {
+                var reading = args?.Reading;
+                if (reading == null || !TryReadXyz(reading, out float x, out float y, out float z))
+                {
+                    return;
+                }
+
+                lock (sampleLock)
+                {
+                    latestAccelX = x;
+                    latestAccelY = y;
+                    latestAccelZ = z;
+                    hasAccelSample = true;
+                }
+            }
+            catch
+            {
+                // Ignore transient sensor callback failures.
+            }
+        }
+
+        private void OnGyroReadingChanged(WinRTCustomSensor sender, WinRTCustomSensorReadingChangedEventArgs args)
+        {
+            if (!started)
+            {
+                return;
+            }
+
+            try
+            {
+                var reading = args?.Reading;
+                if (reading == null || !TryReadXyz(reading, out float x, out float y, out float z))
+                {
+                    return;
+                }
+
+                long timestampTicksUtc = reading.Timestamp.UtcDateTime.Ticks;
+                if (timestampTicksUtc <= 0)
+                {
+                    timestampTicksUtc = DateTime.UtcNow.Ticks;
+                }
+
+                GyroSample sampleForEvent;
+                lock (sampleLock)
+                {
+                    if (timestampTicksUtc <= lastGyroTimestampTicksUtc)
+                    {
+                        return;
+                    }
+
+                    lastGyroTimestampTicksUtc = timestampTicksUtc;
+
+                    float accelX = hasAccelSample ? latestAccelX : 0.0f;
+                    float accelY = hasAccelSample ? latestAccelY : 0.0f;
+                    float accelZ = hasAccelSample ? latestAccelZ : 0.0f;
+                    latestSample = new GyroSample(x, y, z, accelX, accelY, accelZ, timestampTicksUtc);
+                    hasUnreadSample = true;
+                    sampleForEvent = latestSample;
+                }
+
+                firstGyroSampleEvent?.Set();
+                // Fire outside the lock, same as WindowsSensorGyroSourceAdapter.
                 SampleReady?.Invoke(sampleForEvent);
             }
             catch

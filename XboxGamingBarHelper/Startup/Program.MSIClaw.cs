@@ -985,6 +985,118 @@ namespace XboxGamingBarHelper
             });
         }
 
+        // Set once the EC-state snapshot has run (one-shot per helper session).
+        private static bool _msiEcStateProbed;
+
+        /// <summary>
+        /// One-shot diagnostic: read (never write) every MSI_ACPI data block the app
+        /// uses and log raw + decoded values. Documents the EC baseline at startup —
+        /// on a new Claw variant this is the Phase 3 "P3 WMI reads" evidence (fan
+        /// tables, fan-control bit, full-speed bit, charge limit, power shift,
+        /// PL1/PL2), through the exact same MsiClawWmi protocol code the features use.
+        /// Requires elevation (MSI_ACPI is invisible to non-elevated processes — the
+        /// reads just fail cleanly in that case).
+        /// </summary>
+        private static void ProbeMsiEcState()
+        {
+            if (_msiEcStateProbed) return;
+            _msiEcStateProbed = true;
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    string s = MSI.MsiClawWmi.Scope, p = MSI.MsiClawWmi.Path;
+
+                    byte[] cpuFan = MSI.MsiClawWmi.Get(s, p, "Get_Fan", 1, 32, out bool okCpuFan);
+                    byte[] gpuFan = MSI.MsiClawWmi.Get(s, p, "Get_Fan", 2, 32, out bool okGpuFan);
+                    byte[] ap1 = MSI.MsiClawWmi.Get(s, p, "Get_AP", 1, MSI.MsiClawWmi.GetAPLength(1), out bool okAp1);
+                    byte[] d152 = MSI.MsiClawWmi.Get(s, p, "Get_Data", 152, 1, out bool ok152);
+                    byte[] d215 = MSI.MsiClawWmi.Get(s, p, "Get_Data", 215, 1, out bool ok215);
+                    byte[] d210 = MSI.MsiClawWmi.Get(s, p, "Get_Data", 210, 1, out bool ok210);
+                    byte[] d80 = MSI.MsiClawWmi.Get(s, p, "Get_Data", 80, 1, out bool ok80);
+                    byte[] d81 = MSI.MsiClawWmi.Get(s, p, "Get_Data", 81, 1, out bool ok81);
+
+                    string Hex(byte[] b, int n)
+                    {
+                        if (b == null) return "-";
+                        var sb = new System.Text.StringBuilder();
+                        for (int i = 0; i < Math.Min(n, b.Length); i++) sb.Append(b[i].ToString("X2")).Append(i + 1 < Math.Min(n, b.Length) ? "," : "");
+                        return sb.ToString();
+                    }
+
+                    Logger.Info($"EcState: CPU fan table (Get_Fan 1) ok={okCpuFan} [{Hex(cpuFan, 8)}]");
+                    Logger.Info($"EcState: GPU fan table (Get_Fan 2) ok={okGpuFan} [{Hex(gpuFan, 8)}]");
+                    Logger.Info($"EcState: AP1 (Get_AP 1) ok={okAp1} [{Hex(ap1, 7)}] fanControlBit7={okAp1 && ap1.Length > 0 && (ap1[0] & 0x80) != 0}");
+                    Logger.Info($"EcState: fullSpeed (Get_Data 152) ok={ok152} [{Hex(d152, 1)}] bit7={ok152 && d152.Length > 0 && (d152[0] & 0x80) != 0}");
+                    Logger.Info($"EcState: chargeLimit (Get_Data 215) ok={ok215} [{Hex(d215, 1)}] enabled={ok215 && d215.Length > 0 && (d215[0] & 0x80) != 0} pct={(ok215 && d215.Length > 0 ? d215[0] & 0x7F : -1)}");
+                    Logger.Info($"EcState: powerShift (Get_Data 210) ok={ok210} [{Hex(d210, 1)}]");
+                    Logger.Info($"EcState: PL1 (Get_Data 80) ok={ok80} [{Hex(d80, 1)}]W  PL2 (Get_Data 81) ok={ok81} [{Hex(d81, 1)}]W");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"EcState: probe failed: {ex.Message}");
+                }
+            });
+        }
+
+        // Set once the gyro-source probe has run (one-shot per helper session).
+        private static bool _msiGyroSourceProbed;
+
+        /// <summary>
+        /// One-shot diagnostic: start a throwaway ClawGyroSourceAdapter, sample it for
+        /// ~1 s, and log which source path it settled on (WinRT Gyrometer on A1M/A2VM,
+        /// CustomSensor on the Claw 8 EX) plus the sample count and one live reading.
+        /// Gives the log hard evidence the gyro pipeline works on this unit without
+        /// needing the widget/emulation to be enabled. Runs on a background thread and
+        /// disposes the adapter afterwards; the real adapter in ClawButtonMonitor is
+        /// unaffected (both sensor APIs allow concurrent readers).
+        /// </summary>
+        private static void ProbeMsiGyroSource()
+        {
+            if (_msiGyroSourceProbed) return;
+            _msiGyroSourceProbed = true;
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                ControllerEmulation.ClawGyroSourceAdapter probe = null;
+                try
+                {
+                    probe = new ControllerEmulation.ClawGyroSourceAdapter();
+                    if (!probe.Start())
+                    {
+                        Logger.Warn("GyroProbe: ClawGyroSourceAdapter failed to start — gyro features will be unavailable this session");
+                        return;
+                    }
+
+                    int samples = 0;
+                    ControllerEmulation.GyroSample last = default;
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    while (sw.ElapsedMilliseconds < 1000)
+                    {
+                        if (probe.TryGetLatestSample(out ControllerEmulation.GyroSample s))
+                        {
+                            samples++;
+                            last = s;
+                        }
+                        System.Threading.Thread.Sleep(5);
+                    }
+
+                    Logger.Info($"GyroProbe: source='{probe.ActiveSourceName}' — {samples} samples in 1s, " +
+                                $"last gyro=({last.GyroXDegPerSecond:F2},{last.GyroYDegPerSecond:F2},{last.GyroZDegPerSecond:F2}) deg/s, " +
+                                $"accel=({last.AccelXG:F3},{last.AccelYG:F3},{last.AccelZG:F3}) g");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warn($"GyroProbe: failed: {ex.Message}");
+                }
+                finally
+                {
+                    try { probe?.Dispose(); } catch { }
+                }
+            });
+        }
+
         private static void StartMSIClawControllerEmulation()
         {
             try
@@ -1010,6 +1122,14 @@ namespace XboxGamingBarHelper
 
                 // One-shot diagnostic: log which fan/RPM sensors LHM can see on this device.
                 ProbeMsiFanSensors();
+
+                // One-shot diagnostic: log which gyro source path works on this unit
+                // (WinRT on A1M/A2VM, CustomSensor on Claw 8 EX) and a live sample.
+                ProbeMsiGyroSource();
+
+                // One-shot diagnostic: read-only snapshot of every EC/WMI data block
+                // the app uses (fan tables, control bits, charge limit, shift, PL1/2).
+                ProbeMsiEcState();
 
                 // ── Step 0: Register MsiClawControllerMode callback ──────────────
                 // MsiClawControllerModeManager.OnModeChanged is a static delegate.

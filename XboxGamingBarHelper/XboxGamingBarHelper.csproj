@@ -412,6 +412,7 @@
     <Compile Include="Devices\LegionGo2\LegionGo2Config.cs" />
     <Compile Include="Devices\LegionGoS\LegionGoSConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawConfig.cs" />
+    <Compile Include="Devices\MSIClaw\MSIClaw8EXConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawHidController.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawHwMouseWatcher.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawLedController.cs" />
