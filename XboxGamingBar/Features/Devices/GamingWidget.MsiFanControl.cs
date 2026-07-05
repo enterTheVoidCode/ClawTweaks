@@ -19,30 +19,69 @@ namespace XboxGamingBar
     /// </summary>
     public sealed partial class GamingWidget
     {
-        private const string MsiFanEnabledKey = "MsiFan_Enabled";
-        private const string MsiFanPresetKey  = "MsiFan_Preset";   // 0/1/2/3 (3 = custom)
-        private const string MsiFanCurveKey   = "MsiFan_CurveCsv"; // 11 ints when custom
+        // Keys bumped to *_2 for the MSI-axis rework: the old ×1.5 / wrong-axis 11-point settings are
+        // ignored → existing user fan settings are wiped clean.
+        private const string MsiFanEnabledKey  = "MsiFan_Enabled2";
+        private const string MsiFanPresetKey   = "MsiFan_Preset2";   // 0=Default 1=Quiet Idle 2=Cooling 3=Custom
+        private const string MsiFanCurveKey    = "MsiFan_CurveCsv2"; // "t1,..,t5;d1,..,d5" when custom
+        private const string MsiFanExtendedKey = "MsiFan_Extended2"; // allow duty >75% (beyond MSI)
 
-        // Preset curves — MUST match MsiClawFanController on the helper side.
-        // Quiet at idle/low load, but the 80-100 °C end now cools at firmware level: under-cooling at
-        // the top during sustained full load let the CPU climb until the EC seized the fan and latched
-        // it loud (only a firmware hand-back cleared it). Helper FanTableScale = 150 maps these to the
-        // full EC 0-150 range.
-        //                                                 0  10  20  30  40  50  60  70  80  90  100 °C
-        private static readonly double[] MsiCurveQuiet      = { 0, 0, 0,  0,  0,  0,  8, 22, 40, 63,  87 };
-        private static readonly double[] MsiCurveDefault    = { 0, 0, 0,  0,  2,  4, 14, 30, 50, 75,  97 };
-        private static readonly double[] MsiCurveAggressive = { 0, 0, 0,  3,  6, 10, 22, 40, 63, 85, 100 };
-        // "Cooling" (early-ramp): front-loads the 50-70 °C band so the fan spins before a game heats
-        // past 80 °C, avoiding the EC ~90 °C thermal-protection latch. Must match Curve_Cooling in the
-        // helper (MsiClawFanController). Silent at <=40 °C.
-        private static readonly double[] MsiCurveCooling    = { 0, 0, 0,  0,  3, 22, 38, 50, 65, 85, 100 };
+        // ── MSI fan model: 5 (temp,duty) points on the real firmware axis ────────────────
+        // MUST match MsiClawFanController on the helper side. Temps default to the MSI Center M
+        // breakpoints [44,54,64,74,82]; duty is the RAW EC byte 0–100 (MSI scale, no ×1.5).
+        internal const int MsiFanPoints = 5;
+        private static readonly int[] MsiTempsDefault = { 44, 54, 64, 74, 82 };
+        private static readonly int[] MsiTempsCooling = { 34, 44, 54, 64, 72 }; // −10 °C early ramp
 
-        private readonly double[] _msiFanCurve = (double[])MsiCurveDefault.Clone();
-        private readonly Ellipse[] _msiFanPoints = new Ellipse[11];
-        private readonly TextBlock[] _msiFanValueLabels = new TextBlock[11];
+        private static readonly int[] MsiDutyDefault   = { 40, 49, 58, 67, 75 };
+        private static readonly int[] MsiDutyQuietIdle = { 20, 30, 45, 67, 75 };
+        private static readonly int[] MsiDutyCooling   = { 40, 49, 58, 67, 75 };
+        // DEBUG preset "EC Sport default": the old firmware BestPerformance table [10,0,10,26,46,78,113,
+        // 150] (raw EC bytes, i.e. already the new % scale — the old ×1.5 applied only to software
+        // curves, not this hardware table) sampled onto the MSI breakpoints for DISPLAY. The helper
+        // actually writes the exact raw firmware table + Sport (firmware drives); this is only the graph.
+        private static readonly int[] MsiDutyEcSport   = { 23, 34, 52, 68, 85 };
+
+        // Breakpoint temps are freely editable across the whole scale (only bounded globally + kept
+        // strictly increasing) so the user can spread the curve over the full 0–100 °C axis.
+        private const int MsiTempMin = 10;
+        private const int MsiTempMax = 99;
+
+        // MSI's own curves cap at 75 %. The >75 % ("beyond MSI") range is opt-in via a toggle.
+        private const int MsiDutyCap = 75;
+        private bool _msiFanExtended;
+        private int MsiDutyMax() => _msiFanExtended ? 100 : MsiDutyCap;
+
+        private readonly int[] _msiFanTemps = (int[])MsiTempsDefault.Clone();
+        private readonly int[] _msiFanDuties = (int[])MsiDutyDefault.Clone();
+        // MSI-style fixed evenly-spaced BARS (not a positional temperature axis). Bar height = fan %
+        // (vertical edit via the circle on top). The temperature is shown as a label UNDER each bar
+        // (horizontal edit). Horizontal %-gridlines + Y labels give the scale.
+        private static readonly int[] MsiGridPct = { 0, 25, 50, 75, 100 };
+        private static readonly uint[] MsiGridColor = { 0x6FB7FF, 0x8FD06A, 0xE6C84A, 0xF0A030, 0xF0603C };
+        private readonly Windows.UI.Xaml.Shapes.Rectangle[] _msiFanBars = new Windows.UI.Xaml.Shapes.Rectangle[MsiFanPoints];
+        private readonly Ellipse[] _msiFanPoints = new Ellipse[MsiFanPoints];        // duty circle (top of bar)
+        private readonly TextBlock[] _msiFanValueLabels = new TextBlock[MsiFanPoints]; // "%" above the bar
+        private readonly TextBlock[] _msiFanTempLabels = new TextBlock[MsiFanPoints];  // "44°C" under the bar
+        // Temp focus markers: a rotated square (diamond) under each temp label whose left/right points
+        // signal the handle moves horizontally. This is the controller-reachable temp handle.
+        private readonly Windows.UI.Xaml.Shapes.Rectangle[] _msiFanTempHandles = new Windows.UI.Xaml.Shapes.Rectangle[MsiFanPoints];
+        private readonly Line[] _msiFanGridLines = new Line[5];
+        private readonly TextBlock[] _msiFanGridLabels = new TextBlock[5];
         private bool _msiFanPointsBuilt;
         private bool _msiFanInitializing;
         private int _msiFanDragIndex = -1;
+        private bool _msiFanDragIsTemp;  // mouse drag target is a temp label (horizontal), not a duty bar
+
+        /// <summary>Clamp a temp to [MsiTempMin, MsiTempMax] and keep it strictly between its neighbours
+        /// so the axis stays monotonic. No per-point anchor limit — the whole scale is usable.</summary>
+        private int ClampMsiTemp(int idx, int value)
+        {
+            int lo = MsiTempMin, hi = MsiTempMax;
+            if (idx > 0) lo = Math.Max(lo, _msiFanTemps[idx - 1] + 1);
+            if (idx < MsiFanPoints - 1) hi = Math.Min(hi, _msiFanTemps[idx + 1] - 1);
+            return Math.Max(lo, Math.Min(hi, value));
+        }
 
         private bool IsMsiClawDevice()
             => deviceDisplayName?.Value?.IndexOf("Claw", StringComparison.OrdinalIgnoreCase) >= 0;
@@ -73,13 +112,15 @@ namespace XboxGamingBar
             {
                 var settings = ApplicationData.Current.LocalSettings;
                 bool enabled = settings.Values.TryGetValue(MsiFanEnabledKey, out var enObj) && enObj is bool b && b;
-                int preset = (settings.Values.TryGetValue(MsiFanPresetKey, out var pObj) && pObj is int p) ? p : 5;
-                if (preset < 0 || preset > 5) preset = 5;
+                int preset = (settings.Values.TryGetValue(MsiFanPresetKey, out var pObj) && pObj is int p) ? p : 0;
+                if (preset < 0 || preset > 4) preset = 0;
+                _msiFanExtended = settings.Values.TryGetValue(MsiFanExtendedKey, out var exObj) && exObj is bool ex && ex;
 
                 // Restore the curve for the selected preset (custom from storage; presets from constants).
                 LoadCurveForPreset(preset);
 
                 if (MsiFanEnableToggle != null) MsiFanEnableToggle.IsOn = enabled;
+                if (MsiFanExtendedRangeToggle != null) MsiFanExtendedRangeToggle.IsOn = _msiFanExtended;
                 if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = preset;
                 if (MsiFanContent != null) MsiFanContent.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
             }
@@ -97,11 +138,8 @@ namespace XboxGamingBar
         /// <summary>
         /// Applies the fan state the helper pushed on connect (authoritative). Updates the UI +
         /// the widget's cached keys without echoing back to the helper.
-        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled,
-        /// 0=EC Quiet · Quiet, 1=EC Quiet · Default (both Comfort + curve, auto-Sport at 70°C/158°F),
-        /// 2=EC Sport · Aggressive, 3=EC Sport · Cooling (early ramp), 4=EC Sport · Custom (all three
-        /// hold Sport permanently + software curve), 5=EC Sport (Default) — firmware drives the fan,
-        /// the default, forced on toggle enable.
+        /// Payload: "&lt;value&gt;|&lt;curveCsv&gt;" — value -1=disabled (firmware), 0=MSI Default,
+        /// 1=Quiet Idle, 2=Cooling / early ramp, 3=Custom ("t1,..,t5;d1,..,d5").
         /// </summary>
         internal void OnMsiFanState(string payload)
         {
@@ -111,7 +149,7 @@ namespace XboxGamingBar
             string curve = parts.Length > 1 ? parts[1] : "";
 
             bool enabled = value >= 0;
-            int preset = (value >= 0 && value <= 5) ? value : 5;
+            int preset = (value >= 0 && value <= 4) ? value : 0;
 
             _msiFanInitializing = true;
             try
@@ -119,7 +157,7 @@ namespace XboxGamingBar
                 var settings = ApplicationData.Current.LocalSettings;
                 settings.Values[MsiFanEnabledKey] = enabled;
                 if (value >= 0) settings.Values[MsiFanPresetKey] = preset;
-                if (value == 4 && !string.IsNullOrEmpty(curve))
+                if (value == 3 && !string.IsNullOrEmpty(curve))
                     settings.Values[MsiFanCurveKey] = curve;
 
                 LoadCurveForPreset(preset);
@@ -138,109 +176,284 @@ namespace XboxGamingBar
         private void BuildMsiFanPoints()
         {
             if (_msiFanPointsBuilt || MsiFanCurveCanvas == null) return;
-            for (int i = 0; i < 11; i++)
+
+            // Horizontal %-gridlines + Y labels (0/25/50/75/100), drawn behind the bars.
+            for (int g = 0; g < 5; g++)
             {
+                var gl = new Line
+                {
+                    Stroke = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(38, 255, 255, 255)),
+                    StrokeThickness = 1,
+                    IsHitTestVisible = false
+                };
+                Canvas.SetZIndex(gl, -1);
+                _msiFanGridLines[g] = gl;
+                MsiFanCurveCanvas.Children.Add(gl);
+
+                uint c = MsiGridColor[g];
+                var glab = new TextBlock
+                {
+                    FontSize = 13,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c)),
+                    IsHitTestVisible = false,
+                    Text = $"{MsiGridPct[g]}%"
+                };
+                _msiFanGridLabels[g] = glab;
+                MsiFanCurveCanvas.Children.Add(glab);
+            }
+
+            for (int i = 0; i < MsiFanPoints; i++)
+            {
+                // The bar (height = fan %). Vertical gradient blue→cyan.
+                var bar = new Windows.UI.Xaml.Shapes.Rectangle
+                {
+                    RadiusX = 3,
+                    RadiusY = 3,
+                    IsHitTestVisible = false,
+                    Fill = new LinearGradientBrush
+                    {
+                        StartPoint = new Windows.Foundation.Point(0, 0),
+                        EndPoint = new Windows.Foundation.Point(0, 1),
+                        GradientStops =
+                        {
+                            new GradientStop { Color = Windows.UI.ColorHelper.FromArgb(235, 0, 190, 255), Offset = 0 },
+                            new GradientStop { Color = Windows.UI.ColorHelper.FromArgb(200, 0, 120, 210), Offset = 1 }
+                        }
+                    }
+                };
+                _msiFanBars[i] = bar;
+                MsiFanCurveCanvas.Children.Add(bar);
+
+                // Duty circle (grab handle on top of the bar) — vertical edit.
                 var ellipse = new Ellipse
                 {
-                    Width = 14,
-                    Height = 14,
+                    Width = 16,
+                    Height = 16,
                     Fill = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 0, 170, 255)),
                     Stroke = new SolidColorBrush(Windows.UI.Colors.White),
                     StrokeThickness = 2,
                     Tag = i
                 };
+                Canvas.SetZIndex(ellipse, 10);
                 _msiFanPoints[i] = ellipse;
                 MsiFanCurveCanvas.Children.Add(ellipse);
 
-                // Value label shown above each control point.
+                // Fan-% label above the bar.
                 var label = new TextBlock
                 {
-                    FontSize = 9,
+                    FontSize = 15,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(Windows.UI.Colors.White),
                     IsHitTestVisible = false
                 };
+                Canvas.SetZIndex(label, 11);
                 _msiFanValueLabels[i] = label;
                 MsiFanCurveCanvas.Children.Add(label);
+
+                // Temperature label UNDER the bar.
+                var tlabel = new TextBlock
+                {
+                    FontSize = 14,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 220, 180, 90)),
+                    IsHitTestVisible = false
+                };
+                Canvas.SetZIndex(tlabel, 11);
+                _msiFanTempLabels[i] = tlabel;
+                MsiFanCurveCanvas.Children.Add(tlabel);
+
+                // Temp focus marker: a diamond (rotated square) under the temp label. Its left/right
+                // points read as "moves horizontally". This is the temp handle.
+                var diamond = new Windows.UI.Xaml.Shapes.Rectangle
+                {
+                    Width = 14,
+                    Height = 14,
+                    Fill = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 255, 150, 40)),
+                    Stroke = new SolidColorBrush(Windows.UI.Colors.White),
+                    StrokeThickness = 1.5,
+                    RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5),
+                    RenderTransform = new RotateTransform { Angle = 45 },
+                    IsHitTestVisible = false,
+                    Tag = i
+                };
+                Canvas.SetZIndex(diamond, 11);
+                _msiFanTempHandles[i] = diamond;
+                MsiFanCurveCanvas.Children.Add(diamond);
             }
             _msiFanPointsBuilt = true;
         }
 
-        /// <summary>Load the 11-point curve for a preset index into <see cref="_msiFanCurve"/>.</summary>
+        /// <summary>Load the 5-point (temp,duty) curve for a preset into the model arrays.</summary>
         private void LoadCurveForPreset(int preset)
         {
-            double[] src;
+            int[] temps, duties;
             switch (preset)
             {
-                case 0: src = MsiCurveQuiet; break;
-                case 2: src = MsiCurveAggressive; break;
-                case 3: src = MsiCurveCooling; break;
-                case 4: src = LoadCustomCurveFromStorage() ?? MsiCurveDefault; break;
-                case 5: src = MsiCurveAggressive; break; // EC Sport: graph is a placeholder (the EC drives the fan)
-                default: src = MsiCurveDefault; break;
+                case 1: temps = MsiTempsDefault; duties = MsiDutyQuietIdle; break;
+                case 2: temps = MsiTempsCooling; duties = MsiDutyCooling;   break;
+                case 3:
+                    if (LoadCustomCurveFromStorage(out int[] ct, out int[] cd))
+                    {
+                        Array.Copy(ct, _msiFanTemps, MsiFanPoints);
+                        Array.Copy(cd, _msiFanDuties, MsiFanPoints);
+                        return;
+                    }
+                    temps = MsiTempsDefault; duties = MsiDutyDefault; break;
+                case 4: temps = MsiTempsDefault; duties = MsiDutyEcSport; break; // debug: EC Sport default (display)
+                default: temps = MsiTempsDefault; duties = MsiDutyDefault; break; // 0 = MSI Default
             }
-            Array.Copy(src, _msiFanCurve, 11);
+            Array.Copy(temps, _msiFanTemps, MsiFanPoints);
+            Array.Copy(duties, _msiFanDuties, MsiFanPoints);
         }
 
-        private double[] LoadCustomCurveFromStorage()
+        private bool LoadCustomCurveFromStorage(out int[] temps, out int[] duties)
         {
+            temps = null; duties = null;
             try
             {
                 if (ApplicationData.Current.LocalSettings.Values.TryGetValue(MsiFanCurveKey, out var o)
                     && o is string csv)
                 {
-                    var parts = csv.Split(',');
-                    if (parts.Length == 11)
+                    var halves = csv.Split(';');
+                    if (halves.Length == 2)
                     {
-                        var r = new double[11];
-                        for (int i = 0; i < 11; i++)
-                            r[i] = Math.Max(0, Math.Min(100, double.Parse(parts[i], CultureInfo.InvariantCulture)));
-                        return r;
+                        var tp = halves[0].Split(',');
+                        var dp = halves[1].Split(',');
+                        if (tp.Length == MsiFanPoints && dp.Length == MsiFanPoints)
+                        {
+                            var t = new int[MsiFanPoints];
+                            var d = new int[MsiFanPoints];
+                            for (int i = 0; i < MsiFanPoints; i++)
+                            {
+                                t[i] = Math.Max(0, Math.Min(120, int.Parse(tp[i], CultureInfo.InvariantCulture)));
+                                d[i] = Math.Max(0, Math.Min(100, int.Parse(dp[i], CultureInfo.InvariantCulture)));
+                            }
+                            temps = t; duties = d;
+                            return true;
+                        }
                     }
                 }
             }
             catch (Exception ex) { Logger.Debug($"LoadCustomCurveFromStorage: {ex.Message}"); }
-            return null;
+            return false;
         }
 
+        /// <summary>Serialize the model as "t1,..,t5;d1,..,d5" — the wire + storage format.</summary>
         private string CurveToCsv()
-            => string.Join(",", _msiFanCurve.Select(v => ((int)Math.Round(v)).ToString(CultureInfo.InvariantCulture)));
+            => string.Join(",", _msiFanTemps.Select(v => v.ToString(CultureInfo.InvariantCulture)))
+               + ";" + string.Join(",", _msiFanDuties.Select(v => v.ToString(CultureInfo.InvariantCulture)));
+
+        // Plot padding: room above the bars for the % labels, below for the temp labels, left for the
+        // Y-axis % labels.
+        private const double MsiPlotTop = 26;
+        private const double MsiPlotBottomPad = 48;   // room for the temp label + diamond focus marker
+        private const double MsiPlotLeft = 40;
+
+        private double MsiDutyToY(double duty, double plotTop, double plotBottom)
+            => plotBottom - (duty / 100.0) * (plotBottom - plotTop);
 
         private void RenderMsiFanCurve()
         {
-            if (MsiFanCurveCanvas == null || MsiFanCurvePolyline == null || MsiFanCurveFill == null) return;
+            if (MsiFanCurveCanvas == null) return;
             double width = MsiFanCurveCanvas.ActualWidth;
             double height = MsiFanCurveCanvas.ActualHeight;
             if (width <= 0 || height <= 0) return;
 
-            var pts = new PointCollection();
-            var fill = new PointCollection();
-            for (int i = 0; i < 11; i++)
+            double plotTop = MsiPlotTop;
+            double plotBottom = height - MsiPlotBottomPad;
+            double plotLeft = MsiPlotLeft;
+            if (plotBottom <= plotTop) return;
+
+            // Unused curve elements from the old line-graph layout.
+            if (MsiFanCurvePolyline != null) MsiFanCurvePolyline.Visibility = Visibility.Collapsed;
+            if (MsiFanCurveFill != null) MsiFanCurveFill.Visibility = Visibility.Collapsed;
+
+            // Horizontal %-gridlines + Y labels.
+            for (int g = 0; g < 5; g++)
             {
-                double x = (i / 10.0) * width;                       // 0…100 °C across the width
-                double y = height - (_msiFanCurve[i] / 100.0 * height);
-                pts.Add(new Windows.Foundation.Point(x, y));
-                fill.Add(new Windows.Foundation.Point(x, y));
+                double gy = MsiDutyToY(MsiGridPct[g], plotTop, plotBottom);
+                if (_msiFanGridLines[g] != null)
+                {
+                    _msiFanGridLines[g].X1 = plotLeft; _msiFanGridLines[g].X2 = width;
+                    _msiFanGridLines[g].Y1 = gy; _msiFanGridLines[g].Y2 = gy;
+                }
+                if (_msiFanGridLabels[g] != null)
+                {
+                    Canvas.SetLeft(_msiFanGridLabels[g], 2);
+                    Canvas.SetTop(_msiFanGridLabels[g], gy - 9);
+                }
+            }
+
+            // "Beyond MSI" zone (only when extended): shade above the 75 % line + dashed reference.
+            double yMsiMax = MsiDutyToY(75, plotTop, plotBottom);
+            var beyondVis = _msiFanExtended ? Visibility.Visible : Visibility.Collapsed;
+            if (MsiFanBeyondBand != null)
+            {
+                MsiFanBeyondBand.Visibility = beyondVis;
+                MsiFanBeyondBand.Width = Math.Max(0, width - plotLeft);
+                MsiFanBeyondBand.Height = Math.Max(0, yMsiMax - plotTop);
+                Canvas.SetLeft(MsiFanBeyondBand, plotLeft);
+                Canvas.SetTop(MsiFanBeyondBand, plotTop);
+            }
+            if (MsiFanMsiMaxLine != null)
+            {
+                MsiFanMsiMaxLine.Visibility = beyondVis;
+                Canvas.SetZIndex(MsiFanMsiMaxLine, 5);
+                MsiFanMsiMaxLine.X1 = plotLeft; MsiFanMsiMaxLine.X2 = width;
+                MsiFanMsiMaxLine.Y1 = yMsiMax; MsiFanMsiMaxLine.Y2 = yMsiMax;
+            }
+            if (MsiFanMsiMaxLabel != null)
+            {
+                MsiFanMsiMaxLabel.Visibility = beyondVis;
+                Canvas.SetZIndex(MsiFanMsiMaxLabel, 5);
+                Canvas.SetLeft(MsiFanMsiMaxLabel, plotLeft + 4);
+                Canvas.SetTop(MsiFanMsiMaxLabel, Math.Max(plotTop, yMsiMax - 14));
+            }
+
+            // Evenly-spaced bars across the plot area (temperature is NOT positional; it's the label
+            // under each bar).
+            double plotW = width - plotLeft;
+            double slot = plotW / MsiFanPoints;
+            double barW = slot * 0.46;
+            for (int i = 0; i < MsiFanPoints; i++)
+            {
+                double cx = plotLeft + (i + 0.5) * slot;
+                double y = MsiDutyToY(_msiFanDuties[i], plotTop, plotBottom);
+
+                if (_msiFanBars[i] != null)
+                {
+                    _msiFanBars[i].Width = barW;
+                    _msiFanBars[i].Height = Math.Max(0, plotBottom - y);
+                    Canvas.SetLeft(_msiFanBars[i], cx - barW / 2);
+                    Canvas.SetTop(_msiFanBars[i], y);
+                }
                 if (_msiFanPoints[i] != null)
                 {
                     double r = _msiFanPoints[i].Width / 2.0;
-                    Canvas.SetLeft(_msiFanPoints[i], x - r);
+                    Canvas.SetLeft(_msiFanPoints[i], cx - r);
                     Canvas.SetTop(_msiFanPoints[i], y - r);
                 }
-
-                // Value label above the point (kept inside the canvas at the top edge).
                 if (_msiFanValueLabels[i] != null)
                 {
-                    _msiFanValueLabels[i].Text = ((int)Math.Round(_msiFanCurve[i])).ToString();
-                    double ly = y - 20;
-                    if (ly < 0) ly = y + 8;               // flip below the point if too high
-                    Canvas.SetLeft(_msiFanValueLabels[i], x - 8);
-                    Canvas.SetTop(_msiFanValueLabels[i], ly);
+                    _msiFanValueLabels[i].Text = $"{_msiFanDuties[i]}%";
+                    Canvas.SetLeft(_msiFanValueLabels[i], cx - 14);
+                    Canvas.SetTop(_msiFanValueLabels[i], Math.Max(0, y - 22));
+                }
+                if (_msiFanTempLabels[i] != null)
+                {
+                    _msiFanTempLabels[i].Text = $"{_msiFanTemps[i]}°C";
+                    Canvas.SetLeft(_msiFanTempLabels[i], cx - 17);
+                    Canvas.SetTop(_msiFanTempLabels[i], plotBottom + 3);
+                }
+                // Diamond focus marker below the temp label.
+                if (_msiFanTempHandles[i] != null)
+                {
+                    double dw = _msiFanTempHandles[i].Width;
+                    Canvas.SetLeft(_msiFanTempHandles[i], cx - dw / 2);
+                    Canvas.SetTop(_msiFanTempHandles[i], plotBottom + 26 - dw / 2);
                 }
             }
-            MsiFanCurvePolyline.Points = pts;
-            fill.Add(new Windows.Foundation.Point(width, height));
-            fill.Add(new Windows.Foundation.Point(0, height));
-            MsiFanCurveFill.Points = fill;
         }
 
         private void MsiFanCurveCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -261,55 +474,94 @@ namespace XboxGamingBar
             if (MsiFanTempLabel != null)
                 MsiFanTempLabel.Text = tempC > 0 ? $"{tempC:F0}°C" : "--°C";
 
-            if (MsiFanTempIndicatorLine == null || MsiFanCurveCanvas == null) return;
-            double width = MsiFanCurveCanvas.ActualWidth;
-            double height = MsiFanCurveCanvas.ActualHeight;
-            if (width <= 0 || height <= 0 || tempC <= 0)
+            // The old positional temp line no longer maps to anything (bars are evenly spaced, not on a
+            // temperature axis). Keep it hidden; the live temp is shown as the "CPU package" text and by
+            // highlighting the active bracket below.
+            if (MsiFanTempIndicatorLine != null) MsiFanTempIndicatorLine.Visibility = Visibility.Collapsed;
+
+            // Highlight the temperature bracket the CPU is currently in (the highest breakpoint ≤ temp):
+            // its temp label gets a warm tint so the user sees which point governs cooling right now.
+            if (!_msiFanPointsBuilt) return;
+            int active = -1;
+            if (tempC > 0)
+                for (int i = 0; i < MsiFanPoints; i++)
+                    if (tempC >= _msiFanTemps[i]) active = i;
+
+            for (int i = 0; i < MsiFanPoints; i++)
             {
-                MsiFanTempIndicatorLine.Visibility = Visibility.Collapsed;
-                return;
+                if (_msiFanTempLabels[i] == null) continue;
+                bool sel = _msiFanSelectedPoint == i; // don't fight the edit-selection highlight
+                if (sel) continue;
+                _msiFanTempLabels[i].Foreground = new SolidColorBrush(i == active
+                    ? Windows.UI.ColorHelper.FromArgb(255, 255, 150, 60)
+                    : Windows.UI.ColorHelper.FromArgb(255, 220, 180, 90));
             }
-            double clamped = Math.Max(0, Math.Min(100, tempC));
-            double x = (clamped / 100.0) * width;
-            MsiFanTempIndicatorLine.X1 = x;
-            MsiFanTempIndicatorLine.X2 = x;
-            MsiFanTempIndicatorLine.Y1 = 0;
-            MsiFanTempIndicatorLine.Y2 = height;
-            MsiFanTempIndicatorLine.Visibility = Visibility.Visible;
+        }
+
+        /// <summary>Which bar column an X coordinate falls into (0…MsiFanPoints-1).</summary>
+        private int MsiFanColumnAtX(double x, double width)
+        {
+            double plotW = width - MsiPlotLeft;
+            if (plotW <= 0) return 0;
+            int col = (int)((x - MsiPlotLeft) / (plotW / MsiFanPoints));
+            return Math.Max(0, Math.Min(MsiFanPoints - 1, col));
         }
 
         private void MsiFanCurveCanvas_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
             if (MsiFanCurveCanvas == null) return;
             var point = e.GetCurrentPoint(MsiFanCurveCanvas).Position;
-            double minDist = double.MaxValue;
-            int closest = -1;
-            for (int i = 0; i < 11; i++)
-            {
-                if (_msiFanPoints[i] == null) continue;
-                double px = Canvas.GetLeft(_msiFanPoints[i]) + 7;
-                double py = Canvas.GetTop(_msiFanPoints[i]) + 7;
-                double d = Math.Sqrt((point.X - px) * (point.X - px) + (point.Y - py) * (point.Y - py));
-                if (d < minDist && d < 30) { minDist = d; closest = i; }
-            }
-            if (closest >= 0)
-            {
-                _msiFanDragIndex = closest;
-                MsiFanCurveCanvas.CapturePointer(e.Pointer);
-                e.Handled = true;
-            }
+            double width = MsiFanCurveCanvas.ActualWidth;
+            double height = MsiFanCurveCanvas.ActualHeight;
+            if (width <= 0 || height <= 0) return;
+
+            double plotBottom = height - MsiPlotBottomPad;
+            int col = MsiFanColumnAtX(point.X, width);
+            // Bottom strip (under the bars) = temperature edit; the bar area = fan-% edit.
+            bool isTemp = point.Y >= plotBottom - 2;
+
+            _msiFanDragIndex = col;
+            _msiFanDragIsTemp = isTemp;
+            _msiFanSelectedPoint = col;
+            _msiFanSelectingTemp = isTemp;
+            // Apply immediately at the press position too.
+            MsiFanApplyPointerEdit(point, width, height);
+            MsiFanCurveCanvas.CapturePointer(e.Pointer);
+            HighlightMsiFanPoints();
+            e.Handled = true;
         }
 
         private void MsiFanCurveCanvas_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
             if (_msiFanDragIndex < 0 || MsiFanCurveCanvas == null) return;
             var point = e.GetCurrentPoint(MsiFanCurveCanvas).Position;
+            double width = MsiFanCurveCanvas.ActualWidth;
             double height = MsiFanCurveCanvas.ActualHeight;
-            if (height <= 0) return;
-            double fanSpeed = (1.0 - point.Y / height) * 100.0;
-            _msiFanCurve[_msiFanDragIndex] = Math.Max(0, Math.Min(100, Math.Round(fanSpeed)));
-            RenderMsiFanCurve();
+            if (height <= 0 || width <= 0) return;
+            MsiFanApplyPointerEdit(point, width, height);
             e.Handled = true;
+        }
+
+        /// <summary>Apply the current drag: temp handle → X across the plot maps to [min,max] °C;
+        /// duty bar → Y maps to fan % (capped by the extended-range toggle).</summary>
+        private void MsiFanApplyPointerEdit(Windows.Foundation.Point point, double width, double height)
+        {
+            double plotTop = MsiPlotTop;
+            double plotBottom = height - MsiPlotBottomPad;
+            if (_msiFanDragIsTemp)
+            {
+                double plotW = width - MsiPlotLeft;
+                double frac = plotW > 0 ? (point.X - MsiPlotLeft) / plotW : 0;
+                double temp = MsiTempMin + frac * (MsiTempMax - MsiTempMin);
+                _msiFanTemps[_msiFanDragIndex] = ClampMsiTemp(_msiFanDragIndex, (int)Math.Round(temp));
+            }
+            else
+            {
+                double plotH = plotBottom - plotTop;
+                double duty = plotH > 0 ? (1.0 - (point.Y - plotTop) / plotH) * 100.0 : 0;
+                _msiFanDuties[_msiFanDragIndex] = (int)Math.Max(0, Math.Min(MsiDutyMax(), Math.Round(duty)));
+            }
+            RenderMsiFanCurve();
         }
 
         private void MsiFanCurveCanvas_PointerReleased(object sender, PointerRoutedEventArgs e)
@@ -321,10 +573,10 @@ namespace XboxGamingBar
 
                 // A manual edit means the curve is now "Custom".
                 _msiFanInitializing = true;
-                try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 4; }
+                try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 3; }
                 finally { _msiFanInitializing = false; }
 
-                ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 4;
+                ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 3;
                 ApplicationData.Current.LocalSettings.Values[MsiFanCurveKey] = CurveToCsv();
 
                 if (MsiFanEnableToggle?.IsOn == true)
@@ -342,24 +594,46 @@ namespace XboxGamingBar
             ApplicationData.Current.LocalSettings.Values[MsiFanEnabledKey] = on;
             if (on)
             {
-                // Enabling/re-enabling fan control always activates the new default
-                // "Default (EC Sport)" hardware-cooling mode (preset 5) — the safe, never-latching
-                // baseline. Selecting another preset afterwards still works and persists.
-                _msiFanInitializing = true;
-                try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 5; }
-                finally { _msiFanInitializing = false; }
-                ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 5;
-                LoadCurveForPreset(5);
+                // Enabling fan control activates the MSI Default curve unless a preset is already chosen.
+                int preset = MsiFanPresetComboBox?.SelectedIndex ?? 0;
+                if (preset < 0 || preset > 4) preset = 0;
+                LoadCurveForPreset(preset);
                 RenderMsiFanCurve();
             }
             SendMsiFanStateToHelper();
         }
 
+        /// <summary>Toggle the >75% "beyond MSI" range. Off caps duty at 75 % (clamping any higher
+        /// custom points) and hides the beyond-zone visuals; on unlocks up to 100 %.</summary>
+        private void MsiFanExtendedRangeToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (_msiFanInitializing) return;
+            _msiFanExtended = MsiFanExtendedRangeToggle?.IsOn ?? false;
+            ApplicationData.Current.LocalSettings.Values[MsiFanExtendedKey] = _msiFanExtended;
+
+            bool changed = false;
+            if (!_msiFanExtended)
+            {
+                for (int i = 0; i < MsiFanPoints; i++)
+                    if (_msiFanDuties[i] > MsiDutyCap) { _msiFanDuties[i] = MsiDutyCap; changed = true; }
+            }
+            RenderMsiFanCurve();
+
+            // If clamping changed the active custom curve, persist + push it.
+            if (changed)
+            {
+                if ((MsiFanPresetComboBox?.SelectedIndex ?? 0) == 3)
+                    ApplicationData.Current.LocalSettings.Values[MsiFanCurveKey] = CurveToCsv();
+                if (MsiFanEnableToggle?.IsOn == true)
+                    SendMsiFanCurveToHelper();
+            }
+        }
+
         private void MsiFanPresetComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_msiFanInitializing) return;
-            int idx = MsiFanPresetComboBox?.SelectedIndex ?? 5;
-            if (idx < 0) idx = 5;
+            int idx = MsiFanPresetComboBox?.SelectedIndex ?? 0;
+            if (idx < 0 || idx > 4) idx = 0;
             ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = idx;
 
             LoadCurveForPreset(idx);
@@ -386,8 +660,9 @@ namespace XboxGamingBar
                     return;
                 }
 
-                int preset = MsiFanPresetComboBox?.SelectedIndex ?? 5;
-                if (preset == 4)
+                int preset = MsiFanPresetComboBox?.SelectedIndex ?? 0;
+                if (preset < 0 || preset > 4) preset = 0;
+                if (preset == 3)
                 {
                     SendMsiFanCurveToHelper();
                     return;
@@ -445,10 +720,14 @@ namespace XboxGamingBar
         }
 
         // ── Controller editing of the curve graph ──────────────────────────────────
-        // Focus the canvas → a point is selected (left/right to move between points).
-        // A / Enter grabs the selected point → up/down change its value; A / B releases.
+        // Each column has TWO handles: the duty circle (vertical-only) and the temp handle at the
+        // bottom (horizontal-only). Left/Right move between columns; Up/Down switch between the duty
+        // handle (top) and the temp handle (bottom) of the current column. A grabs the selected handle:
+        //   duty handle grabbed → Up/Down change fan %; temp handle grabbed → Left/Right change temp.
+        // A/B releases and commits as a Custom curve.
         private int _msiFanSelectedPoint = -1;
         private bool _msiFanGrabbed;
+        private bool _msiFanSelectingTemp;   // false = duty circle, true = temp handle
 
         private void MsiFanCurveCanvas_GotFocus(object sender, RoutedEventArgs e)
         {
@@ -462,13 +741,7 @@ namespace XboxGamingBar
         private void MsiFanCurveCanvas_LostFocus(object sender, RoutedEventArgs e)
         {
             _msiFanGrabbed = false;
-            // De-emphasise points when focus leaves the graph.
-            for (int i = 0; i < 11; i++)
-                if (_msiFanPoints[i] != null)
-                {
-                    _msiFanPoints[i].Fill = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 0, 170, 255));
-                    _msiFanPoints[i].Width = _msiFanPoints[i].Height = 14;
-                }
+            HighlightMsiFanPoints(false); // de-emphasise all handles when focus leaves the graph
         }
 
         private void MsiFanCurveCanvas_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
@@ -481,45 +754,48 @@ namespace XboxGamingBar
             bool left = k == Windows.System.VirtualKey.Left || k == Windows.System.VirtualKey.GamepadDPadLeft;
             bool right = k == Windows.System.VirtualKey.Right || k == Windows.System.VirtualKey.GamepadDPadRight;
 
+            int idx = Math.Max(0, Math.Min(MsiFanPoints - 1, _msiFanSelectedPoint));
+
             if (_msiFanGrabbed)
             {
-                if (up || down)
+                if (_msiFanSelectingTemp)
                 {
-                    int idx = Math.Max(0, Math.Min(10, _msiFanSelectedPoint));
-                    double step = up ? 5 : -5;
-                    _msiFanCurve[idx] = Math.Max(0, Math.Min(100, _msiFanCurve[idx] + step));
-                    RenderMsiFanCurve();
-                    HighlightMsiFanPoints();
-                    e.Handled = true;
+                    // Temp handle: horizontal only.
+                    if (left || right)
+                    {
+                        _msiFanTemps[idx] = ClampMsiTemp(idx, _msiFanTemps[idx] + (right ? 2 : -2));
+                        RenderMsiFanCurve(); HighlightMsiFanPoints(); e.Handled = true;
+                    }
+                    else if (isA || isB) { _msiFanGrabbed = false; CommitMsiFanCustomEdit(); HighlightMsiFanPoints(); e.Handled = true; }
                 }
-                else if (isA || isB)
+                else
                 {
-                    // Release → commit as a Custom curve (same as a pointer drag release).
-                    _msiFanGrabbed = false;
-                    CommitMsiFanCustomEdit();
-                    HighlightMsiFanPoints();
-                    e.Handled = true;
+                    // Duty circle: vertical only (capped by the extended-range toggle).
+                    if (up || down)
+                    {
+                        _msiFanDuties[idx] = Math.Max(0, Math.Min(MsiDutyMax(), _msiFanDuties[idx] + (up ? 5 : -5)));
+                        RenderMsiFanCurve(); HighlightMsiFanPoints(); e.Handled = true;
+                    }
+                    else if (isA || isB) { _msiFanGrabbed = false; CommitMsiFanCustomEdit(); HighlightMsiFanPoints(); e.Handled = true; }
                 }
                 return;
             }
 
-            // Navigating points (not grabbed)
+            // Not grabbed: navigate columns / switch handle / grab / leave the graph.
             if (left)  { _msiFanSelectedPoint = Math.Max(0, _msiFanSelectedPoint - 1); HighlightMsiFanPoints(); e.Handled = true; }
-            else if (right) { _msiFanSelectedPoint = Math.Min(10, _msiFanSelectedPoint + 1); HighlightMsiFanPoints(); e.Handled = true; }
+            else if (right) { _msiFanSelectedPoint = Math.Min(MsiFanPoints - 1, _msiFanSelectedPoint + 1); HighlightMsiFanPoints(); e.Handled = true; }
             else if (isA) { _msiFanGrabbed = true; HighlightMsiFanPoints(); e.Handled = true; }
             else if (up)
             {
-                // Leave the graph upward to the preset dropdown.
-                MsiFanPresetComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                if (_msiFanSelectingTemp) { _msiFanSelectingTemp = false; HighlightMsiFanPoints(); } // temp → duty handle
+                else MsiFanPresetComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);               // leave up to preset
                 e.Handled = true;
             }
             else if (down)
             {
-                // Down → the Check button below the graph.
-                if (MsiFanCheckButton != null)
-                    MsiFanCheckButton.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                else
-                    (PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle)?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                if (!_msiFanSelectingTemp) { _msiFanSelectingTemp = true; HighlightMsiFanPoints(); }  // duty → temp handle
+                else if (MsiFanCheckButton != null) MsiFanCheckButton.Focus(Windows.UI.Xaml.FocusState.Keyboard); // leave down to Check
+                else (PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle)?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }
@@ -541,28 +817,20 @@ namespace XboxGamingBar
             }
         }
 
-        // Must match MsiClawFanController.FanTableScale: the 0–100 % UI curve maps onto the full
-        // MSI EC range 0–150, so each EC byte = percent × 1.5. Keep these in sync.
-        private const double MsiFanTableScale = 150.0;
-
-        /// <summary>Maps the current 11-point graph curve to the 8-byte EC table — byte-for-byte the
-        /// same mapping the helper uses when writing (MsiClawFanController.CurveToTable): scale by
-        /// 150/100 and TRUNCATE via the (byte) cast (NOT Math.Round). Rounding mismatched the top
-        /// samples (e.g. 97 % → 145.5: truncates to 145 in the EC, rounding gave 146) and made the
-        /// "Check applied values" report a false mismatch after the fan curve was scaled to 0–150.</summary>
+        /// <summary>Maps the current 5-point graph duty to the 8-byte EC table — byte-for-byte the same
+        /// mapping the helper uses when writing (MsiClawFanController.BuildFanTable): duty is the RAW EC
+        /// byte (no ×1.5). Layout: [backup=d1, 0, d1, d2, d3, d4, d5, d5(dup)].</summary>
         private byte[] MsiExpectedTable()
         {
-            double scale = MsiFanTableScale / 100.0d;
-            byte[] t = new byte[8];
-            t[0] = (byte)(_msiFanCurve[4]  * scale);
-            t[1] = (byte)(_msiFanCurve[0]  * scale);
-            t[2] = (byte)(_msiFanCurve[2]  * scale);
-            t[3] = (byte)(_msiFanCurve[5]  * scale);
-            t[4] = (byte)(_msiFanCurve[6]  * scale);
-            t[5] = (byte)(_msiFanCurve[8]  * scale);
-            t[6] = (byte)(_msiFanCurve[9]  * scale);
-            t[7] = (byte)(_msiFanCurve[10] * scale);
-            return t;
+            byte D(int i) => (byte)Math.Max(0, Math.Min(100, _msiFanDuties[i]));
+            return new byte[8] { D(0), 0, D(0), D(1), D(2), D(3), D(4), D(4) };
+        }
+
+        /// <summary>The expected 7-byte thermal (temperature-axis) table: [0, t1..t5, t5(dup)].</summary>
+        private byte[] MsiExpectedThermal()
+        {
+            byte T(int i) => (byte)Math.Max(0, Math.Min(120, _msiFanTemps[i]));
+            return new byte[7] { 0, T(0), T(1), T(2), T(3), T(4), T(4) };
         }
 
         private async void VerifyMsiFan()
@@ -593,8 +861,8 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Handles the helper's "MsiFanStatus" push: "b0,..,b7|controlBit|readOk".
-        /// Compares the read-back EC table against the graph and shows a status.
+        /// Handles the helper's "MsiFanStatus" push: "b0,..,b7|controlBit|readOk|fullSpeed|rpm|thermalCsv".
+        /// Compares the read-back EC duty table AND temperature axis against the graph and shows a status.
         /// </summary>
         internal void OnMsiFanStatus(string payload)
         {
@@ -610,8 +878,7 @@ namespace XboxGamingBar
                 int rpm = -1;
                 if (sections.Length > 4) int.TryParse(sections[4], out rpm);
 
-                // Measurement line for the scaling test: actual fan RPM + whether the EC full-speed
-                // override is engaged. Lets us compare our table max (100 % = EC 150) against true max.
+                // Measurement line: actual fan RPM + whether the EC full-speed override is engaged.
                 string measure = (rpm >= 0 ? $"Fan: {rpm} RPM" : "Fan: n/a")
                                  + $" · full-speed override: {(fullSpeed ? "ON" : "off")}";
                 if (FanFullBlastStatusText != null) FanFullBlastStatusText.Text = measure;
@@ -620,47 +887,60 @@ namespace XboxGamingBar
                 for (int i = 0; i < 8 && i < ecParts.Length; i++)
                     byte.TryParse(ecParts[i], out ec[i]);
 
+                // Temperature axis read-back (Set_Thermal), if the helper included it.
+                byte[] th = null;
+                if (sections.Length > 5 && !string.IsNullOrEmpty(sections[5]))
+                {
+                    var thParts = sections[5].Split(',');
+                    th = new byte[7];
+                    for (int i = 0; i < 7 && i < thParts.Length; i++) byte.TryParse(thParts[i], out th[i]);
+                }
+
                 byte[] expected = MsiExpectedTable();
-                // Compare bytes 1..7 only. Byte 0 is the EC-managed low-temp/idle "backup"
-                // sample (≈40 °C) that the MSI firmware nudges on its own (e.g. 0↔12), which
-                // produced spurious "mismatch" warnings even though the curve is applied
-                // correctly. It has no meaningful effect at idle, so we don't flag it.
+                byte[] expectedTh = MsiExpectedThermal();
+                // Compare duty bytes 1..7 only. Byte 0 is the EC-managed idle "backup" sample the MSI
+                // firmware nudges on its own, which produced spurious mismatches; it has no meaningful
+                // effect at idle, so we don't flag it.
                 bool match = true;
                 for (int i = 1; i < 8; i++) if (ec[i] != expected[i]) { match = false; break; }
+                bool thMatch = th == null; // no axis in payload → don't fail on it
+                if (th != null)
+                {
+                    thMatch = true;
+                    for (int i = 1; i < 7; i++) if (th[i] != expectedTh[i]) { thMatch = false; break; }
+                }
 
                 bool enabled = MsiFanEnableToggle?.IsOn ?? false;
                 int preset = MsiFanPresetComboBox?.SelectedIndex ?? -1;
+                string axisLine = th != null ? $"\nTemp axis: [{string.Join(",", th)}]" : "";
 
                 if (!readOk)
                 {
                     MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 230, 120, 120));
                     MsiFanCheckStatus.Text = "✗ Could not read fan values from the EC.";
                 }
+                else if (enabled && preset == 4)
+                {
+                    // DEBUG "EC Sport default": firmware hardware table drives the fan (control OFF is
+                    // correct). Don't compare against the software-curve model — just show the raw table.
+                    MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 120, 200, 230));
+                    MsiFanCheckStatus.Text = $"EC Sport default (debug) — firmware drives the fan (control bit off is correct).\nRaw EC table: [{string.Join(",", ec)}]{axisLine}";
+                }
                 else if (!enabled)
                 {
                     MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 200, 200, 200));
                     MsiFanCheckStatus.Text = $"Custom fan curve is OFF (firmware control). EC table: [{string.Join(",", ec)}], control bit: {(controlOn ? "on" : "off")}.";
                 }
-                else if (preset == 5)
-                {
-                    // "Cooling (EC Sport)" is a hardware-mode preset: the helper writes the
-                    // BestPerformance EC table and hands fan control BACK to the firmware
-                    // (SetFanControl(false)). The control bit being OFF is therefore correct —
-                    // not a mismatch. The EC table comparison against the software-curve
-                    // placeholder would always fail here, so we skip it entirely.
-                    MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 120, 210, 120));
-                    MsiFanCheckStatus.Text = $"✓ EC Sport applied — firmware controls the fan (hardware mode, control bit off is correct).\nEC table: [{string.Join(",", ec)}]";
-                }
-                else if (match && controlOn)
+                else if (match && thMatch && controlOn)
                 {
                     MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 120, 210, 120));
-                    MsiFanCheckStatus.Text = $"✓ Applied correctly — EC matches the graph and control is active.\nEC: [{string.Join(",", ec)}]";
+                    MsiFanCheckStatus.Text = $"✓ Applied correctly — EC matches the graph and control is active.\nEC: [{string.Join(",", ec)}]{axisLine}";
                 }
                 else
                 {
                     MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 240, 180, 80));
-                    string why = !controlOn ? "control bit is OFF" : "EC values differ from the graph";
-                    MsiFanCheckStatus.Text = $"⚠ Mismatch ({why}).\nEC: [{string.Join(",", ec)}]\nExpected: [{string.Join(",", expected)}]";
+                    string why = !controlOn ? "control bit is OFF" : !match ? "duty values differ from the graph" : "temp axis differs from the graph";
+                    MsiFanCheckStatus.Text = $"⚠ Mismatch ({why}).\nEC: [{string.Join(",", ec)}]{axisLine}\nExpected: [{string.Join(",", expected)}] axis [{string.Join(",", expectedTh)}]";
                 }
 
                 // Always show the live measurement so the EC check doubles as an RPM read-out.
@@ -888,36 +1168,54 @@ namespace XboxGamingBar
             catch (Exception ex) { Logger.Error($"OnFanRegStatus: {ex.Message}"); }
         }
 
-        /// <summary>Color the selected point (yellow = selected, orange = grabbed); others blue.</summary>
-        private void HighlightMsiFanPoints()
+        /// <summary>Highlight the selected handle: the duty circle OR the temp handle of the selected
+        /// column (yellow = selected, orange = grabbed). Others revert to their idle colours.
+        /// <paramref name="active"/> = false clears all highlights (focus left the graph).</summary>
+        private void HighlightMsiFanPoints(bool active = true)
         {
-            for (int i = 0; i < 11; i++)
+            var blue    = Windows.UI.ColorHelper.FromArgb(255, 0, 170, 255);   // duty circle idle
+            var yellow  = Windows.UI.ColorHelper.FromArgb(255, 255, 215, 0);   // selected
+            var orangeG = Windows.UI.ColorHelper.FromArgb(255, 255, 120, 0);   // grabbed
+            var tempIdle = Windows.UI.ColorHelper.FromArgb(255, 220, 180, 90); // temp label idle
+            for (int i = 0; i < MsiFanPoints; i++)
             {
-                if (_msiFanPoints[i] == null) continue;
-                bool sel = i == _msiFanSelectedPoint;
-                Windows.UI.Color c = sel
-                    ? (_msiFanGrabbed ? Windows.UI.ColorHelper.FromArgb(255, 255, 140, 0)   // orange (grabbed)
-                                      : Windows.UI.ColorHelper.FromArgb(255, 255, 215, 0))   // yellow (selected)
-                    : Windows.UI.ColorHelper.FromArgb(255, 0, 170, 255);                     // blue
-                _msiFanPoints[i].Fill = new SolidColorBrush(c);
-                _msiFanPoints[i].Width = _msiFanPoints[i].Height = sel ? 18 : 14;
-                if (_msiFanValueLabels[i] != null)
+                bool colSel  = active && i == _msiFanSelectedPoint;
+                bool dutySel = colSel && !_msiFanSelectingTemp;
+                bool tempSel = colSel && _msiFanSelectingTemp;
+
+                // Duty circle + bar.
+                if (_msiFanPoints[i] != null)
                 {
-                    _msiFanValueLabels[i].Foreground = new SolidColorBrush(sel ? c : Windows.UI.Colors.White);
-                    _msiFanValueLabels[i].FontWeight = sel ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
+                    Windows.UI.Color dc = dutySel ? (_msiFanGrabbed ? orangeG : yellow) : blue;
+                    _msiFanPoints[i].Fill = new SolidColorBrush(dc);
+                    _msiFanPoints[i].Width = _msiFanPoints[i].Height = dutySel ? 20 : 16;
+                }
+                if (_msiFanBars[i] != null)
+                    _msiFanBars[i].Opacity = dutySel ? 1.0 : 0.85;
+                if (_msiFanValueLabels[i] != null)
+                    _msiFanValueLabels[i].Foreground = new SolidColorBrush(dutySel ? (_msiFanGrabbed ? orangeG : yellow) : Windows.UI.Colors.White);
+
+                // Temp label + diamond focus marker.
+                if (_msiFanTempLabels[i] != null)
+                    _msiFanTempLabels[i].Foreground = new SolidColorBrush(tempSel ? (_msiFanGrabbed ? orangeG : yellow) : tempIdle);
+                if (_msiFanTempHandles[i] != null)
+                {
+                    _msiFanTempHandles[i].Fill = new SolidColorBrush(tempSel ? (_msiFanGrabbed ? orangeG : yellow)
+                                                                             : Windows.UI.ColorHelper.FromArgb(255, 255, 150, 40));
+                    _msiFanTempHandles[i].Width = _msiFanTempHandles[i].Height = tempSel ? 18 : 14;
                 }
             }
-            RenderMsiFanCurve(); // re-center the (now larger) selected ellipse
+            RenderMsiFanCurve(); // re-center the (now larger) selected circle
         }
 
         /// <summary>Persist + push a controller/touch edit as a Custom curve.</summary>
         private void CommitMsiFanCustomEdit()
         {
             _msiFanInitializing = true;
-            try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 4; }
+            try { if (MsiFanPresetComboBox != null) MsiFanPresetComboBox.SelectedIndex = 3; }
             finally { _msiFanInitializing = false; }
 
-            ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 4;
+            ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 3;
             ApplicationData.Current.LocalSettings.Values[MsiFanCurveKey] = CurveToCsv();
             if (MsiFanEnableToggle?.IsOn == true)
                 SendMsiFanCurveToHelper();

@@ -4,52 +4,40 @@ using NLog;
 namespace XboxGamingBarHelper.MSI
 {
     /// <summary>
-    /// MSI Claw 8 AI+ (A2VM, Intel Lunar Lake) fan control via the ACPI-WMI platform interface.
-    /// Ported from the Handheld Companion fork (ClawA1M + the A2VM Lunar Lake optimizations).
+    /// MSI Claw 8 AI+ (A2VM, Intel Lunar Lake) fan control via the ACPI-WMI platform interface
+    /// (root\WMI / MSI_ACPI, ACPI\PNP0C14\0_0 — firmware/EC level, works with MSI Center services off).
     ///
-    /// Concepts:
-    ///   - The EC fan table is 8 bytes on a 0–150 scale, sampled at fixed temperatures:
-    ///     [0] backup(40°C) [1] 0°C [2] 20°C [3] 50°C [4] 60°C [5] 80°C [6] 90°C [7] 100°C
-    ///   - "Software" fan mode = our table is followed and fan-control is enabled.
+    /// Model (reverse-engineered from the real firmware, see Doku/RE_MSI_FanCurve.md):
+    ///   - The fan curve is TWO parallel EC tables per fan block:
+    ///       Set_Fan     (8 bytes) = duty %, RAW EC byte (MSI shows the raw byte as "%", NO ×1.5).
+    ///                     [0] backup(=d1) [1] 0°C=0 [2..6] duty @ breakpoints [7] = [6] (dup).
+    ///       Set_Thermal (7 bytes) = the temperature breakpoints °C: [0, t1..t5, t5(dup)].
+    ///     So a curve is 5 editable (temp,duty) points on the MSI axis (default temps 44/54/64/74/82).
+    ///   - "Software" fan mode = our tables are followed and fan-control is enabled (AP bit7).
     ///   - "Hardware" fan mode = a baseline table is written and the firmware keeps control.
-    ///   - Lunar Lake is near-fanless at idle; A2VM tables/curves keep the fan off at low
-    ///     temps and ramp gently, instead of the louder firmware default seen with Center M off.
+    ///   - Both physical fans (block 1 + block 2) are written IDENTICALLY (we expose one curve).
     /// </summary>
     internal static class MsiClawFanController
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        // ── A2VM Lunar Lake hardware fan tables (0–150 MSI scale) ──────────────────
-        // [0] backup  [1] 0°C  [2] 20°C  [3] 50°C  [4] 60°C  [5] 80°C  [6] 90°C  [7] 100°C
+        // ── A2VM Lunar Lake hardware fan tables (raw EC bytes) ─────────────────────
+        // Used only for the firmware hand-back ("fan off" / disabled). 8 bytes on the legacy
+        // assumed-axis layout — these are baseline firmware tables, not the software curve model.
         private static readonly byte[] LLFanTable_BetterBattery     = { 0, 0, 0,  0, 18, 48,  90, 140 };
         private static readonly byte[] LLFanTable_BetterPerformance = { 0, 0, 0, 14, 33, 63,  98, 150 };
         private static readonly byte[] LLFanTable_BestPerformance   = { 10, 0, 10, 26, 46, 78, 113, 150 };
 
-        // ── A2VM Lunar Lake software fan curves (11 points: 0,10,…,100 °C → 0–100 %) ──
-        // Non-decreasing, silent at idle/low load. The KEY tuning constraint: the 80-100 °C end must
-        // cool at firmware level. If our curve under-cools at the top during sustained full load, the
-        // CPU climbs into the EC's thermal-protection region; the EC then seizes the fan with its own
-        // max override (full-speed bit / active-scenario fan), runs LOUDER than both our table and the
-        // firmware curve, and LATCHES there — only a firmware hand-back clears it. Re-writing or
-        // lowering our table does NOT release the latch (and lowering cools even less). So we keep the
-        // 0-60 °C band quiet but ramp the 80/90/100 °C points to ≥ firmware so the trip never happens.
-        // With FanTableScale = 150 these map to the full EC 0-150 range, e.g. resulting EC tables:
-        //   Quiet      80/90/100 °C -> 60/94/130   Default 75/112/145   Aggressive 94/127/150
-        // (firmware reference: BetterPerformance 63/98/150, BestPerformance 78/113/150).
-        //                                                 0  10  20  30  40  50  60  70  80  90  100 °C
-        public static readonly double[] Curve_Quiet      = { 0, 0, 0,  0,  0,  0,  8, 22, 40, 63,  87 };
-        public static readonly double[] Curve_Default    = { 0, 0, 0,  0,  2,  4, 14, 30, 50, 75,  97 };
-        public static readonly double[] Curve_Aggressive = { 0, 0, 0,  3,  6, 10, 22, 40, 63, 85, 100 };
+        // ── MSI software fan curves: 5 (temp,duty) points on the real firmware axis ──────
+        // Temps default to the MSI Center M breakpoints [44,54,64,74,82] °C; duty is the RAW EC byte
+        // 0–100 (MSI's own default caps at 75). Presets 0/1 share the default axis and differ only in
+        // duty; "Cooling" shifts the whole axis down 10 °C so the fan spins earlier.
+        public static readonly int[] MsiTemps_Default = { 44, 54, 64, 74, 82 };
+        public static readonly int[] MsiTemps_Cooling = { 34, 44, 54, 64, 72 }; // −10 °C: early ramp
 
-        // "Cooling" (early-ramp): the EC table is temperature-indexed and only samples
-        // 0/20/40/50/60/80/90/100 °C — at idle/low load the fan speed comes ONLY from the 50/60 °C
-        // points. Quiet/Default keep 50-60 °C near silent, so the fan barely moves until ~80 °C and a
-        // game's fast heat-up overshoots into the EC's ~90 °C thermal-protection latch. This preset
-        // front-loads the 50-70 °C band so the fan is already spinning before the game pushes past 80,
-        // keeping temp under the ~85 °C latch threshold, while staying silent at <=40 °C (idle).
-        // Resulting EC table (x1.5): 50 °C->33, 60 °C->57, 80 °C->97, 90 °C->127, 100 °C->150.
-        //                                                 0  10  20  30  40  50  60  70  80  90  100 °C
-        public static readonly double[] Curve_Cooling    = { 0, 0, 0,  0,  3, 22, 38, 50, 65, 85, 100 };
+        public static readonly int[] MsiDuty_Default   = { 40, 49, 58, 67, 75 }; // MSI Center M default
+        public static readonly int[] MsiDuty_QuietIdle = { 20, 30, 45, 67, 75 }; // quieter low band, MSI top
+        public static readonly int[] MsiDuty_Cooling   = { 40, 49, 58, 67, 75 }; // same duty, earlier temps
 
         /// <summary>
         /// EXPERIMENTAL: read the CURRENT native fan config straight from the EC and format a report.
@@ -104,48 +92,44 @@ namespace XboxGamingBarHelper.MSI
         }
 
         /// <summary>
-        /// A2VM fan scale: the 0–100 % UI curve maps onto the full MSI EC range 0–150, so 100 % UI =
-        /// MSI 150 = hardware max. This was 100 (≈67 % of HW max), which structurally capped software
-        /// cooling below the firmware curve and, under sustained full load, let the CPU climb until the
-        /// EC seized the fan and latched it loud (see curve comment above). Full range is required so
-        /// the high-temp end of the curves can actually deliver firmware-level cooling and keep the EC
-        /// from ever taking over. Quiet at low/mid load is preserved by the curve shape, not by capping
-        /// the scale.
+        /// Apply an MSI software fan curve: 5 (temp,duty) points on the real firmware axis. Writes the
+        /// duty table (Set_Fan) AND the temperature breakpoints (Set_Thermal) to BOTH fan blocks, then
+        /// hands fan control to our tables. Duty is the RAW EC byte 0–100 (MSI scale, no ×1.5).
+        /// temps/duties must each have 5 entries; temps strictly increasing, duties clamped 0–100.
         /// </summary>
-        private const double FanTableScale = 150.0;
-
-        /// <summary>
-        /// Apply a software fan curve (11 points, 0…100 °C, values 0–100 %) and hand fan
-        /// control to our table. Maps the 11-point curve to the 8-byte EC table exactly like
-        /// the HC fork (PowerProfileManager_Applied).
-        /// </summary>
-        public static bool ApplySoftwareCurve(double[] curve11)
+        public static bool ApplyMsiCurve(int[] temps5, int[] duties5)
         {
-            if (curve11 == null || curve11.Length < 11)
+            if (temps5 == null || temps5.Length < 5 || duties5 == null || duties5.Length < 5)
             {
-                Logger.Warn("MsiClawFanController.ApplySoftwareCurve: curve must have 11 points");
+                Logger.Warn("MsiClawFanController.ApplyMsiCurve: temps and duties must each have 5 points");
                 return false;
             }
 
-            double scale = FanTableScale / 100.0d;
-            byte[] table = new byte[8];
-            table[0] = (byte)(curve11[4]  * scale);   // 40°C (backup)
-            table[1] = (byte)(curve11[0]  * scale);   // 0°C
-            table[2] = (byte)(curve11[2]  * scale);   // 20°C
-            table[3] = (byte)(curve11[5]  * scale);   // 50°C
-            table[4] = (byte)(curve11[6]  * scale);   // 60°C
-            table[5] = (byte)(curve11[8]  * scale);   // 80°C
-            table[6] = (byte)(curve11[9]  * scale);   // 90°C
-            table[7] = (byte)(curve11[10] * scale);   // 100°C
+            byte[] fan = BuildFanTable(duties5);
+            byte[] thermal = BuildThermalTable(temps5);
 
-            SetFanTable(table);
-            SetFanControl(true);   // software mode → EC follows our table
-            // Critical: clear the "full speed" override (block 152 bit7). If MSI Center or a
-            // prior state left it set, the fan runs 100% regardless of our table — the EC
-            // ignores the curve entirely. Without this, even a Quiet curve can be deafening.
+            SetThermalTable(thermal); // temperature breakpoints (X-axis) — MSI's fixed axis, now editable
+            SetFanTable(fan);         // duty per breakpoint (Y-axis)
+            SetFanControl(true);      // software mode → EC follows our tables
+            // Critical: clear the "full speed" override (block 152 bit7). If MSI Center or a prior state
+            // left it set, the fan runs 100% regardless of our table — the EC ignores the curve entirely.
             SetFanFullSpeed(false);
-            Logger.Info($"MsiClawFanController: applied software fan curve [{string.Join(",", table)}] (full-speed cleared)");
+            Logger.Info($"MsiClawFanController: applied MSI fan curve fan=[{string.Join(",", fan)}] thermal=[{string.Join(",", thermal)}] (full-speed cleared)");
             return true;
+        }
+
+        /// <summary>Builds the 8-byte Set_Fan duty table from 5 duty %: [backup=d1, 0, d1..d5, d5(dup)].</summary>
+        public static byte[] BuildFanTable(int[] duties5)
+        {
+            byte D(int i) => (byte)Math.Max(0, Math.Min(100, duties5[i]));
+            return new byte[8] { D(0), 0, D(0), D(1), D(2), D(3), D(4), D(4) };
+        }
+
+        /// <summary>Builds the 7-byte Set_Thermal breakpoint table from 5 temps °C: [0, t1..t5, t5(dup)].</summary>
+        public static byte[] BuildThermalTable(int[] temps5)
+        {
+            byte T(int i) => (byte)Math.Max(0, Math.Min(120, temps5[i]));
+            return new byte[7] { 0, T(0), T(1), T(2), T(3), T(4), T(4) };
         }
 
         /// <summary>
@@ -200,23 +184,24 @@ namespace XboxGamingBarHelper.MSI
             }
         }
 
-        /// <summary>Maps an 11-point curve (0…100 °C, 0–100 %) to the 8-byte EC table — the same
-        /// mapping used when writing, so callers can compute the "expected" table for verification.</summary>
-        public static byte[] CurveToTable(double[] curve11)
+        /// <summary>Reads the current temperature-breakpoint axis (Get_Thermal block 1) as 7 bytes
+        /// [0, t1..t5, t5]. Returns a 7-byte array (zeros on failure).</summary>
+        public static byte[] ReadThermal()
         {
-            double scale = FanTableScale / 100.0d;
-            byte[] t = new byte[8];
-            if (curve11 == null || curve11.Length < 11) return t;
-            t[0] = (byte)(curve11[4]  * scale);
-            t[1] = (byte)(curve11[0]  * scale);
-            t[2] = (byte)(curve11[2]  * scale);
-            t[3] = (byte)(curve11[5]  * scale);
-            t[4] = (byte)(curve11[6]  * scale);
-            t[5] = (byte)(curve11[8]  * scale);
-            t[6] = (byte)(curve11[9]  * scale);
-            t[7] = (byte)(curve11[10] * scale);
-            return t;
+            var result = new byte[7];
+            try
+            {
+                byte[] th = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Thermal", 1, 32, out bool ok);
+                if (ok && th != null) Array.Copy(th, result, Math.Min(7, th.Length));
+            }
+            catch (Exception ex) { Logger.Debug($"MsiClawFan.ReadThermal: {ex.Message}"); }
+            return result;
         }
+
+        /// <summary>Maps a 5-point (duty %) curve to the 8-byte EC table — the same mapping used when
+        /// writing, so callers (e.g. the widget's "Check applied values") can compute the expected
+        /// table for verification. Alias of <see cref="BuildFanTable"/>.</summary>
+        public static byte[] CurveToTable(int[] duties5) => BuildFanTable(duties5);
 
         /// <summary>Return fan control to the firmware (used on shutdown / revert).</summary>
         public static void RestoreFirmwareControl()
@@ -257,6 +242,41 @@ namespace XboxGamingBarHelper.MSI
                 bool matches = readAfter && after.Length >= 8 && TableMatches(fanTable, after);
                 Logger.Info($"MsiClawFan[{blk}]: read-back (ok={readAfter}) table=[{Hex(after, 8)}] -> {(matches ? "MATCH" : "MISMATCH")}");
             }
+        }
+
+        /// <summary>Writes the 7-byte temperature-breakpoint table (Set_Thermal) to both fan blocks and
+        /// reads it back, so the temperature axis (X) is verifiable. Mirrors <see cref="SetFanTable"/>.
+        /// This is the differentiator over MSI Center M, which keeps the temp axis fixed.</summary>
+        private static void SetThermalTable(byte[] thermalTable)
+        {
+            for (byte iDataBlockIndex = 1; iDataBlockIndex <= 2; iDataBlockIndex++)
+            {
+                string blk = iDataBlockIndex == 1 ? "CPU" : "GPU";
+
+                byte[] before = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Thermal", iDataBlockIndex, 32, out bool readBefore);
+                Logger.Info($"MsiClawThermal[{blk}]: before write (read ok={readBefore}) axis=[{Hex(before, 7)}]");
+
+                byte[] fullPackage = new byte[32];
+                fullPackage[0] = iDataBlockIndex;
+                Array.Copy(thermalTable, 0, fullPackage, 1, thermalTable.Length);
+                Logger.Info($"MsiClawThermal[{blk}]: writing axis=[{string.Join(",", thermalTable)}]");
+
+                var setResult = MsiClawWmi.Set(MsiClawWmi.Scope, MsiClawWmi.Path, "Set_Thermal", fullPackage);
+                if (setResult == null)
+                    Logger.Warn($"MsiClawThermal[{blk}]: Set_Thermal returned null (WMI call may have failed)");
+
+                byte[] after = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Thermal", iDataBlockIndex, 32, out bool readAfter);
+                bool matches = readAfter && after.Length >= 7 && ArrayPrefixMatches(thermalTable, after, 7);
+                Logger.Info($"MsiClawThermal[{blk}]: read-back (ok={readAfter}) axis=[{Hex(after, 7)}] -> {(matches ? "MATCH" : "MISMATCH")}");
+            }
+        }
+
+        private static bool ArrayPrefixMatches(byte[] wanted, byte[] readBack, int count)
+        {
+            if (wanted == null || readBack == null || wanted.Length < count || readBack.Length < count) return false;
+            for (int i = 0; i < count; i++)
+                if (wanted[i] != readBack[i]) return false;
+            return true;
         }
 
         /// <summary>Enables (software) / disables (hardware) custom fan control. Logs the

@@ -356,74 +356,70 @@ namespace XboxGamingBarHelper
             }
         }
 
+        // Fan persistence keys. Bumped to *_2 for the MSI-axis rework so the old (×1.5, wrong-axis)
+        // 11-point curves and preset indices are ignored → existing user fan settings are wiped clean.
+        private const string MsiFanValueKey = "MsiFan_Value2";
+        private const string MsiFanCurveKey = "MsiFan_Curve2";
+
         /// <summary>
-        /// Apply an MSI Claw fan command from the widget.
-        /// value: 0/1 = EC Quiet curve (Quiet/Default) — Comfort power-shift + software curve, with the
-        ///   auto-Sport safety at 70 °C (158 °F); 2/3 = EC Sport curve (Aggressive/Cooling) — Sport
-        ///   power-shift held permanently + software curve; 4 = EC Sport custom curve; 5 = EC Sport
-        ///   default (firmware drives the fan, no software curve); -1 = disable → firmware control.
-        /// Persisted so it can be re-applied on startup (the EC resets across reboots).
+        /// Apply an MSI Claw fan command from the widget (MSI-axis software-curve model).
+        /// value: 0 = MSI Default, 1 = Quiet Idle, 2 = Cooling / early ramp, 3 = Custom (saved curve);
+        ///   -1 = disabled → firmware control. Persisted so it can be re-applied on startup (the EC
+        /// resets across reboots). The power-shift coupling + 70 °C auto-Sport safety are kept in code
+        /// but dormant (see MsiFanAutoSportTick) — pure MSI software curves for now.
         /// </summary>
         internal static void ApplyMsiFan(int value)
         {
             try
             {
                 Logger.Info($"ApplyMsiFan: value={value}");
-                Settings.LocalSettingsHelper.SetValue("MsiFan_Value", value);
-
-                // Any explicit fan-mode apply ends an auto-safety Sport override (the watcher may
-                // re-engage on the next tick if it is still hot and a Quiet curve mode is selected).
+                Settings.LocalSettingsHelper.SetValue(MsiFanValueKey, value);
                 _autoSportActive = false;
-
-                // EC power-shift scenario: Sport (0xC4) held permanently for Aggressive/Cooling/Custom
-                // and the EC-Sport default (values 2-5); Comfort (0xC0) for Quiet/Default (0-1) and
-                // firmware mode (-1). Sport raises the TDP/boost ceiling; for the curve presets (2-4)
-                // we still re-apply our software table below, so OUR curve — not the EC's — drives the
-                // fan while Sport stays active (apply-after-shift = our curve is the last word).
-                performanceManager?.SetMsiSportCooling(value >= 2);
-                if (value == 5)
-                {
-                    // Pure EC Sport: hand the fan to the firmware so the EC's own aggressive curve drives
-                    // it cleanly (and clear any full-speed override). No software curve in this mode.
-                    MsiClawFanController.ApplyHardwareTable("BestPerformance");
-                    return;
-                }
 
                 if (value < 0)
                 {
-                    // Robust firmware hand-back: write a real firmware baseline table AND clear control
-                    // (instead of a bare control-bit clear that leaves our last software table behind).
-                    // This is the prerequisite for the "firmware owns the hot band" hybrid — it must
-                    // cleanly return to firmware cooling after any software curve was set.
+                    // Disabled → robust firmware hand-back: write a real firmware baseline table AND clear
+                    // control (instead of a bare control-bit clear that leaves our last table behind).
                     MsiClawFanController.ApplyHardwareTable("BetterPerformance");
                     return;
                 }
 
-                // 4 = custom curve stored as CSV; 0/1/2/3 = built-in presets.
                 if (value == 4)
                 {
-                    if (Settings.LocalSettingsHelper.TryGetValue<string>("MsiFan_Curve", out string csv)
-                        && TryParseCurve(csv, out double[] custom))
+                    // DEBUG preset: the old "EC Sport default" — the firmware BestPerformance hardware
+                    // table (raw EC bytes [10,0,10,26,46,78,113,150]) with the Sport power-shift, EC
+                    // drives the fan (control OFF). A reference to A/B against the MSI-axis software curves.
+                    performanceManager?.SetMsiSportCooling(true);
+                    MsiClawFanController.ApplyHardwareTable("BestPerformance");
+                    return;
+                }
+
+                if (value == 3) // custom curve stored as "t1,..,t5;d1,..,d5"
+                {
+                    if (Settings.LocalSettingsHelper.TryGetValue<string>(MsiFanCurveKey, out string csv)
+                        && TryParseCurve(csv, out int[] ct, out int[] cd))
                     {
-                        MsiClawFanController.ApplySoftwareCurve(custom);
+                        MsiClawFanController.ApplyMsiCurve(ct, cd);
                     }
                     else
                     {
-                        Logger.Warn("ApplyMsiFan: custom selected but no valid saved curve — falling back to Default");
-                        MsiClawFanController.ApplySoftwareCurve(MsiClawFanController.Curve_Default);
+                        Logger.Warn("ApplyMsiFan: custom selected but no valid saved curve — falling back to MSI Default");
+                        MsiClawFanController.ApplyMsiCurve(MsiClawFanController.MsiTemps_Default, MsiClawFanController.MsiDuty_Default);
                     }
                     return;
                 }
 
-                double[] curve;
+                int[] temps, duties;
                 switch (value)
                 {
-                    case 0:  curve = MsiClawFanController.Curve_Quiet;      break;
-                    case 2:  curve = MsiClawFanController.Curve_Aggressive; break;
-                    case 3:  curve = MsiClawFanController.Curve_Cooling;    break;
-                    default: curve = MsiClawFanController.Curve_Default;    break;
+                    case 1: // Quiet Idle: MSI axis, quieter low band
+                        temps = MsiClawFanController.MsiTemps_Default; duties = MsiClawFanController.MsiDuty_QuietIdle; break;
+                    case 2: // Cooling / early ramp: axis shifted −10 °C
+                        temps = MsiClawFanController.MsiTemps_Cooling; duties = MsiClawFanController.MsiDuty_Cooling; break;
+                    default: // 0 = MSI Default
+                        temps = MsiClawFanController.MsiTemps_Default; duties = MsiClawFanController.MsiDuty_Default; break;
                 }
-                MsiClawFanController.ApplySoftwareCurve(curve);
+                MsiClawFanController.ApplyMsiCurve(temps, duties);
             }
             catch (Exception ex)
             {
@@ -442,9 +438,8 @@ namespace XboxGamingBarHelper
         {
             try
             {
-                int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
+                int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
                 if (value < 0) return; // firmware fan mode — don't fight it
-                if (value == 5) return; // EC Sport cooling — the EC owns the fan, nothing to re-assert
                 if (_autoSportActive) return; // auto-safety handed the fan to EC Sport — don't restore the curve
                 ApplyMsiFan(value);
                 Logger.Info($"[MSIClaw] Fan re-asserted after power-shift change (value={value})");
@@ -467,8 +462,17 @@ namespace XboxGamingBarHelper
                 int rpm = -1;
                 try { rpm = legionManager?.GetCpuFanSpeed() ?? -1; } catch { }
 
+                // Temperature axis (Set_Thermal) read-back so the widget can verify the X-axis too.
+                string thermalCsv = "";
+                try
+                {
+                    byte[] th = MsiClawFanController.ReadThermal();
+                    if (th != null && th.Length >= 7) thermalCsv = string.Join(",", th);
+                }
+                catch { }
+
                 string csv = string.Join(",", table);
-                string payload = $"{csv}|{(controlOn ? 1 : 0)}|{(ok ? 1 : 0)}|{(fullSpeed ? 1 : 0)}|{rpm}";
+                string payload = $"{csv}|{(controlOn ? 1 : 0)}|{(ok ? 1 : 0)}|{(fullSpeed ? 1 : 0)}|{rpm}|{thermalCsv}";
                 string json = $"{{\"MsiFanStatus\":\"{payload}\"}}";
                 if (pipeServer != null && pipeServer.IsConnected)
                 {
@@ -632,8 +636,8 @@ namespace XboxGamingBarHelper
             try
             {
                 if (pipeServer == null || !pipeServer.IsConnected) return;
-                int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
-                string curve = (value == 4 && Settings.LocalSettingsHelper.TryGetValue<string>("MsiFan_Curve", out string c)) ? c : "";
+                int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
+                string curve = (value == 3 && Settings.LocalSettingsHelper.TryGetValue<string>(MsiFanCurveKey, out string c)) ? c : "";
                 string json = $"{{\"MsiFanState\":\"{value}|{curve}\"}}";
                 pipeServer.SendMessage(json);
                 Logger.Info($"PushMsiFanStateToWidget: sent value={value} curve='{curve}'");
@@ -644,20 +648,22 @@ namespace XboxGamingBarHelper
             }
         }
 
-        /// <summary>Apply and persist a custom 11-point fan curve sent as a CSV string.</summary>
+        /// <summary>Apply and persist a custom MSI fan curve sent as "t1,..,t5;d1,..,d5" (temps °C ;
+        /// duty %). Sets the fan value to 3 (custom).</summary>
         internal static void ApplyMsiFanCurve(string csv)
         {
             try
             {
                 Logger.Info($"ApplyMsiFanCurve: csv='{csv}'");
-                if (!TryParseCurve(csv, out double[] curve))
+                if (!TryParseCurve(csv, out int[] temps, out int[] duties))
                 {
                     Logger.Warn("ApplyMsiFanCurve: could not parse curve");
                     return;
                 }
-                Settings.LocalSettingsHelper.SetValue("MsiFan_Curve", csv);
-                Settings.LocalSettingsHelper.SetValue("MsiFan_Value", 4); // 4 = custom
-                MsiClawFanController.ApplySoftwareCurve(curve);
+                Settings.LocalSettingsHelper.SetValue(MsiFanCurveKey, csv);
+                Settings.LocalSettingsHelper.SetValue(MsiFanValueKey, 3); // 3 = custom
+                _autoSportActive = false;
+                MsiClawFanController.ApplyMsiCurve(temps, duties);
             }
             catch (Exception ex)
             {
@@ -665,21 +671,34 @@ namespace XboxGamingBarHelper
             }
         }
 
-        private static bool TryParseCurve(string csv, out double[] curve)
+        /// <summary>Parses a custom MSI fan curve "t1,..,t5;d1,..,d5" into 5 temps (°C) + 5 duties (%).
+        /// Temps clamped 0–120 and forced strictly increasing; duties clamped 0–100.</summary>
+        private static bool TryParseCurve(string csv, out int[] temps, out int[] duties)
         {
-            curve = null;
+            temps = null; duties = null;
             if (string.IsNullOrWhiteSpace(csv)) return false;
-            var parts = csv.Split(',');
-            if (parts.Length != 11) return false;
-            var result = new double[11];
-            for (int i = 0; i < 11; i++)
+            var halves = csv.Split(';');
+            if (halves.Length != 2) return false;
+            var tp = halves[0].Split(',');
+            var dp = halves[1].Split(',');
+            if (tp.Length != 5 || dp.Length != 5) return false;
+
+            var t = new int[5];
+            var d = new int[5];
+            for (int i = 0; i < 5; i++)
             {
-                if (!double.TryParse(parts[i], System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture, out double v))
-                    return false;
-                result[i] = Math.Max(0, Math.Min(100, v));
+                if (!int.TryParse(tp[i], System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out int tv)) return false;
+                if (!int.TryParse(dp[i], System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out int dv)) return false;
+                t[i] = Math.Max(0, Math.Min(120, tv));
+                d[i] = Math.Max(0, Math.Min(100, dv));
             }
-            curve = result;
+            // Force strictly increasing temps so the EC axis is monotonic.
+            for (int i = 1; i < 5; i++)
+                if (t[i] <= t[i - 1]) t[i] = t[i - 1] + 1;
+
+            temps = t; duties = d;
             return true;
         }
 
@@ -797,7 +816,7 @@ namespace XboxGamingBarHelper
         {
             try
             {
-                if (Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int value) && value >= 0)
+                if (Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int value) && value >= 0)
                 {
                     Logger.Info($"RestoreMsiFanOnStartup: re-applying saved MSI fan preset {value}");
                     ApplyMsiFan(value);
@@ -837,11 +856,9 @@ namespace XboxGamingBarHelper
         {
             try
             {
-                if (!_msiFanAutoSportEnabled) return; // not an MSI Claw (or not yet initialised)
+                if (!_msiFanAutoSportEnabled) return; // dormant: not enabled in the MSI-axis software-curve model
                 if (_autoSportActive) return; // already handed to EC Sport — wait for game end
-                int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
-                // Only protect the EC Quiet curve modes (Comfort): 0 = Quiet, 1 = Default. -1 = firmware
-                // (safe), 2-4 = already permanent EC Sport, 5 = EC Sport default. None need the safety.
+                int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
                 if (value < 0 || value > 1) return;
 
                 float temp = performanceManager?.CPUTemperature?.Value ?? 0f;
@@ -871,7 +888,7 @@ namespace XboxGamingBarHelper
             {
                 if (!_autoSportActive) return;
                 _autoSportActive = false;
-                int value = Settings.LocalSettingsHelper.TryGetValue<int>("MsiFan_Value", out int v) ? v : -1;
+                int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
                 Logger.Info($"[MSIClaw] Fan auto-safety: game ended → restoring saved fan mode {value} (Comfort)");
                 ApplyMsiFan(value); // sets SetMsiSportCooling(false) + re-applies the curve
             }
@@ -973,10 +990,9 @@ namespace XboxGamingBarHelper
                 // Re-apply any saved custom fan curve (EC resets across reboots).
                 RestoreMsiFanOnStartup();
 
-                // Enable the fan auto-safety (Claw only): switch a software curve to EC Sport above
-                // 78 °C to dodge the EC thermal-protection latch; restore the curve on game end. The
-                // check runs in the existing 1s main loop (no separate timer / redundant poll).
-                EnableMsiFanAutoSport();
+                // Fan auto-safety (EC Sport above 70 °C) + power-shift coupling are kept in code but
+                // DORMANT in the MSI-axis software-curve model — deliberately NOT enabled for now.
+                // Re-enable via EnableMsiFanAutoSport() if the latch ever resurfaces.
 
                 // Re-apply the saved battery charge limit if it was enabled (EC can reset on reboot).
                 RestoreMsiChargeLimitOnStartup();
