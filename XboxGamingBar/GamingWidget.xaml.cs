@@ -2735,7 +2735,7 @@ namespace XboxGamingBar
             // Set initial navigation selection: the user's configured default tab if enabled,
             // otherwise the Quick tab. ApplyDefaultTabOnOpen also runs on subsequent Game Bar
             // reopens via VisibleChanged; applying it here too makes the very first open honour it.
-            if (!ApplyDefaultTabOnOpen())
+            if (!ApplyDefaultTabOnOpen("Loaded"))
                 QuickNavItem.IsChecked = true;
 
             // Load profile customization settings
