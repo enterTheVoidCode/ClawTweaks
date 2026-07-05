@@ -21,7 +21,7 @@ A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [
 > | **MSI Claw 8 AI+ A2VM** (Lunar Lake, MS-1T52) | ✅ Supported |
 > | **MSI Claw 7 AI+ A2VM / A2VMX** (Lunar Lake, MS-1T42) | ✅ Supported |
 > | MSI Claw A1M (Meteor Lake) | Not supported — different processor, EC and HW controller |
-> | MSI Claw 8 EX (Panther Lake) | Possible future support — shares Intel architecture |
+> | **MSI Claw 8 AI+ EX** (Panther Lake, MS-1T91) | 🧪 Experimental — detection + gyro working; TDP/fan/LED validation in progress ([port log](docs/hardware/CLAW8_EX_PORT_LOG.md)) |
 > | Other MSI Claw models | Not tested / not supported |
 >
 > **The installer will abort with an error message if run on an unsupported device.**

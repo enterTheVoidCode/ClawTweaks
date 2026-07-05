@@ -53,6 +53,13 @@ namespace XboxGamingBarHelper.Services
         private const string MsiSupportUrlDefault =
             "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM";
 
+        // MSI Claw 8 AI+ EX (Panther Lake, MS-1T91) support landing page. Product
+        // slug "Claw-8-EX-AI-Plus-CG3EMX" confirmed from msi.com (2026-07-05); the
+        // /support path follows the same pattern as the A2VM page (the support site
+        // is Cloudflare-gated, so the exact path could not be fetched to verify).
+        private const string MsiSupportUrlClaw8EX =
+            "https://www.msi.com/Handheld/Claw-8-EX-AI-Plus-CG3EMX/support";
+
         private static MsiDriverUpdateResult _lastResult;
         public static MsiDriverUpdateResult LastResult => _lastResult;
 
@@ -188,7 +195,11 @@ namespace XboxGamingBarHelper.Services
             try
             {
                 PopulateMachineInfo(result);
-                result.MsiSupportUrl = MsiSupportUrlDefault;
+                // Claw 8 EX (Panther Lake) has its own support page; every other
+                // Claw keeps the A2VM landing page (pre-existing default).
+                result.MsiSupportUrl = result.Model.IndexOf("Claw 8 EX", StringComparison.OrdinalIgnoreCase) >= 0
+                    ? MsiSupportUrlClaw8EX
+                    : MsiSupportUrlDefault;
                 result.IntelDsaUrl = IntelDsaUrl;
 
                 if (!result.IsMsiClaw)
@@ -289,7 +300,27 @@ namespace XboxGamingBarHelper.Services
             var mfr = result.Manufacturer;
             result.IsMsiClaw = mfr.IndexOf("Micro-Star", StringComparison.OrdinalIgnoreCase) >= 0
                             || mfr.IndexOf("MSI", StringComparison.OrdinalIgnoreCase) >= 0;
-            result.ModelCode = ExtractModelCode(result.Model) ?? ExtractModelCode(result.ModelVersion) ?? "";
+
+            // The MS-xxxx board code is not always in the product Name/Version —
+            // on the Claw 8 EX ("Claw 8 EX AI+ CG3EM" / "REV:1.0") it only appears
+            // in Win32_BaseBoard.Product ("MS-1T91", measured 2026-07-03). Query it
+            // as the fallback so manifest model-scoping works on every generation.
+            string baseBoard = null;
+            try
+            {
+                using var board = new ManagementObjectSearcher("SELECT Product FROM Win32_BaseBoard");
+                foreach (ManagementObject obj in board.Get())
+                {
+                    baseBoard = obj["Product"]?.ToString()?.Trim();
+                    break;
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"Win32_BaseBoard read failed: {ex.Message}"); }
+
+            result.ModelCode = ExtractModelCode(result.Model)
+                            ?? ExtractModelCode(result.ModelVersion)
+                            ?? ExtractModelCode(baseBoard)
+                            ?? "";
         }
 
         private static string ExtractModelCode(string source)
