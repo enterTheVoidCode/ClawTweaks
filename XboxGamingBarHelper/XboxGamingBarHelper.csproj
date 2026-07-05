@@ -287,6 +287,7 @@
     <Compile Include="Startup\Program.Labs.cs" />
     <Compile Include="Startup\Program.MSIClaw.cs" />
     <Compile Include="Startup\Program.LedSoc.cs" />
+    <Compile Include="Startup\Program.LedComposite.cs" />
     <Compile Include="Startup\Program.PowerActions.cs" />
     <Compile Include="Startup\Program.ControllerState.cs" />
     <Compile Include="Startup\Program.ScreenSaver.cs" />
@@ -414,6 +415,8 @@
     <Compile Include="Devices\MSIClaw\MsiClawHwMouseWatcher.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawLedController.cs" />
     <Compile Include="Devices\MSIClaw\MsiLedColorStore.cs" />
+    <Compile Include="Devices\MSIClaw\MsiLedCompositeStore.cs" />
+    <Compile Include="Devices\MSIClaw\LedCompositor.cs" />
     <Compile Include="Devices\MSIClaw\MsiLedBoot.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawBatteryManager.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawDesktopModeForwarder.cs" />

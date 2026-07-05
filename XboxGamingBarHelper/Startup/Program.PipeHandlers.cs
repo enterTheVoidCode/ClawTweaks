@@ -425,63 +425,31 @@ namespace XboxGamingBarHelper
                 // }
 
                 // ── MSI Claw: per-zone LED composite (left/right/buttons) ────────────────────
-                // Payload: "MsiLedComposite" = the LedCompositeSpec wire string.
-                // TODO(LED effect): PARKED — the LED-effect backend (MsiClawLedController effect API:
-                // LedEffectMode, SpeedByteFor, TrySetSolidEffect/ZonesEffect/CycleEffect/WaveEffect,
-                // CycleSpeedByte) was never implemented. The WIP files (Shared/Led/, LedCompositor.cs,
-                // MsiLedEffectStore.cs, MsiLedCompositeStore.cs, Program.LedEffect.cs, Program.LedComposite.cs,
-                // widget GamingWidget.MsiLedEffect.cs) reference that missing API, so they are kept OUT of
-                // the build. Re-enable this handler once the controller effect API is completed.
-                // if (pipeMsg.Extra.TryGetValue("MsiLedComposite", out object ledCompObj) && ledCompObj is string ledCompStr)
-                // {
-                //     try
-                //     {
-                //         if (Shared.Led.LedCompositeSpec.TryParse(ledCompStr, out var comp))
-                //         {
-                //             ApplyComposite(comp);
-                //             SendPipeAck(pipeMsg.RequestId, true);
-                //         }
-                //         else
-                //         {
-                //             Logger.Warn($"Pipe: MsiLedComposite bad format: '{ledCompStr}'");
-                //             SendPipeAck(pipeMsg.RequestId, false);
-                //         }
-                //     }
-                //     catch (Exception ex)
-                //     {
-                //         Logger.Error($"Pipe: MsiLedComposite failed: {ex.Message}");
-                //         SendPipeAck(pipeMsg.RequestId, false);
-                //     }
-                //     return;
-                // }
-
-                // ── MSI Claw: LED effect (mode + per-mode settings) ──────────────────────────
-                // Payload: "MsiLedEffect" = the LedEffectSpec wire string
-                //   mode|speedIdx|dir|brightness|rainbow|r,g,b|r,g,b|r,g,b|r,g,b
-                // TODO(LED effect): PARKED together with the composite handler above — see note there.
-                // if (pipeMsg.Extra.TryGetValue("MsiLedEffect", out object ledEffObj) && ledEffObj is string ledEffStr)
-                // {
-                //     try
-                //     {
-                //         if (Devices.MSIClaw.LedEffectSpec.TryParse(ledEffStr, out var spec))
-                //         {
-                //             ApplyLedEffect(spec);
-                //             Logger.Info($"Pipe: MsiLedEffect '{ledEffStr}' applied");
-                //             SendPipeAck(pipeMsg.RequestId, true);
-                //         }
-                //         else
-                //         {
-                //             Logger.Warn($"Pipe: MsiLedEffect bad format: '{ledEffStr}'");
-                //             SendPipeAck(pipeMsg.RequestId, false);
-                //         }
-                //     }
-                //     catch (Exception ex)
-                //     {
-                //         Logger.Error($"Pipe: MsiLedEffect failed: {ex.Message}");
-                //         SendPipeAck(pipeMsg.RequestId, false);
-                //     }
-                //     return;
-                // }
+                // Payload: "MsiLedComposite" = the LedCompositeSpec wire string. This is the ONE active LED
+                // path: the widget renders 3 zones (right stick / left stick / buttons), the helper composes
+                // 4 frames (LedCompositor) and writes them via MsiClawLedController.TrySetFrames.
+                if (pipeMsg.Extra.TryGetValue("MsiLedComposite", out object ledCompObj) && ledCompObj is string ledCompStr)
+                {
+                    try
+                    {
+                        if (Shared.Led.LedCompositeSpec.TryParse(ledCompStr, out var comp))
+                        {
+                            ApplyComposite(comp);
+                            SendPipeAck(pipeMsg.RequestId, true);
+                        }
+                        else
+                        {
+                            Logger.Warn($"Pipe: MsiLedComposite bad format: '{ledCompStr}'");
+                            SendPipeAck(pipeMsg.RequestId, false);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: MsiLedComposite failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
 
                 // ── MSI Claw: LED color ──────────────────────────────────────────────────────
                 // Payload: "MsiLedColor" = "R,G,B" or "R,G,B,Brightness" (bytes; brightness 0-100,
