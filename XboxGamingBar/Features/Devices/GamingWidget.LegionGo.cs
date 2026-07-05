@@ -3061,16 +3061,10 @@ namespace XboxGamingBar
         {
             if (TDPSlider == null) return;
 
-            // MSI Center M is running — it owns TDP; keep all TDP controls disabled
-            if (msiCenterActive?.Value == true)
-            {
-                TDPSlider.IsEnabled = true;
-                if (TDPBoostToggle != null) { TDPBoostToggle.IsEnabled = true; TDPBoostToggle.IsOn = false; }
-                if (AutoTDPToggle  != null) { AutoTDPToggle.IsEnabled  = false; AutoTDPToggle.IsOn  = false; }
-                if (TDPValueText   != null) TDPValueText.Text = "Unavailable";
-                if (CurrentTDPValueText != null) CurrentTDPValueText.Text = "MSI Center M active";
-                return;
-            }
+            // NOTE: MSI Center M running no longer disables/short-circuits TDP. The helper mirrors PL1/PL2
+            // into MSI Center M's own model (HKLM\...\User Scenario\ManualPL*), which MSI applies to the EC
+            // itself — so TDP is settable and MSI-conform even with MSI Center M active. Fall through to the
+            // normal state logic so the real TDP value is shown and the slider behaves as usual.
 
             // If Default Game Profile is active, keep TDP controls disabled
             if (defaultGameProfileEnabled?.Value == true)

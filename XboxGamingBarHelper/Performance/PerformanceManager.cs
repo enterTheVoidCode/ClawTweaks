@@ -1407,7 +1407,44 @@ namespace XboxGamingBarHelper.Performance
             // On battery HC uses ShiftType.None. We re-assert this on every apply (incl. the 20s timer).
             SetMsiPowerShiftForTdp(pl1);
 
+            // MSI-conform mirror: write the PL into MSI Center M's own model (registry). MSI Center M
+            // watches this key — with its services running it instantly reflects the value on its slider
+            // AND applies it to the EC itself (so TDP works even while Center M holds the ACPI WMI and our
+            // direct EC write above is refused). With Center M not running this is just a harmless stored
+            // value the direct EC write already covers. See memory clawtweaks-tdp-rootcause.
+            WriteMsiUserScenarioPL(pl1, pl2);
+
             return wmiOk;
+        }
+
+        /// <summary>
+        /// Mirrors PL1/PL2 into MSI Center M's manual-mode model so the setup stays MSI-conform: the four
+        /// DWORDs ManualPL1AC/PL2AC/PL1DC/PL2DC under HKLM\...\MSI Center M\Component\User Scenario. MSI
+        /// Center M watches this key and, while running, applies the values to the EC and updates its UI —
+        /// exactly what the closed-source "MSI-conform TDP" tool does. We write ALL four (no AC/DC split;
+        /// MSI's UI has no AC/DC distinction and we own the AC/DC logic internally). No-op when the key is
+        /// absent (MSI Center M not installed) — we never create MSI's config tree.
+        /// </summary>
+        private void WriteMsiUserScenarioPL(int pl1, int pl2)
+        {
+            const string subKey = @"SOFTWARE\WOW6432Node\MSI\MSI Center M\Component\User Scenario";
+            try
+            {
+                using (var hklm = Microsoft.Win32.RegistryKey.OpenBaseKey(Microsoft.Win32.RegistryHive.LocalMachine, Microsoft.Win32.RegistryView.Registry64))
+                using (var key = hklm.OpenSubKey(subKey, writable: true))
+                {
+                    if (key == null) return; // MSI Center M not installed → nothing to mirror into
+                    key.SetValue("ManualPL1AC", pl1, Microsoft.Win32.RegistryValueKind.DWord);
+                    key.SetValue("ManualPL2AC", pl2, Microsoft.Win32.RegistryValueKind.DWord);
+                    key.SetValue("ManualPL1DC", pl1, Microsoft.Win32.RegistryValueKind.DWord);
+                    key.SetValue("ManualPL2DC", pl2, Microsoft.Win32.RegistryValueKind.DWord);
+                    Logger.Info($"[MSIClaw] mirrored PL into MSI User Scenario registry: PL1={pl1}W PL2={pl2}W (AC+DC)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"[MSIClaw] WriteMsiUserScenarioPL failed: {ex.Message}");
+            }
         }
 
         /// <summary>
