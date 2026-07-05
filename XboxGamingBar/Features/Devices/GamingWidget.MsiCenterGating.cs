@@ -55,32 +55,23 @@ namespace XboxGamingBar
 
             // ── TDP section ──────────────────────────────────────────────────
             if (MsiCenterTDPWarning != null)
-                MsiCenterTDPWarning.Visibility = msiActive ? Visibility.Visible : Visibility.Collapsed;
+                MsiCenterTDPWarning.Visibility = Visibility.Collapsed;  // TDP no longer gated (registry mirror applies via MSI)
 
             // TDPModeCard is Legion-only (hardware presets). Always collapsed for MSI Claw —
             // the MSI Center warning has been moved inline into the TDP Power Limit card.
             // No action needed here for non-Legion devices.
 
             if (TDPModeComboBox != null)
-                TDPModeComboBox.IsEnabled = !msiActive;
+                TDPModeComboBox.IsEnabled = true;
 
-            if (msiActive)
-            {
-                // Disable all TDP controls while MSI Center M owns the hardware.
-                if (TDPSlider != null)              TDPSlider.IsEnabled              = false;  // was incorrectly = true before
-                if (TDPBoostToggle != null)         TDPBoostToggle.IsEnabled         = false;
-                if (TDPBoostFPPTSlider != null)     TDPBoostFPPTSlider.IsEnabled     = false;
-                if (TDPBoostFPPTSliderCard != null) TDPBoostFPPTSliderCard.IsEnabled = false;
-                if (AutoTDPToggle != null)          AutoTDPToggle.IsEnabled          = false;
-                if (StickyTDPToggle != null)        StickyTDPToggle.IsEnabled        = false;
-            }
-            else
-            {
-                // Lift the gate — let the normal state machine decide the enabled state
-                if (TDPBoostFPPTSlider != null)     TDPBoostFPPTSlider.IsEnabled     = true;
-                if (TDPBoostFPPTSliderCard != null) TDPBoostFPPTSliderCard.IsEnabled = true;
-                UpdateTDPSliderEnabledState();
-            }
+            // TDP is NO LONGER gated by MSI Center M. The helper mirrors PL1/PL2 into MSI Center M's own
+            // model (HKLM\...\User Scenario\ManualPL*), which MSI watches and applies to the EC itself — so
+            // setting TDP works AND stays MSI-conform while MSI Center M runs. The old lock only existed
+            // because the direct EC/WMI write was refused while MSI held the ACPI WMI. Let the normal
+            // state machine decide the enabled state regardless of msiActive.
+            if (TDPBoostFPPTSlider != null)     TDPBoostFPPTSlider.IsEnabled     = true;
+            if (TDPBoostFPPTSliderCard != null) TDPBoostFPPTSliderCard.IsEnabled = true;
+            UpdateTDPSliderEnabledState();
 
             // ── Controller Emulation + Gyro section ──────────────────────────
             if (MsiCenterControllerWarning != null)
