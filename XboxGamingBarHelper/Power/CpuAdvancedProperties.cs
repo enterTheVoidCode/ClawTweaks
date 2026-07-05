@@ -42,7 +42,13 @@ namespace XboxGamingBarHelper.Power
 
             if (!_hasUserModified)
             {
-                if (Value != _initialValue) _hasUserModified = true;
+                // Apply when the value diverged from the initial system read, OR when it arrives at runtime
+                // with the widget connected (a genuine user/profile change). The new value can legitimately
+                // EQUAL our stale initial when the system was changed via another control in the meantime —
+                // e.g. the on/off tile set Aggressive (mode 2) while this property still tracked 0, so the
+                // user picking "Off" (0) matched our initial and was wrongly skipped, leaving boost on. Only
+                // skip the pre-connect fresh-startup echo of an unchanged value.
+                if (Value != _initialValue || Program.IsPipeConnected) _hasUserModified = true;
                 else
                 {
                     Logger.Debug($"CPU Boost Mode: skipping system write - unchanged from initial ({Value})");
