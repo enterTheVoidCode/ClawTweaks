@@ -63,9 +63,10 @@ namespace XboxGamingBar
         private readonly Ellipse[] _msiFanPoints = new Ellipse[MsiFanPoints];        // duty circle (top of bar)
         private readonly TextBlock[] _msiFanValueLabels = new TextBlock[MsiFanPoints]; // "%" above the bar
         private readonly TextBlock[] _msiFanTempLabels = new TextBlock[MsiFanPoints];  // "44°C" under the bar
-        // Temp focus markers: a rotated square (diamond) under each temp label whose left/right points
-        // signal the handle moves horizontally. This is the controller-reachable temp handle.
-        private readonly Windows.UI.Xaml.Shapes.Rectangle[] _msiFanTempHandles = new Windows.UI.Xaml.Shapes.Rectangle[MsiFanPoints];
+        // Temp focus markers: a left/right double-arrow (◄ ►) under each temp label signalling the handle
+        // moves horizontally. This is the controller-reachable temp handle. Two separate triangles with a
+        // gap in the middle (a Path) so it reads as arrows, not a solid diamond.
+        private readonly Windows.UI.Xaml.Shapes.Path[] _msiFanTempHandles = new Windows.UI.Xaml.Shapes.Path[MsiFanPoints];
         private readonly Line[] _msiFanGridLines = new Line[5];
         private readonly TextBlock[] _msiFanGridLabels = new TextBlock[5];
         private bool _msiFanPointsBuilt;
@@ -263,25 +264,55 @@ namespace XboxGamingBar
                 _msiFanTempLabels[i] = tlabel;
                 MsiFanCurveCanvas.Children.Add(tlabel);
 
-                // Temp focus marker: a diamond (rotated square) under the temp label. Its left/right
-                // points read as "moves horizontally". This is the temp handle.
-                var diamond = new Windows.UI.Xaml.Shapes.Rectangle
+                // Temp focus marker: a left/right double-arrow (◄ ►) under the temp label — two triangles
+                // with a gap in the middle — reading as "moves horizontally". This is the temp handle.
+                // Geometry is defined in a 0..1 box and scaled via Stretch=Fill, so the position/highlight
+                // code can keep driving size through Width/Height.
+                var arrow = new Windows.UI.Xaml.Shapes.Path
                 {
-                    Width = 14,
+                    Data = BuildTempArrowGeometry(),
+                    Stretch = Windows.UI.Xaml.Media.Stretch.Fill,
+                    Width = 16,
                     Height = 14,
                     Fill = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 255, 150, 40)),
                     Stroke = new SolidColorBrush(Windows.UI.Colors.White),
-                    StrokeThickness = 1.5,
-                    RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5),
-                    RenderTransform = new RotateTransform { Angle = 45 },
+                    StrokeThickness = 1.0,
                     IsHitTestVisible = false,
                     Tag = i
                 };
-                Canvas.SetZIndex(diamond, 11);
-                _msiFanTempHandles[i] = diamond;
-                MsiFanCurveCanvas.Children.Add(diamond);
+                Canvas.SetZIndex(arrow, 11);
+                _msiFanTempHandles[i] = arrow;
+                MsiFanCurveCanvas.Children.Add(arrow);
             }
             _msiFanPointsBuilt = true;
+        }
+
+        /// <summary>Builds the temp-handle "◄ ►" geometry in a normalized 0..1 box: a left-pointing and a
+        /// right-pointing triangle with a gap in the middle (scaled to the element size via Stretch=Fill).</summary>
+        private static Windows.UI.Xaml.Media.Geometry BuildTempArrowGeometry()
+        {
+            const double g = 0.36;          // inner edge of each triangle (gap = 1 - 2g ≈ 28% in the middle)
+            var geo = new Windows.UI.Xaml.Media.PathGeometry();
+            // ◄ left arrow: apex at x=0, base at x=g
+            geo.Figures.Add(TempArrowTriangle(
+                new Windows.Foundation.Point(0.0, 0.5),
+                new Windows.Foundation.Point(g,   0.0),
+                new Windows.Foundation.Point(g,   1.0)));
+            // ► right arrow: apex at x=1, base at x=1-g
+            geo.Figures.Add(TempArrowTriangle(
+                new Windows.Foundation.Point(1.0,     0.5),
+                new Windows.Foundation.Point(1.0 - g, 0.0),
+                new Windows.Foundation.Point(1.0 - g, 1.0)));
+            return geo;
+        }
+
+        private static Windows.UI.Xaml.Media.PathFigure TempArrowTriangle(
+            Windows.Foundation.Point a, Windows.Foundation.Point b, Windows.Foundation.Point c)
+        {
+            var fig = new Windows.UI.Xaml.Media.PathFigure { StartPoint = a, IsClosed = true, IsFilled = true };
+            fig.Segments.Add(new Windows.UI.Xaml.Media.LineSegment { Point = b });
+            fig.Segments.Add(new Windows.UI.Xaml.Media.LineSegment { Point = c });
+            return fig;
         }
 
         /// <summary>Load the 5-point (temp,duty) curve for a preset into the model arrays.</summary>
@@ -450,8 +481,9 @@ namespace XboxGamingBar
                 if (_msiFanTempHandles[i] != null)
                 {
                     double dw = _msiFanTempHandles[i].Width;
+                    double dh = _msiFanTempHandles[i].Height;
                     Canvas.SetLeft(_msiFanTempHandles[i], cx - dw / 2);
-                    Canvas.SetTop(_msiFanTempHandles[i], plotBottom + 26 - dw / 2);
+                    Canvas.SetTop(_msiFanTempHandles[i], plotBottom + 26 - dh / 2);
                 }
             }
         }
@@ -1195,14 +1227,15 @@ namespace XboxGamingBar
                 if (_msiFanValueLabels[i] != null)
                     _msiFanValueLabels[i].Foreground = new SolidColorBrush(dutySel ? (_msiFanGrabbed ? orangeG : yellow) : Windows.UI.Colors.White);
 
-                // Temp label + diamond focus marker.
+                // Temp label + left/right double-arrow focus marker (kept wider than tall so it reads as arrows).
                 if (_msiFanTempLabels[i] != null)
                     _msiFanTempLabels[i].Foreground = new SolidColorBrush(tempSel ? (_msiFanGrabbed ? orangeG : yellow) : tempIdle);
                 if (_msiFanTempHandles[i] != null)
                 {
                     _msiFanTempHandles[i].Fill = new SolidColorBrush(tempSel ? (_msiFanGrabbed ? orangeG : yellow)
                                                                              : Windows.UI.ColorHelper.FromArgb(255, 255, 150, 40));
-                    _msiFanTempHandles[i].Width = _msiFanTempHandles[i].Height = tempSel ? 18 : 14;
+                    _msiFanTempHandles[i].Width  = tempSel ? 22 : 16;
+                    _msiFanTempHandles[i].Height = tempSel ? 16 : 14;
                 }
             }
             RenderMsiFanCurve(); // re-center the (now larger) selected circle

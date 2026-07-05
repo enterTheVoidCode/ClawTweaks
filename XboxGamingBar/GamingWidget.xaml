@@ -2031,7 +2031,7 @@
                                               SelectionChanged="PerformanceOverlayComboBox_SelectionChanged"
                                               KeyDown="PerformanceOverlayComboBox_KeyDown"
                                               XYFocusLeft="{x:Bind PerformanceNavItem}"
-                                              XYFocusDown="{x:Bind CpuBoostModeComboBox}">
+                                              XYFocusDown="{x:Bind CpuCardExpandButton}">
                                         <ComboBoxItem Content="Off" Tag="0" IsSelected="True"/>
                                         <ComboBoxItem Content="Basic" Tag="1"/>
                                         <ComboBoxItem Content="Horizontal" Tag="2"/>
@@ -2668,6 +2668,8 @@
                                     <!-- Collapse/expand chevron (collapsed by default) -->
                                     <ToggleButton x:Name="CpuCardExpandButton" Grid.Column="1" IsChecked="False"
                                                   VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
+                                                  KeyDown="CpuCardExpandButton_KeyDown"
                                                   Click="CpuCardExpandButton_Click" UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="CpuCardExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
@@ -3194,6 +3196,7 @@
                                     </StackPanel>
                                     <ToggleButton x:Name="PerfSavedProfilesExpandButton" Grid.Column="1" IsChecked="False"
                                                   VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  KeyDown="PerfSavedProfilesExpandButton_KeyDown"
                                                   Click="PerfSavedProfilesExpandButton_Click" UseSystemFocusVisuals="True">
                                         <FontIcon x:Name="PerfSavedProfilesExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
@@ -3412,6 +3415,7 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
+                                                  KeyDown="ProfileSettingsExpandToggle_KeyDown"
                                                   Click="ProfileSettingsExpandToggle_Click">
                                         <FontIcon x:Name="ProfileSettingsExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
@@ -3745,6 +3749,40 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Optional (below step 3): Left MSI single-click setup — links to the Controls tab
+                             (the combo group there is too coupled to safely duplicate). -->
+                        <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Set up Left MSI (Claw) button" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                <TextBlock Text="Assign a single-click action to the Left MSI (front) button — e.g. open the Steam menu. Opens the full setup in the Controls tab."
+                                           FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                                <Button x:Name="OnbSetupLeftMsiBtn" Content="Set up Left MSI button →"
+                                        Style="{StaticResource ModernButtonStyle}" FontSize="11" Padding="10,4"
+                                        Click="OnbSetupLeftMsi_Click" HorizontalAlignment="Left"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Optional (below step 3): Auto-Jump position — mirror of the Controls-tab slider
+                             (same handler ClawTweaksWidgetPosition_ValueChanged, kept in sync both ways). -->
+                        <Border Background="#1A1A2E" CornerRadius="6" Padding="12" Margin="0,8,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Auto Jump to Clawtweaks on Gamebar Open" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+                                <TextBlock Text="The Right MSI button opens Game Bar (its press action is unchanged). When controller emulation is active, ClawTweaks then auto-jumps to its widget slot on open. Set this to ClawTweaks' actual position (usually #3 — Microsoft occupies the first two)."
+                                           FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,4,0,8"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="ClawTweaks widget position" Foreground="#AAAAAA" FontSize="12" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="OnbClawTweaksWidgetPositionValue" Grid.Column="1" Text="1"
+                                               Foreground="{StaticResource SystemAccentBrush}" FontSize="12" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Slider x:Name="OnbClawTweaksWidgetPositionSlider" Minimum="1" Maximum="10" StepFrequency="1" Value="1"
+                                        ValueChanged="ClawTweaksWidgetPosition_ValueChanged"/>
+                            </StackPanel>
+                        </Border>
+
                         <!-- Legacy (ViGEm) — the old emulation backend, only relevant if you switch off VIIPER.
                              Not needed by default and does NOT gate onboarding while VIIPER is active. -->
                         <Border Background="#15151F" BorderBrush="#33333F" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,16">
@@ -4033,6 +4071,7 @@
                                            TextWrapping="Wrap" Margin="0,6,0,0" Visibility="Collapsed"/>
                             </StackPanel>
                         </Border>
+
                     </StackPanel>
                 </ScrollViewer>
 
@@ -4537,11 +4576,15 @@
                                                Text="Color Cycle sweeps smoothly through a colour spectrum. Custom cycle colours are coming in a follow-up."
                                                FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
 
-                                    <!-- ── Brightness (Static + Battery only) ─────────────────────────── -->
+                                    <!-- ── Brightness — GLOBAL (applies to ALL zones); visually separated ── -->
+                                    <Border Height="1" Background="#22FFFFFF" Margin="0,18,0,0"/>
                                     <TextBlock x:Name="MsiLedBrightnessLabel" Text="Brightness"
-                                               FontSize="12" Foreground="#DDDDDD" Margin="0,14,0,2"/>
+                                               FontSize="12" Foreground="#DDDDDD" Margin="0,12,0,0"/>
+                                    <TextBlock Text="Applies to all zones" FontSize="11"
+                                               Foreground="{StaticResource HintTextBrush}" Margin="0,0,0,2"/>
                                     <Slider x:Name="MsiLedBrightnessSlider" Minimum="0" Maximum="100"
                                             Width="280" HorizontalAlignment="Left"
+                                            XYFocusUp="{x:Bind MsiLedSpeedCombo}"
                                             ValueChanged="MsiLedBrightnessSlider_ValueChanged"/>
 
                                     <!-- ── Battery note (shown only in Battery mode) ──────────────────── -->
@@ -6153,7 +6196,7 @@
                                         </Grid>
 
                                         <StackPanel Orientation="Horizontal" Margin="2,8,0,0">
-                                            <TextBlock Text="CPU package: " FontSize="13" Foreground="#B0B0B0"/>
+                                            <TextBlock Text="CPU package temperature: " FontSize="13" Foreground="#B0B0B0"/>
                                             <TextBlock x:Name="MsiFanTempLabel" Text="--&#xB0;C" FontSize="13" Foreground="#FF8800" FontWeight="SemiBold"/>
                                         </StackPanel>
 
@@ -6944,7 +6987,7 @@
                                                       Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
                                             <TextBlock Text="Front Buttons" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
                                         </StackPanel>
-                                        <TextBlock Text="M1, M2 and the front MSI buttons"
+                                        <TextBlock Text="Setup Left MSI (Claw) Button"
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
                                     </StackPanel>
@@ -7074,7 +7117,7 @@
                                 <Border Background="#14FFFFFF" CornerRadius="8" Padding="12,10,12,12"
                                         BorderThickness="1" BorderBrush="#22FFFFFF" Margin="0,0,0,12">
                                   <StackPanel x:Name="RightMsiButtonCard">
-                                    <TextBlock Text="Right MSI Button (Front)" FontSize="12" FontWeight="SemiBold"
+                                    <TextBlock Text="Auto Jump to Clawtweaks on Gamebar Open" FontSize="12" FontWeight="SemiBold"
                                                Foreground="#CCCCCC" Margin="0,0,0,6"/>
                                     <TextBlock Text="Opens Game Bar (press action unchanged). When controller emulation is active, ClawTweaks then auto-jumps to its widget slot on open."
                                                Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>

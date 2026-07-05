@@ -250,16 +250,22 @@ namespace XboxGamingBar
                 case VirtualKey.GamepadDPadDown:
                 case VirtualKey.GamepadLeftThumbstickDown:
                 case VirtualKey.Down:
-                    if (MoveCpuComboFocus(combo, +1)) e.Handled = true;
+                    // Move to the next combo; from the last one, leave the CPU section downward to the
+                    // next card (Saved Profiles header) so the rest of the tab stays reachable.
+                    if (!MoveCpuComboFocus(combo, +1))
+                    {
+                        try { PerfSavedProfilesExpandButton?.Focus(FocusState.Keyboard); } catch { }
+                    }
+                    e.Handled = true;
                     break;
                 case VirtualKey.GamepadDPadUp:
                 case VirtualKey.GamepadLeftThumbstickUp:
                 case VirtualKey.Up:
                     // Move to the previous combo; from the first one, leave the section upward to the
-                    // OS Power Mode combo above (the "More settings" expander was removed).
+                    // CPU card header (the visible collapse chevron).
                     if (!MoveCpuComboFocus(combo, -1))
                     {
-                        try { OSPowerModeComboBox?.Focus(FocusState.Keyboard); } catch { }
+                        try { CpuCardExpandButton?.Focus(FocusState.Keyboard); } catch { }
                     }
                     e.Handled = true;
                     break;
@@ -287,6 +293,80 @@ namespace XboxGamingBar
                 next += dir;
             }
             return false; // let the event bubble (e.g. scroll / leave section)
+        }
+
+        // ── Performance-tab card-header navigation (below the Overlay card) ──────────────
+        // The lower cards (CPU, Saved Profiles, Profile Settings) were moved into the Performance
+        // tab; their collapse chevrons are the only focusable headers, so the D-Pad spine is wired
+        // here. The Global performance & display profile card is display-only (no focusable control)
+        // and is intentionally skipped. Works in both collapsed and expanded states.
+
+        /// <summary>CPU card header. Up → Overlay combo (card above). Down → the CPU content (Boost Mode
+        /// combo) when the section is expanded, otherwise the next card (Saved Profiles header).</summary>
+        private void CpuCardExpandButton_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case VirtualKey.GamepadDPadUp:
+                case VirtualKey.GamepadLeftThumbstickUp:
+                case VirtualKey.Up:
+                    try { PerformanceOverlayComboBox?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+                case VirtualKey.GamepadDPadDown:
+                case VirtualKey.GamepadLeftThumbstickDown:
+                case VirtualKey.Down:
+                    bool expanded = CpuSectionContent?.Visibility == Visibility.Visible;
+                    Control target = (expanded && CpuBoostModeComboBox?.IsEnabled == true)
+                        ? (Control)CpuBoostModeComboBox
+                        : PerfSavedProfilesExpandButton;
+                    try { target?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        /// <summary>Saved Profiles card header. Up → CPU content (last combo) when CPU is expanded, else
+        /// the CPU card header. Down → Profile Settings header.</summary>
+        private void PerfSavedProfilesExpandButton_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case VirtualKey.GamepadDPadUp:
+                case VirtualKey.GamepadLeftThumbstickUp:
+                case VirtualKey.Up:
+                    bool cpuExpanded = CpuSectionContent?.Visibility == Visibility.Visible;
+                    Control up = cpuExpanded ? (LastEnabledCpuCombo() ?? (Control)CpuCardExpandButton) : CpuCardExpandButton;
+                    try { up?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+                case VirtualKey.GamepadDPadDown:
+                case VirtualKey.GamepadLeftThumbstickDown:
+                case VirtualKey.Down:
+                    try { ProfileSettingsExpandToggle?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        /// <summary>Profile Settings card header (last card on the tab). Up → Saved Profiles header.</summary>
+        private void ProfileSettingsExpandToggle_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key == VirtualKey.GamepadDPadUp || e.Key == VirtualKey.GamepadLeftThumbstickUp || e.Key == VirtualKey.Up)
+            {
+                try { PerfSavedProfilesExpandButton?.Focus(FocusState.Keyboard); } catch { }
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>The last enabled+visible CPU advanced combo (bottom of the CPU section), used as the
+        /// up-target from the Saved Profiles header when the CPU section is expanded.</summary>
+        private Control LastEnabledCpuCombo()
+        {
+            var order = new ComboBox[] { MaxECoreFreqComboBox, MaxPCoreFreqComboBox, SchedulingPolicyComboBox, CpuBoostModeComboBox };
+            foreach (var c in order)
+                if (c != null && c.IsEnabled && c.Visibility == Visibility.Visible) return c;
+            return null;
         }
     }
 }
