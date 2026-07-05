@@ -181,6 +181,14 @@ namespace XboxGamingBar
         /// call on every Game Bar open and after device gating / onboarding layout.</summary>
         internal void ApplyTabPrefs()
         {
+            // Same background-thread guard as ApplyDefaultTabOnOpen: VisibleChanged fires off the UI
+            // thread, where touching MainNavPanel/nav items throws RPC_E_WRONG_THREAD (0x8001010E).
+            // Marshal to the UI thread; the click-driven callers already have thread access.
+            if (Dispatcher != null && !Dispatcher.HasThreadAccess)
+            {
+                var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () => ApplyTabPrefs());
+                return;
+            }
             try
             {
                 if (MainNavPanel == null) return;
@@ -419,30 +427,67 @@ namespace XboxGamingBar
         }
 
         /// <summary>On Game Bar open: if enabled and the chosen tab is currently visible, jump to it.
-        /// Default (option off) keeps the last position. A hidden/removed target is ignored.</summary>
-        internal bool ApplyDefaultTabOnOpen()
+        /// Default (option off) keeps the last position. A hidden/removed target is ignored.
+        /// <paramref name="source"/> is only for diagnostics (which caller/edge triggered it). EVERY
+        /// exit path logs its outcome at Info so a failing jump can be diagnosed from the log alone —
+        /// the previous version was silent on all the abort branches (feature off / no tab / hidden).</summary>
+        internal bool ApplyDefaultTabOnOpen(string source = "?")
+        {
+            // Thread guard: the Game Bar raises VisibleChanged / LeavingBackground (and thus our
+            // foreground-edge trigger) on a BACKGROUND thread. Touching UI there throws
+            // RPC_E_WRONG_THREAD (0x8001010E) — which is exactly why the tab jump silently never worked
+            // (the catch just logged and returned). Marshal to the widget's UI thread. The Loaded caller
+            // already runs on the UI thread (HasThreadAccess == true) so it stays synchronous and its
+            // bool return remains meaningful; the off-thread callers ignore the return value.
+            if (Dispatcher != null && !Dispatcher.HasThreadAccess)
+            {
+                var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal,
+                    () => ApplyDefaultTabOnOpenCore(source));
+                return false;
+            }
+            return ApplyDefaultTabOnOpenCore(source);
+        }
+
+        private bool ApplyDefaultTabOnOpenCore(string source)
         {
             try
             {
-                if (!(ApplicationData.Current.LocalSettings.Values[DefaultTabEnabledKey] is bool en) || !en) return false;
+                bool en = ApplicationData.Current.LocalSettings.Values[DefaultTabEnabledKey] is bool b && b;
                 var tag = ApplicationData.Current.LocalSettings.Values[DefaultTabKey] as string;
-                if (string.IsNullOrEmpty(tag)) return false;
-                var rb = NavItemForTag(tag);
-                if (rb != null && rb.Visibility == Visibility.Visible)
+                if (!en)
                 {
-                    // Check the nav item (themes the pill / moves focus) AND force the actual content
-                    // switch. Relying on the Checked event alone is not enough: after a tab reorder the
-                    // item can already be IsChecked=true (so Checked never fires) or a competing setter
-                    // (Loaded's Quick default) overrides it — leaving the pill on the target tab but the
-                    // content on the previous one. Calling NavRadioButton_Checked directly is idempotent
-                    // and guarantees the matching ScrollViewer is shown.
-                    if (rb.IsChecked != true) rb.IsChecked = true;
-                    NavRadioButton_Checked(rb, null);
-                    Logger.Info($"Default-tab on open → '{tag}'");
-                    return true;
+                    Logger.Info($"[DefaultTab] ({source}) skip: feature OFF (savedTag='{tag ?? "<none>"}')");
+                    return false;
                 }
+                if (string.IsNullOrEmpty(tag))
+                {
+                    Logger.Info($"[DefaultTab] ({source}) skip: enabled but NO tab chosen");
+                    return false;
+                }
+                var rb = NavItemForTag(tag);
+                if (rb == null)
+                {
+                    Logger.Info($"[DefaultTab] ({source}) skip: no nav item for tag '{tag}'");
+                    return false;
+                }
+                if (rb.Visibility != Visibility.Visible)
+                {
+                    Logger.Info($"[DefaultTab] ({source}) skip: target tab '{tag}' is hidden/unavailable");
+                    return false;
+                }
+
+                // Check the nav item (themes the pill / moves focus) AND force the actual content
+                // switch. Relying on the Checked event alone is not enough: after a tab reorder the
+                // item can already be IsChecked=true (so Checked never fires) or a competing setter
+                // (Loaded's Quick default) overrides it — leaving the pill on the target tab but the
+                // content on the previous one. Calling NavRadioButton_Checked directly is idempotent
+                // and guarantees the matching ScrollViewer is shown.
+                if (rb.IsChecked != true) rb.IsChecked = true;
+                NavRadioButton_Checked(rb, null);
+                Logger.Info($"[DefaultTab] ({source}) applied → '{tag}'");
+                return true;
             }
-            catch (Exception ex) { Logger.Debug($"ApplyDefaultTabOnOpen: {ex.Message}"); }
+            catch (Exception ex) { Logger.Warn($"[DefaultTab] ({source}) threw: {ex.Message}"); }
             return false;
         }
 

@@ -59,6 +59,10 @@ namespace XboxGamingBar
 
         private bool hasAppliedInitialSize = false;
 
+        // Rising-edge tracker for the default-tab-on-open trigger (see UpdateGameBarForegroundSignal).
+        // Mirrors the helper's own _lastGameBarForeground edge detection for the RB auto-hop.
+        private bool _lastGameBarForegroundForTab = false;
+
         private async void GamingWidget_VisibleChanged(XboxGameBarWidget sender, object args)
         {
             try
@@ -72,7 +76,7 @@ namespace XboxGamingBar
                 if (isVisible)
                 {
                     ApplyTabPrefs();
-                    ApplyDefaultTabOnOpen();
+                    ApplyDefaultTabOnOpen("VisibleChanged");
 
                     // Re-read current brightness/volume so the media sliders reflect changes made
                     // outside the app (hardware keys, Windows quick settings) while the Game Bar was
@@ -123,6 +127,17 @@ namespace XboxGamingBar
                 isForeground.ForceSetValue(gameBarForeground);
 
                 Logger.Info($"GameBar foreground signal update ({source}): value={gameBarForeground}, displayMode={displayMode}, widgetVisible={widgetVisible}, appBackground={appIsInBackground}");
+
+                // Default-tab-on-open: fire on the foreground RISING edge — the SAME false→true edge the
+                // helper's RB auto-hop rides. This edge lands ~2 s BEFORE our own VisibleChanged=True (the
+                // RB-hop has to bring us into view first), so switching the tab here means the correct tab
+                // is already shown by the time ClawTweaks scrolls into view — instead of only reacting once
+                // Visible flips true. NavRadioButton_Checked only toggles ScrollViewer visibility, so it is
+                // safe to run while this widget is still off-screen. Idempotent (VisibleChanged still calls
+                // it too); the earliest successful call wins and the rest are cheap no-ops.
+                if (gameBarForeground && !_lastGameBarForegroundForTab)
+                    ApplyDefaultTabOnOpen("ForegroundEdge:" + source);
+                _lastGameBarForegroundForTab = gameBarForeground;
             }
             catch (Exception ex)
             {
