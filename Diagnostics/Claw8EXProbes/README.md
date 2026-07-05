@@ -71,4 +71,22 @@ system-wide (not a VID/PID mismatch — a completely empty result). Another dead
 
 All four gyro-sourcing avenues (WinRT sensor, chassis raw HID, controller HID reports,
 DirectInput axes) came back empty — see the "Four gyro-sourcing avenues tried" entry in
-`docs/hardware/CLAW8_EX_PORT_LOG.md` for the full writeup and next steps.
+`docs/hardware/CLAW8_EX_PORT_LOG.md` for the full writeup. **Superseded — the fifth avenue
+worked; see CustomSensorProbe below.**
+
+## CustomSensorProbe
+
+`dotnet build -c Release` (net8.0-windows10.0.19041.0). The probe that found the gyro.
+Registry/CM-API discovery showed the ISH publishes the IMU only under HID-usage-derived
+*custom sensor* interface classes (`{000000XX-766d-4333-8262-27e82dd158b1}`, XX = HID
+sensor usage) — "Physical Gyrometer" (0x76), "Physical Accelerometer" (0x73), "Shake
+Gesture" (0x233), "Simple DMD" (0x302) — while `GUID_DEVINTERFACE_SENSOR` and the standard
+Gyrometer/Accelerometer interface classes have zero instances system-wide. That is the
+root cause of `Gyrometer.GetDefault()` returning null: nothing is wrong, the sensors are
+just not published where any standard API looks. This probe opens each of the four via
+`Windows.Devices.Sensors.Custom.CustomSensor` and dumps ~5 s of readings.
+
+**Phase 3 finding (2026-07-05): gyro streams at ~100 Hz (10 ms min interval), accel at
+~500 Hz (2 ms).** Reading property bag: `{C458F8A7-4AE8-4777-9607-2E9BDD65110A}` PIDs
+161/162/163 = X/Y/Z. Full decode + at-rest values in the port log. This is the data source
+the EX gyro adapter uses.

@@ -405,3 +405,79 @@ Microsoft/Intel drivers do on their own. Installing the full MSI Center M app is
 step, pending on Kyle. **No gyro-related code should be written in Phase 4 until this
 resolves one way or the other** — there is nothing to port yet, because nothing has been
 found to read from.
+
+---
+
+## 2026-07-05 — Phase 3 P1 RESOLVED: gyro found, streaming, via Windows.Devices.Sensors.Custom
+
+Kyle re-asserted the gyro definitely exists and asked for the investigation to continue.
+Before accepting the "install MSI Center M" hypothesis, ran the cheap OS-level diagnostics
+the previous session had not tried. The second one cracked it.
+
+**Diagnostics run first (all read-only):**
+- Sensor services: `SensorService` = Running (Manual). `SensorDataService`/`SensrSvc`
+  stopped — normal (demand-start). Not the cause.
+- HidHide / ViGEm: **neither driver is installed on this machine at all**
+  (`Get-PnpDevice` no match, no `HKLM\...\Services\HidHide`). Two consequences:
+  (a) the Phase 3 "DirectInput enumerated zero devices" result was NOT HidHide cloaking —
+  still unexplained, but moot for gyro; (b) flagged for Phase 4/5: the helper's controller
+  emulation path REQUIRES ViGEm + HidHide, so they must be installed before controller
+  validation (the app's driver-check service normally handles this).
+- ISH "HID Sensor Collection V2" PnP node has **no child devnodes** (`DEVPKEY_Device_Children`
+  empty) — modern Sensor Class Extension exposes sensors as *device interfaces*, not child
+  PDOs, so the earlier child-node reasoning couldn't have found anything.
+
+**The break: device-interface enumeration of the ISH node.** Searching
+`HKLM\SYSTEM\CurrentControlSet\Control\DeviceClasses` for interfaces published by
+`HID\VID_8087&PID_0AC2` found TEN interface classes, four of which follow the
+HID-sensor-usage-derived custom-sensor-type pattern `{000000XX-766d-4333-8262-27e82dd158b1}`:
+
+| Interface class GUID | HID usage | Reference-string FriendlyName | CM API state |
+|---|---|---|---|
+| `{00000073-766d-...}` | 0x73 Accelerometer 3D | "Physical Accelerometer" | **LIVE** |
+| `{00000076-766d-...}` | 0x76 Gyrometer 3D | **"Physical Gyrometer"** | **LIVE** |
+| `{00000233-766d-...}` | 0x233 (vendor) | "Shake Gesture" | LIVE |
+| `{00000302-766d-...}` | 0x302 (vendor) | "Simple DMD" | LIVE |
+
+Verified live (not stale registry) via `CM_Get_Device_Interface_List` with
+`PRESENT` flag. Meanwhile **`GUID_DEVINTERFACE_SENSOR` ({BA1BB692-9B7A-4833-9A1E-525ED134E7E2})
+has ZERO interfaces system-wide** — and `Gyrometer.GetDeviceSelector()` turns out to be
+`System.Devices.InterfaceClassGuid:="{09485F5A-759E-42C2-BD4B-A349B75C8643}" AND
+System.Devices.InterfaceEnabled:=true`, which matches nothing on this machine either.
+
+**Root cause of the null Gyrometer (now proven, no longer hypothesis):** the EX's sensor
+stack publishes the IMU only under HID-usage-derived *custom sensor* interface classes —
+never under the standard Gyrometer/Accelerometer interface classes or
+GUID_DEVINTERFACE_SENSOR. Every standard API (WinRT `Gyrometer.GetDefault()`, Win32 Sensor
+COM API, DirectInput sensors) enumerates the standard classes, so they all correctly saw
+nothing. The data was always there, one GUID away. This also explains why the privacy
+consent key that mattered was `sensors.custom`.
+
+**Live data confirmed** via new probe `Diagnostics/Claw8EXProbes/CustomSensorProbe`
+(net8.0-windows, `CustomSensor.GetDeviceSelector(guid)` → `DeviceInformation.FindAllAsync`
+→ `CustomSensor.FromIdAsync` → `ReadingChanged`):
+- **Gyrometer: 491 readings in 5 s (~100 Hz)**, `MinimumReportInterval=10 ms`. At-rest
+  values ≈ (1.19, −0.28, 0.14) — plausible uncalibrated bias, units expected deg/s per HID
+  sensor spec (scale unverified until someone physically rotates the device).
+- **Accelerometer: 2495 readings in 5 s (~500 Hz)**, `MinimumReportInterval=2 ms`. At-rest
+  ≈ (0.007, −0.097, 1.003) g — Z ≈ +1 g with the device lying flat: correct gravity vector,
+  so units g and magnitude are verified for the accel.
+- Shake Gesture: 0 events in 5 s at rest (event-driven, expected). Simple DMD: 1 event
+  (motion-state 0 = stationary).
+
+**Reading property-bag decode** (keys are `"{propertyset-GUID} <PID>"` strings):
+- `{C458F8A7-4AE8-4777-9607-2E9BDD65110A}` PID 2 = timestamp (DateTimeOffset),
+  PID 161/162/163 = X/Y/Z data values, PID 188 = monotonic µs counter, PID 187 = constant
+  152 (unidentified, maybe report id/status).
+- `{B14C764F-07CF-41E8-9D82-EBE3D0776A6F}` PID 5 = the sensor's HID usage as int
+  (115=0x73 accel, 118=0x76 gyro, 770=0x302 DMD) — handy runtime sanity check.
+
+**Decision for Phase 4 gyro implementation:** add a `CustomSensor`-based
+`IGyroSourceAdapter` beside `WindowsSensorGyroSourceAdapter`, and have
+`ClawGyroSourceAdapter` fall back to it when `Gyrometer.GetDefault()` is null. Runtime
+fallback (not variant-keyed) keeps A2VM on its proven standard path and gives the EX the
+custom path, with no detection-config coupling. Keep the ClawA1M axis remap initially —
+same-vendor chassis sensor — but **flag axis mapping/signs as UNVERIFIED on the EX** until
+a human physically rolls/pitches/yaws the device (Phase 5 row 6/7). Rationale recorded:
+the custom path bypasses whatever orientation normalization the standard stack would apply,
+so the A1M remap is a starting hypothesis, not a measurement.
