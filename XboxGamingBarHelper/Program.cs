@@ -1620,6 +1620,10 @@ namespace XboxGamingBarHelper
             powerManager.MaxPCoreFreq.PropertyChanged += MaxCoreFreq_PropertyChanged;
             powerManager.MaxECoreFreq.PropertyChanged += MaxCoreFreq_PropertyChanged;
 
+            // Load the persisted per-zone LED composite into memory so the SoC timer and boot LED can
+            // use it (the controller LED state is volatile across reboots; the widget also re-sends on connect).
+            InitLedComposite();
+
             // LED color based on battery SoC (MSI Claw). Lightweight band-check timer; writes the LED
             // only when the SoC crosses a 10% band (no HID spam).
             InitLedColorBySoc();

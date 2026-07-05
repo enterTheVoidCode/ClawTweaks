@@ -2,132 +2,77 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using NLog;
+using Shared.Led;
 
 namespace XboxGamingBarHelper.Devices.MSIClaw
 {
     /// <summary>
-    /// MSI Claw boot LED handling. Runs ONLY when the user has saved a custom LED colour
-    /// (<see cref="MsiLedColorStore"/> has a value); with no saved colour the helper never touches
-    /// the LED and MSI's own colour stays.
+    /// MSI Claw boot LED handling. Runs ONLY when the user has a saved LED state — either a per-zone
+    /// composite (<see cref="MsiLedCompositeStore"/>) or the legacy solid colour (<see cref="MsiLedColorStore"/>).
+    /// With nothing saved the helper never touches the LED and MSI's own colour stays.
     ///
-    /// Two modes, driven by the user's "Startup colour cycle" toggle (<see cref="MsiLedColorStore.LoadBootCycle"/>):
-    ///   • Cycle ON  (default): RED while the controller loads → the user's saved colour once the
-    ///     ViGEm pad is mounted. (No green step — red→colour is enough and saves a redundant set.)
-    ///   • Cycle OFF: no red flash — just put the saved colour on as soon as it can be applied.
-    ///
-    /// Reliability: during the controller mount (HidHide + DInput mode switch) the Claw's command-HID
-    /// is briefly unavailable, so a single <c>TrySetLedColor</c> can fail ("HID device not found").
-    /// The important colour applies therefore RETRY for a few seconds until the HID is back — that fixes
-    /// the LED getting stuck on a transient colour / not reaching the saved colour. A monotonic token
-    /// cancels an in-flight sequence if a newer one starts (e.g. a re-mount).
+    /// The saved LED is re-applied through <see cref="Program.TryApplyPersistedComposite"/> (which drives
+    /// the composite when present, else falls back to the solid colour). During the controller mount
+    /// (HidHide + DInput switch) the Claw's command-HID is briefly unavailable, so the apply RETRIES for a
+    /// few seconds until the HID is back. A monotonic token cancels an in-flight sequence if a newer one
+    /// starts (e.g. a re-mount).
     /// </summary>
     internal static class MsiLedBoot
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        private const byte LoadR = 255, LoadG = 0, LoadB = 0;  // red = controller loading
-        private const int  LoadingTimeoutMs = 9000;  // (cycle on) restore saved colour if no ready arrives
-        private const int  ApplyRetries     = 12;    // retry an important apply this many times…
-        private const int  ApplyRetryGapMs  = 700;   // …this far apart (~8 s window) until the HID is back
+        private const int ApplyRetries    = 12;    // retry the apply this many times…
+        private const int ApplyRetryGapMs = 700;   // …this far apart (~8 s window) until the command-HID is back
 
         // Bumped on every signal; an async sequence aborts if its captured token is no longer current.
         private static int _token;
 
-        /// <summary>
-        /// Helper start. Cycle ON → show RED (loading) + a safety net that restores the saved colour
-        /// if no controller-ready follows. Cycle OFF → just apply the saved colour. No-op without a
-        /// saved colour.
-        /// </summary>
+        /// <summary>Helper start: re-apply the saved LED (composite or legacy colour). No-op when nothing is saved.</summary>
         public static void SignalHelperStarting()
         {
-            if (!MsiLedColorStore.TryLoad(out byte r, out byte g, out byte b, out byte brightness)) return; // no custom colour → leave MSI's
+            if (!HasSavedLed()) return;   // nothing saved → leave MSI's LED
             int token = Interlocked.Increment(ref _token);
-
-            // Saved state is "off" (LED on/off tile) → no red loading flash, just put the LED off and
-            // keep it off (retry until the HID is reachable). Skipping the red avoids a visible flash
-            // before going dark, and preserves the tile's off state across reboots.
-            if (brightness == 0)
-            {
-                _ = ApplyWithRetryAsync(r, g, b, brightness, "helper start — saved state is off", token);
-                return;
-            }
-
-            // If LED-by-SoC is enabled and the battery is already readable, boot straight to the SoC
-            // band colour instead of the saved colour (no saved → SoC flash). Falls back to the saved
-            // colour when the SoC isn't available yet; the SoC timer then tints once BOOT COMPLETE.
-            if (Program.TryGetSocBandColorForBoot(out byte sr, out byte sg, out byte sb))
-            {
-                r = sr; g = sg; b = sb;
-            }
-
-            if (!MsiLedColorStore.LoadBootCycle())
-            {
-                // Cycle off: no flash, just the user's colour (retry until the HID is ready).
-                _ = ApplyWithRetryAsync(r, g, b, brightness, "helper start — cycle off, applying saved colour", token);
-                return;
-            }
-
-            // Cycle on: red now (one shot — cosmetic), and a safety net so red never lingers if nothing mounts.
-            SetOnce(LoadR, LoadG, LoadB, "helper start — controller loading (red)");
-            Task.Run(async () =>
-            {
-                try
-                {
-                    await Task.Delay(LoadingTimeoutMs).ConfigureAwait(false);
-                    if (token != Volatile.Read(ref _token)) return; // controller-ready took over
-                    await ApplyWithRetryAsync(r, g, b, brightness, "helper start — no controller-ready within timeout, restoring saved colour", token).ConfigureAwait(false);
-                }
-                catch (Exception ex) { Logger.Debug($"[MsiLedBoot] loading safety-net failed: {ex.Message}"); }
-            });
+            _ = ApplyPersistedWithRetryAsync("helper start — applying saved LED", token);
         }
 
-        /// <summary>
-        /// Virtual ViGEm controller mounted. Cycle ON → switch from the red loading colour to the
-        /// user's saved colour (retrying until the command-HID is reachable). Cycle OFF → no-op: the
-        /// saved colour was already applied at helper start, so there's nothing to re-set here.
-        /// No-op without a saved colour.
-        /// </summary>
+        /// <summary>Virtual ViGEm controller mounted: re-apply the saved LED (the command-HID is reliably up by now).</summary>
         public static void SignalControllerReady()
         {
-            if (!MsiLedColorStore.TryLoad(out byte r, out byte g, out byte b, out byte brightness)) return;
-            if (brightness == 0) return;                   // saved state is off → already applied (off) at start, no red shown
-            if (!MsiLedColorStore.LoadBootCycle()) return; // cycle off → colour already on, don't re-set
-
+            if (!HasSavedLed()) return;
             int token = Interlocked.Increment(ref _token);
-            _ = ApplyWithRetryAsync(r, g, b, brightness, "controller ready — applying saved colour", token);
+            _ = ApplyPersistedWithRetryAsync("controller ready — applying saved LED", token);
         }
 
-        /// <summary>Single best-effort colour set (no retry) — for the transient red loading flash.</summary>
-        private static void SetOnce(byte r, byte g, byte b, string reason)
+        private static bool HasSavedLed()
         {
-            bool ok = TrySet(r, g, b);
-            Logger.Info($"[MsiLedBoot] LED → R={r} G={g} B={b} ({reason}) → ok={ok}");
+            bool hasComposite = MsiLedCompositeStore.TryLoad(out LedCompositeSpec _);
+            bool hasColor     = MsiLedColorStore.TryLoad(out byte _, out byte _, out byte _, out byte _);
+            return hasComposite || hasColor;
         }
 
         /// <summary>
-        /// Applies a colour, retrying while the command-HID is unavailable (typical during the mount).
-        /// Aborts early if a newer sequence superseded this one (token changed).
+        /// Applies the persisted LED (composite, else legacy colour), retrying while the command-HID is
+        /// unavailable (typical during the mount). Aborts early if a newer signal superseded this one.
         /// </summary>
-        private static async Task<bool> ApplyWithRetryAsync(byte r, byte g, byte b, byte brightness, string reason, int token)
+        private static async Task<bool> ApplyPersistedWithRetryAsync(string reason, int token)
         {
             for (int i = 1; i <= ApplyRetries; i++)
             {
                 if (token != Volatile.Read(ref _token)) return false; // superseded by a newer signal
-                if (TrySet(r, g, b, brightness))
+
+                bool ok;
+                try { ok = Program.TryApplyPersistedComposite(); }
+                catch (Exception ex) { Logger.Debug($"[MsiLedBoot] apply composite threw: {ex.Message}"); ok = false; }
+
+                if (ok)
                 {
-                    Logger.Info($"[MsiLedBoot] LED → R={r} G={g} B={b} Brightness={brightness} ({reason}) → ok=True (attempt {i})");
+                    Logger.Info($"[MsiLedBoot] persisted LED applied ({reason}) → ok=True (attempt {i})");
                     return true;
                 }
                 await Task.Delay(ApplyRetryGapMs).ConfigureAwait(false);
             }
-            Logger.Warn($"[MsiLedBoot] LED → R={r} G={g} B={b} Brightness={brightness} ({reason}) → failed after {ApplyRetries} attempts (command-HID stayed unavailable)");
+            Logger.Warn($"[MsiLedBoot] persisted LED ({reason}) → failed after {ApplyRetries} attempts (command-HID stayed unavailable)");
             return false;
-        }
-
-        private static bool TrySet(byte r, byte g, byte b, byte brightness = 100)
-        {
-            try { return MsiClawLedController.TrySetLedColor(r, g, b, brightness); }
-            catch (Exception ex) { Logger.Debug($"[MsiLedBoot] set colour threw: {ex.Message}"); return false; }
         }
     }
 }

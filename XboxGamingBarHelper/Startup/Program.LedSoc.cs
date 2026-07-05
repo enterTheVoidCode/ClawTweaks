@@ -1,5 +1,6 @@
 using NLog;
 using Shared.Enums;
+using Shared.Led;
 using System;
 using System.Threading;
 using XboxGamingBarHelper.Devices.MSIClaw;
@@ -83,6 +84,29 @@ namespace XboxGamingBarHelper
         {
             try
             {
+                // Per-zone composite active: the composite owns the LED. Only its Battery zone (if any)
+                // tracks SoC — re-render the composite on a band change. The legacy solid SoC tint below
+                // runs ONLY when no composite is set (so the two never fight over the LED).
+                LedCompositeSpec currentComposite;
+                lock (_compositeLock) { currentComposite = _currentComposite; }
+                if (currentComposite != null)
+                {
+                    if (!currentComposite.HasBatteryZone || !_clawControllerReady
+                        || Devices.DeviceDetector.DetectDevice().DeviceType != DeviceType.MSIClaw) return;
+                    int csoc = (int)(performanceManager?.BatteryLevel?.Value ?? -1f);
+                    if (csoc > 0 && csoc <= 100)
+                    {
+                        int cband = ComputeSocBand(csoc);
+                        if (cband != _lastSocBand)
+                        {
+                            _lastSocBand = cband;
+                            ReapplyCompositeForBattery();
+                            Logger.Info($"[LedSoC] composite battery zone → SoC={csoc}% band {cband}");
+                        }
+                    }
+                    return;
+                }
+
                 if (!_ledColorBySocEnabled) return;
                 if (!_clawControllerReady) return;   // controller still mounting → don't fight MsiLedBoot / flicker
                 if (Devices.DeviceDetector.DetectDevice().DeviceType != DeviceType.MSIClaw) return;
