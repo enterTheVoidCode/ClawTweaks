@@ -378,9 +378,11 @@ namespace XboxGamingBarHelper
 
                 if (value < 0)
                 {
-                    // Disabled → robust firmware hand-back: write a real firmware baseline table AND clear
-                    // control (instead of a bare control-bit clear that leaves our last table behind).
-                    MsiClawFanController.ApplyHardwareTable("BetterPerformance");
+                    // Disabled → MSI-clean firmware hand-back: replicate MSI Center M's "Auto" state
+                    // (MSI default curve on the real 0–100 axis, control OFF). This replaces the old
+                    // legacy LLFanTable path whose wrong-axis bytes (incl. 150) could leave a fan not
+                    // spinning after disabling our software control.
+                    MsiClawFanController.ApplyFirmwareAutoBaseline();
                     return;
                 }
 

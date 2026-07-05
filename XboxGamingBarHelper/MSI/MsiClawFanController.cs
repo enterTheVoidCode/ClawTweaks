@@ -118,11 +118,14 @@ namespace XboxGamingBarHelper.MSI
             return true;
         }
 
-        /// <summary>Builds the 8-byte Set_Fan duty table from 5 duty %: [backup=d1, 0, d1..d5, d5(dup)].</summary>
+        /// <summary>Builds the 8-byte Set_Fan duty table from 5 duty %: [0, 0, d1..d5, d5(dup)].
+        /// Byte0 is 0 to match MSI Center M exactly — MSI always writes 0 in the CPU-fan block's
+        /// leading byte (in both Auto and Custom mode), so we mirror that instead of duplicating d1
+        /// there (the old layout, which diverged from MSI on the CPU block).</summary>
         public static byte[] BuildFanTable(int[] duties5)
         {
             byte D(int i) => (byte)Math.Max(0, Math.Min(100, duties5[i]));
-            return new byte[8] { D(0), 0, D(0), D(1), D(2), D(3), D(4), D(4) };
+            return new byte[8] { 0, 0, D(0), D(1), D(2), D(3), D(4), D(4) };
         }
 
         /// <summary>Builds the 7-byte Set_Thermal breakpoint table from 5 temps °C: [0, t1..t5, t5(dup)].</summary>
@@ -130,6 +133,27 @@ namespace XboxGamingBarHelper.MSI
         {
             byte T(int i) => (byte)Math.Max(0, Math.Min(120, temps5[i]));
             return new byte[7] { 0, T(0), T(1), T(2), T(3), T(4), T(4) };
+        }
+
+        /// <summary>
+        /// MSI-clean firmware hand-back — replicates exactly what MSI Center M leaves behind in its
+        /// "Auto" mode: the MSI default duty curve (40/49/58/67/75 on the 44/54/64/74/82 axis, byte0=0)
+        /// written to BOTH fan blocks, full-speed override cleared, and fan-control OFF (212 bit7=0) so
+        /// the firmware regulates. Unlike <see cref="ApplyHardwareTable"/> this uses the real MSI-axis
+        /// 0–100 layout — no legacy ×1.5 / wrong-axis bytes (e.g. 150) that could leave the EC in a
+        /// state where a fan won't spin. This is the correct way to DISABLE our software fan control.
+        /// </summary>
+        public static bool ApplyFirmwareAutoBaseline()
+        {
+            byte[] fan = BuildFanTable(MsiDuty_Default);
+            byte[] thermal = BuildThermalTable(MsiTemps_Default);
+
+            SetFanFullSpeed(false);   // never hand back with a latched full-speed override
+            SetThermalTable(thermal); // MSI default temperature axis
+            SetFanTable(fan);         // MSI default duty curve (byte0=0, MSI-identical)
+            SetFanControl(false);     // firmware/Auto → EC regulates (212 bit7 = 0)
+            Logger.Info($"MsiClawFanController: firmware hand-back (MSI Auto baseline) fan=[{string.Join(",", fan)}] thermal=[{string.Join(",", thermal)}] control=OFF");
+            return true;
         }
 
         /// <summary>
