@@ -892,7 +892,11 @@ namespace XboxGamingBarHelper
                 _autoSportActive = false;
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
                 Logger.Info($"[MSIClaw] Fan auto-safety: game ended → restoring saved fan mode {value} (Comfort)");
-                ApplyMsiFan(value); // sets SetMsiSportCooling(false) + re-applies the curve
+                // Release EC Sport first (power-shift → Comfort 0xC0) so the EC stops driving its own
+                // aggressive curve — otherwise the re-applied software table below is ignored and the fan
+                // stays loud. ApplyMsiFan does NOT do this itself.
+                performanceManager?.SetMsiSportCooling(false);
+                ApplyMsiFan(value); // re-applies the software curve (control back to our table)
             }
             catch (Exception ex) { Logger.Debug($"RestoreFanAfterGame: {ex.Message}"); }
         }
@@ -992,9 +996,11 @@ namespace XboxGamingBarHelper
                 // Re-apply any saved custom fan curve (EC resets across reboots).
                 RestoreMsiFanOnStartup();
 
-                // Fan auto-safety (EC Sport above 70 °C) + power-shift coupling are kept in code but
-                // DORMANT in the MSI-axis software-curve model — deliberately NOT enabled for now.
-                // Re-enable via EnableMsiFanAutoSport() if the latch ever resurfaces.
+                // Fan auto-safety: above 70 °C in a software-curve mode, hand the fan to the EC's own
+                // aggressive Sport curve (which the Intel IPF panic-latch can't override), then restore the
+                // curve at game end. RE-ENABLED — the panic latch (fan stuck high, won't ramp down under
+                // sustained load, e.g. Cyberpunk) resurfaced after the MSI-axis rework left this dormant.
+                EnableMsiFanAutoSport();
 
                 // Re-apply the saved battery charge limit if it was enabled (EC can reset on reboot).
                 RestoreMsiChargeLimitOnStartup();
