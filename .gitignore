@@ -36,3 +36,6 @@ Build-Package.ps1
 
 # Internal test-build counter (per machine, advanced by Build-Package.ps1 -Mode Test)
 XboxGamingBarPackage/internal_build.txt
+
+# Local-only reverse-engineering notes (kept off GitHub, purged from history)
+/reverse_engineered/
