@@ -101,6 +101,9 @@ namespace XboxGamingBar
 
                 if (ClawTweaksWidgetPositionSlider != null) ClawTweaksWidgetPositionSlider.Value = pos;
                 if (ClawTweaksWidgetPositionValue != null) ClawTweaksWidgetPositionValue.Text = pos.ToString();
+                // Onboarding duplicate (mirror).
+                if (OnbClawTweaksWidgetPositionSlider != null) OnbClawTweaksWidgetPositionSlider.Value = pos;
+                if (OnbClawTweaksWidgetPositionValue != null) OnbClawTweaksWidgetPositionValue.Text = pos.ToString();
 
                 // Push to helper so the RB hop count is correct even before the user touches it.
                 gameBarWidgetPosition?.SetValue(pos);
@@ -113,11 +116,27 @@ namespace XboxGamingBar
             finally { _loadingGameBarWidgetPosition = false; }
         }
 
+        private bool _syncingWidgetPos;   // re-entrancy guard for the Controls-tab ↔ onboarding slider mirror
+
         private void ClawTweaksWidgetPosition_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
             if (_loadingGameBarWidgetPosition) return;
+            if (_syncingWidgetPos) return;   // ignore the echo from mirroring into the other slider
             int pos = (int)System.Math.Round(e.NewValue);
+
+            // Mirror to the other copy (Controls tab ↔ onboarding) so both always show the same value.
+            _syncingWidgetPos = true;
+            try
+            {
+                if (ClawTweaksWidgetPositionSlider != null && (int)System.Math.Round(ClawTweaksWidgetPositionSlider.Value) != pos)
+                    ClawTweaksWidgetPositionSlider.Value = pos;
+                if (OnbClawTweaksWidgetPositionSlider != null && (int)System.Math.Round(OnbClawTweaksWidgetPositionSlider.Value) != pos)
+                    OnbClawTweaksWidgetPositionSlider.Value = pos;
+            }
+            finally { _syncingWidgetPos = false; }
+
             if (ClawTweaksWidgetPositionValue != null) ClawTweaksWidgetPositionValue.Text = pos.ToString();
+            if (OnbClawTweaksWidgetPositionValue != null) OnbClawTweaksWidgetPositionValue.Text = pos.ToString();
             try
             {
                 Windows.Storage.ApplicationData.Current.LocalSettings.Values[GameBarWidgetPositionKey] = pos;
@@ -125,6 +144,34 @@ namespace XboxGamingBar
             catch (Exception ex) { Logger.Warn($"[GameBarAutoNav] persist position failed: {ex.Message}"); }
             gameBarWidgetPosition?.SetValue(pos);
             Logger.Info($"[GameBarAutoNav] ClawTweaks widget position set to {pos}");
+        }
+
+        /// <summary>Onboarding shortcut: jump to the Controls tab and open the Front Buttons card so the
+        /// user can assign the Left MSI (front) single-click action. The combo group there is too coupled
+        /// to safely duplicate, so onboarding links to it instead of mirroring it.</summary>
+        private void OnbSetupLeftMsi_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (LegionNavItem != null) LegionNavItem.IsChecked = true; // switch to the Controls tab
+
+                // Expand the Front Buttons (controller-emulation) card if it is currently collapsed
+                // (the handler is a toggle over isControllerEmulationExpanded and ignores its args).
+                if (!isControllerEmulationExpanded && ControllerEmulationExpandButton != null)
+                    ControllerEmulationExpandButton_Click(ControllerEmulationExpandButton, null);
+
+                // Bring the Left MSI card into view + focus its first control, deferred so the tab is shown.
+                _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+                {
+                    try
+                    {
+                        LeftMsiButtonCard?.StartBringIntoView();
+                        LegionButtonDesktopTypeComboBox?.Focus(Windows.UI.Xaml.FocusState.Programmatic);
+                    }
+                    catch { }
+                });
+            }
+            catch (Exception ex) { Logger.Debug($"OnbSetupLeftMsi_Click: {ex.Message}"); }
         }
 
         // ── LED Color ────────────────────────────────────────────────────────────────

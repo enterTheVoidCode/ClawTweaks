@@ -217,13 +217,14 @@ namespace XboxGamingBar
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                // When the Overlay panel is expanded, drop into it (Columns). Otherwise go to the CPU
-                // card below. Focus the VISIBLE Boost Mode dropdown — CPUBoostToggle is Collapsed
-                // (hidden carrier), so focusing it was a no-op and left focus stuck here.
+                // When the Overlay panel is expanded, drop into it (Columns). Otherwise go to the CPU card
+                // below. Focus the VISIBLE CPU card header (CpuCardExpandButton) — the Boost Mode combo is
+                // inside the collapsed CpuSectionContent, so focusing it failed and the old fallback sent
+                // focus back UP to OS Power Mode (the "down goes up" bug).
                 if (isOSDCustomizeExpanded && OSDColumnsComboBox != null)
                     OSDColumnsComboBox.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                else if (CpuBoostModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard) != true)
-                    OSPowerModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard); // fallback if Boost is disabled
+                else
+                    (CpuCardExpandButton ?? (Windows.UI.Xaml.Controls.Control)PerfSavedProfilesExpandButton)?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
         }
