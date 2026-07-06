@@ -859,3 +859,30 @@ build → sign → install → THEN `git checkout` the manifest. Installed now: 
 (helper PID 19152), verified: detection ✔, `RGB: True` ✔, LED write with EXACT fw-table
 match ✔ (re-applied Kyle's saved off-state), gyro CustomSensor ✔, joystick acquired ✔,
 BOOT COMPLETE ✔, fan baseline restored ✔.
+
+---
+
+## 2026-07-05 (night) — CPU temp/power "--" root-caused and fixed (MSR fallback), verified active
+
+Kyle reported CPU temperature and power showing "--" in the widget/OSD. Root cause
+measured from the helper's own [LHM] sensor dump: **LibreHardwareMonitor 0.9.6 does not
+recognise Panther Lake** (family 6, model 0xCC / 204, CPU name string "Intel(R) Arc(TM)
+G3 Extreme") — its IntelCpu model-switch falls through and creates only perf-counter
+Load sensors and one dead Voltage sensor on the CPU: no Temperature, no Power, no Clock.
+
+Fix (`Performance/IntelMsrCpuFallback.cs` + a `FillCpuSensorsFromMsrFallback` hook in
+`PerformanceManager.Update()`, commit `1adc4f5`): read the model-independent Intel MSRs
+directly — TjMax (0x1A2), package thermal status (0x1B1), RAPL power unit (0x606),
+package energy counter (0x611, delta/Δt with 32-bit wrap handling) — via
+`LibreHardwareMonitor.PawnIo.IntelMsr`, LHM's own public PawnIO binding (same signed
+driver the app already ships around; no new kernel component). The hook mirrors the
+existing ADLX GPU-fallback pattern: it only fills sensor slots LHM left at -1 and
+disables itself permanently if PawnIO/MSR access fails, so recognised CPUs (A2VM) never
+activate it and AMD is excluded by a vendor check.
+
+Verified on-device (packaged as 0.1.9.616; helper redeployed and relaunched — note the
+helper does NOT auto-redeploy on package upgrade, see handoff for the working redeploy
+recipe): `[MsrFallback] active: TjMax=100 °C, energy unit=6.104E-05 J (ESU=14)` —
+exactly the expected Intel values. Kyle's visual confirmation of the widget numbers
+pending. CPU *Clock* sensors are presumably still missing on the EX (same LHM cause) —
+not user-reported, left alone.
