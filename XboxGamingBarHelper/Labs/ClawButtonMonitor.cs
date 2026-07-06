@@ -1544,9 +1544,17 @@ namespace XboxGamingBarHelper.Labs
             {
                 using (var di = new DirectInput())
                 {
-                    // HC: directInput.GetDevices(DeviceType.Gamepad, DeviceEnumerationFlags.AllDevices)
+                    // HC uses GetDevices(DeviceType.Gamepad, …) and that works on A1M/A2VM, whose
+                    // DInput joystick enumerates as Gamepad. The Claw 8 EX's joystick (same PID
+                    // 0x1902, node MI_00&COL01) enumerates as DeviceType.FirstPerson instead —
+                    // measured on-device 2026-07-05 (DInputMotionProbe `enum`, port log) — so a
+                    // Gamepad-only filter finds nothing on the EX. DeviceClass.GameControl is the
+                    // superset of every game-controller DeviceType (Gamepad included): A2VM
+                    // resolves to the identical device via the unchanged VID/PID path match below,
+                    // and the EX becomes visible (GameControl returned exactly one device on the
+                    // EX: the Claw joystick).
                     foreach (var devInfo in di.GetDevices(
-                        SharpDX.DirectInput.DeviceType.Gamepad,
+                        DeviceClass.GameControl,
                         DeviceEnumerationFlags.AllDevices))
                     {
                         try

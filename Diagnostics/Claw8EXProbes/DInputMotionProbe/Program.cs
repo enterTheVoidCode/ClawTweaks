@@ -23,8 +23,18 @@ namespace Claw8EXProbes.DInputMotionProbe
         private static readonly byte[] SwitchModeDInputCmd = { 15, 0, 0, 60, 36, 2, 0 };
         private static readonly byte[] SwitchModeXInputCmd = { 15, 0, 0, 60, 36, 1, 0 };
 
-        private static void Main()
+        private static void Main(string[] args)
         {
+            // Read-only enumeration mode: no mode-switch commands sent, no acquire, no restore.
+            // Added 2026-07-05 to re-test DirectInput visibility while the controller is ALREADY
+            // in DInput mode with a live "HID-compliant game controller" PnP node (see port log)
+            // without fighting ClawButtonMonitor's own mode-switch retry loop.
+            if (args.Length > 0 && args[0].Equals("enum", StringComparison.OrdinalIgnoreCase))
+            {
+                EnumerateAll();
+                return;
+            }
+
             Console.WriteLine("Switching controller to DInput mode...");
             if (!SendModeCommand(SwitchModeDInputCmd))
             {
@@ -105,6 +115,54 @@ namespace Claw8EXProbes.DInputMotionProbe
             Console.WriteLine("Restoring XInput mode...");
             SendModeCommand(SwitchModeXInputCmd);
             Console.WriteLine("Done.");
+        }
+
+        // Lists every device DirectInput can see, in every device class, plus the raw
+        // GetDevices(DeviceClass.All) view — broader than FindAndAcquireJoystick()'s
+        // Gamepad/Joystick/Driving filter, to distinguish "wrong filter" from "truly empty".
+        private static void EnumerateAll()
+        {
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] DirectInput read-only enumeration (no mode commands sent)");
+            try
+            {
+                using (var di = new DirectInput())
+                {
+                    var byClass = di.GetDevices(DeviceClass.All, DeviceEnumerationFlags.AllDevices);
+                    Console.WriteLine($"GetDevices(DeviceClass.All): {byClass.Count} device(s)");
+                    foreach (var d in byClass)
+                    {
+                        string path = "<n/a>";
+                        try { using (var js = new Joystick(di, d.InstanceGuid)) path = js.Properties.InterfacePath ?? "<null>"; }
+                        catch (Exception ex) { path = $"<error: {ex.Message}>"; }
+                        Console.WriteLine($"  Class-All: {d.ProductName}  Type={d.Type}  Subtype={d.Subtype}  Path={path}");
+                    }
+
+                    var gameControl = di.GetDevices(DeviceClass.GameControl, DeviceEnumerationFlags.AllDevices);
+                    Console.WriteLine($"GetDevices(DeviceClass.GameControl): {gameControl.Count} device(s)");
+                    foreach (var d in gameControl)
+                        Console.WriteLine($"  GameControl: {d.ProductName}  Type={d.Type}  Subtype={d.Subtype}  InstanceGuid={d.InstanceGuid}");
+
+                    foreach (SharpDX.DirectInput.DeviceType t in Enum.GetValues(typeof(SharpDX.DirectInput.DeviceType)))
+                    {
+                        try
+                        {
+                            var devs = di.GetDevices(t, DeviceEnumerationFlags.AllDevices);
+                            if (devs.Count > 0)
+                                Console.WriteLine($"GetDevices({t}): {devs.Count}");
+                            foreach (var d in devs)
+                                Console.WriteLine($"  {t}: {d.ProductName}  InstanceGuid={d.InstanceGuid}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"GetDevices({t}) failed: {ex.Message}");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"EnumerateAll failed: {ex}");
+            }
         }
 
         private static bool StateChanged(JoystickState a, JoystickState b)

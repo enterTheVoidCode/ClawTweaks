@@ -116,6 +116,18 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             {
                 if (zones27 == null || zones27.Length < 27) return false;
 
+                // Respect the detected device's RGB capability flag. LED writes go to controller
+                // EEPROM at a firmware-version-specific address; on a device whose firmware is not
+                // in FirmwareTable (e.g. Claw 8 EX fw 0x0411, SupportsRgbLighting=false until the
+                // nearest-match address is verified) a write would use an unverified address.
+                // Single choke point: covers the pipe handler, MsiLedBoot and LED-by-SoC callers,
+                // none of which checked the flag (observed ungated writes on the EX, 2026-07-05).
+                if (!DeviceDetector.DetectDevice().SupportsRgbLighting)
+                {
+                    Logger.Warn("[MsiClawLed] LED write blocked: detected device reports SupportsRgbLighting=false");
+                    return false;
+                }
+
                 HidDevice device = MSIClawHidController.FindClawHidDeviceInternal();
                 if (device == null)
                 {

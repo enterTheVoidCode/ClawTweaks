@@ -674,3 +674,90 @@ after RTSS launch — all logged as non-terminating. **Reboot recommended before
 testing**: PawnIO's and HidHide's installers both said a reboot may be required for driver
 activation, and a reboot should clear the RTSS state too. Re-verify RTSS OSD after reboot
 before trusting validation row 9.
+
+---
+
+## 2026-07-05 (post-reboot, ~17:24) — Live-session findings: TDP writes already live, ungated LED writes, DirectInput root cause SOLVED
+
+Kyle rebooted at 17:24 (before this session's work — verified via `LastBootUpTime` vs
+commit timestamps). Helper auto-started elevated at logon (PID 12420, 17:24:48). Post-boot
+log is clean on the reboot-motivated items: detection matches EX config, gyro CustomSensor
+source starts (64 samples/s), `RTSSHooks64.dll` loads, RTSS starts; the OSD shared-memory
+`FileNotFoundException` fired ONCE at 17:25:15 (startup race while RTSS was still
+launching) and never recurred.
+
+### 1. TDP writes are already happening on the EX (P4 gate de-facto superseded)
+
+The helper's production path fired automatically at 17:25:29 when the global profile
+applied (nobody bypassed a gate — the app auto-starts at boot and applies its profile):
+- `MsiOverBoost`: **"OverBoost already enabled (box[1]=1)"** — the EX ships with the
+  OverBoost UEFI flag ALREADY SET from factory/BIOS. Confirmed no prior run ever wrote it
+  (searched all helper logs: 13:xx run and pre-reboot 17:xx run contain zero TDP/OverBoost
+  writes; 17:25:29 was the first-ever unlock sequence on this device). **No persistent
+  UEFI write was performed by our code.**
+- Ceiling unlock `Set_Data 80=35, 81=37` → both WMI success. Profile apply
+  `80=25, 81=26` → success. Power-shift `210=0xC0` (Comfort/None active) → success.
+- 17:28: repeated 25↔30 W writes (Kyle moving the widget TDP slider) — all WMI-OK.
+
+Reframing for what's left of P4: the write path works at the WMI level; the REMAINING
+question is whether the EC honors the limits (WMI success ≠ EC compliance — on A2VM the
+EC silently clamps without the unlock). Verification = sustained load with package power
+observed ≈ PL1 (OSD `CPUWattageSensor` via LibreHardwareMonitor, or HWiNFO). This merges
+into validation row 8 rather than a separate probe. Note: kx.exe absence is BY DESIGN
+(`XboxGamingBarHelper.csproj:499` — intentionally not bundled, AV-flagged; WMI is the
+fallback), so the startup `[KX] kx.exe not found` ERROR is expected, not an EX problem.
+
+### 2. Ungated LED writes fired on the EX (gating bug found + fixed)
+
+At 17:28:00–17:28:06 and 17:47:41–42 the widget's LED tile sent `MsiLedColor` pipe
+commands (Kyle toggling LED on/off): `FW=0x411 → RGB addr [02,4A] (nearest match,
+dist=265)`, writes returned ok=True. This is exactly the unverified-EEPROM-address write
+P7 was gated on. Two gating gaps: the widget shows the LED tile despite
+`SupportsRgbLighting=false` being pushed to it, and the helper's pipe handler
+(`Program.PipeHandlers.cs:395`) never checked the flag either (nor do the `MsiLedBoot` /
+LED-by-SoC callers). **Fix (this session): single choke-point gate in
+`MsiClawLedController.TrySetLedColor` — refuses when the detected device reports
+`SupportsRgbLighting=false`.** A2VM unaffected (`MSIClawConfig` sets true).
+PENDING (needs Kyle's eyes): did the controller LEDs visibly respond to the 17:28/17:47
+toggles? If YES → the nearest-match `[02,4A]` address is CORRECT for fw 0x0411; P7 is
+answered by accident, and the right follow-up is adding `0x0411 → [0x02,0x4A]` to
+`FirmwareTable` as a measured entry + flipping the EX config to `SupportsRgbLighting=true`.
+If NO → address is wrong or LED protocol differs; RGB stays unsupported; note that ~8
+writes to the wrong EEPROM address already happened with no observed controller
+malfunction (controller kept working: mode switches, commands, inputs all fine after).
+
+### 3. DirectInput "zero devices" ROOT CAUSE SOLVED — it was an enumeration-filter gap, not a platform fact
+
+With the controller live in DInput mode (ClawButtonMonitor's retry loop had it there) and
+the `HID-compliant game controller` PnP node (`HID\VID_0DB0&PID_1902&MI_00&COL01`) present
+with Status OK, added a read-only `enum` mode to `DInputMotionProbe` (no mode commands)
+that lists `GetDevices(DeviceClass.All)` + every DeviceType + `DeviceClass.GameControl`:
+- DirectInput sees **29 devices** on this machine — it was NEVER empty. The Claw joystick
+  enumerates as **`DeviceType.FirstPerson` (Subtype 259)** with a garbled product name
+  ("Љ" — mangled string from the EX firmware descriptor), interface path
+  `\\?\hid#vid_0db0&pid_1902&mi_00&col01#…` — exactly the game-controller node.
+- **`GetDevices(DeviceClass.GameControl)` returns exactly 1 device: the Claw joystick.**
+- Every prior "zero devices" result (2026-07-03 probe, 2026-07-05 outside-container
+  re-test, and ClawButtonMonitor's live failures) used Gamepad/Joystick/Driving filters
+  (the monitor: Gamepad only, HC's 1:1 pattern) — A1M/A2VM enumerate as Gamepad, the EX
+  enumerates as FirstPerson, so the filters missed it. The earlier "DirectInput
+  enumerates zero devices system-wide" conclusion is RETRACTED — the probes only printed
+  their filtered subset.
+- **Fix (this session): `ClawButtonMonitor.FindAndAcquireJoystick()` now enumerates
+  `DeviceClass.GameControl`** (superset of all game-controller DeviceTypes — A2VM resolves
+  the identical device via the unchanged VID/PID interface-path match; EX becomes
+  visible). This also explains and should end the observed live thrash loop (monitor
+  retrying SwitchMode(DInput) + settle every few seconds after Kyle enabled the master
+  emulation toggle at 17:26).
+
+### 4. Correction: MSI Claw controller emulation uses ViGEm, NOT VIIPER
+
+The earlier "judge row 3 against VIIPER" note (previous entry + validation doc) was wrong
+for this device family: the live log says `VIIPER: Skipping — MSI Claw uses
+ClawButtonMonitor (DInput path) instead of VIIPER`, and ClawButtonMonitor forwards to a
+**ViGEm virtual Xbox 360 pad** (`_vigem`, `NeedsViGEm`). VIIPER is the default backend for
+OTHER devices; the Claw path still requires **ViGEmBus, which is NOT installed** (log:
+`ViGEmBus installed status: False`; Setup-Tools' default path deliberately skips ViGEm as
+"legacy" — a trap for fresh Claw installs, arguably its own bug outside this port's
+scope). Row 3 therefore needs `Setup-Tools.ps1 -Only vigem` (one UAC click) plus the
+GameControl fix deployed. Validation doc re-corrected.
