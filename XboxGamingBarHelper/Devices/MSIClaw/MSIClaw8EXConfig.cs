@@ -69,7 +69,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         // Feature flags — set from measured Phase 1/3 probe results, not assumptions.
         public override bool SupportsWmiTdp             => false;  // Same as A2VM: TDP flows through the MSIClaw ACPI-WMI path, not the generic WMI-TDP flag
         public override bool SupportsControllerRemap    => true;   // Command interface + mode switch verified identical to A2VM (Phase 1/3 probes)
-        public override bool SupportsRgbLighting        => false;  // Controller fw 0x0411 is NOT in MsiClawLedController's firmware→RGB-address table; nearest-match would write unverified EEPROM addresses — keep off until probed (Phase 3 P7)
+        public override bool SupportsRgbLighting        => true;   // fw 0x0411 → RGB addr [02,4A] human-verified on-device 2026-07-05 (LEDs visibly respond; Phase 3 P7 pass) and promoted to an exact FirmwareTable entry in MsiClawLedController
         public override bool SupportsGyro               => true;   // Streams via CustomSensor ("Physical Gyrometer", ~100 Hz) — verified 2026-07-05
         public override bool HasTouchpad                => false;  // No touchpad
         public override bool HasScrollWheel             => false;  // No scroll wheel

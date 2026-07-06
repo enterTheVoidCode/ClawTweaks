@@ -52,6 +52,13 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             new FwVersion { Firmware = 0x219, Add1 = 0x02, Add2 = 0x4A },
             // ── Claw A8 / Claw 7+8 AI+ A2VM (Lunar Lake) ─────
             new FwVersion { Firmware = 0x308, Add1 = 0x02, Add2 = 0x4A },
+            // ── Claw 8 AI+ EX (Panther Lake, MS-1T91) ────────
+            // Not from HC (no EX support upstream). Measured on-device 2026-07-05: fw
+            // bcdDevice 0x0411; the nearest-match fallback picked [02,4A] and the controller
+            // LEDs VISIBLY responded to on/off/colour writes (human-verified, port log
+            // "evening" entry) — promoted to an exact entry so the EX no longer depends on
+            // nearest-match behavior.
+            new FwVersion { Firmware = 0x411, Add1 = 0x02, Add2 = 0x4A },
         };
 
         private const byte DefaultAdd1 = 0x01;

@@ -28,6 +28,34 @@ namespace XboxGamingBarHelper.MSI
         private static readonly byte[] LLFanTable_BetterPerformance = { 0, 0, 0, 14, 33, 63,  98, 150 };
         private static readonly byte[] LLFanTable_BestPerformance   = { 10, 0, 10, 26, 46, 78, 113, 150 };
 
+        // ── Claw 8 AI+ EX (Panther Lake, MS-1T91) firmware fan table ────────────────
+        // The EX's boot-default EC table, read on-device 2026-07-05 (Phase 3 P3, port log:
+        // Get_Fan blocks 1+2 both returned 3A,46,4A,4C,4E,50,54,5E). Only this one firmware
+        // table is known for the EX (no per-scenario tables measured, and HC has no EX
+        // support to borrow from), so firmware hand-back uses it for EVERY profileKey —
+        // restoring the true firmware baseline is strictly safer than writing the
+        // Lunar-Lake-tuned LL tables above, whose 80 °C point (63/78) sits below the EX
+        // firmware's own 80 and risks the EC thermal-protection latch under sustained load.
+        private static readonly byte[] EXFanTable_Baseline           = { 58, 70, 74, 76, 78, 80, 84, 94 };
+
+        // True when the detected device is the Claw 8 EX (Panther Lake). Same runtime
+        // model check the branch already uses in MsiClawDriverCheckService; cached because
+        // ApplyHardwareTable can be called from the 1 s fan-auto-safety loop.
+        private static bool? isClaw8EX;
+        private static bool IsClaw8EX()
+        {
+            if (!isClaw8EX.HasValue)
+            {
+                try
+                {
+                    isClaw8EX = Devices.DeviceDetector.DetectDevice().Model
+                        .IndexOf("Claw 8 EX", StringComparison.OrdinalIgnoreCase) >= 0;
+                }
+                catch { isClaw8EX = false; }
+            }
+            return isClaw8EX.Value;
+        }
+
         // ── MSI software fan curves: 5 (temp,duty) points on the real firmware axis ──────
         // Temps default to the MSI Center M breakpoints [44,54,64,74,82] °C; duty is the RAW EC byte
         // 0–100 (MSI's own default caps at 75). Presets 0/1 share the default axis and differ only in
@@ -145,6 +173,18 @@ namespace XboxGamingBarHelper.MSI
         /// </summary>
         public static bool ApplyFirmwareAutoBaseline()
         {
+            if (IsClaw8EX())
+            {
+                // EX: hand back the measured boot-default EC table instead of the MSI Center M
+                // baseline (tuned/verified on A2VM only), and skip the Set_Thermal axis write —
+                // the EX's thermal axis was never measured. Same conservatism as ApplyHardwareTable.
+                SetFanFullSpeed(false);
+                SetFanTable(EXFanTable_Baseline);
+                SetFanControl(false);
+                Logger.Info($"MsiClawFanController: firmware hand-back (EX measured baseline) fan=[{string.Join(",", EXFanTable_Baseline)}] control=OFF");
+                return true;
+            }
+
             byte[] fan = BuildFanTable(MsiDuty_Default);
             byte[] thermal = BuildThermalTable(MsiTemps_Default);
 
@@ -167,7 +207,12 @@ namespace XboxGamingBarHelper.MSI
         public static bool ApplyHardwareTable(string profileKey)
         {
             byte[] table;
-            switch (profileKey)
+            if (IsClaw8EX())
+            {
+                // EX: single measured firmware table for every profileKey (see array comment).
+                table = EXFanTable_Baseline;
+            }
+            else switch (profileKey)
             {
                 case "BetterBattery":   table = LLFanTable_BetterBattery;   break;
                 case "BestPerformance": table = LLFanTable_BestPerformance; break;
