@@ -36,6 +36,7 @@ device — do not mark those from log output alone.
    `MsiClawFanController.cs:28` comments first), P6 charge limit (after the 0x80
    encoding question is answered), P7 LED (fw 0x0411 is not in the address table —
    verify `[0x02,0x4A]` nearest-match addresses are safe before enabling RGB).
-4. Re-test DirectInput enumeration from an outside-container process (the Phase 3
-   "zero devices" result is suspected to be an artifact of the session's MSIX
-   container — see port log 2026-07-05).
+4. ~~Re-test DirectInput enumeration from an outside-container process~~ — **done
+   2026-07-05, not a container artifact**: still zero devices system-wide from a genuine
+   outside-container process. Not a blocker (gyro/controller emu don't use DirectInput);
+   see port log 2026-07-05 entry.

@@ -596,3 +596,37 @@ does the copy (delete when the port is done).
 P5 fan-table write probe (EC latch risk), P6 charge-limit write (encoding question above),
 P7 LED probe (fw 0x0411 unknown to the address table), M1/M2 press verification, and the
 full Phase 5 in-game/motion validation incl. gyro axis-direction check.
+
+---
+
+## 2026-07-05 — DirectInput re-test outside the MSIX container: confirmed real, not a container artifact
+
+Kyle back at the device; resumed the port. Re-ran `DInputMotionProbe` (rebuilt clean via
+MSBuild, output at
+`Diagnostics/Claw8EXProbes/DInputMotionProbe/bin/x64/Debug/net472/DInputMotionProbe.exe`)
+from a genuinely outside-container process this time: a non-elevated scheduled task
+(`ClawPortDInputProbe`, created via `schtasks /create` with no `/RL`, invoked through a
+`.bat` wrapper to sidestep `schtasks`' `/tr` quoting — passing a raw `cmd /c "..." > "..."`
+string directly to `/tr` silently produced `ERROR_FILE_NOT_FOUND`/`0x80070002` on the first
+attempt, same failure signature as the Phase 0 scheduled-task bug, this time caused by our
+own quoting mistake, not a real product bug) redirected to a log file under
+`C:\Users\kyle\Documents\...` (not virtualized, so both in- and out-of-container processes
+see the same file).
+
+Result: **`DirectInput().GetDevices()` across Gamepad/Joystick/Driving still enumerates
+zero devices system-wide**, identical to the original in-container Phase 3 result. The
+mode switch itself worked (command sent, 8s wait, restore-to-XInput sent unconditionally
+on failure), so this isn't a command-interface problem — DirectInput itself sees nothing,
+from either execution context. Confirmed via `Get-PnpDevice` afterward that XInput
+(`PID_1901`) devices are back to `Status=OK`; only ghosted/non-present `PID_1902` entries
+remain (expected PnP residue from mode-switch history, not a live device).
+
+**Conclusion: the MSIX container was NOT the cause.** This closes the last open item from
+the 2026-07-05 container-discovery entry. DirectInput's empty enumeration on this device
+is a genuine, reproducible fact (root cause still unknown — plausibly a driver/manifest
+quirk specific to this XInput-mode-first controller, or something in how Windows exposes
+`PID_1902` while the top-level composite device stays bound to the XInput driver stack).
+Not a blocker for anything currently planned (gyro uses CustomSensor, not DirectInput;
+controller emulation uses ViGEm/XInput, not DirectInput), so no further chase planned
+unless a future feature needs DirectInput specifically — noted here so nobody re-investigates
+this from scratch.
