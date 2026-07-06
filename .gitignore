@@ -39,3 +39,7 @@ XboxGamingBarPackage/internal_build.txt
 
 # Local-only reverse-engineering notes (kept off GitHub, purged from history)
 /reverse_engineered/
+
+# Local-only diagnostics tooling and button-icon assets (kept off GitHub)
+/Diagnostics/
+/XboxGamingBar/Assets/ButtonIcons/
