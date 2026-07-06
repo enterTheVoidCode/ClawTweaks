@@ -630,3 +630,47 @@ Not a blocker for anything currently planned (gyro uses CustomSensor, not Direct
 controller emulation uses ViGEm/XInput, not DirectInput), so no further chase planned
 unless a future feature needs DirectInput specifically — noted here so nobody re-investigates
 this from scratch.
+
+---
+
+## 2026-07-05 — Environment ready for Phase 5: prerequisite tools installed, app installed as MSIX
+
+**All four prerequisite tools installed and re-verified live** (PnP/services/process
+checks, not hearsay): PawnIO (SoftwareDevice, Status OK), HidHide (Nefarius HidHide
+Device, Status OK; `HidHideWatchdog.exe` running), RTSS (process running, exe at
+`C:\Program Files (x86)\RivaTuner Statistics Server\RTSS.exe`), usbip-win2 (services
+`usbip2_ude`/`usbip2_filter` both Running).
+
+**Correction to earlier framing (2026-07-05 P1-resolution entry and validation doc row 3):
+the app's default controller-emulation backend is no longer ViGEm.**
+`XboxGamingBarHelper/Setup/Setup-Tools.ps1:211` documents ViGEm as the LEGACY backend,
+installed only via an explicit `-Only vigem` request; the default check-and-install path
+installs **usbip-win2 (VIIPER)** instead. Phase 5 row 3 (controller emulation in a game)
+must therefore be judged against VIIPER, not ViGEm. HidHide remains in use for
+input-suppression on top of whichever backend is active. Validation doc updated to match.
+
+**The app is now installed and launchable as a real MSIX package** — first time in this
+port anything beyond the bare Helper exe has run on this machine. Key facts (full build/
+sign/install recipe recorded in the session handoff notes):
+- Built unsigned via `msbuild XboxGamingBarPackage.wapproj` (Debug|x64, `AppxBundle=Never`,
+  `AppxPackageSigningEnabled=false`), then signed with the local dev cert
+  `CN=ClawTweaks Dev, O=MSIClaw` (thumbprint `925C6F2C1669F1380BC1E5081872EA085468F080`,
+  in `Cert:\CurrentUser\My`, trusted in `Cert:\LocalMachine\TrustedPeople`), installed via
+  `Add-AppxPackage` with the x64 framework dependencies. Developer Mode enabled by Kyle.
+- Identity: `PackageFamilyName = MSIClaw.ClawTweaks_7eszav2039cvc`; launch via
+  `shell:AppsFolder\MSIClaw.ClawTweaks_7eszav2039cvc!App`.
+- Packaged helper logs live under
+  `C:\Users\kyle\AppData\Local\Packages\MSIClaw.ClawTweaks_7eszav2039cvc\LocalCache\Local\`
+  — NOT the bare `%LOCALAPPDATA%` root used by the Phase 0 unpackaged runs.
+- Rebuild note: the wapproj build auto-bumps `Package.appxmanifest`'s Version — revert with
+  `git checkout -- XboxGamingBarPackage/Package.appxmanifest` before committing unless the
+  bump is intentional.
+
+**Loose end from the install hour** (`helper_2026-07-05_17.log`): repeated
+`System.ArgumentException: The path is not of a legal form` from `RTSSManager.Update()`
+(race reading RTSS's install path before winget's registry write landed) followed by
+recurring `FileNotFoundException` (0x80070002) opening RTSS's shared-memory OSD map right
+after RTSS launch — all logged as non-terminating. **Reboot recommended before Phase 5
+testing**: PawnIO's and HidHide's installers both said a reboot may be required for driver
+activation, and a reboot should clear the RTSS state too. Re-verify RTSS OSD after reboot
+before trusting validation row 9.
