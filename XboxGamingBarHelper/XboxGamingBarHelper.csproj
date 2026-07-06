@@ -203,6 +203,7 @@
     <Compile Include="Settings\IsForegroundProperty.cs" />
     <Compile Include="Settings\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Performance\HardwareSensor.cs" />
+    <Compile Include="Performance\IntelMsrCpuFallback.cs" />
     <Compile Include="Performance\PerformanceManager.cs" />
     <Compile Include="Performance\TdpMethodAvailableProperty.cs" />
     <Compile Include="Performance\InstallPawnIOProperty.cs" />
