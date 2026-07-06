@@ -761,3 +761,58 @@ OTHER devices; the Claw path still requires **ViGEmBus, which is NOT installed**
 "legacy" — a trap for fresh Claw installs, arguably its own bug outside this port's
 scope). Row 3 therefore needs `Setup-Tools.ps1 -Only vigem` (one UAC click) plus the
 GameControl fix deployed. Validation doc re-corrected.
+
+**CORRECTION TO THE CORRECTION (same day, after deploying the fixed build):** ViGEmBus is
+NOT needed after all. When VIIPER is active, ClawButtonMonitor mounts its virtual pad
+THROUGH the VIIPER backend: `MSIClaw: VIIPER backend active → mounting VIIPER virtual pad
+(xbox360) instead of ViGEm` → `ClawButtonMonitor: VIIPER virtual Xbox pad mounted (ViGEm
+suppressed)`. The "Skipping" line only means ViiperEmulationManager's own input pipeline
+is skipped — the monitor reads the physical DInput joystick and drives a VIIPER-provided
+virtual pad. So the ViGEm paragraph above stands only as history; nothing needs
+installing. (Kept per append-only rule; this supersedes it.)
+
+---
+
+## 2026-07-05 (evening) — Fixed build deployed and verified on-device; fan writes discovered already-exercised via widget
+
+Rebuilt/signed/installed the MSIX as **0.1.7.616** (gotcha for future rebuilds: the
+wapproj's version auto-increment did NOT protect against a STALE packaging layout —
+`XboxGamingBarPackage\bin\x64\Debug\AppxManifest.xml` kept the old version and the msix
+inherited it, producing a same-identity-different-content package Windows refuses to
+install, 0x80073CFB. Delete that layout file and rebuild if it happens again. Manifest
+auto-bump reverted via `git checkout` per the standing instruction.)
+
+**GameControl fix VERIFIED on-device** (helper PID 6728, `helper_2026-07-05_18.log`):
+`ClawButtonMonitor: Acquired DInput joystick: \\?\hid#vid_0db0&pid_1902&mi_00&col01…` —
+first successful acquisition ever on the EX — then `monitor.Start() OK — virtual pad live
++ DInput acquired`, HidHide cloaks the physical joystick (cycle-port re-enum success=True),
+transient InputLost from the port cycle re-acquired in 500 ms, `BOOT COMPLETE`. Zero
+"STILL not found" thrash lines after boot (vs a retry loop every ~10 s before the fix).
+
+**LED gate VERIFIED on-device:** the boot LED re-apply path (saved colour from Kyle's
+earlier tile toggles) was blocked 7× with `LED write blocked: detected device reports
+SupportsRgbLighting=false`, exactly as intended, and `MsiLedBoot` gave up cleanly after
+its retries. No further EEPROM writes will occur until the flag is flipped deliberately.
+
+**Fan-table writes were ALREADY exercised on the EX via the widget** (found while checking
+an odd fan read; nobody bypassed a gate — the fan section is reachable for any
+MSIClaw-type device, it was never keyed on a feature flag, and `SupportsFanControl` is not
+overridden by either MSI config — that flag isn't what gates MSI fan code):
+- 17:29:15 first write; the before-write read captured the **EX firmware baseline
+  [58,70,74,76,78,80,84,94]** — matches P3 exactly.
+- Subsequent preset taps (17:30:00, 17:30:03, 18:02:50) show before-write reads returning
+  the PREVIOUSLY WRITTEN A2VM tables byte-for-byte on bytes 1–7
+  (e.g. [·,0,10,26,46,78,113,150] = LLFanTable_BestPerformance, [·,0,0,14,33,63,98,150] =
+  BetterPerformance) → **EC write+read-back round-trips work on the EX** — the core of
+  P5's no-op/modified-write test, answered by live use.
+- **Byte[0] (backup/40 °C) anomaly:** reads back as 58, later 150, never what was written
+  (10) — the EX EC appears to repurpose/override that byte. UNRESOLVED; flag for the
+  proper P5 pass.
+- Fan-control bit stayed 0x00 (firmware owns the fan) through all of it — these were
+  hardware-mode preset writes.
+- **Outstanding hygiene item:** the EC's stored table is currently an A2VM-tuned array,
+  not the EX firmware baseline; its 80 °C point (78) is 2 BELOW the EX firmware's own 80 —
+  marginal vs the latch-avoidance rule (which was derived against A2VM firmware values).
+  Restore [58,70,74,76,78,80,84,94] as the EX's hand-back table (this is also the natural
+  P5 no-op-write test), then Phase 4 item 4 = proper `EXFanTable_*` arrays keyed by
+  variant so hardware mode writes the RIGHT baseline per device.
