@@ -816,3 +816,46 @@ overridden by either MSI config — that flag isn't what gates MSI fan code):
   Restore [58,70,74,76,78,80,84,94] as the EX's hand-back table (this is also the natural
   P5 no-op-write test), then Phase 4 item 4 = proper `EXFanTable_*` arrays keyed by
   variant so hardware mode writes the RIGHT baseline per device.
+
+---
+
+## 2026-07-05 (late evening) — Kyle's blanket authorization; LED = P7 PASS; EX fan baseline restored (P5 no-op leg complete); P6 skipped by owner
+
+Kyle confirmed the earlier LED tile clicks DID visibly drive the controller LEDs ("worked
+like 5 minutes ago" — it stopped because the new build's gate correctly blocked writes
+while the config still said RGB-unsupported), gave **blanket authorization to continue
+with all remaining items**, and explicitly waived the charge-limit work ("don't really
+care about chargelimit").
+
+**Phase 3 P7 (LED): PASS.** fw 0x0411 → `[0x02,0x4A]` is human-verified (LEDs visibly
+respond). Code: promoted to an exact `FirmwareTable` entry in `MsiClawLedController`
+(no more nearest-match dependence) and `MSIClaw8EXConfig.SupportsRgbLighting => true`.
+The write gate added earlier stays (defense-in-depth for future unknown firmware).
+
+**Phase 4 fan item (variant table): implemented.** `ApplyHardwareTable` on the EX now
+writes the measured EX firmware baseline `[58,70,74,76,78,80,84,94]` for EVERY profileKey
+(only one firmware table is known for the EX; strictly safer than the LL arrays). A2VM
+switch untouched. Runtime selection via the same Model-contains-"Claw 8 EX" check the
+branch already uses in `MsiClawDriverCheckService`, cached (1 s auto-safety loop calls it).
+
+**Phase 3 P5 no-op/restore leg: COMPLETE** (via production code path, authorized): on the
+0.1.8.616 build's startup hand-back, both fan blocks went `[150,0,10,26,46,78,113,150]` →
+write `[58,70,74,76,78,80,84,94]` → **read-back MATCH byte-for-byte on CPU and GPU
+blocks, including byte[0]=58**. Refines the byte[0] anomaly: the EC round-trips a
+plausible backup byte (58) fine — it only overrode the implausibly-low A2VM values (0/10),
+so the anomaly is an EC sanity-clamp on byte[0], not a protocol difference. Remaining P5
+material: fan response/latch behavior under sustained load (validation rows 10/11).
+
+**Phase 3 P6 (charge limit): SKIPPED per owner decision.** No writes will be made; the
+`Get_Data 215 = 0x80` encoding question stays open and charge-limit UI remains
+un-validated on the EX (validation row 12 recorded as skipped, not failed). Revisit only
+if a user asks for the feature on this device.
+
+**Build/packaging note:** the 0x80073CFB same-identity error recurred; root cause of the
+version confusion: the wapproj's auto-increment target runs AFTER packaging, so each
+build packages the PRE-bump version — reverting the manifest bump between rebuilds
+(per the earlier standing instruction) re-feeds already-used versions. Correct loop:
+build → sign → install → THEN `git checkout` the manifest. Installed now: **0.1.8.616**
+(helper PID 19152), verified: detection ✔, `RGB: True` ✔, LED write with EXACT fw-table
+match ✔ (re-applied Kyle's saved off-state), gyro CustomSensor ✔, joystick acquired ✔,
+BOOT COMPLETE ✔, fan baseline restored ✔.
