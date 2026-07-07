@@ -151,6 +151,21 @@ namespace XboxGamingBarHelper.ControllerEmulation
             return value;
         }
 
+        private static int NormalizeMouseAcceleration(int value)
+        {
+            if (value < 0)
+            {
+                return 0;
+            }
+
+            if (value > 100)
+            {
+                return 100;
+            }
+
+            return value;
+        }
+
         private static int NormalizeMouseAxis(int value)
         {
             if (value < 0)
@@ -407,6 +422,42 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     mouseThreshold = 2;
                 }
 
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseAcceleration", out int savedAcceleration))
+                {
+                    mouseAcceleration = NormalizeMouseAcceleration(savedAcceleration);
+                }
+                else
+                {
+                    mouseAcceleration = 0;
+                }
+
+                if (LocalSettingsHelper.TryGetValue<string>("ControllerEmulationMouseActionSlots", out var savedActionSlots) && !string.IsNullOrWhiteSpace(savedActionSlots))
+                {
+                    mouseActionSlots = savedActionSlots;
+                }
+                else
+                {
+                    mouseActionSlots = "0:0,0:0,0:0,0:0";
+                }
+
+                if (LocalSettingsHelper.TryGetValue<string>("ControllerEmulationMouseDPadActions", out var savedDPadActions) && !string.IsNullOrWhiteSpace(savedDPadActions))
+                {
+                    mouseDPadActions = savedDPadActions;
+                }
+                else
+                {
+                    mouseDPadActions = "0,0,0,0";
+                }
+
+                if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseNudgeStep", out int savedNudgeStep))
+                {
+                    mouseNudgeStep = Math.Max(1, Math.Min(50, savedNudgeStep));
+                }
+                else
+                {
+                    mouseNudgeStep = 10;
+                }
+
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationMouseLeftClickButton", out int savedLeftClickButton))
                     mouseLeftClickButton = Math.Max(0, Math.Min(10, savedLeftClickButton)); // 0-10: None,A,B,X,Y,LB,RB,LS,RS,LT,RT
                 else
@@ -631,6 +682,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 ps4TouchpadEnabled = true;
                 mouseSensitivity = 100;
                 mouseThreshold = 2;
+                mouseAcceleration = 0;
+                mouseActionSlots = "0:0,0:0,0:0,0:0";
+                mouseDPadActions = "0,0,0,0";
+                mouseNudgeStep = 10;
                 mouseAxis = 0;
                 mouseInvertX = false;
                 mouseInvertY = false;
@@ -668,6 +723,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 LocalSettingsHelper.SetValue("ControllerEmulationPs4TouchpadEnabled", ps4TouchpadEnabled);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseSensitivity", mouseSensitivity);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseThreshold", mouseThreshold);
+                LocalSettingsHelper.SetValue("ControllerEmulationMouseAcceleration", mouseAcceleration);
+                LocalSettingsHelper.SetValue("ControllerEmulationMouseActionSlots", mouseActionSlots);
+                LocalSettingsHelper.SetValue("ControllerEmulationMouseDPadActions", mouseDPadActions);
+                LocalSettingsHelper.SetValue("ControllerEmulationMouseNudgeStep", mouseNudgeStep);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseLeftClickButton", mouseLeftClickButton);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseRightClickButton", mouseRightClickButton);
                 LocalSettingsHelper.SetValue("ControllerEmulationMouseCursorStick", mouseCursorStick);

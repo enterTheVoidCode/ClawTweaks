@@ -233,9 +233,9 @@ namespace XboxGamingBarHelper
         {
             try
             {
-                Logger.Info("OpenOnScreenKeyboard: Toggling touch keyboard");
-                TouchKeyboardHelper.Toggle();
-                Logger.Info("OpenOnScreenKeyboard: Touch keyboard toggled");
+                Logger.Info("OpenOnScreenKeyboard: opening keyboard (smart: modern, or OSK over browsers)");
+                TouchKeyboardHelper.OpenSmart(false); // controller shortcut → Game Bar already closed
+                Logger.Info("OpenOnScreenKeyboard: keyboard open requested");
             }
             catch (Exception ex)
             {
@@ -785,8 +785,9 @@ namespace XboxGamingBarHelper
                                     switch (capturedId)
                                     {
                                         case "Keyboard":
-                                            // Toggle the on-screen / touch keyboard (same as the tile click).
-                                            TouchKeyboardHelper.Toggle();
+                                            // Open the keyboard (smart: modern, or OSK over windowed
+                                            // browsers/Electron). Game Bar is closed here → no dismiss.
+                                            TouchKeyboardHelper.OpenSmart(false);
                                             break;
                                         case "FpsLimiter":
                                             // Cycle FPS cap in the current mode (RTSS/Intel) — helper-side
@@ -1254,6 +1255,17 @@ namespace XboxGamingBarHelper
                 Logger.Error($"Error sending keyboard shortcut '{shortcut}': {ex.Message}");
             }
         }
+
+        /// <summary>True while the Game Bar overlay is foreground, per the widget's own pushed
+        /// foreground signal (settingsManager.IsForeground, Function.Foreground — same source
+        /// GameBarAutoNav and ControllerEmulationManager rely on). This reflects the UWP widget's
+        /// own activation state, so unlike matching GetForegroundWindow()'s owning process by name
+        /// it isn't thrown off by which process actually owns the overlay's top-level window.</summary>
+        internal static bool IsGameBarWidgetForeground()
+        {
+            try { return settingsManager?.IsForeground?.Value ?? false; }
+            catch { return false; }
+        }
     }
 
     /// <summary>
@@ -1280,12 +1292,50 @@ namespace XboxGamingBarHelper
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool IsWindowVisible(IntPtr hWnd);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+        [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct RECT { public int Left, Top, Right, Bottom; }
+
+        // Process names whose foreground window means the Game Bar overlay is up (mirrors
+        // ControllerEmulationManager.GameBarForegroundProcessNames).
+        private static readonly System.Collections.Generic.HashSet<string> GameBarProcNames =
+            new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            { "GameBar", "GameBarFTServer", "GameBarElevatedFT", "XboxGameBarWidgets", "XboxGamingBar", "XboxGameBar" };
+
+        /// <summary>True when the Game Bar overlay is up right now. Prefers the widget's own pushed
+        /// foreground signal (reliable — reflects the UWP widget's real activation state) and falls
+        /// back to matching GetForegroundWindow()'s owning process by name (belt-and-suspenders for
+        /// callers where the signal hasn't synced yet).</summary>
+        private static bool IsGameBarForeground()
+        {
+            if (Program.IsGameBarWidgetForeground()) return true;
+            try
+            {
+                IntPtr h = GetForegroundWindow();
+                if (h == IntPtr.Zero) return false;
+                GetWindowThreadProcessId(h, out uint pid);
+                string pn = System.Diagnostics.Process.GetProcessById((int)pid).ProcessName;
+                return GameBarProcNames.Contains(pn);
+            }
+            catch { return false; }
+        }
 
         // Touch keyboard host window class. When the on-screen keyboard is shown this
         // window is visible; when hidden it isn't (or doesn't exist yet).
         private const string TouchKeyboardWindowClass = "IPTip_Main_Window";
+        // Classic On-Screen Keyboard (osk.exe) main window class — used for the fallback.
+        private const string OskWindowClass = "OSKMainClass";
 
-        /// <summary>True when the on-screen / touch keyboard is currently shown.</summary>
+        /// <summary>True when the modern touch keyboard (TabTip) is currently shown.</summary>
         private static bool IsKeyboardVisible()
         {
             try
@@ -1294,6 +1344,32 @@ namespace XboxGamingBarHelper
                 return hwnd != IntPtr.Zero && IsWindowVisible(hwnd);
             }
             catch { return false; }
+        }
+
+        /// <summary>True when the classic OSK (osk.exe) is currently shown.</summary>
+        private static bool IsOskVisible()
+        {
+            try
+            {
+                IntPtr hwnd = FindWindow(OskWindowClass, null);
+                return hwnd != IntPtr.Zero && IsWindowVisible(hwnd);
+            }
+            catch { return false; }
+        }
+
+        /// <summary>Fallback: launch the classic On-Screen Keyboard (osk.exe). Unlike the modern touch
+        /// keyboard, it reliably shows over ANY window (browsers/Electron included) and is a signed
+        /// Windows accessibility tool. No-op if it's already up.</summary>
+        private static void LaunchOsk()
+        {
+            try
+            {
+                if (IsOskVisible()) { Logger.Info("OSK already visible — skipping fallback launch"); return; }
+                string osk = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "osk.exe");
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = osk, UseShellExecute = true });
+                Logger.Info("Fallback: launched osk.exe (classic on-screen keyboard)");
+            }
+            catch (Exception ex) { Logger.Error($"LaunchOsk failed: {ex.Message}"); }
         }
 
         /// <summary>
@@ -1308,18 +1384,73 @@ namespace XboxGamingBarHelper
         {
             try
             {
-                if (IsKeyboardVisible())
-                {
-                    Logger.Info("Touch keyboard already visible — tile open is a no-op");
-                    return;
-                }
-                Toggle(); // closed → open
+                if (IsKeyboardVisible()) { Logger.Info("Touch keyboard already visible — tile open is a no-op"); return; }
+                Toggle();
             }
             catch (Exception ex)
             {
                 Logger.Error($"EnsureOpen error: {ex.Message}");
                 TryLaunchTabTip();
             }
+        }
+
+        // Window classes of Chromium/Electron desktop apps (browsers, Claude Desktop, Discord, VS Code…)
+        // and Firefox — where the modern touch keyboard won't force-show on demand. Over a WINDOWED one
+        // of these we go straight to the classic OSK. Fullscreen contexts (Steam Big Picture, games)
+        // behave tablet-like and keep the modern keyboard.
+        private static bool ShouldUseOskForForeground()
+        {
+            try
+            {
+                IntPtr h = GetForegroundWindow();
+                if (h == IntPtr.Zero) return false;
+                var cn = new System.Text.StringBuilder(128);
+                GetClassName(h, cn, 128);
+                string cls = cn.ToString();
+                bool problematic = cls == "Chrome_WidgetWin_1" || cls == "MozillaWindowClass";
+                if (!problematic) return false;
+                if (GetWindowRect(h, out RECT r))
+                {
+                    int sw = GetSystemMetrics(0 /*SM_CXSCREEN*/), sh = GetSystemMetrics(1 /*SM_CYSCREEN*/);
+                    if ((r.Right - r.Left) >= sw && (r.Bottom - r.Top) >= sh) return false; // fullscreen → modern
+                }
+                Logger.Info($"Touch keyboard: foreground '{cls}' is a windowed browser/Electron app → using classic OSK");
+                return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Smart open used by the Quick Settings "Keyboard" tile AND the controller shortcut. Picks the
+        /// modern touch keyboard where it works, or the classic OSK over windowed browsers/Electron apps
+        /// where the modern one won't stay. When invoked from the Game Bar tile (dismissGameBar=true) it
+        /// closes Game Bar first so the app BEHIND it becomes foreground and the decision targets it —
+        /// exactly like the controller shortcut (Game Bar already closed). Runs off the pipe thread.
+        /// </summary>
+        public static void OpenSmart(bool dismissGameBar)
+        {
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    // Only dismiss Game Bar if it is ACTUALLY the foreground right now. Otherwise Win+G
+                    // would OPEN it — the bug where a controller/button binding (Game Bar already closed)
+                    // spuriously popped Game Bar. When it's not up, the app is already foreground and no
+                    // dismiss is needed.
+                    if (dismissGameBar && IsGameBarForeground())
+                    {
+                        try { Program.SendKeyboardShortcut("Win+G"); } catch (Exception ex) { Logger.Debug($"OpenSmart Win+G: {ex.Message}"); }
+                        System.Threading.Thread.Sleep(500); // let the app behind Game Bar regain foreground
+                    }
+                    if (ShouldUseOskForForeground()) { LaunchOsk(); return; }
+                    Toggle(); // modern touch keyboard — same raw toggle the controller shortcut uses
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"OpenSmart error: {ex.Message}");
+                    LaunchOsk();
+                }
+            });
         }
 
         public static void Toggle()

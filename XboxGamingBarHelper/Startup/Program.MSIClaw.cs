@@ -1063,6 +1063,26 @@ namespace XboxGamingBarHelper
                         lock (clawButtonMonitorLock)
                             clawButtonMonitor?.SetMouseModeThreshold(t);
                     };
+                    controllerEmulationManager.OnMouseAccelerationChanged = a =>
+                    {
+                        lock (clawButtonMonitorLock)
+                            clawButtonMonitor?.SetMouseModeAcceleration(a);
+                    };
+                    controllerEmulationManager.OnMouseActionSlotsChanged = v =>
+                    {
+                        lock (clawButtonMonitorLock)
+                            clawButtonMonitor?.SetMouseActionSlots(v);
+                    };
+                    controllerEmulationManager.OnMouseDPadActionsChanged = v =>
+                    {
+                        lock (clawButtonMonitorLock)
+                            clawButtonMonitor?.SetMouseDPadActions(v);
+                    };
+                    controllerEmulationManager.OnMouseNudgeStepChanged = v =>
+                    {
+                        lock (clawButtonMonitorLock)
+                            clawButtonMonitor?.SetMouseModeNudgeStep(v);
+                    };
                     controllerEmulationManager.OnMouseLeftClickButtonChanged = v =>
                     {
                         lock (clawButtonMonitorLock)
@@ -2168,17 +2188,25 @@ namespace XboxGamingBarHelper
                     {
                         int sens   = controllerEmulationManager.ControllerEmulationMouseSensitivity?.Value ?? 100;
                         int thresh = controllerEmulationManager.ControllerEmulationMouseThreshold?.Value ?? 15;
+                        int accel  = controllerEmulationManager.ControllerEmulationMouseAcceleration?.Value ?? 0;
                         int leftBtn  = controllerEmulationManager.ControllerEmulationMouseLeftClickButton?.Value  ?? 6;
                         int rightBtn = controllerEmulationManager.ControllerEmulationMouseRightClickButton?.Value ?? 5;
                         int cursorStick = controllerEmulationManager.ControllerEmulationMouseCursorStick?.Value ?? 0;
                         int scrollStick = controllerEmulationManager.ControllerEmulationMouseScrollStick?.Value ?? 0;
+                        string actionSlots = controllerEmulationManager.ControllerEmulationMouseActionSlots?.Value ?? "0:0,0:0,0:0,0:0";
+                        string dpadActions = controllerEmulationManager.ControllerEmulationMouseDPadActions?.Value ?? "0,0,0,0";
+                        int nudgeStep = controllerEmulationManager.ControllerEmulationMouseNudgeStep?.Value ?? 10;
                         monitor.SetMouseModeSensitivity(sens);
                         monitor.SetMouseModeThreshold(thresh);
+                        monitor.SetMouseModeAcceleration(accel);
                         monitor.SetMouseLeftClickButton(leftBtn);
                         monitor.SetMouseRightClickButton(rightBtn);
                         monitor.SetMouseCursorStick(cursorStick);
                         monitor.SetMouseScrollStick(scrollStick);
-                        Logger.Info($"MSIClaw: Mouse mode settings applied — sensitivity={sens}, threshold={thresh}, leftBtn={leftBtn}, rightBtn={rightBtn}, cursorStick={cursorStick}, scrollStick={scrollStick}");
+                        monitor.SetMouseActionSlots(actionSlots);
+                        monitor.SetMouseDPadActions(dpadActions);
+                        monitor.SetMouseModeNudgeStep(nudgeStep);
+                        Logger.Info($"MSIClaw: Mouse mode settings applied — sensitivity={sens}, threshold={thresh}, acceleration={accel}, leftBtn={leftBtn}, rightBtn={rightBtn}, cursorStick={cursorStick}, scrollStick={scrollStick}, actionSlots={actionSlots}, dpadActions={dpadActions}, nudgeStep={nudgeStep}");
                     }
 
                     // Apply mouse mode immediately if requested (e.g. widget restored mouse mode on reconnect)

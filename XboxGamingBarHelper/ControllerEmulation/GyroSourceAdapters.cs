@@ -44,6 +44,14 @@ namespace XboxGamingBarHelper.ControllerEmulation
         void Stop();
 
         bool TryGetLatestSample(out GyroSample sample);
+
+        /// <summary>
+        /// Fires once per real sensor sample (event-driven, on whatever thread the sensor
+        /// delivers ReadingChanged on) — NOT a poll of TryGetLatestSample. Consumers that need
+        /// output timed to the sensor's true cadence (no aliasing against an unrelated poll
+        /// loop) should subscribe here instead of polling TryGetLatestSample on a fixed timer.
+        /// </summary>
+        event Action<GyroSample> SampleReady;
     }
 
     internal sealed class WindowsSensorGyroSourceAdapter : IGyroSourceAdapter
@@ -68,6 +76,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private ManualResetEventSlim firstGyroSampleEvent;
 
         public string Name => name;
+
+        public event Action<GyroSample> SampleReady;
 
         public WindowsSensorGyroSourceAdapter(string name)
         {
@@ -339,6 +349,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     timestampTicksUtc = DateTime.UtcNow.Ticks;
                 }
 
+                GyroSample sampleForEvent;
                 lock (sampleLock)
                 {
                     if (timestampTicksUtc <= lastGyroTimestampTicksUtc)
@@ -360,9 +371,13 @@ namespace XboxGamingBarHelper.ControllerEmulation
                         accelZ,
                         timestampTicksUtc);
                     hasUnreadSample = true;
+                    sampleForEvent = latestSample;
                 }
 
                 firstGyroSampleEvent?.Set();
+                // Fire outside the lock — 1:1 with HC's IMUGyrometer.ReadingChanged, which
+                // processes each sample event-driven instead of via a separate poll timer.
+                SampleReady?.Invoke(sampleForEvent);
             }
             catch
             {
@@ -384,6 +399,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private bool started;
 
         public string Name => useLeftController ? "Legion Left Controller Gyro" : "Legion Right Controller Gyro";
+
+        // Not fired — this adapter's consumer (ControllerEmulationManager) still polls
+        // TryGetLatestSample; only the MSI Claw path uses the event-driven SampleReady.
+        public event Action<GyroSample> SampleReady;
 
         public LegionControllerGyroSourceAdapter(bool useLeftController)
         {
@@ -506,6 +525,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private int diagLogged;
 
         public string Name => "Legion Controller Gyro (Mixed)";
+
+        // Not fired — this adapter's consumer (ControllerEmulationManager) still polls
+        // TryGetLatestSample; only the MSI Claw path uses the event-driven SampleReady.
+        public event Action<GyroSample> SampleReady;
 
         public bool Start()
         {

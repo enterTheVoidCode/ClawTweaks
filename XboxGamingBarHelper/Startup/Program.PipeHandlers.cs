@@ -115,16 +115,16 @@ namespace XboxGamingBarHelper
                 }
 
                 // Handle touch keyboard toggle request
-                if (pipeMsg.Extra.ContainsKey("ToggleTouchKeyboard"))
+                if (pipeMsg.Extra.TryGetValue("ToggleTouchKeyboard", out object tkObj))
                 {
                     try
                     {
-                        Logger.Info("Pipe: ToggleTouchKeyboard request received");
-                        // Tile intent is "open the keyboard": EnsureOpen avoids the blind-toggle
-                        // race where the keyboard (already opened via the controller hotkey) would
-                        // be closed by the tile click. The hotkey path keeps the raw Toggle.
-                        TouchKeyboardHelper.EnsureOpen();
-                        Logger.Info("Pipe: Touch keyboard ensure-open executed");
+                        // Value "gamebar" = tile clicked from the Game Bar widget → helper closes Game Bar
+                        // first, then decides modern-vs-OSK against the app behind it. "direct" (app mode)
+                        // or legacy bool = no dismiss.
+                        bool dismissGameBar = tkObj is string tkMode && tkMode == "gamebar";
+                        Logger.Info($"Pipe: ToggleTouchKeyboard request received (dismissGameBar={dismissGameBar})");
+                        TouchKeyboardHelper.OpenSmart(dismissGameBar);
                         SendPipeAck(pipeMsg.RequestId);
                     }
                     catch (Exception ex)

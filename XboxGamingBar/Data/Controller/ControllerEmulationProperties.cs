@@ -423,6 +423,64 @@ namespace XboxGamingBar.Data
         }
     }
 
+    internal class ControllerEmulationMouseAccelerationProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationMouseAccelerationProperty(Slider inUI, Page inOwner)
+            : base(0, Function.ControllerEmulationMouseAcceleration, inUI, inOwner)
+        {
+        }
+    }
+
+    internal class ControllerEmulationMouseNudgeStepProperty : WidgetSliderProperty
+    {
+        public ControllerEmulationMouseNudgeStepProperty(Slider inUI, Page inOwner)
+            : base(10, Function.ControllerEmulationMouseNudgeStep, inUI, inOwner)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Not bound to a single control — value is a CSV built from 4 button+action-type dropdown
+    /// pairs ("button:type,button:type,button:type,button:type"). GamingWidget code-behind
+    /// (Features/Devices/GamingWidget.MsiClawSettings.cs) owns applying incoming values to the
+    /// dropdowns and building/pushing the CSV on SelectionChanged.
+    /// </summary>
+    internal class ControllerEmulationMouseActionSlotsProperty : WidgetProperty<string>
+    {
+        public event Action<string> ValueApplied;
+
+        public ControllerEmulationMouseActionSlotsProperty()
+            : base("0:0,0:0,0:0,0:0", null, Function.ControllerEmulationMouseActionSlots)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            ValueApplied?.Invoke(Value);
+        }
+    }
+
+    /// <summary>
+    /// Not bound to a single control — value is a CSV built from the 4 D-Pad direction dropdowns
+    /// ("up,down,left,right" action-type ints). See ControllerEmulationMouseActionSlotsProperty.
+    /// </summary>
+    internal class ControllerEmulationMouseDPadActionsProperty : WidgetProperty<string>
+    {
+        public event Action<string> ValueApplied;
+
+        public ControllerEmulationMouseDPadActionsProperty()
+            : base("0,0,0,0", null, Function.ControllerEmulationMouseDPadActions)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            ValueApplied?.Invoke(Value);
+        }
+    }
+
     internal class ControllerEmulationMouseAxisProperty : WidgetControlProperty<int, ComboBox>
     {
         public ControllerEmulationMouseAxisProperty(ComboBox inUI, Page inOwner)

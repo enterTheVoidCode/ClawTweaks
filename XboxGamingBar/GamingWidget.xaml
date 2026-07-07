@@ -8303,6 +8303,34 @@
                                             IsEnabled="False"
                                             ValueChanged="ControllerEmulationMouseThresholdSlider_ValueChanged"/>
 
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Acceleration" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                            <TextBlock Text="0 = off (linear). Held deflection ramps up speed over time."
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource HintTextBrush}"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="ControllerEmulationMouseAccelerationValue"
+                                                   Grid.Column="1"
+                                                   Text="0"
+                                                   FontSize="13"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="ControllerEmulationMouseAccelerationSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="0" Maximum="100"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            Value="0"
+                                            IsEnabled="False"
+                                            ValueChanged="ControllerEmulationMouseAccelerationSlider_ValueChanged"/>
+
                                     <!-- Mouse Mode Button Mapping -->
                                     <TextBlock Text="Button Mapping" FontSize="13" Foreground="#FFFFFF" Margin="0,14,0,4"/>
 
@@ -8389,6 +8417,315 @@
                                                   IsEnabled="False">
                                             <ComboBoxItem Content="Left Stick"  Tag="0"/>
                                             <ComboBoxItem Content="Right Stick" Tag="1" IsSelected="True"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <!-- Extra assignable actions: browser/window-management shortcuts + cursor
+                                         nudge, on top of the fixed Left/Right Click above. Each of the 4 slots
+                                         picks a trigger button and an action; None/None = unused. -->
+                                    <TextBlock Text="Extra Actions" FontSize="13" Foreground="#FFFFFF" Margin="0,14,0,4"/>
+                                    <TextBlock Text="Assign a button to a browser/window shortcut or cursor nudge"
+                                               FontSize="11"
+                                               Foreground="{StaticResource HintTextBrush}"
+                                               Margin="0,0,0,4"/>
+
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="ControllerEmulationMouseAction1ButtonComboBox" Grid.Column="0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseActionSlot_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="A"  Tag="1"/>
+                                            <ComboBoxItem Content="B"  Tag="2"/>
+                                            <ComboBoxItem Content="X"  Tag="3"/>
+                                            <ComboBoxItem Content="Y"  Tag="4"/>
+                                            <ComboBoxItem Content="LB" Tag="5"/>
+                                            <ComboBoxItem Content="RB" Tag="6"/>
+                                            <ComboBoxItem Content="LS" Tag="7"/>
+                                            <ComboBoxItem Content="RS" Tag="8"/>
+                                            <ComboBoxItem Content="LT" Tag="9"/>
+                                            <ComboBoxItem Content="RT" Tag="10"/>
+                                        </ComboBox>
+                                        <ComboBox x:Name="ControllerEmulationMouseAction1TypeComboBox" Grid.Column="1" Margin="6,0,0,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseActionSlot_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Escape" Tag="1"/>
+                                            <ComboBoxItem Content="Tab" Tag="2"/>
+                                            <ComboBoxItem Content="Shift+Tab" Tag="3"/>
+                                            <ComboBoxItem Content="Alt+Left (Back)" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Right (Forward)" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="6"/>
+                                            <ComboBoxItem Content="Ctrl+Tab (Next Tab)" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Shift+Tab (Prev Tab)" Tag="8"/>
+                                            <ComboBoxItem Content="Win+D (Show Desktop)" Tag="9"/>
+                                            <ComboBoxItem Content="Win+Tab (Task View)" Tag="10"/>
+                                            <ComboBoxItem Content="Cursor Nudge Up" Tag="11"/>
+                                            <ComboBoxItem Content="Cursor Nudge Down" Tag="12"/>
+                                            <ComboBoxItem Content="Cursor Nudge Left" Tag="13"/>
+                                            <ComboBoxItem Content="Cursor Nudge Right" Tag="14"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="ControllerEmulationMouseAction2ButtonComboBox" Grid.Column="0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseActionSlot_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="A"  Tag="1"/>
+                                            <ComboBoxItem Content="B"  Tag="2"/>
+                                            <ComboBoxItem Content="X"  Tag="3"/>
+                                            <ComboBoxItem Content="Y"  Tag="4"/>
+                                            <ComboBoxItem Content="LB" Tag="5"/>
+                                            <ComboBoxItem Content="RB" Tag="6"/>
+                                            <ComboBoxItem Content="LS" Tag="7"/>
+                                            <ComboBoxItem Content="RS" Tag="8"/>
+                                            <ComboBoxItem Content="LT" Tag="9"/>
+                                            <ComboBoxItem Content="RT" Tag="10"/>
+                                        </ComboBox>
+                                        <ComboBox x:Name="ControllerEmulationMouseAction2TypeComboBox" Grid.Column="1" Margin="6,0,0,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseActionSlot_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Escape" Tag="1"/>
+                                            <ComboBoxItem Content="Tab" Tag="2"/>
+                                            <ComboBoxItem Content="Shift+Tab" Tag="3"/>
+                                            <ComboBoxItem Content="Alt+Left (Back)" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Right (Forward)" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="6"/>
+                                            <ComboBoxItem Content="Ctrl+Tab (Next Tab)" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Shift+Tab (Prev Tab)" Tag="8"/>
+                                            <ComboBoxItem Content="Win+D (Show Desktop)" Tag="9"/>
+                                            <ComboBoxItem Content="Win+Tab (Task View)" Tag="10"/>
+                                            <ComboBoxItem Content="Cursor Nudge Up" Tag="11"/>
+                                            <ComboBoxItem Content="Cursor Nudge Down" Tag="12"/>
+                                            <ComboBoxItem Content="Cursor Nudge Left" Tag="13"/>
+                                            <ComboBoxItem Content="Cursor Nudge Right" Tag="14"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="ControllerEmulationMouseAction3ButtonComboBox" Grid.Column="0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseActionSlot_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="A"  Tag="1"/>
+                                            <ComboBoxItem Content="B"  Tag="2"/>
+                                            <ComboBoxItem Content="X"  Tag="3"/>
+                                            <ComboBoxItem Content="Y"  Tag="4"/>
+                                            <ComboBoxItem Content="LB" Tag="5"/>
+                                            <ComboBoxItem Content="RB" Tag="6"/>
+                                            <ComboBoxItem Content="LS" Tag="7"/>
+                                            <ComboBoxItem Content="RS" Tag="8"/>
+                                            <ComboBoxItem Content="LT" Tag="9"/>
+                                            <ComboBoxItem Content="RT" Tag="10"/>
+                                        </ComboBox>
+                                        <ComboBox x:Name="ControllerEmulationMouseAction3TypeComboBox" Grid.Column="1" Margin="6,0,0,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseActionSlot_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Escape" Tag="1"/>
+                                            <ComboBoxItem Content="Tab" Tag="2"/>
+                                            <ComboBoxItem Content="Shift+Tab" Tag="3"/>
+                                            <ComboBoxItem Content="Alt+Left (Back)" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Right (Forward)" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="6"/>
+                                            <ComboBoxItem Content="Ctrl+Tab (Next Tab)" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Shift+Tab (Prev Tab)" Tag="8"/>
+                                            <ComboBoxItem Content="Win+D (Show Desktop)" Tag="9"/>
+                                            <ComboBoxItem Content="Win+Tab (Task View)" Tag="10"/>
+                                            <ComboBoxItem Content="Cursor Nudge Up" Tag="11"/>
+                                            <ComboBoxItem Content="Cursor Nudge Down" Tag="12"/>
+                                            <ComboBoxItem Content="Cursor Nudge Left" Tag="13"/>
+                                            <ComboBoxItem Content="Cursor Nudge Right" Tag="14"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="ControllerEmulationMouseAction4ButtonComboBox" Grid.Column="0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseActionSlot_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="A"  Tag="1"/>
+                                            <ComboBoxItem Content="B"  Tag="2"/>
+                                            <ComboBoxItem Content="X"  Tag="3"/>
+                                            <ComboBoxItem Content="Y"  Tag="4"/>
+                                            <ComboBoxItem Content="LB" Tag="5"/>
+                                            <ComboBoxItem Content="RB" Tag="6"/>
+                                            <ComboBoxItem Content="LS" Tag="7"/>
+                                            <ComboBoxItem Content="RS" Tag="8"/>
+                                            <ComboBoxItem Content="LT" Tag="9"/>
+                                            <ComboBoxItem Content="RT" Tag="10"/>
+                                        </ComboBox>
+                                        <ComboBox x:Name="ControllerEmulationMouseAction4TypeComboBox" Grid.Column="1" Margin="6,0,0,0"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseActionSlot_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Escape" Tag="1"/>
+                                            <ComboBoxItem Content="Tab" Tag="2"/>
+                                            <ComboBoxItem Content="Shift+Tab" Tag="3"/>
+                                            <ComboBoxItem Content="Alt+Left (Back)" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Right (Forward)" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="6"/>
+                                            <ComboBoxItem Content="Ctrl+Tab (Next Tab)" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Shift+Tab (Prev Tab)" Tag="8"/>
+                                            <ComboBoxItem Content="Win+D (Show Desktop)" Tag="9"/>
+                                            <ComboBoxItem Content="Win+Tab (Task View)" Tag="10"/>
+                                            <ComboBoxItem Content="Cursor Nudge Up" Tag="11"/>
+                                            <ComboBoxItem Content="Cursor Nudge Down" Tag="12"/>
+                                            <ComboBoxItem Content="Cursor Nudge Left" Tag="13"/>
+                                            <ComboBoxItem Content="Cursor Nudge Right" Tag="14"/>
+                                        </ComboBox>
+                                    </Grid>
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Nudge Step" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="ControllerEmulationMouseNudgeStepValue"
+                                                   Grid.Column="1"
+                                                   Text="10 px"
+                                                   FontSize="13"
+                                                   Foreground="#4CAF50"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <Slider x:Name="ControllerEmulationMouseNudgeStepSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="1" Maximum="50"
+                                            TickFrequency="1"
+                                            SnapsTo="Ticks"
+                                            Value="10"
+                                            IsEnabled="False"
+                                            ValueChanged="ControllerEmulationMouseNudgeStepSlider_ValueChanged"/>
+
+                                    <!-- D-Pad remap: None (default) leaves that direction as a normal gamepad
+                                         D-Pad press; any other value fires the action instead. -->
+                                    <TextBlock Text="D-Pad" FontSize="13" Foreground="#FFFFFF" Margin="0,14,0,4"/>
+                                    <TextBlock Text="None = normal D-Pad press (default)"
+                                               FontSize="11"
+                                               Foreground="{StaticResource HintTextBrush}"
+                                               Margin="0,0,0,4"/>
+
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="180"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Up" FontSize="13" Foreground="#FFFFFF" Grid.Column="0" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ControllerEmulationMouseDPadUpComboBox" Grid.Column="1"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseDPadAction_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Escape" Tag="1"/>
+                                            <ComboBoxItem Content="Tab" Tag="2"/>
+                                            <ComboBoxItem Content="Shift+Tab" Tag="3"/>
+                                            <ComboBoxItem Content="Alt+Left (Back)" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Right (Forward)" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="6"/>
+                                            <ComboBoxItem Content="Ctrl+Tab (Next Tab)" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Shift+Tab (Prev Tab)" Tag="8"/>
+                                            <ComboBoxItem Content="Win+D (Show Desktop)" Tag="9"/>
+                                            <ComboBoxItem Content="Win+Tab (Task View)" Tag="10"/>
+                                            <ComboBoxItem Content="Cursor Nudge Up" Tag="11"/>
+                                            <ComboBoxItem Content="Cursor Nudge Down" Tag="12"/>
+                                            <ComboBoxItem Content="Cursor Nudge Left" Tag="13"/>
+                                            <ComboBoxItem Content="Cursor Nudge Right" Tag="14"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="180"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Down" FontSize="13" Foreground="#FFFFFF" Grid.Column="0" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ControllerEmulationMouseDPadDownComboBox" Grid.Column="1"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseDPadAction_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Escape" Tag="1"/>
+                                            <ComboBoxItem Content="Tab" Tag="2"/>
+                                            <ComboBoxItem Content="Shift+Tab" Tag="3"/>
+                                            <ComboBoxItem Content="Alt+Left (Back)" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Right (Forward)" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="6"/>
+                                            <ComboBoxItem Content="Ctrl+Tab (Next Tab)" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Shift+Tab (Prev Tab)" Tag="8"/>
+                                            <ComboBoxItem Content="Win+D (Show Desktop)" Tag="9"/>
+                                            <ComboBoxItem Content="Win+Tab (Task View)" Tag="10"/>
+                                            <ComboBoxItem Content="Cursor Nudge Up" Tag="11"/>
+                                            <ComboBoxItem Content="Cursor Nudge Down" Tag="12"/>
+                                            <ComboBoxItem Content="Cursor Nudge Left" Tag="13"/>
+                                            <ComboBoxItem Content="Cursor Nudge Right" Tag="14"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="180"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Left" FontSize="13" Foreground="#FFFFFF" Grid.Column="0" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ControllerEmulationMouseDPadLeftComboBox" Grid.Column="1"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseDPadAction_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Escape" Tag="1"/>
+                                            <ComboBoxItem Content="Tab" Tag="2"/>
+                                            <ComboBoxItem Content="Shift+Tab" Tag="3"/>
+                                            <ComboBoxItem Content="Alt+Left (Back)" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Right (Forward)" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="6"/>
+                                            <ComboBoxItem Content="Ctrl+Tab (Next Tab)" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Shift+Tab (Prev Tab)" Tag="8"/>
+                                            <ComboBoxItem Content="Win+D (Show Desktop)" Tag="9"/>
+                                            <ComboBoxItem Content="Win+Tab (Task View)" Tag="10"/>
+                                            <ComboBoxItem Content="Cursor Nudge Up" Tag="11"/>
+                                            <ComboBoxItem Content="Cursor Nudge Down" Tag="12"/>
+                                            <ComboBoxItem Content="Cursor Nudge Left" Tag="13"/>
+                                            <ComboBoxItem Content="Cursor Nudge Right" Tag="14"/>
+                                        </ComboBox>
+                                    </Grid>
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="180"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Right" FontSize="13" Foreground="#FFFFFF" Grid.Column="0" VerticalAlignment="Center"/>
+                                        <ComboBox x:Name="ControllerEmulationMouseDPadRightComboBox" Grid.Column="1"
+                                                  Style="{StaticResource ModernComboBoxStyle}" IsEnabled="False"
+                                                  SelectionChanged="ControllerEmulationMouseDPadAction_SelectionChanged">
+                                            <ComboBoxItem Content="None" Tag="0" IsSelected="True"/>
+                                            <ComboBoxItem Content="Escape" Tag="1"/>
+                                            <ComboBoxItem Content="Tab" Tag="2"/>
+                                            <ComboBoxItem Content="Shift+Tab" Tag="3"/>
+                                            <ComboBoxItem Content="Alt+Left (Back)" Tag="4"/>
+                                            <ComboBoxItem Content="Alt+Right (Forward)" Tag="5"/>
+                                            <ComboBoxItem Content="Alt+Tab" Tag="6"/>
+                                            <ComboBoxItem Content="Ctrl+Tab (Next Tab)" Tag="7"/>
+                                            <ComboBoxItem Content="Ctrl+Shift+Tab (Prev Tab)" Tag="8"/>
+                                            <ComboBoxItem Content="Win+D (Show Desktop)" Tag="9"/>
+                                            <ComboBoxItem Content="Win+Tab (Task View)" Tag="10"/>
+                                            <ComboBoxItem Content="Cursor Nudge Up" Tag="11"/>
+                                            <ComboBoxItem Content="Cursor Nudge Down" Tag="12"/>
+                                            <ComboBoxItem Content="Cursor Nudge Left" Tag="13"/>
+                                            <ComboBoxItem Content="Cursor Nudge Right" Tag="14"/>
                                         </ComboBox>
                                     </Grid>
 

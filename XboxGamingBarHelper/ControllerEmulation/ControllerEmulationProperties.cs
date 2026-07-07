@@ -233,6 +233,74 @@ namespace XboxGamingBarHelper.ControllerEmulation
         }
     }
 
+    internal class ControllerEmulationMouseAccelerationProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationMouseAccelerationProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationMouseAcceleration, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationMouseAcceleration changed to {Value}");
+            Manager?.SetMouseAcceleration(Value);
+        }
+    }
+
+    internal class ControllerEmulationMouseActionSlotsProperty : HelperProperty<string, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationMouseActionSlotsProperty(string initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationMouseActionSlots, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationMouseActionSlots changed to {Value}");
+            Manager?.SetMouseActionSlots(Value);
+        }
+    }
+
+    internal class ControllerEmulationMouseDPadActionsProperty : HelperProperty<string, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationMouseDPadActionsProperty(string initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationMouseDPadActions, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationMouseDPadActions changed to {Value}");
+            Manager?.SetMouseDPadActions(Value);
+        }
+    }
+
+    internal class ControllerEmulationMouseNudgeStepProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationMouseNudgeStepProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.ControllerEmulationMouseNudgeStep, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"ControllerEmulationMouseNudgeStep changed to {Value}");
+            Manager?.SetMouseNudgeStep(Value);
+        }
+    }
+
     internal class ControllerEmulationMouseLeftClickButtonProperty : HelperProperty<int, ControllerEmulationManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

@@ -45,12 +45,21 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private int ds4Orientation;
         private int mouseSensitivity;
         private int mouseThreshold;
+        private int mouseAcceleration;      // 0=off/linear, 100=max boost (HC ApplyAcceleration port)
         private int mouseLeftClickButton;   // 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS,9=LT,10=RT
         private int mouseRightClickButton;
         private bool mouseLeftClickPrev;    // edge tracking — was the mapped button pressed last loop?
         private bool mouseRightClickPrev;
         private int mouseCursorStick;       // 0=Right,1=Left
         private int mouseScrollStick;       // 0=Left,1=Right
+        // Extra assignable mouse-mode button actions (browser/window-management shortcuts +
+        // cursor nudge), CSV "button:type,button:type,button:type,button:type" (4 slots).
+        // button: 0=None,1=A..10=RT (same index set as click buttons). type: MouseModeActionType.
+        private string mouseActionSlots = "0:0,0:0,0:0,0:0";
+        // D-Pad remap in mouse mode, CSV "up,down,left,right" (MouseModeActionType per direction).
+        // 0=None leaves that D-Pad direction passed through as a normal gamepad press (unchanged).
+        private string mouseDPadActions = "0,0,0,0";
+        private int mouseNudgeStep = 10; // px per press for the cursor-nudge action types
         private int mouseAxis;
         private bool mouseInvertX;
         private bool mouseInvertY;
@@ -431,6 +440,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
         public readonly ControllerEmulationPs4TouchpadEnabledProperty ControllerEmulationPs4TouchpadEnabled;
         public readonly ControllerEmulationMouseSensitivityProperty ControllerEmulationMouseSensitivity;
         public readonly ControllerEmulationMouseThresholdProperty ControllerEmulationMouseThreshold;
+        public readonly ControllerEmulationMouseAccelerationProperty ControllerEmulationMouseAcceleration;
+        public readonly ControllerEmulationMouseActionSlotsProperty ControllerEmulationMouseActionSlots;
+        public readonly ControllerEmulationMouseDPadActionsProperty ControllerEmulationMouseDPadActions;
+        public readonly ControllerEmulationMouseNudgeStepProperty ControllerEmulationMouseNudgeStep;
         public readonly ControllerEmulationMouseLeftClickButtonProperty ControllerEmulationMouseLeftClickButton;
         public readonly ControllerEmulationMouseRightClickButtonProperty ControllerEmulationMouseRightClickButton;
         public readonly ControllerEmulationMouseCursorStickProperty ControllerEmulationMouseCursorStick;
@@ -484,6 +497,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 yield return ControllerEmulationPs4TouchpadEnabled;
                 yield return ControllerEmulationMouseSensitivity;
                 yield return ControllerEmulationMouseThreshold;
+                yield return ControllerEmulationMouseAcceleration;
+                yield return ControllerEmulationMouseActionSlots;
+                yield return ControllerEmulationMouseDPadActions;
+                yield return ControllerEmulationMouseNudgeStep;
                 yield return ControllerEmulationMouseLeftClickButton;
                 yield return ControllerEmulationMouseRightClickButton;
                 yield return ControllerEmulationMouseCursorStick;
@@ -548,6 +565,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
             ControllerEmulationPs4TouchpadEnabled = new ControllerEmulationPs4TouchpadEnabledProperty(ps4TouchpadEnabled, this);
             ControllerEmulationMouseSensitivity = new ControllerEmulationMouseSensitivityProperty(mouseSensitivity, this);
             ControllerEmulationMouseThreshold = new ControllerEmulationMouseThresholdProperty(mouseThreshold, this);
+            ControllerEmulationMouseAcceleration = new ControllerEmulationMouseAccelerationProperty(mouseAcceleration, this);
+            ControllerEmulationMouseActionSlots = new ControllerEmulationMouseActionSlotsProperty(mouseActionSlots, this);
+            ControllerEmulationMouseDPadActions = new ControllerEmulationMouseDPadActionsProperty(mouseDPadActions, this);
+            ControllerEmulationMouseNudgeStep = new ControllerEmulationMouseNudgeStepProperty(mouseNudgeStep, this);
             ControllerEmulationMouseLeftClickButton = new ControllerEmulationMouseLeftClickButtonProperty(mouseLeftClickButton, this);
             ControllerEmulationMouseRightClickButton = new ControllerEmulationMouseRightClickButtonProperty(mouseRightClickButton, this);
             ControllerEmulationMouseCursorStick = new ControllerEmulationMouseCursorStickProperty(mouseCursorStick, this);

@@ -34,14 +34,22 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         public string Name => "MSI Claw Internal Gyro";
 
+        public event Action<GyroSample> SampleReady;
+
         public ClawGyroSourceAdapter()
         {
             inner = new WindowsSensorGyroSourceAdapter("MSI Claw Internal Gyro");
+            inner.SampleReady += OnInnerSampleReady;
         }
 
         public bool Start() => inner.Start();
 
         public void Stop() => inner.Stop();
+
+        private void OnInnerSampleReady(GyroSample raw)
+        {
+            SampleReady?.Invoke(Remap(raw));
+        }
 
         public bool TryGetLatestSample(out GyroSample sample)
         {
@@ -51,10 +59,18 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 return false;
             }
 
-            // 1:1 axis remapping from HC ClawA1M.cs
-            // Swap: physical Y → logical Z, physical Z → logical Y
-            // Scale: gyro Z negated; accel X and Y negated
-            sample = new GyroSample(
+            sample = Remap(raw);
+            return true;
+        }
+
+        /// <summary>
+        /// 1:1 axis remapping from HC ClawA1M.cs
+        /// Swap: physical Y → logical Z, physical Z → logical Y
+        /// Scale: gyro Z negated; accel X and Y negated
+        /// </summary>
+        private static GyroSample Remap(GyroSample raw)
+        {
+            return new GyroSample(
                 gyroXDegPerSecond:  raw.GyroXDegPerSecond,          // X→X  ×+1
                 gyroYDegPerSecond:  raw.GyroZDegPerSecond,          // Z→Y  ×+1
                 gyroZDegPerSecond: -raw.GyroYDegPerSecond,          // Y→Z  ×-1
@@ -62,9 +78,12 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 accelYG:           -raw.AccelZG,                    // Z→Y  ×-1
                 accelZG:            raw.AccelYG,                    // Y→Z  ×+1
                 timestampTicksUtc:  raw.TimestampTicksUtc);
-            return true;
         }
 
-        public void Dispose() => inner.Dispose();
+        public void Dispose()
+        {
+            inner.SampleReady -= OnInnerSampleReady;
+            inner.Dispose();
+        }
     }
 }

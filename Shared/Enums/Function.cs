@@ -381,6 +381,10 @@
         ControllerEmulationDs4Orientation, // int - DS4 motion orientation (0=Parallel, 1=Orthogonal)
         ControllerEmulationMouseSensitivity,  // int - 1-400 (percent scaling)
         ControllerEmulationMouseThreshold,    // int - 0-20 (deg/s deadzone)
+        ControllerEmulationMouseAcceleration, // int - 0-100 (0=off/linear, 100=max boost; HC ApplyAcceleration port)
+        ControllerEmulationMouseActionSlots,  // string - "button:type,button:type,button:type,button:type" (4 extra assignable action slots)
+        ControllerEmulationMouseDPadActions,  // string - "up,down,left,right" action-type ints; 0=None passes D-Pad through unchanged
+        ControllerEmulationMouseNudgeStep,     // int - 1-50 (px per press for cursor-nudge action types)
         ControllerEmulationMouseAxis,         // int - axis mapping (0=Yaw/Pitch, 1=Yaw/Roll, 2=Roll/Pitch)
         ControllerEmulationMouseInvertX,      // bool - invert horizontal
         ControllerEmulationMouseInvertY,      // bool - invert vertical

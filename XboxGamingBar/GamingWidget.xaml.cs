@@ -1406,6 +1406,12 @@ namespace XboxGamingBar
         private readonly ControllerEmulationLedForwardingEnabledProperty controllerEmulationLedForwardingEnabled;
         private readonly ControllerEmulationMouseSensitivityProperty controllerEmulationMouseSensitivity;
         private readonly ControllerEmulationMouseThresholdProperty controllerEmulationMouseThreshold;
+        private readonly ControllerEmulationMouseAccelerationProperty controllerEmulationMouseAcceleration;
+        private readonly ControllerEmulationMouseActionSlotsProperty controllerEmulationMouseActionSlots;
+        private readonly ControllerEmulationMouseDPadActionsProperty controllerEmulationMouseDPadActions;
+        private readonly ControllerEmulationMouseNudgeStepProperty controllerEmulationMouseNudgeStep;
+        private bool isApplyingMouseActionSlotsUI;
+        private bool isApplyingMouseDPadActionsUI;
         private readonly ControllerEmulationMouseLeftClickButtonProperty controllerEmulationMouseLeftClickButton;
         private readonly ControllerEmulationMouseRightClickButtonProperty controllerEmulationMouseRightClickButton;
         private readonly ControllerEmulationMouseCursorStickProperty controllerEmulationMouseCursorStick;
@@ -2190,6 +2196,12 @@ namespace XboxGamingBar
             controllerEmulationLedForwardingEnabled = new ControllerEmulationLedForwardingEnabledProperty(ControllerEmulationLedForwardingToggle, this);
             controllerEmulationMouseSensitivity = new ControllerEmulationMouseSensitivityProperty(ControllerEmulationMouseSensitivitySlider, this);
             controllerEmulationMouseThreshold = new ControllerEmulationMouseThresholdProperty(ControllerEmulationMouseThresholdSlider, this);
+            controllerEmulationMouseAcceleration = new ControllerEmulationMouseAccelerationProperty(ControllerEmulationMouseAccelerationSlider, this);
+            controllerEmulationMouseNudgeStep = new ControllerEmulationMouseNudgeStepProperty(ControllerEmulationMouseNudgeStepSlider, this);
+            controllerEmulationMouseActionSlots = new ControllerEmulationMouseActionSlotsProperty();
+            controllerEmulationMouseActionSlots.ValueApplied += ApplyMouseActionSlotsToUI;
+            controllerEmulationMouseDPadActions = new ControllerEmulationMouseDPadActionsProperty();
+            controllerEmulationMouseDPadActions.ValueApplied += ApplyMouseDPadActionsToUI;
             controllerEmulationMouseLeftClickButton = new ControllerEmulationMouseLeftClickButtonProperty(ControllerEmulationMouseLeftClickButtonComboBox, this);
             controllerEmulationMouseRightClickButton = new ControllerEmulationMouseRightClickButtonProperty(ControllerEmulationMouseRightClickButtonComboBox, this);
             controllerEmulationMouseCursorStick = new ControllerEmulationMouseCursorStickProperty(ControllerEmulationMouseCursorStickComboBox, this);
@@ -2672,6 +2684,10 @@ namespace XboxGamingBar
                 controllerEmulationLedForwardingEnabled,
                 controllerEmulationMouseSensitivity,
                 controllerEmulationMouseThreshold,
+                controllerEmulationMouseAcceleration,
+                controllerEmulationMouseActionSlots,
+                controllerEmulationMouseDPadActions,
+                controllerEmulationMouseNudgeStep,
                 controllerEmulationMouseLeftClickButton,
                 controllerEmulationMouseRightClickButton,
                 controllerEmulationMouseCursorStick,

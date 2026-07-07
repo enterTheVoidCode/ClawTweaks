@@ -283,6 +283,86 @@ namespace XboxGamingBarHelper.ControllerEmulation
             OnMouseThresholdChanged?.Invoke(mouseThreshold);
         }
 
+        /// <summary>
+        /// Called by MSI Claw mouse mode when acceleration changes.
+        /// Wired in Program.MSIClaw.cs → ClawButtonMonitor.SetMouseModeAcceleration().
+        /// </summary>
+        public Action<int> OnMouseAccelerationChanged;
+
+        public void SetMouseAcceleration(int value)
+        {
+            int normalized = NormalizeMouseAcceleration(value);
+            if (mouseAcceleration == normalized)
+            {
+                return;
+            }
+
+            mouseAcceleration = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation mouse acceleration set to {mouseAcceleration}");
+            OnMouseAccelerationChanged?.Invoke(mouseAcceleration);
+        }
+
+        /// <summary>
+        /// Called by MSI Claw mouse mode when the extra action-slot mapping changes.
+        /// Wired in Program.MSIClaw.cs → ClawButtonMonitor.SetMouseActionSlots().
+        /// </summary>
+        public Action<string> OnMouseActionSlotsChanged;
+
+        public void SetMouseActionSlots(string value)
+        {
+            string normalized = string.IsNullOrWhiteSpace(value) ? "0:0,0:0,0:0,0:0" : value;
+            if (mouseActionSlots == normalized)
+            {
+                return;
+            }
+
+            mouseActionSlots = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation mouse action slots set to {mouseActionSlots}");
+            OnMouseActionSlotsChanged?.Invoke(mouseActionSlots);
+        }
+
+        /// <summary>
+        /// Called by MSI Claw mouse mode when the D-Pad remap changes.
+        /// Wired in Program.MSIClaw.cs → ClawButtonMonitor.SetMouseDPadActions().
+        /// </summary>
+        public Action<string> OnMouseDPadActionsChanged;
+
+        public void SetMouseDPadActions(string value)
+        {
+            string normalized = string.IsNullOrWhiteSpace(value) ? "0,0,0,0" : value;
+            if (mouseDPadActions == normalized)
+            {
+                return;
+            }
+
+            mouseDPadActions = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation mouse D-Pad actions set to {mouseDPadActions}");
+            OnMouseDPadActionsChanged?.Invoke(mouseDPadActions);
+        }
+
+        /// <summary>
+        /// Called by MSI Claw mouse mode when the cursor-nudge step size changes.
+        /// Wired in Program.MSIClaw.cs → ClawButtonMonitor.SetMouseModeNudgeStep().
+        /// </summary>
+        public Action<int> OnMouseNudgeStepChanged;
+
+        public void SetMouseNudgeStep(int value)
+        {
+            int normalized = Math.Max(1, Math.Min(50, value));
+            if (mouseNudgeStep == normalized)
+            {
+                return;
+            }
+
+            mouseNudgeStep = normalized;
+            SaveSettings();
+            Logger.Info($"Controller emulation mouse nudge step set to {mouseNudgeStep}");
+            OnMouseNudgeStepChanged?.Invoke(mouseNudgeStep);
+        }
+
         public Action<int> OnMouseLeftClickButtonChanged;
         public Action<int> OnMouseRightClickButtonChanged;
         public Action<int> OnMouseCursorStickChanged;

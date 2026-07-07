@@ -622,6 +622,53 @@ namespace XboxGamingBarHelper.RTSS
             Logger.Info("ResetRTSSConnection: RTSS connection reset complete, OSD will be recreated on next update");
         }
 
+        /// <summary>
+        /// Starts RTSS if it's installed, enabled (AutoStartRTSS — effectively always true, see
+        /// AutoStartRTSSProperty) and not currently running. Idempotent per tick via rtssState.
+        /// </summary>
+        private void EnsureRtssRunning()
+        {
+            if (RTSSHelper.IsRunning())
+            {
+                return;
+            }
+
+            if (!SettingsManager.GetInstance().AutoStartRTSS || SuppressAutoStart)
+            {
+                return;
+            }
+
+            if (rtssState == RivatunerStatisticsServerState.Starting)
+            {
+                Logger.Info("Starting Rivatuner Statistics Server..");
+                return;
+            }
+
+            rtssState = RivatunerStatisticsServerState.Starting;
+            try
+            {
+                Logger.Info("Start Rivatuner Statistics Server.");
+                string rtssExe = RTSSHelper.ExecutablePath();
+                string rtssDir = RTSSHelper.InstalledLocation();
+                if (string.IsNullOrEmpty(rtssDir))
+                    rtssDir = System.IO.Path.GetDirectoryName(rtssExe);
+                // Launch from the RTSS install folder (and via ShellExecute) so RTSS
+                // resolves its Skins\default.usf — otherwise it shows
+                // "Failed to load default.usf skin!" when started with the wrong CWD.
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = rtssExe,
+                    WorkingDirectory = rtssDir,
+                    UseShellExecute = true,
+                });
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Failed to start Rivatuner Statistics Server.");
+                rtssState = RivatunerStatisticsServerState.NotRunning;
+            }
+        }
+
         public override void Update()
         {
             base.Update();
@@ -636,6 +683,12 @@ namespace XboxGamingBarHelper.RTSS
                 rtssState = RivatunerStatisticsServerState.NotInstalled;
                 return;
             }
+
+            // RTSS is required infrastructure (FPS-limiter fallback; onboarding only finalizes once
+            // it's installed) — keep it running whenever it's installed, independent of whether the
+            // on-screen overlay is currently enabled. Previously this only ran once OSD was on, so a
+            // user with the overlay off never got RTSS auto-started at all.
+            EnsureRtssRunning();
 
             if (onScreenDisplayLevel == 0)
             {
@@ -660,39 +713,7 @@ namespace XboxGamingBarHelper.RTSS
 
             if (!RTSSHelper.IsRunning())
             {
-                if (SettingsManager.GetInstance().AutoStartRTSS && !SuppressAutoStart)
-                {
-                    if (rtssState == RivatunerStatisticsServerState.Starting)
-                    {
-                        Logger.Info("Starting Rivatuner Statistics Server..");
-                    }
-                    else
-                    {
-                        rtssState = RivatunerStatisticsServerState.Starting;
-                        try
-                        {
-                            Logger.Info("Start Rivatuner Statistics Server.");
-                            string rtssExe = RTSSHelper.ExecutablePath();
-                            string rtssDir = RTSSHelper.InstalledLocation();
-                            if (string.IsNullOrEmpty(rtssDir))
-                                rtssDir = System.IO.Path.GetDirectoryName(rtssExe);
-                            // Launch from the RTSS install folder (and via ShellExecute) so RTSS
-                            // resolves its Skins\default.usf — otherwise it shows
-                            // "Failed to load default.usf skin!" when started with the wrong CWD.
-                            Process.Start(new ProcessStartInfo
-                            {
-                                FileName = rtssExe,
-                                WorkingDirectory = rtssDir,
-                                UseShellExecute = true,
-                            });
-                        }
-                        catch (Exception ex)
-                        {
-                            Logger.Error(ex, "Failed to start Rivatuner Statistics Server.");
-                            rtssState = RivatunerStatisticsServerState.NotRunning;
-                        }
-                    }
-                }
+                // EnsureRtssRunning() already attempted a launch above this tick if enabled.
                 return;
             }
 

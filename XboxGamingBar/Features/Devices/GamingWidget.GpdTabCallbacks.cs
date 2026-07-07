@@ -367,6 +367,8 @@ namespace XboxGamingBar
                 ControllerEmulationMouseSensitivitySlider.IsEnabled = mouseControlsEnabled;
             if (ControllerEmulationMouseThresholdSlider != null)
                 ControllerEmulationMouseThresholdSlider.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseAccelerationSlider != null)
+                ControllerEmulationMouseAccelerationSlider.IsEnabled = mouseControlsEnabled;
             if (ControllerEmulationMouseLeftClickButtonComboBox != null)
                 ControllerEmulationMouseLeftClickButtonComboBox.IsEnabled = mouseControlsEnabled;
             if (ControllerEmulationMouseRightClickButtonComboBox != null)
@@ -385,6 +387,17 @@ namespace XboxGamingBar
                 ControllerEmulationMouseGainXSlider.IsEnabled = mouseControlsEnabled;
             if (ControllerEmulationMouseGainYSlider != null)
                 ControllerEmulationMouseGainYSlider.IsEnabled = mouseControlsEnabled;
+            if (ControllerEmulationMouseNudgeStepSlider != null)
+                ControllerEmulationMouseNudgeStepSlider.IsEnabled = mouseControlsEnabled;
+            foreach (var combo in MouseActionSlotCombos)
+            {
+                if (combo.btn != null) combo.btn.IsEnabled = mouseControlsEnabled;
+                if (combo.type != null) combo.type.IsEnabled = mouseControlsEnabled;
+            }
+            foreach (var combo in MouseDPadActionCombos)
+            {
+                if (combo != null) combo.IsEnabled = mouseControlsEnabled;
+            }
 
             // Features group - enable/disable controls based on mode
             if (ControllerEmulationPs4TouchpadToggle != null)

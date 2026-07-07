@@ -64,6 +64,8 @@ namespace XboxGamingBarHelper.Labs
         private const ushort XI_DPAD_DOWN  = 0x0002;
         private const ushort XI_DPAD_LEFT  = 0x0004;
         private const ushort XI_DPAD_RIGHT = 0x0008;
+        // [Up,Down,Left,Right] — mouse-mode D-Pad remap iterates this in that fixed order.
+        private static readonly ushort[] DPadBits = { XI_DPAD_UP, XI_DPAD_DOWN, XI_DPAD_LEFT, XI_DPAD_RIGHT };
         private const ushort XI_START      = 0x0010;
         private const ushort XI_BACK       = 0x0020;
         private const ushort XI_LS         = 0x0040;
@@ -275,13 +277,33 @@ namespace XboxGamingBarHelper.Labs
         private bool  _lastGyroActiveLogged;
 
         // One-Euro filter state — shared between stick and mouse paths (only one active).
-        // Accessed only from monitor thread.
+        // Accessed only from the gyro sensor's own callback thread (OnGyroSampleReady) — the
+        // WinRT sensor delivers ReadingChanged serially (never concurrently), so no lock needed.
+        // NOT touched from the DirectInput monitor thread anymore (see OnGyroSampleReady).
         private bool  _gyroFilterInit;
         private float _gyroFiltH, _gyroFiltV, _gyroDerivH, _gyroDerivV;
         private long  _gyroLastSampleTicks;
 
-        // Sub-pixel carry for mouse mode — monitor thread only.
+        // Sub-pixel carry for mouse mode — gyro sensor callback thread only (see above).
         private float _gyroCarryX, _gyroCarryY;
+
+        // ── Event-driven gyro dispatch (replaces polling TryGetLatestSample from the 125Hz
+        // DirectInput loop — see OnGyroSampleReady) ──────────────────────────────────────────
+        // The Windows gyrometer on this hardware reports at ~100Hz (helper log: "gyro interval:
+        // 10ms"), slower than the 125Hz joystick poll, so polling it there produced a beat/
+        // aliasing stutter (some ticks got no new sample at all — very visible for gyro-mouse,
+        // per an HC user's report that ClawTweaks felt "choppy" where HC (event-driven) didn't).
+        // OnGyroSampleReady now fires exactly once per real sensor sample and does the actual
+        // ApplyGyroToStick/ApplyGyroMouse computation; the DirectInput tick only updates the
+        // activation gate + a "base" (pre-gyro) gamepad-state snapshot that OnGyroSampleReady
+        // merges into, and re-applies the last known gyro-to-stick delta on ITS OWN submit so
+        // buttons/triggers/physical-stick stay responsive at 125Hz between gyro samples.
+        private volatile bool _gyroActiveCached;
+        private readonly object _gyroSubmitLock = new object();
+        private short _lastGyroDeltaX, _lastGyroDeltaY;
+        private ushort _lastBaseXiBtns;
+        private byte _lastBaseLtrig, _lastBaseRtrig;
+        private short _lastBaseLeftX, _lastBaseLeftY, _lastBaseRightX, _lastBaseRightY;
 
         // XInput gamepad action remapping for M1/M2 (mirrors HC LayoutManager.MapController()).
         // Disabled = no XInput remap applied (button acts as callback-only or passes through).
@@ -336,6 +358,9 @@ namespace XboxGamingBarHelper.Labs
         private const float MouseSensitivityScale   = 20.0f / 100.0f;
         private volatile int   _mouseModeSensitivity = 100;
         private volatile int   _mouseModeThreshold   = 15;
+        private volatile int   _mouseModeAcceleration = 0; // 0=off/linear, 100=max boost
+        private float _mouseAccelMemory;
+        private readonly System.Diagnostics.Stopwatch _mouseAccelTimer = System.Diagnostics.Stopwatch.StartNew();
 
         // Mouse mode button/stick mapping — configurable via Set* methods.
         // Button indices: 0=None,1=A,2=B,3=X,4=Y,5=LB,6=RB,7=LS,8=RS,9=LT,10=RT
@@ -344,6 +369,23 @@ namespace XboxGamingBarHelper.Labs
         private volatile int _mouseRightClickButton = 5; // default LB
         private volatile int _mouseCursorStick      = 0; // default Right Stick
         private volatile int _mouseScrollStick      = 0; // default Left Stick
+
+        // Extra assignable mouse-mode actions (browser/window-management shortcuts + cursor nudge)
+        // — 4 button:type slots, configurable via SetMouseActionSlots(). Reference-swapped arrays
+        // so concurrent reads on the poll thread never see a torn write.
+        // MouseModeActionType: 0=None,1=Escape,2=Tab,3=Shift+Tab,4=Alt+Left,5=Alt+Right,6=Alt+Tab,
+        // 7=Ctrl+Tab,8=Ctrl+Shift+Tab,9=Win+D,10=Win+Tab,11-14=Cursor Nudge Up/Down/Left/Right
+        private int[] _mouseActionButtons = { 0, 0, 0, 0 };
+        private int[] _mouseActionTypes   = { 0, 0, 0, 0 };
+        private readonly bool[] _mouseActionPrevState = new bool[4];
+
+        // D-Pad remap in mouse mode — one MouseModeActionType per direction [Up,Down,Left,Right].
+        // 0=None leaves that direction passed through as a normal gamepad D-Pad press (unchanged
+        // default behavior); any other value fires the action and suppresses the D-Pad bit instead.
+        private int[] _mouseDPadActionTypes = { 0, 0, 0, 0 };
+        private readonly bool[] _mouseDPadPrevState = new bool[4];
+
+        private volatile int _mouseNudgeStepPx = 10;
 
         public bool IsRunning => _running;
         public bool HasAnyButtonConfigured => _m1Enabled || _m2Enabled;
@@ -541,6 +583,153 @@ namespace XboxGamingBarHelper.Labs
         {
             _mouseModeThreshold = Math.Max(0, Math.Min(20, threshold));
             Logger.Info($"ClawButtonMonitor: MouseMode threshold → {_mouseModeThreshold}%");
+        }
+
+        /// <summary>
+        /// Set mouse mode cursor acceleration (0–100, widget slider range).
+        /// 0 = off (today's linear behavior, unchanged). &gt;0 = HandheldCompanion-style momentum
+        /// boost (MouseActions.ApplyAcceleration): held stick deflection builds up speed over
+        /// time via exponential decay, up to +260% gain at full sustained deflection. One-directional
+        /// only — HC has no "deceleration" side, so neither does this. Thread-safe: field is volatile.
+        /// </summary>
+        public void SetMouseModeAcceleration(int acceleration)
+        {
+            _mouseModeAcceleration = Math.Max(0, Math.Min(100, acceleration));
+            Logger.Info($"ClawButtonMonitor: MouseMode acceleration → {_mouseModeAcceleration}");
+        }
+
+        /// <summary>
+        /// 1:1 port of HandheldCompanion's MouseActions.ApplyAcceleration (Actions/MouseActions.cs):
+        /// held stick deflection builds momentum over time (exponential decay, half-life scales
+        /// with strength), boosting movement gain up to +260% at full sustained deflection.
+        /// HC's raw Acceleration field is 1.0 (off) to ~2.0+ (boost); _mouseModeAcceleration is our
+        /// 0-100 widget slider mapped onto that same 1.0-2.0 range. HC has no "deceleration" side,
+        /// so neither does this — only called when _mouseModeAcceleration &gt; 0.
+        /// rawMag is the deadzone-applied stick magnitude (0-1, sensitivity-independent) so momentum
+        /// build-up depends on how long/hard the stick is held, not on the sensitivity setting.
+        /// </summary>
+        private void ApplyMouseAcceleration(float fx, float fy, float deltaMs, ref float deltaX, ref float deltaY)
+        {
+            float accelerationParam = 1f + (_mouseModeAcceleration / 100f);
+            float s = Math.Max(0f, accelerationParam - 1f);
+            if (s <= 0f) return;
+
+            float halfLifeMs = 24f + 120f * s;
+            float decay = (float)Math.Exp(-0.693147 * (deltaMs / halfLifeMs));
+            float rawMag = (float)Math.Sqrt(fx * fx + fy * fy);
+            if (rawMag > _mouseAccelMemory)
+                _mouseAccelMemory = rawMag;
+            else
+                _mouseAccelMemory *= decay;
+
+            float t = Smooth01(Math.Min(1f, _mouseAccelMemory));
+            float gainMax = 1f + 2.6f * s;
+            float gain = 1f + (gainMax - 1f) * t;
+
+            deltaX *= gain;
+            deltaY *= gain;
+        }
+
+        private static float Smooth01(float x)
+        {
+            x = Math.Max(0f, Math.Min(1f, x));
+            return x * x * (3f - 2f * x);
+        }
+
+        /// <summary>
+        /// Set the 4 extra assignable mouse-mode action slots from the widget's CSV payload
+        /// "button:type,button:type,button:type,button:type" (see BuildMouseActionSlotsPayload
+        /// on the widget side). Malformed entries fall back to None/None for that slot.
+        /// </summary>
+        public void SetMouseActionSlots(string csv)
+        {
+            var buttons = new int[4];
+            var types = new int[4];
+            if (!string.IsNullOrWhiteSpace(csv))
+            {
+                var slots = csv.Split(',');
+                for (int i = 0; i < 4 && i < slots.Length; i++)
+                {
+                    var parts = slots[i].Split(':');
+                    if (parts.Length == 2 && int.TryParse(parts[0], out int b) && int.TryParse(parts[1], out int t))
+                    {
+                        buttons[i] = Math.Max(0, Math.Min(10, b));
+                        types[i] = Math.Max(0, Math.Min(14, t));
+                    }
+                }
+            }
+            _mouseActionButtons = buttons;
+            _mouseActionTypes = types;
+            Logger.Info($"ClawButtonMonitor: MouseMode action slots → {csv}");
+        }
+
+        /// <summary>
+        /// Set the D-Pad remap from the widget's CSV payload "up,down,left,right" (MouseModeActionType
+        /// per direction). 0=None passes that D-Pad direction through unchanged.
+        /// </summary>
+        public void SetMouseDPadActions(string csv)
+        {
+            var types = new int[4];
+            if (!string.IsNullOrWhiteSpace(csv))
+            {
+                var parts = csv.Split(',');
+                for (int i = 0; i < 4 && i < parts.Length; i++)
+                {
+                    if (int.TryParse(parts[i], out int t))
+                        types[i] = Math.Max(0, Math.Min(14, t));
+                }
+            }
+            _mouseDPadActionTypes = types;
+            Logger.Info($"ClawButtonMonitor: MouseMode D-Pad actions → {csv}");
+        }
+
+        public void SetMouseModeNudgeStep(int px)
+        {
+            _mouseNudgeStepPx = Math.Max(1, Math.Min(50, px));
+            Logger.Info($"ClawButtonMonitor: MouseMode nudge step → {_mouseNudgeStepPx}px");
+        }
+
+        // MouseModeActionType constants — shared between action slots and D-Pad remap.
+        private const int MouseActionNone         = 0;
+        private const int MouseActionEscape       = 1;
+        private const int MouseActionTab          = 2;
+        private const int MouseActionShiftTab     = 3;
+        private const int MouseActionAltLeft      = 4;
+        private const int MouseActionAltRight     = 5;
+        private const int MouseActionAltTab       = 6;
+        private const int MouseActionCtrlTab      = 7;
+        private const int MouseActionCtrlShiftTab = 8;
+        private const int MouseActionWinD         = 9;
+        private const int MouseActionWinTab       = 10;
+        private const int MouseActionCursorUp     = 11;
+        private const int MouseActionCursorDown   = 12;
+        private const int MouseActionCursorLeft   = 13;
+        private const int MouseActionCursorRight  = 14;
+
+        /// <summary>
+        /// Fires one mouse-mode action on a button/D-Pad rising edge. Keyboard shortcuts go through
+        /// the same Program.SendKeyboardShortcut() path as the Hotkeys tab; cursor-nudge moves the
+        /// pointer by _mouseNudgeStepPx in one shot (not a held/repeating move).
+        /// </summary>
+        private void FireMouseModeAction(int actionType)
+        {
+            switch (actionType)
+            {
+                case MouseActionEscape:       Program.SendKeyboardShortcut("Escape"); break;
+                case MouseActionTab:          Program.SendKeyboardShortcut("Tab"); break;
+                case MouseActionShiftTab:     Program.SendKeyboardShortcut("Shift+Tab"); break;
+                case MouseActionAltLeft:      Program.SendKeyboardShortcut("Alt+Left"); break;
+                case MouseActionAltRight:     Program.SendKeyboardShortcut("Alt+Right"); break;
+                case MouseActionAltTab:       Program.SendKeyboardShortcut("Alt+Tab"); break;
+                case MouseActionCtrlTab:      Program.SendKeyboardShortcut("Ctrl+Tab"); break;
+                case MouseActionCtrlShiftTab: Program.SendKeyboardShortcut("Ctrl+Shift+Tab"); break;
+                case MouseActionWinD:         Program.SendKeyboardShortcut("Win+D"); break;
+                case MouseActionWinTab:       Program.SendKeyboardShortcut("Win+Tab"); break;
+                case MouseActionCursorUp:     mouse_event(MOUSEEVENTF_MOVE, 0, -_mouseNudgeStepPx, 0, IntPtr.Zero); break;
+                case MouseActionCursorDown:   mouse_event(MOUSEEVENTF_MOVE, 0,  _mouseNudgeStepPx, 0, IntPtr.Zero); break;
+                case MouseActionCursorLeft:   mouse_event(MOUSEEVENTF_MOVE, -_mouseNudgeStepPx, 0, 0, IntPtr.Zero); break;
+                case MouseActionCursorRight:  mouse_event(MOUSEEVENTF_MOVE,  _mouseNudgeStepPx, 0, 0, IntPtr.Zero); break;
+            }
         }
 
         public void SetMouseLeftClickButton(int button)
@@ -1381,38 +1570,30 @@ namespace XboxGamingBarHelper.Labs
                     ref leftXOut, ref leftYOut, ref rightXOut, ref rightYOut);
 
             // Gyro processing — MSI Claw path.
-            // ControllerEmulationManager is suppressed for MSIClaw (SetSuppressedByViiper),
-            // so gyro must live here in the DInput poll loop (1:1 from HC MotionManager gate logic).
+            // ControllerEmulationManager is suppressed for MSIClaw (SetSuppressedByViiper), so
+            // gyro must live here. Actual gyro-to-stick/-mouse computation happens event-driven
+            // in OnGyroSampleReady (fires once per real sensor sample, ~100Hz on this hardware),
+            // NOT by polling here — this 125Hz DirectInput tick only updates the activation gate
+            // and the "base" (pre-gyro) state OnGyroSampleReady merges into, then re-applies the
+            // last known gyro delta so buttons/triggers/physical-stick stay responsive between
+            // gyro samples. See the _gyroActiveCached field comment for why (aliasing/stutter).
             int gyroTarget = _gyroTarget;
-            var gyroAdapterLocal = _gyroAdapter;
-            if (gyroTarget != 0 && gyroAdapterLocal != null)
+            _gyroActiveCached = gyroTarget != 0 && _gyroAdapter != null && IsGyroActive(state);
+
+            lock (_gyroSubmitLock)
             {
-                try
-                {
-                    if (gyroAdapterLocal.TryGetLatestSample(out GyroSample gyroSample))
-                    {
-                        bool gyroActive = IsGyroActive(state);
-                        if (gyroActive)
-                        {
-                            if (gyroTarget == 3) // Mouse
-                            {
-                                ApplyGyroMouse(gyroSample);
-                            }
-                            else // 1=LeftStick, 2=RightStick
-                            {
-                                ApplyGyroToStick(gyroSample, out short gx, out short gy);
-                                if (gyroTarget == 1)
-                                    MergeGyroStick(ref leftXOut, ref leftYOut, gx, gy);
-                                else
-                                    MergeGyroStick(ref rightXOut, ref rightYOut, gx, gy);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Debug($"ClawButtonMonitor: Gyro processing exception: {ex.Message}");
-                }
+                _lastBaseXiBtns = xiBtnsOut;
+                _lastBaseLtrig = ltrigOut;
+                _lastBaseRtrig = rtrigOut;
+                _lastBaseLeftX = leftXOut;
+                _lastBaseLeftY = leftYOut;
+                _lastBaseRightX = rightXOut;
+                _lastBaseRightY = rightYOut;
+
+                if (gyroTarget == 1 && _gyroActiveCached)
+                    MergeGyroStick(ref leftXOut, ref leftYOut, _lastGyroDeltaX, _lastGyroDeltaY);
+                else if (gyroTarget == 2 && _gyroActiveCached)
+                    MergeGyroStick(ref rightXOut, ref rightYOut, _lastGyroDeltaX, _lastGyroDeltaY);
             }
 
             // ── Mouse mode — translate stick/button inputs to Windows mouse events ──
@@ -1449,8 +1630,18 @@ namespace XboxGamingBarHelper.Labs
 
                 if (fx != 0f || fy != 0f)
                 {
-                    _mouseCarryX += fx * sensitivity;
-                    _mouseCarryY += fy * sensitivity;
+                    float deltaX = fx * sensitivity;
+                    float deltaY = fy * sensitivity;
+
+                    if (_mouseModeAcceleration > 0)
+                    {
+                        float deltaMs = (float)_mouseAccelTimer.Elapsed.TotalMilliseconds;
+                        _mouseAccelTimer.Restart();
+                        ApplyMouseAcceleration(fx, fy, deltaMs, ref deltaX, ref deltaY);
+                    }
+
+                    _mouseCarryX += deltaX;
+                    _mouseCarryY += deltaY;
                     int dx = (int)_mouseCarryX;
                     int dy = (int)_mouseCarryY;
                     _mouseCarryX -= dx;
@@ -1462,6 +1653,8 @@ namespace XboxGamingBarHelper.Labs
                 {
                     _mouseCarryX = 0f;
                     _mouseCarryY = 0f;
+                    _mouseAccelMemory = 0f;
+                    _mouseAccelTimer.Restart();
                 }
 
                 // Configurable scroll stick Y — fractional WHEEL_DELTA for smooth browser scrolling.
@@ -1488,6 +1681,40 @@ namespace XboxGamingBarHelper.Labs
                     }
                 }
 
+                // Extra assignable action slots (browser/window-management shortcuts + cursor
+                // nudge). Fires on the mapped button's rising edge; the button is then suppressed
+                // from the ViGEm submit below, same as the click buttons.
+                var actionButtons = _mouseActionButtons;
+                var actionTypes = _mouseActionTypes;
+                ushort actionButtonMask = 0;
+                for (int i = 0; i < 4; i++)
+                {
+                    int slotButton = actionButtons[i];
+                    int slotType = actionTypes[i];
+                    if (slotButton == 0 || slotType == 0) { _mouseActionPrevState[i] = false; continue; }
+                    bool actionDown = GetMouseModeButton(slotButton, xiBtnsOut, ltrigOut, rtrigOut);
+                    if (actionDown && !_mouseActionPrevState[i])
+                        FireMouseModeAction(slotType);
+                    _mouseActionPrevState[i] = actionDown;
+                    actionButtonMask |= GetMouseModeButtonMask(slotButton);
+                }
+
+                // D-Pad remap — 0=None passes that direction through untouched (today's default,
+                // still a normal gamepad D-Pad press); any other value fires the action instead and
+                // suppresses that D-Pad bit below.
+                var dpadTypes = _mouseDPadActionTypes;
+                ushort dpadSuppressMask = 0;
+                for (int i = 0; i < 4; i++)
+                {
+                    int dirType = dpadTypes[i];
+                    if (dirType == 0) { _mouseDPadPrevState[i] = false; continue; }
+                    bool dpadDown = (xiBtnsOut & DPadBits[i]) != 0;
+                    if (dpadDown && !_mouseDPadPrevState[i])
+                        FireMouseModeAction(dirType);
+                    _mouseDPadPrevState[i] = dpadDown;
+                    dpadSuppressMask |= DPadBits[i];
+                }
+
                 // Suppress the button(s) mapped to a mouse click from the ViGEm submit, so a
                 // click button only produces the Windows mouse event and NOT a phantom gamepad
                 // press. This matters above all for A: Xbox-A is the Game Bar's "confirm/activate"
@@ -1495,7 +1722,9 @@ namespace XboxGamingBarHelper.Labs
                 // A "wouldn't map" while B/X/Y/LB/RB did). Triggers are already zeroed below, and
                 // hotkeys read the physical xiBtns feed, so neither is affected.
                 xiBtnsOut &= (ushort)~(GetMouseModeButtonMask(_mouseLeftClickButton)
-                                       | GetMouseModeButtonMask(_mouseRightClickButton));
+                                       | GetMouseModeButtonMask(_mouseRightClickButton)
+                                       | actionButtonMask
+                                       | dpadSuppressMask);
 
                 // Game Bar auto-nav injection (RB hops + focus drop) — overlay onto the button mask.
                 { ushort injMask = ServiceInjection(); if (injMask != 0) xiBtnsOut |= injMask; }
@@ -2133,6 +2362,7 @@ namespace XboxGamingBarHelper.Labs
                 Logger.Warn("ClawButtonMonitor: ClawGyroSourceAdapter failed to start");
                 return;
             }
+            adapter.SampleReady += OnGyroSampleReady;
             _gyroAdapter = adapter;
             Logger.Info("ClawButtonMonitor: ClawGyroSourceAdapter started");
         }
@@ -2142,6 +2372,7 @@ namespace XboxGamingBarHelper.Labs
             var adapter = _gyroAdapter;
             _gyroAdapter = null;
             if (adapter == null) return;
+            adapter.SampleReady -= OnGyroSampleReady;
             try { adapter.Stop(); } catch { }
             try { adapter.Dispose(); } catch { }
             // Reset all filter / activation state so next Start() is clean.
@@ -2150,7 +2381,58 @@ namespace XboxGamingBarHelper.Labs
             _gyroCarryX = _gyroCarryY = 0;
             _gyroFilterInit = false;
             _gyroLastSampleTicks = 0;
+            _gyroActiveCached = false;
+            _lastGyroDeltaX = 0;
+            _lastGyroDeltaY = 0;
             Logger.Info("ClawButtonMonitor: ClawGyroSourceAdapter stopped");
+        }
+
+        /// <summary>
+        /// Fires once per real gyro sample (see IGyroSourceAdapter.SampleReady) — on the sensor's
+        /// own callback thread, not the DirectInput monitor thread. Mouse target is a plain
+        /// SendInput call (no shared gamepad state, no lock needed). Stick targets merge into the
+        /// last-known "base" gamepad state (snapshotted by the monitor thread each DirectInput
+        /// tick) and submit immediately, under _gyroSubmitLock to stay consistent with the
+        /// monitor thread's own periodic submit.
+        /// </summary>
+        private void OnGyroSampleReady(GyroSample sample)
+        {
+            int target = _gyroTarget;
+            if (target == 0 || !_gyroActiveCached) return;
+
+            try
+            {
+                if (target == 3) // Mouse
+                {
+                    ApplyGyroMouse(sample);
+                    return;
+                }
+
+                ApplyGyroToStick(sample, out short gx, out short gy);
+                lock (_gyroSubmitLock)
+                {
+                    _lastGyroDeltaX = gx;
+                    _lastGyroDeltaY = gy;
+
+                    if (_mouseModeEnabled) return; // mouse mode zeroes sticks on submit — nothing to resubmit
+
+                    short lx = _lastBaseLeftX, ly = _lastBaseLeftY;
+                    short rx = _lastBaseRightX, ry = _lastBaseRightY;
+                    if (target == 1)
+                        MergeGyroStick(ref lx, ref ly, gx, gy);
+                    else
+                        MergeGyroStick(ref rx, ref ry, gx, gy);
+
+                    if (_vigem != null && _vigem.IsPluggedIn)
+                        _vigem.SubmitXboxState(_lastBaseXiBtns, _lastBaseLtrig, _lastBaseRtrig, lx, ly, rx, ry);
+                    if (_viiperEnabled)
+                        SubmitViiperState(_lastBaseXiBtns, _lastBaseLtrig, _lastBaseRtrig, lx, ly, rx, ry);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Debug($"ClawButtonMonitor: Gyro sample processing exception: {ex.Message}");
+            }
         }
 
         // ── Gyro activation gate (HC MotionManager.IsActive / MotionMode port) ───
