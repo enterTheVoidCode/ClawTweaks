@@ -22,12 +22,24 @@ namespace XboxGamingBarHelper
             {
                 if (MsiLedCompositeStore.TryLoad(out var spec))
                 {
-                    lock (_compositeLock) _currentComposite = spec;
+                    var migrated = MigrateComposite(spec);
+                    if (!ReferenceEquals(migrated, spec))
+                    {
+                        MsiLedCompositeStore.Save(migrated);   // heal the persisted file
+                        Logger.Info("[LedComposite] migrated legacy/white composite → current default");
+                    }
+                    lock (_compositeLock) _currentComposite = migrated;
                     Logger.Info("[LedComposite] Init: loaded persisted composite");
                 }
             }
             catch (Exception ex) { Logger.Debug($"[LedComposite] Init failed: {ex.Message}"); }
         }
+
+        /// <summary>The old factory default (static white) was persisted onto many devices by the
+        /// resume-clobber bug. Treat it (and the current default) as "unconfigured" and adopt the current
+        /// factory default, so those devices don't stay stuck on white.</summary>
+        private static LedCompositeSpec MigrateComposite(LedCompositeSpec spec)
+            => (spec != null && spec.IsPristineOrLegacyDefault) ? new LedCompositeSpec() : spec;
 
         /// <summary>Pipe entry point: persist + drive a new composite.</summary>
         internal static void ApplyComposite(LedCompositeSpec spec)
@@ -58,8 +70,9 @@ namespace XboxGamingBarHelper
             lock (_compositeLock) spec = _currentComposite;
             if (spec == null && MsiLedCompositeStore.TryLoad(out var s))
             {
-                spec = s;
-                lock (_compositeLock) _currentComposite = s;
+                spec = MigrateComposite(s);
+                if (!ReferenceEquals(spec, s)) MsiLedCompositeStore.Save(spec);
+                lock (_compositeLock) _currentComposite = spec;
             }
             if (spec != null) return DriveComposite(spec);
 

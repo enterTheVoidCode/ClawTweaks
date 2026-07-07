@@ -25,6 +25,7 @@ namespace XboxGamingBar
         // ── LocalSettings keys ──────────────────────────────────────────────────────
         private const string MsiLedColorKey         = "MsiClaw_LedColor";       // "R,G,B"
         private const string MsiLedBrightnessKey    = "MsiClaw_LedBrightness";  // int 0..100 (0 = LED off)
+        private const string MsiLedOnBrightnessKey  = "MsiClaw_LedOnBrightness"; // int 1..100 — level to restore when the tile turns the LED back on
         private const string MsiLedBootCycleKey     = "MsiClaw_LedBootCycle";   // bool (startup red→green→colour)
         private const string MsiChargeLimitEnabledKey = "MsiClaw_ChargeLimitOn";  // bool
         private const string MsiChargeLimitPercentKey = "MsiClaw_ChargeLimitPct"; // int 20..100
@@ -252,7 +253,10 @@ namespace XboxGamingBar
         internal void ApplyMsiLedOnOff(bool on)
         {
             EnsureCompositeLoaded();   // operate on the persisted composite, never a pre-Restore default
-            _ledComposite.Brightness = on ? 100 : 0;
+            // Remember the current on-level before switching off so turning back on restores it (instead
+            // of snapping to 100 %), then apply.
+            if (!on && _ledComposite.Brightness > 0) SetLedOnBrightness(_ledComposite.Brightness);
+            _ledComposite.Brightness = on ? GetLedOnBrightness() : 0;
             if (MsiLedBrightnessSlider != null)
             {
                 _msiLedLoading = true;
