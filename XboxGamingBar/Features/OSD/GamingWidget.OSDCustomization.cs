@@ -1353,6 +1353,96 @@ namespace XboxGamingBar
             }
         }
 
+        private void ControllerEmulationMouseAccelerationSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationMouseAccelerationValue != null)
+            {
+                ControllerEmulationMouseAccelerationValue.Text = ((int)e.NewValue).ToString();
+            }
+        }
+
+        private void ControllerEmulationMouseNudgeStepSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+        {
+            if (ControllerEmulationMouseNudgeStepValue != null)
+            {
+                ControllerEmulationMouseNudgeStepValue.Text = $"{(int)e.NewValue} px";
+            }
+        }
+
+        // Extra mouse-mode action slots (button + shortcut/nudge pairs) — shared handler for all
+        // 4 slots' button and action-type combo boxes. Not property-bound to a single control
+        // (see ControllerEmulationMouseActionSlotsProperty), so pushing/applying is manual here.
+        private (ComboBox btn, ComboBox type)[] MouseActionSlotCombos => new (ComboBox, ComboBox)[]
+        {
+            (ControllerEmulationMouseAction1ButtonComboBox, ControllerEmulationMouseAction1TypeComboBox),
+            (ControllerEmulationMouseAction2ButtonComboBox, ControllerEmulationMouseAction2TypeComboBox),
+            (ControllerEmulationMouseAction3ButtonComboBox, ControllerEmulationMouseAction3TypeComboBox),
+            (ControllerEmulationMouseAction4ButtonComboBox, ControllerEmulationMouseAction4TypeComboBox),
+        };
+
+        private void ControllerEmulationMouseActionSlot_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isApplyingMouseActionSlotsUI) return;
+
+            var parts = MouseActionSlotCombos.Select(slot =>
+                $"{Math.Max(0, slot.btn?.SelectedIndex ?? 0)}:{Math.Max(0, slot.type?.SelectedIndex ?? 0)}");
+            controllerEmulationMouseActionSlots?.SetValue(string.Join(",", parts), DateTime.Now.Ticks);
+        }
+
+        private void ApplyMouseActionSlotsToUI(string csv)
+        {
+            isApplyingMouseActionSlotsUI = true;
+            try
+            {
+                var slots = (csv ?? "0:0,0:0,0:0,0:0").Split(',');
+                var combos = MouseActionSlotCombos;
+                for (int i = 0; i < combos.Length; i++)
+                {
+                    int b = 0, t = 0;
+                    if (i < slots.Length)
+                    {
+                        var pair = slots[i].Split(':');
+                        if (pair.Length == 2) { int.TryParse(pair[0], out b); int.TryParse(pair[1], out t); }
+                    }
+                    if (combos[i].btn != null && b >= 0 && b < combos[i].btn.Items.Count) combos[i].btn.SelectedIndex = b;
+                    if (combos[i].type != null && t >= 0 && t < combos[i].type.Items.Count) combos[i].type.SelectedIndex = t;
+                }
+            }
+            finally { isApplyingMouseActionSlotsUI = false; }
+        }
+
+        // D-Pad remap — shared handler for the 4 direction combo boxes.
+        private ComboBox[] MouseDPadActionCombos => new[]
+        {
+            ControllerEmulationMouseDPadUpComboBox, ControllerEmulationMouseDPadDownComboBox,
+            ControllerEmulationMouseDPadLeftComboBox, ControllerEmulationMouseDPadRightComboBox,
+        };
+
+        private void ControllerEmulationMouseDPadAction_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (isApplyingMouseDPadActionsUI) return;
+
+            var parts = MouseDPadActionCombos.Select(c => Math.Max(0, c?.SelectedIndex ?? 0).ToString());
+            controllerEmulationMouseDPadActions?.SetValue(string.Join(",", parts), DateTime.Now.Ticks);
+        }
+
+        private void ApplyMouseDPadActionsToUI(string csv)
+        {
+            isApplyingMouseDPadActionsUI = true;
+            try
+            {
+                var parts = (csv ?? "0,0,0,0").Split(',');
+                var combos = MouseDPadActionCombos;
+                for (int i = 0; i < combos.Length; i++)
+                {
+                    int t = 0;
+                    if (i < parts.Length) int.TryParse(parts[i], out t);
+                    if (combos[i] != null && t >= 0 && t < combos[i].Items.Count) combos[i].SelectedIndex = t;
+                }
+            }
+            finally { isApplyingMouseDPadActionsUI = false; }
+        }
+
         private void ControllerEmulationMouseGainXSlider_ValueChanged(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
             if (ControllerEmulationMouseGainXValue != null)

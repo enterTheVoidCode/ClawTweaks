@@ -868,18 +868,21 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Toggle the Windows touch keyboard using COM interop
+        /// Ask the helper to open the on-screen keyboard (OpenSmart: modern touch keyboard, or the classic
+        /// OSK over windowed browsers/Electron apps where the modern one won't stay).
         /// </summary>
         private async Task ToggleTouchKeyboard()
         {
             try
             {
-                // Use helper to toggle touch keyboard via COM interop
                 if (App.IsConnected)
                 {
-                    var message = new Windows.Foundation.Collections.ValueSet { { "ToggleTouchKeyboard", true } };
-                    await App.SendMessageAsync(message);
-                    Logger.Info("Touch keyboard toggle requested via helper");
+                    // "gamebar" = tile clicked from the Game Bar widget → the helper closes Game Bar first,
+                    // so the app behind it is foreground before it decides modern-vs-OSK and shows the
+                    // keyboard. "direct" (app mode) → no dismiss. This replaces the old widget-side Win+G.
+                    string mode = (widget != null) ? "gamebar" : "direct";
+                    await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "ToggleTouchKeyboard", mode } });
+                    Logger.Info($"Keyboard tile → helper OpenSmart (mode={mode})");
                 }
                 else
                 {
@@ -895,27 +898,12 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Keyboard tile: open the on-screen keyboard, then dismiss Game Bar after a short delay.
-        /// Typing with the virtual keyboard always targets the app behind Game Bar, so Game Bar has
-        /// to get out of the way (otherwise it keeps focus and swallows the keystrokes). Mirrors how
-        /// the Overlay (custom-shortcut) tiles close Game Bar via Win+G; only when running as a widget.
+        /// Keyboard tile entry point. The helper's OpenSmart now dismisses Game Bar itself (so the app
+        /// behind it becomes foreground before deciding modern-vs-OSK) — no widget-side Win+G/delay.
         /// </summary>
-        private async void OpenKeyboardThenDismissGameBar()
+        private void OpenKeyboardThenDismissGameBar()
         {
             TriggerOnScreenKeyboard();
-            try
-            {
-                if (widget != null)
-                {
-                    await Task.Delay(350);   // let the keyboard request reach the helper / TabTip begin showing
-                    await SendKeyboardShortcutViaHelper("Win+G");
-                    Logger.Info("Game Bar dismissed (Win+G) after opening on-screen keyboard");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"OpenKeyboardThenDismissGameBar: {ex.Message}");
-            }
         }
 
         /// <summary>
