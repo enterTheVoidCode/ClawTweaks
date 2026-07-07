@@ -39,7 +39,9 @@ namespace XboxGamingBar
         private void EnsureCompositeLoaded()
         {
             if (_ledCompositeLoaded) return;
-            _ledCompositeLoaded = true;
+            // NOTE: _ledCompositeLoaded is set true only AFTER a successful load. If the load throws
+            // (e.g. LocalSettings hits a separated-RCW on a broken post-hibernate resume), it stays
+            // false so the send/persist paths are skipped (no clobber) and the load retries.
             try
             {
                 var s = ApplicationData.Current.LocalSettings.Values;
@@ -47,22 +49,39 @@ namespace XboxGamingBar
                 if (s.TryGetValue(MsiLedCompositeKey, out var cObj) && cObj is string cs && LedCompositeSpec.TryParse(cs, out var c))
                     fromLs = c;
 
-                if (fromLs != null && !fromLs.IsPristineDefault) { _ledComposite = fromLs; return; }
+                // A real, user-configured composite in LocalSettings wins (legacy white counts as unconfigured).
+                if (fromLs != null && !fromLs.IsPristineOrLegacyDefault) { _ledComposite = fromLs; _ledCompositeLoaded = true; return; }
 
-                // LocalSettings is missing or the pristine default — fall back to the helper's persisted
-                // composite (recovers the user's config if LocalSettings was reset), and adopt it into
-                // LocalSettings so the widget is authoritative again.
-                if (TryLoadCompositeFromHelperFile(out var fromFile) && !fromFile.IsPristineDefault)
+                // Else recover the user's config from the helper's persisted file (LocalSettings was reset /
+                // still on the legacy white default), and adopt it so the widget is authoritative again.
+                if (TryLoadCompositeFromHelperFile(out var fromFile) && !fromFile.IsPristineOrLegacyDefault)
                 {
                     _ledComposite = fromFile;
                     ApplicationData.Current.LocalSettings.Values[MsiLedCompositeKey] = fromFile.Serialize();
-                    Logger.Info("[MsiLed] adopted composite from helper file (LocalSettings was default)");
+                    Logger.Info("[MsiLed] adopted composite from helper file");
+                    _ledCompositeLoaded = true;
                     return;
                 }
 
-                if (fromLs != null) _ledComposite = fromLs;   // genuinely-default LocalSettings — keep it
+                // No real config anywhere (fresh / pristine / legacy-white) → keep the current factory
+                // default (already in _ledComposite) so a legacy-white device migrates to it.
+                _ledCompositeLoaded = true;
             }
             catch (Exception ex) { Logger.Warn($"[MsiLed] EnsureCompositeLoaded: {ex.Message}"); }
+        }
+
+        /// <summary>Gate for every persist/send: never write before the saved composite is confirmed
+        /// loaded, otherwise the constructed default would clobber the user's config (the resume-clobber
+        /// bug — a broken resume can fail the load, leaving _ledComposite at its default).</summary>
+        private bool CompositeReadyToSend()
+        {
+            EnsureCompositeLoaded();
+            if (!_ledCompositeLoaded)
+            {
+                Logger.Info("[MsiLed] send/persist skipped — composite not loaded yet (avoid clobber)");
+                return false;
+            }
+            return true;
         }
 
         // Reads the helper's msi_led_composite.txt from LocalState (same package folder) as a fallback source.
@@ -190,8 +209,31 @@ namespace XboxGamingBar
         // Called from MsiLedBrightnessSlider_ValueChanged (MsiClawSettings.cs).
         private void OnGlobalBrightnessChanged(int brightness)
         {
-            _ledComposite.Brightness = Math.Max(0, Math.Min(100, brightness));
+            int b = Math.Max(0, Math.Min(100, brightness));
+            _ledComposite.Brightness = b;
+            if (b > 0) SetLedOnBrightness(b);   // remember the user's on-level for the on/off tile
             SendCompositeDebounced();
+        }
+
+        /// <summary>The brightness the LED tile restores when turning the LED back on — so toggling
+        /// off/off doesn't snap back to 100 %. Persisted; defaults to 100 % when never set.</summary>
+        private int GetLedOnBrightness()
+        {
+            try
+            {
+                if (ApplicationData.Current.LocalSettings.Values.TryGetValue(MsiLedOnBrightnessKey, out var v)
+                    && v is int b && b > 0)
+                    return Math.Max(1, Math.Min(100, b));
+            }
+            catch { }
+            return 100;
+        }
+
+        private void SetLedOnBrightness(int brightness)
+        {
+            if (brightness <= 0) return;
+            try { ApplicationData.Current.LocalSettings.Values[MsiLedOnBrightnessKey] = Math.Max(1, Math.Min(100, brightness)); }
+            catch { }
         }
 
         // ── Editor <-> composite ─────────────────────────────────────────────────────────
@@ -280,6 +322,7 @@ namespace XboxGamingBar
         // ── Persist + send ───────────────────────────────────────────────────────────────
         private void SendCompositeNow()
         {
+            if (!CompositeReadyToSend()) return;
             _msiLedDebounceTimer?.Stop();
             PersistComposite();
             _ = SendMsiLedCompositeAsync(_ledComposite.Serialize());
@@ -288,6 +331,7 @@ namespace XboxGamingBar
 
         private void SendCompositeDebounced()
         {
+            if (!CompositeReadyToSend()) return;
             PersistComposite();
             if (_msiLedDebounceTimer == null)
             {

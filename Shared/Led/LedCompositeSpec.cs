@@ -76,11 +76,22 @@ namespace Shared.Led
     public sealed class LedCompositeSpec
     {
         public bool Sync = true;
-        public int SpeedIdx = 1;        // 0 slow, 1 med, 2 fast
+        public int SpeedIdx = 0;        // 0 slow, 1 med, 2 fast
         public int Brightness = 100;    // 0..100 (0 = off)
-        public LedZoneSpec Right = new LedZoneSpec();
-        public LedZoneSpec Left = new LedZoneSpec();
-        public LedZoneSpec Buttons = new LedZoneSpec();
+        public LedZoneSpec Right = DefaultZone();
+        public LedZoneSpec Left = DefaultZone();
+        public LedZoneSpec Buttons = DefaultZone();
+
+        /// <summary>Factory-default zone: Wave with 4 custom colours (cyan/orange/pink/red),
+        /// non-rainbow, counter-clockwise — a nicer out-of-box look than plain static white.</summary>
+        private static LedZoneSpec DefaultZone() => new LedZoneSpec
+        {
+            Mode = LedMainMode.Wave,
+            Rainbow = false,
+            Clockwise = false,
+            Color = new LedRgb(255, 255, 255),
+            WaveColors = new[] { new LedRgb(4, 253, 255), new LedRgb(255, 105, 11), new LedRgb(255, 1, 132), new LedRgb(255, 12, 8) }
+        };
 
         public LedZoneSpec Zone(LedZoneId id)
             => id == LedZoneId.Right ? Right : id == LedZoneId.Left ? Left : Buttons;
@@ -114,10 +125,21 @@ namespace Shared.Led
         private static int Clamp(int v, int lo, int hi) => v < lo ? lo : v > hi ? hi : v;
 
         /// <summary>
-        /// True if this equals the factory default (sync on, medium speed, full brightness, all zones
-        /// static white). Used to avoid clobbering a good persisted state with an unconfigured default.
+        /// True if this equals the current factory default (the Wave out-of-box look). Used to avoid
+        /// clobbering a good persisted state with an unconfigured default.
         /// </summary>
         public bool IsPristineDefault => Serialize() == new LedCompositeSpec().Serialize();
+
+        /// <summary>
+        /// The OLD factory default (static white, full brightness). A resume-clobber bug persisted this
+        /// onto many devices; treat it as "unconfigured" too, so those devices migrate to the current
+        /// default instead of staying stuck on white.
+        /// </summary>
+        public const string LegacyStaticWhiteDefault =
+            "1|1|1|100|0;0;1;255-255-255;255-0-0,255-255-0,0-255-0,0-0-255|0;0;1;255-255-255;255-0-0,255-255-0,0-255-0,0-0-255|0;0;1;255-255-255;255-0-0,255-255-0,0-255-0,0-0-255";
+
+        /// <summary>True if this is the current default OR the legacy static-white default (both = "unconfigured").</summary>
+        public bool IsPristineOrLegacyDefault => IsPristineDefault || Serialize() == LegacyStaticWhiteDefault;
 
         /// <summary>True if any zone is set to the Battery (SoC-tint) mode.</summary>
         public bool HasBatteryZone =>
