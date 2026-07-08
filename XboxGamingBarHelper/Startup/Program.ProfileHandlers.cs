@@ -454,12 +454,18 @@ namespace XboxGamingBarHelper
 
             performanceManager.TDP.SetProfileValue(profileManager.GlobalProfile.TDP);
             performanceManager.TDPBoostEnabled.SetValue(profileManager.GlobalProfile.TDPBoostEnabled);
-            powerManager.CPUBoost.SetValue(profileManager.GlobalProfile.CPUBoost);
+            // Prefer the reliably-persisted global boost state over GlobalProfile.CPUBoost — the
+            // latter goes stale because CPUBoost_PropertyChanged's RouteProfileSave saves into
+            // CurrentProfile (a struct copy) that doesn't reliably reach global.xml on disk (see
+            // the comment at the top of this method). Same fix as GlobalTDP.
+            bool globalBoost = Settings.LocalSettingsHelper.TryGetValue<bool>("GlobalCPUBoost", out bool persistedBoost)
+                ? persistedBoost
+                : profileManager.GlobalProfile.CPUBoost;
+            powerManager.CPUBoost.SetValue(globalBoost);
             powerManager.CPUEPP.SetValue(profileManager.GlobalProfile.CPUEPP);
             powerManager.MaxCPUState.SetValue(profileManager.GlobalProfile.MaxCPUState);
             powerManager.MinCPUState.SetValue(profileManager.GlobalProfile.MinCPUState);
             // CPU advanced (ToothNClaw port)
-            powerManager.CpuBoostMode.SetValue(profileManager.GlobalProfile.CpuBoostMode);
             powerManager.SchedulingPolicy.SetValue(profileManager.GlobalProfile.ProcessorSchedulingPolicy);
             powerManager.MaxPCoreFreq.SetValue(profileManager.GlobalProfile.MaxPCoreFreqMHz);
             powerManager.MaxECoreFreq.SetValue(profileManager.GlobalProfile.MaxECoreFreqMHz);
@@ -505,7 +511,13 @@ namespace XboxGamingBarHelper
                     // Cap is off (or RTSS mode). Preserve the user's SELECTED mode (profile.FpsCapMode)
                     // rather than forcing RTSS — otherwise an "Intel mode but currently off" profile
                     // would reopen as RTSS and the tile would cycle the wrong limiter.
-                    intelGpuManager.IntelFpsTier.SetValue(0);
+                    // Force this: IntelFpsTierProperty starts at in-memory default 0, so a plain
+                    // SetValue(0) would dedup-skip NotifyPropertyChanged (and thus ApplyTier(0))
+                    // whenever the cache already believes it's 0 — e.g. right after a helper
+                    // restart/reboot — leaving a stale Intel driver-level FPS cap from a previous
+                    // session applied even though the profile/UI show no limiter. Same rationale
+                    // as the IntelAdaptiveSharpness ForceSetValue above.
+                    intelGpuManager.IntelFpsTier.ForceSetValue(0);
                     intelGpuManager.FpsCapMode.SetValue(profile.FpsCapMode);
                     // Only push an RTSS limit when RTSS is actually the selected mode.
                     int rtssLimit = profile.FpsCapMode == 1 ? 0 : profile.FPSLimit;
@@ -604,7 +616,6 @@ namespace XboxGamingBarHelper
                         powerManager.MaxCPUState.SetValue(profileManager.CurrentProfile.MaxCPUState);
                         powerManager.MinCPUState.SetValue(profileManager.CurrentProfile.MinCPUState);
                         // CPU advanced (ToothNClaw port)
-                        powerManager.CpuBoostMode.SetValue(profileManager.CurrentProfile.CpuBoostMode);
                         powerManager.SchedulingPolicy.SetValue(profileManager.CurrentProfile.ProcessorSchedulingPolicy);
                         powerManager.MaxPCoreFreq.SetValue(profileManager.CurrentProfile.MaxPCoreFreqMHz);
                         powerManager.MaxECoreFreq.SetValue(profileManager.CurrentProfile.MaxECoreFreqMHz);
@@ -711,7 +722,6 @@ namespace XboxGamingBarHelper
                     powerManager.MaxCPUState.SetValue(gameProfile.MaxCPUState);
                     powerManager.MinCPUState.SetValue(gameProfile.MinCPUState);
                     // CPU advanced (ToothNClaw port)
-                    powerManager.CpuBoostMode.SetValue(gameProfile.CpuBoostMode);
                     powerManager.SchedulingPolicy.SetValue(gameProfile.ProcessorSchedulingPolicy);
                     powerManager.MaxPCoreFreq.SetValue(gameProfile.MaxPCoreFreqMHz);
                     powerManager.MaxECoreFreq.SetValue(gameProfile.MaxECoreFreqMHz);
@@ -1082,7 +1092,6 @@ namespace XboxGamingBarHelper
                             powerManager.MaxCPUState.SetValue(runningGameProfile.MaxCPUState);
                             powerManager.MinCPUState.SetValue(runningGameProfile.MinCPUState);
                             // CPU advanced (ToothNClaw port) — mirror the other apply paths
-                            powerManager.CpuBoostMode.SetValue(runningGameProfile.CpuBoostMode);
                             powerManager.SchedulingPolicy.SetValue(runningGameProfile.ProcessorSchedulingPolicy);
                             powerManager.MaxPCoreFreq.SetValue(runningGameProfile.MaxPCoreFreqMHz);
                             powerManager.MaxECoreFreq.SetValue(runningGameProfile.MaxECoreFreqMHz);

@@ -94,12 +94,21 @@ namespace XboxGamingBar
                     osdPositionShiftEnabled = ps;
                 if (settings.Values.TryGetValue("OSD_Opacity", out object opacity) && opacity is int op)
                     osdOpacity = op;
+                if (settings.Values.TryGetValue("OSD_BackgroundEnabled", out object bgEnabled) && bgEnabled is bool bge)
+                    osdBackgroundEnabled = bge;
+                if (settings.Values.TryGetValue("OSD_BackgroundOpacity", out object bgOpacity) && bgOpacity is int bgo)
+                    osdBackgroundOpacity = bgo;
 
                 // Update UI
                 if (AdaptiveBrightnessToggle != null) AdaptiveBrightnessToggle.IsOn = adaptiveBrightnessEnabled;
                 if (OSDPositionShiftToggle != null) OSDPositionShiftToggle.IsOn = osdPositionShiftEnabled;
                 if (OSDOpacitySlider != null) OSDOpacitySlider.Value = osdOpacity;
                 if (OSDOpacityValue != null) OSDOpacityValue.Text = $"{osdOpacity}%";
+                if (OSDBackgroundToggle != null) OSDBackgroundToggle.IsOn = osdBackgroundEnabled;
+                if (OSDBackgroundOpacityPanel != null)
+                    OSDBackgroundOpacityPanel.Visibility = osdBackgroundEnabled ? Visibility.Visible : Visibility.Collapsed;
+                if (OSDBackgroundOpacitySlider != null) OSDBackgroundOpacitySlider.Value = osdBackgroundOpacity;
+                if (OSDBackgroundOpacityValue != null) OSDBackgroundOpacityValue.Text = $"{osdBackgroundOpacity}%";
             }
             catch (Exception ex)
             {

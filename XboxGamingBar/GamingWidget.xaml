@@ -2014,7 +2014,7 @@
                                           Style="{StaticResource ModernComboBoxStyle}"
                                           SelectedIndex="1"
                                           SelectionChanged="OSPowerModeComboBox_SelectionChanged"
-                                          XYFocusDown="{x:Bind CpuBoostModeComboBox}"
+                                          XYFocusDown="{x:Bind SchedulingPolicyComboBox}"
                                           KeyDown="OSPowerModeComboBox_KeyDown">
                                     <ComboBoxItem Content="Best Power Efficiency"/>
                                     <ComboBoxItem Content="Balanced"/>
@@ -2322,7 +2322,7 @@
                                     </StackPanel>
 
                                     <!-- OSD Opacity Slider (for OLED protection) -->
-                                    <StackPanel Margin="0,8,0,8">
+                                    <StackPanel Margin="0,0,0,8">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
@@ -2342,9 +2342,56 @@
                                                 SnapsTo="Ticks"
                                                 Value="100"
                                                 XYFocusUp="{x:Bind OSDLabelColorDefaultCheckBox}"
-                                                XYFocusDown="{x:Bind OSDPositionShiftToggle}"
+                                                XYFocusDown="{x:Bind OSDBackgroundToggle}"
                                                 ValueChanged="OSDOpacitySlider_ValueChanged"/>
                                     </StackPanel>
+
+                                    <!-- Background: RTSS's native OSD fill (a real backdrop box behind the
+                                         text, rendered/sized by RTSS itself — works with every overlay
+                                         level/layout since it's not a per-line tag). Boxed separately so
+                                         it doesn't visually blend with the OSD Opacity slider above. -->
+                                    <Border Background="#20203A" BorderBrush="#3A3A5C" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,8">
+                                    <StackPanel x:Name="OSDBackgroundCard">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                <TextBlock Text="Background" Foreground="#AAAAAA" FontSize="13"/>
+                                                <TextBlock Text="Adds a dark backdrop behind the overlay for better contrast" Foreground="#707070" FontSize="11" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            <ToggleSwitch x:Name="OSDBackgroundToggle"
+                                                          Grid.Column="1"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          KeyDown="OsdPanelNav_KeyDown"
+                                                          Toggled="OSDBackgroundToggle_Toggled"/>
+                                        </Grid>
+                                        <StackPanel x:Name="OSDBackgroundOpacityPanel" Margin="0,8,0,0" Visibility="Collapsed">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="Background Opacity" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="13"/>
+                                                <TextBlock x:Name="OSDBackgroundOpacityValue"
+                                                           Grid.Column="1"
+                                                           Text="60%" FontSize="13" Foreground="#4CAF50"
+                                                           FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <Slider x:Name="OSDBackgroundOpacitySlider"
+                                                    Style="{StaticResource ModernSliderStyle}"
+                                                    Minimum="10" Maximum="100"
+                                                    TickFrequency="5"
+                                                    SnapsTo="Ticks"
+                                                    Value="60"
+                                                    Margin="0,2,0,0"
+                                                    XYFocusUp="{x:Bind OSDBackgroundToggle}"
+                                                    XYFocusDown="{x:Bind OSDPositionShiftToggle}"
+                                                    ValueChanged="OSDBackgroundOpacitySlider_ValueChanged"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    </Border>
 
                                     <!-- Position Shift Toggle (OLED burn-in protection) — hidden -->
                                     <Grid Margin="0,4,0,8" Visibility="Collapsed">
@@ -2661,40 +2708,41 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- CPU (collapsible, EXPERIMENTAL) — moved to the bottom of the Performance tab: boost mode, scheduling policy (Only P / Only E), P/E max freq (ToothNClaw port) -->
+                        <!-- CPU (collapsible, EXPERIMENTAL) — moved to the bottom of the Performance tab: boost on/off, scheduling policy (Only P / Only E), P/E max freq (ToothNClaw port) -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
-                                <!-- Header: title + caption. The Boost toggle (on/off) sits on top-right,
-                                     the "More settings" expander directly BELOW it opens the advanced submenu. -->
+                                <!-- Header: title + caption. The Boost toggle (on/off, the only boost control now)
+                                     sits on top-right, the "More settings" expander directly BELOW it opens the
+                                     advanced submenu (scheduling policy, P/E max freq). -->
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="CPU" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                            <TextBlock x:Name="CpuBoostStatusText" Text="Boost" Foreground="#4CAF50" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                         </StackPanel>
-                                        <TextBlock Text="Boost mode, scheduling policy and P/E core max frequency."
+                                        <TextBlock Text="Toggle enables/disables CPU Boost. Expand for scheduling policy and P/E core max frequency."
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"
                                                    Margin="0,0,12,0"/>
                                     </StackPanel>
 
-                                    <!-- Hidden Boost on/off carrier. The visible control is now the Boost Mode
-                                         dropdown below ("Off" + the variants). CPUBoostToggle stays in the tree
-                                         (collapsed) because cpuBoost is bound to it and the Quick-Settings boost
-                                         tile + performance-profile cards drive/read its state — those must keep
-                                         working. Dropdown <-> toggle are kept in sync in code (mode 0 = off). -->
+                                    <!-- Boost on/off — the ONLY boost control (modes removed; no meaningful
+                                         difference between Enabled/Aggressive/etc. in practice, and having two
+                                         separate writers for one Windows setting caused repeated desync bugs). -->
                                     <ToggleSwitch x:Name="CPUBoostToggle"
                                                   Grid.Column="1"
-                                                  Visibility="Collapsed"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   MinWidth="0"
-                                                  IsEnabled="False"
-                                                  KeyDown="CPUBoostToggle_KeyDown"/>
+                                                  Margin="0,0,12,0"
+                                                  KeyDown="CPUBoostToggle_KeyDown"
+                                                  Toggled="CPUBoostToggle_StatusChanged"/>
                                     <!-- Collapse/expand chevron (collapsed by default) -->
-                                    <ToggleButton x:Name="CpuCardExpandButton" Grid.Column="1" IsChecked="False"
+                                    <ToggleButton x:Name="CpuCardExpandButton" Grid.Column="2" IsChecked="False"
                                                   VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
                                                   XYFocusUp="{x:Bind PerformanceOverlayComboBox}"
                                                   KeyDown="CpuCardExpandButton_KeyDown"
@@ -2705,26 +2753,6 @@
 
                                 <!-- Collapsible content (collapsed by default). -->
                                 <StackPanel x:Name="CpuSectionContent" Visibility="Collapsed" Margin="0,12,0,0" Spacing="10">
-                                    <!-- Boost Mode (single control — includes "Off" since the on/off toggle is hidden) -->
-                                    <StackPanel>
-                                        <TextBlock Text="Boost Mode" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
-                                        <ComboBox x:Name="CpuBoostModeComboBox"
-                                                  Margin="0,4,0,0"
-                                                  HorizontalAlignment="Stretch"
-                                                  Style="{StaticResource ModernComboBoxStyle}"
-                                                  SelectionChanged="CpuBoostModeComboBox_SelectionChanged"
-                                                  KeyDown="CpuAdvancedCombo_KeyDown"
-                                                  XYFocusUp="{x:Bind PerformanceOverlayComboBox}">
-                                            <ComboBoxItem Content="Off" Tag="0"/>
-                                            <ComboBoxItem Content="Enabled" Tag="1" IsSelected="True"/>
-                                            <ComboBoxItem Content="Aggressive" Tag="2"/>
-                                            <ComboBoxItem Content="Efficient Enabled" Tag="3"/>
-                                            <ComboBoxItem Content="Efficient Aggressive" Tag="4"/>
-                                            <ComboBoxItem Content="Aggressive (Guaranteed)" Tag="5"/>
-                                            <ComboBoxItem Content="Efficient Aggr. (Guaranteed)" Tag="6"/>
-                                        </ComboBox>
-                                    </StackPanel>
-
                                     <!-- Scheduling Policy -->
                                     <StackPanel>
                                         <TextBlock Text="Processor Scheduling Policy" Style="{StaticResource CardCaptionStyle}" Margin="0"/>
@@ -6886,18 +6914,32 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- Per-Game Controller Profile Card -->
+                        <!-- Per-Game Controller Profile Card — same layout as the Performance tab's
+                             "Per Game performance & display profile" card (ActiveProfileCard): a
+                             large far-left game icon, title, then badge + detected-game text row. -->
                         <Border Style="{StaticResource CardStyle}">
                             <StackPanel>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+
+                                    <!-- Far-left: game icon, sized to the card. Collapsed (zero width)
+                                         when no game runs, so the text gets the full width. -->
+                                    <Image x:Name="LegionControllerProfileGameIcon"
+                                           Grid.Column="0"
+                                           Width="48" Height="48"
+                                           Margin="0,0,12,0"
+                                           Stretch="UniformToFill"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed"/>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,8,0">
                                         <TextBlock Text="Per-Game Controller Profile" Style="{StaticResource CardTitleStyle}"/>
-                                        <!-- Active profile mode badge moved up here, with the game status to its right -->
-                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <!-- Badge + detected game on one row: badge left, game status to its right. -->
+                                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0" VerticalAlignment="Center">
                                             <Border x:Name="ControllerProfileModeBadge"
                                                     Background="#37260C"
                                                     BorderBrush="#A06E28"
@@ -6911,25 +6953,20 @@
                                                            FontSize="11"
                                                            Foreground="#FFAA46"/>
                                             </Border>
-                                            <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
-                                                <Image x:Name="LegionControllerProfileGameIcon"
-                                                       Width="16" Height="16"
-                                                       Margin="0,0,6,0"
-                                                       Stretch="UniformToFill"
-                                                       VerticalAlignment="Center"
-                                                       Visibility="Collapsed"/>
-                                                <TextBlock x:Name="LegionControllerProfileGameText"
-                                                           Text="No game detected"
-                                                           Style="{StaticResource CardCaptionStyle}"
-                                                           VerticalAlignment="Center"/>
-                                            </StackPanel>
+                                            <TextBlock x:Name="LegionControllerProfileGameText"
+                                                       Text="No app/game detected"
+                                                       Style="{StaticResource CardCaptionStyle}"
+                                                       Margin="10,0,0,0"
+                                                       VerticalAlignment="Center"/>
                                         </StackPanel>
                                     </StackPanel>
+
                                     <ToggleSwitch x:Name="LegionControllerProfileToggle"
-                                                  Grid.Column="1"
+                                                  Grid.Column="2"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsOn="False"
                                                   IsEnabled="False"
+                                                  VerticalAlignment="Top"
                                                   Toggled="LegionControllerProfileToggle_Toggled"/>
                                 </Grid>
                                 <TextBlock x:Name="PerGameProfileHelpText"
@@ -9001,7 +9038,7 @@
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE7FC;" FontSize="16"
                                                       Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
-                                            <TextBlock Text="Button Remapping" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="Button Remapping and Macros" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
                                         </StackPanel>
                                         <TextBlock Text="Map buttons to gamepad, keyboard, or mouse"
                                                    Style="{StaticResource CardCaptionStyle}"/>
@@ -9144,20 +9181,20 @@
                                 </StackPanel>
 
                                 <!-- M1 Button (new) -->
-                                <StackPanel Margin="0,0,0,12">
+                                <Border Background="#20203A" BorderBrush="#3A3A5C" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="M1" FontSize="14" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,0,0,8"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40"/>
                                             <ColumnDefinition Width="130"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="M1" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                        <ComboBox x:Name="LegionButtonM1TypeComboBox" Grid.Column="1" Margin="0,0,8,0"
+                                        <ComboBox x:Name="LegionButtonM1TypeComboBox" Margin="0,0,8,0"
                                                   ItemTemplate="{StaticResource ButtonModeItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String><x:String>Macro</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonM1ComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
+                                        <ComboBox x:Name="LegionButtonM1ComboBox" Grid.Column="1" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
@@ -9168,19 +9205,19 @@
                                             <x:String>Select</x:String><x:String>Start</x:String>
                                             <x:String>Xbox Button</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonM1MouseComboBox" Grid.Column="2" Visibility="Collapsed"
+                                        <ComboBox x:Name="LegionButtonM1MouseComboBox" Grid.Column="1" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Left Click</x:String><x:String>Right Click</x:String><x:String>Middle Click</x:String>
                                             <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
                                         </ComboBox>
                                     </Grid>
-                                    <StackPanel x:Name="LegionButtonM1KeyboardPanel" Visibility="Collapsed" Margin="40,8,0,0" Orientation="Horizontal">
+                                    <StackPanel x:Name="LegionButtonM1KeyboardPanel" Visibility="Collapsed" Margin="0,8,0,0" Orientation="Horizontal">
                                         <StackPanel x:Name="LegionButtonM1KeyTags" Orientation="Horizontal"/>
                                         <ComboBox x:Name="LegionButtonM1KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LMeta</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RMeta</x:String>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel x:Name="LegionButtonM1MacroPanel" Visibility="Collapsed" Margin="40,8,0,0">
+                                    <StackPanel x:Name="LegionButtonM1MacroPanel" Visibility="Collapsed" Margin="0,8,0,0">
                                         <StackPanel Orientation="Horizontal">
                                             <StackPanel x:Name="LegionButtonM1MacroButtonTags" Orientation="Horizontal"/>
                                             <ComboBox x:Name="LegionButtonM1MacroButtonComboBox" Width="130" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
@@ -9219,22 +9256,23 @@
                                         </Grid>
                                     </StackPanel>
                                 </StackPanel>
+                                </Border>
 
                                 <!-- M2 Button -->
-                                <StackPanel Margin="0,0,0,12">
+                                <Border Background="#20203A" BorderBrush="#3A3A5C" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="M2" FontSize="14" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="0,0,0,8"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="40"/>
                                             <ColumnDefinition Width="130"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="M2" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="14"/>
-                                        <ComboBox x:Name="LegionButtonM2TypeComboBox" Grid.Column="1" Margin="0,0,8,0"
+                                        <ComboBox x:Name="LegionButtonM2TypeComboBox" Margin="0,0,8,0"
                                                   ItemTemplate="{StaticResource ButtonModeItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Gamepad</x:String><x:String>Keyboard</x:String><x:String>Mouse</x:String><x:String>Macro</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonM2ComboBox" Grid.Column="2" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
+                                        <ComboBox x:Name="LegionButtonM2ComboBox" Grid.Column="1" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Disabled</x:String>
                                             <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
@@ -9245,19 +9283,19 @@
                                             <x:String>Select</x:String><x:String>Start</x:String>
                                             <x:String>Xbox Button</x:String>
                                         </ComboBox>
-                                        <ComboBox x:Name="LegionButtonM2MouseComboBox" Grid.Column="2" Visibility="Collapsed"
+                                        <ComboBox x:Name="LegionButtonM2MouseComboBox" Grid.Column="1" Visibility="Collapsed"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>Left Click</x:String><x:String>Right Click</x:String><x:String>Middle Click</x:String>
                                             <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
                                         </ComboBox>
                                     </Grid>
-                                    <StackPanel x:Name="LegionButtonM2KeyboardPanel" Visibility="Collapsed" Margin="40,8,0,0" Orientation="Horizontal">
+                                    <StackPanel x:Name="LegionButtonM2KeyboardPanel" Visibility="Collapsed" Margin="0,8,0,0" Orientation="Horizontal">
                                         <StackPanel x:Name="LegionButtonM2KeyTags" Orientation="Horizontal"/>
                                         <ComboBox x:Name="LegionButtonM2KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LMeta</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RMeta</x:String>
                                         </ComboBox>
                                     </StackPanel>
-                                    <StackPanel x:Name="LegionButtonM2MacroPanel" Visibility="Collapsed" Margin="40,8,0,0">
+                                    <StackPanel x:Name="LegionButtonM2MacroPanel" Visibility="Collapsed" Margin="0,8,0,0">
                                         <StackPanel Orientation="Horizontal">
                                             <StackPanel x:Name="LegionButtonM2MacroButtonTags" Orientation="Horizontal"/>
                                             <ComboBox x:Name="LegionButtonM2MacroButtonComboBox" Width="130" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
@@ -9296,6 +9334,10 @@
                                         </Grid>
                                     </StackPanel>
                                 </StackPanel>
+                                </Border>
+
+                                <TextBlock Text="Macros simulate rapid, automated button presses and may be flagged by some games' anti-cheat systems."
+                                           FontSize="11" Foreground="#777777" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
                                 <!-- M3 Button — hidden on MSI Claw (button does not exist) -->
                                 <StackPanel Visibility="Collapsed">

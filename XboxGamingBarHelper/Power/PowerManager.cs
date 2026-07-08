@@ -41,9 +41,6 @@ namespace XboxGamingBarHelper.Power
         }
 
         // CPU advanced (ToothNClaw port)
-        private readonly CpuBoostModeProperty cpuBoostMode;
-        public CpuBoostModeProperty CpuBoostMode { get { return cpuBoostMode; } }
-
         private readonly ProcessorSchedulingPolicyProperty schedulingPolicy;
         public ProcessorSchedulingPolicyProperty SchedulingPolicy { get { return schedulingPolicy; } }
 
@@ -100,11 +97,9 @@ namespace XboxGamingBarHelper.Power
 
             // CPU advanced (ToothNClaw port). Initialize from current system values so the
             // widget shows reality; "hasUserModified" guard avoids writing back on first sync.
-            int initBoostMode = GetCpuBoostModeValue(false);
             uint initPFreq = GetCpuFreqLimit(false, isSecondary: true);
             uint initEFreq = GetCpuFreqLimit(false, isSecondary: false);
-            Logger.Info($"Initial CPU advanced: BoostMode={initBoostMode}, P-Freq={initPFreq}MHz, E-Freq={initEFreq}MHz");
-            cpuBoostMode = new CpuBoostModeProperty(initBoostMode, this);
+            Logger.Info($"Initial CPU advanced: P-Freq={initPFreq}MHz, E-Freq={initEFreq}MHz");
             schedulingPolicy = new ProcessorSchedulingPolicyProperty(-1, this); // read-back not reliable; -1 = unset until user picks
             maxPCoreFreq = new MaxPCoreFreqProperty((int)initPFreq, this);
             maxECoreFreq = new MaxECoreFreqProperty((int)initEFreq, this);
@@ -176,8 +171,11 @@ namespace XboxGamingBarHelper.Power
             var scheme = GetActiveScheme();
             var subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
             var setting = PowerGuids.GUID_PROCESSOR_PERFBOOST_MODE;
-            uint value = (uint)(enabled ? 2 : 0);
-            Logger.Info($"Set CPU Boost to {(enabled ? "Aggressive" : "Disabled")}.");
+            // "On" maps to the plain "Enabled" mode (1), not "Aggressive"/"Hoch" (2) — there used to
+            // be a separate mode dropdown that could pick Aggressive and raced with this tile's own
+            // write; that dropdown was removed (boost is plain on/off now), so 1 is simply "on".
+            uint value = (uint)(enabled ? 1 : 0);
+            Logger.Info($"Set CPU Boost to {(enabled ? "Enabled" : "Disabled")}.");
 
             var status = isAC ? PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value)
                 : PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value);
@@ -190,74 +188,6 @@ namespace XboxGamingBarHelper.Power
 
             Logger.Info($"Set CPU Boost {(isAC ? "AC" : "DC")} to {value}.");
             // Apply the updated plan
-            PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
-        }
-
-        /// <summary>
-        /// Reads the raw CPU Boost mode value (0-6). See <see cref="SetCpuBoostModeValue"/>.
-        /// </summary>
-        public static int GetCpuBoostModeValue(bool isAC)
-        {
-            var scheme = GetActiveScheme();
-            var subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
-            var setting = PowerGuids.GUID_PROCESSOR_PERFBOOST_MODE;
-
-            var status = isAC
-                ? PowrProf.PowerReadACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out uint result)
-                : PowrProf.PowerReadDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, out result);
-
-            if (status != 0)
-            {
-                Logger.Error("Can't get CPU Boost Mode value?");
-                return -1;
-            }
-
-            return (int)result;
-        }
-
-        private static readonly string[] BoostModeNames =
-            { "Disabled", "Enabled", "Aggressive", "Efficient Enabled", "Efficient Aggressive",
-              "Aggressive At Guaranteed", "Efficient Aggressive At Guaranteed" };
-
-        /// <summary>
-        /// Sets the CPU Boost mode to an explicit value (0-6, ToothNClaw mapping):
-        /// 0=Disabled, 1=Enabled, 2=Aggressive, 3=Efficient Enabled, 4=Efficient Aggressive,
-        /// 5=Aggressive At Guaranteed, 6=Efficient Aggressive At Guaranteed.
-        /// </summary>
-        public static void SetCpuBoostModeValue(bool isAC, int mode)
-        {
-            if (mode < 0) return;          // unset — don't touch
-            if (mode > 6) mode = 6;
-
-            // Save original values before first modification (for clean uninstall)
-            try
-            {
-                bool currentAC = GetCpuBoostMode(true);
-                bool currentDC = GetCpuBoostMode(false);
-                SystemRestoreService.SaveOriginalCpuBoost(currentAC, currentDC);
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"Failed to save original CPU Boost values: {ex.Message}");
-            }
-
-            var scheme = GetActiveScheme();
-            var subgroup = PowerGuids.GUID_PROCESSOR_SETTINGS_SUBGROUP;
-            var setting = PowerGuids.GUID_PROCESSOR_PERFBOOST_MODE;
-            uint value = (uint)mode;
-
-            var status = isAC
-                ? PowrProf.PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value)
-                : PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value);
-
-            if (status != 0)
-            {
-                Logger.Error($"Can't set CPU Boost Mode value to {mode}.");
-                return;
-            }
-
-            string name = mode >= 0 && mode < BoostModeNames.Length ? BoostModeNames[mode] : mode.ToString();
-            Logger.Info($"Set CPU Boost Mode {(isAC ? "AC" : "DC")} to {mode} ({name}).");
             PowrProf.PowerSetActiveScheme(IntPtr.Zero, ref scheme);
         }
 
@@ -354,11 +284,42 @@ namespace XboxGamingBarHelper.Power
         /// and is gone; this conditional check stays only as cheap insurance for genuine power events
         /// (sleep/resume, AC/DC switch) that could legitimately reset the scheme.
         /// </summary>
+        // Set while EnforceCpuAdvanced is pushing a system-readback value into cpuBoost purely to
+        // correct the widget display. SyncFromSystem already stops the write from bouncing back to
+        // Windows, but SetValue still raises the normal PropertyChanged event — which
+        // CPUBoost_PropertyChanged (Program.PropertyHandlers.cs) also listens to, in order to PERSIST
+        // any change into the active profile. Without this flag, an external tool nudging Windows'
+        // boost setting gets silently adopted into ClawTweaks' own profile within one enforce tick —
+        // turning a transient external change into a permanent one.
+        internal static bool IsSyncingBoostDisplay { get; private set; }
+
         private void EnforceCpuAdvanced()
         {
             if (!CpuAdvancedApply.Enabled) return;
             try
             {
+                // CPU Boost readback: unlike the P/E freq caps below, this doesn't re-apply our own
+                // value — it corrects the WIDGET DISPLAY (the on/off tile) to match Windows' true
+                // current state. CPUBoostProperty only ever reads the system once (at helper startup)
+                // and is otherwise write-only, so an external change (e.g. MSI Center M, or a raw
+                // powercfg edit) would leave it stale indefinitely.
+                if (cpuBoost != null)
+                {
+                    bool systemBoostAc = GetCpuBoostMode(true);
+                    bool systemBoostDc = GetCpuBoostMode(false);
+                    bool systemBoostOn = systemBoostAc || systemBoostDc;
+                    if (cpuBoost.Value != systemBoostOn)
+                    {
+                        // Info, not Debug: NLog.config filters Debug below minlevel="Info", and an
+                        // external boost change is a meaningful, infrequent event worth keeping
+                        // visible in the log, unlike the per-tick freq-drift noise below.
+                        Logger.Info($"[CpuEnforce] CPU Boost drifted externally (AC={systemBoostAc}, DC={systemBoostDc}, cached={cpuBoost.Value}) → syncing display to {systemBoostOn}");
+                        IsSyncingBoostDisplay = true;
+                        try { cpuBoost.SyncFromSystem(systemBoostOn); }
+                        finally { IsSyncingBoostDisplay = false; }
+                    }
+                }
+
                 int pf = maxPCoreFreq?.Value ?? 0;
                 int ef = maxECoreFreq?.Value ?? 0;
                 int sp = schedulingPolicy?.Value ?? -1;

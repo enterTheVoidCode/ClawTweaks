@@ -71,12 +71,6 @@ namespace XboxGamingBarHelper.Profile
         }
 
         // CPU advanced (ToothNClaw port)
-        public int CpuBoostMode
-        {
-            get { return value.CpuBoostMode; }
-            set { if (this.value.CpuBoostMode != value) this.value.CpuBoostMode = value; }
-        }
-
         public int ProcessorSchedulingPolicy
         {
             get { return value.ProcessorSchedulingPolicy; }

@@ -323,6 +323,7 @@
     <Compile Include="RTSS\RTSSFPSLimiter.cs" />
     <Compile Include="RTSS\RTSSManager.cs" />
     <Compile Include="RTSS\RtssFontManager.cs" />
+    <Compile Include="RTSS\RtssBackgroundManager.cs" />
     <Compile Include="Intel\IGCLBackend.cs" />
     <Compile Include="Intel\IntelGpuManager.cs" />
     <Compile Include="Intel\IntelFpsTierProperty.cs" />

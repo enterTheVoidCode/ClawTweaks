@@ -131,22 +131,7 @@ namespace Shared.Data
 
         // ========== CPU Advanced (ToothNClaw port) ==========
         // -1 = "unset" (don't apply / fall back). For freq, 0 = unlimited.
-
-        /// <summary>CPU Boost mode: -1=unset(use CPUBoost bool), 0=Disabled,1=Enabled,2=Aggressive,3=EfficientEnabled,4=EfficientAggressive,5=AggressiveAtGuaranteed,6=EfficientAggressiveAtGuaranteed.</summary>
-        [XmlElement("CpuBoostMode")]
-        private int cpuBoostMode;
-        public int CpuBoostMode
-        {
-            get { return cpuBoostMode; }
-            set
-            {
-                if (cpuBoostMode != value)
-                {
-                    cpuBoostMode = value;
-                    Save();
-                }
-            }
-        }
+        // (Boost mode was removed — boost is plain on/off now, see CPUBoost above.)
 
         /// <summary>Processor scheduling policy: -1=unset, 0=Auto, 1=PreferPCore, 2=PreferECore, 3=OnlyPCore, 4=OnlyECore.</summary>
         [XmlElement("ProcessorSchedulingPolicy")]
@@ -1364,7 +1349,6 @@ namespace Shared.Data
             tdpBoostEnabled = inTDPBoostEnabled;
             tdpBoostFPPTWatts = 0; // 0 = not set (use device default)
             // CPU advanced (ToothNClaw port): -1 = unset, 0 = unlimited (freq)
-            cpuBoostMode = -1;
             processorSchedulingPolicy = -1;
             maxPCoreFreqMHz = 0;
             maxECoreFreqMHz = 0;

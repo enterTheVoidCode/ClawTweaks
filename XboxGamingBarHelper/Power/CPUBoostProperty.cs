@@ -10,14 +10,30 @@ namespace XboxGamingBarHelper.Power
         private bool _hasUserModified = false;
         private bool _initialValue;
 
+        // Set while a periodic system readback (EnforceCpuAdvanced) is pushing the true current
+        // value into this property purely to correct the display — never write it back to the
+        // system, or we'd fight whatever external tool (e.g. MSI Center M) just changed it.
+        private bool _isSyncingFromSystem = false;
+
         public CPUBoostProperty(bool inValue, PowerManager inManager) : base(inValue, null, Function.CPUBoost, inManager)
         {
             _initialValue = inValue;
         }
 
+        /// <summary>Reflects the true current system value in the UI without writing back to Windows.</summary>
+        public void SyncFromSystem(bool systemValue)
+        {
+            if (Value == systemValue) return;
+            _isSyncingFromSystem = true;
+            try { SetValue(systemValue); }
+            finally { _isSyncingFromSystem = false; }
+        }
+
         protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
+
+            if (_isSyncingFromSystem) return;
 
             // Only apply to system if user has explicitly changed the value
             // This prevents overwriting system settings on first startup/sync

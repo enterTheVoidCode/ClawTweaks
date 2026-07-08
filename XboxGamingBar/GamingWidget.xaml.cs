@@ -98,7 +98,6 @@ namespace XboxGamingBar
         // CPU Affinity as "pCores,eCores" string
         public string CPUAffinity { get; set; } = "";
         // CPU advanced (ToothNClaw port). -1 = unset; for freq 0 = unlimited.
-        public int CpuBoostMode { get; set; } = -1;
         public int ProcessorSchedulingPolicy { get; set; } = -1;
         public int MaxPCoreFreqMHz { get; set; } = 0;
         public int MaxECoreFreqMHz { get; set; } = 0;
@@ -152,7 +151,6 @@ namespace XboxGamingBar
                 StickyTDPInterval = this.StickyTDPInterval,
                 OverlayLevel = this.OverlayLevel,
                 CPUAffinity = this.CPUAffinity,
-                CpuBoostMode = this.CpuBoostMode,
                 ProcessorSchedulingPolicy = this.ProcessorSchedulingPolicy,
                 MaxPCoreFreqMHz = this.MaxPCoreFreqMHz,
                 MaxECoreFreqMHz = this.MaxECoreFreqMHz,
@@ -2000,8 +1998,8 @@ namespace XboxGamingBar
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
-            // CPU advanced (ToothNClaw port): boost mode + scheduling policy + P/E max freq
-            cpuBoostMode = new CpuIntComboProperty(1, Shared.Enums.Function.CpuBoostMode, CpuBoostModeComboBox, this);
+            // CPU advanced (ToothNClaw port): scheduling policy + P/E max freq. Boost is the plain
+            // CPUBoostProperty above (cpuBoost) — no separate mode combo (removed; see GamingWidget.CpuAdvanced.cs).
             schedulingPolicy = new CpuIntComboProperty(0, Shared.Enums.Function.ProcessorSchedulingPolicy, SchedulingPolicyComboBox, this);
             maxPCoreFreq = new CpuIntComboProperty(0, Shared.Enums.Function.MaxPCoreFreqMHz, MaxPCoreFreqComboBox, this);
             maxECoreFreq = new CpuIntComboProperty(0, Shared.Enums.Function.MaxECoreFreqMHz, MaxECoreFreqComboBox, this);
@@ -2477,7 +2475,6 @@ namespace XboxGamingBar
                 perGameProfile,
                 cpuBoost,
                 cpuEPP,
-                cpuBoostMode,
                 schedulingPolicy,
                 maxPCoreFreq,
                 maxECoreFreq,
@@ -3860,9 +3857,10 @@ namespace XboxGamingBar
         {
             bool gameActive = HasValidGame(newGameName);
 
-            // Update subtitle: show game name or "Global Profile"
+            // Update subtitle: same "Detected: X" / "No app/game detected" wording as the
+            // Performance tab's Per Game performance & display profile card (DetectedGameText).
             if (LegionControllerProfileGameText != null)
-                LegionControllerProfileGameText.Text = gameActive ? newGameName : "Global Profile";
+                LegionControllerProfileGameText.Text = gameActive ? $"Detected: {newGameName}" : "No app/game detected";
 
             if (LegionControllerProfileToggle == null)
             {

@@ -106,6 +106,15 @@ namespace XboxGamingBarHelper
                 return;
             }
 
+            // Skip a display-only readback sync (EnforceCpuAdvanced correcting the widget to match
+            // Windows' true state) — persisting it here would adopt a transient external change
+            // (e.g. MSI Center M) into the profile permanently. See PowerManager.IsSyncingBoostDisplay.
+            if (Power.PowerManager.IsSyncingBoostDisplay)
+            {
+                Logger.Debug($"Skipping CPUBoost_PropertyChanged - system readback sync, not a real change");
+                return;
+            }
+
             // Skip stale widget messages during cooldown after profile switch
             if (IsInProfileSwitchCooldown())
             {
@@ -119,6 +128,31 @@ namespace XboxGamingBarHelper
             RouteProfileSave(ProfileSaveFlagsState.CPUBoost, "CPUBoost",
                 cur => cur.CPUBoost = powerManager.CPUBoost,
                 (ref Shared.Data.GameProfile glo) => glo.CPUBoost = powerManager.CPUBoost);
+
+            // Persist the user's GLOBAL boost state reliably (same fix as TDP_PropertyChanged):
+            // RouteProfileSave's onCurrent path saves into CurrentProfile (a struct copy) which
+            // does not reliably reach global.xml on disk (GlobalProfile stays stale — same root
+            // cause documented in RestoreGlobalProfileSettings). Without this, the very next
+            // "Refreshed GlobalProfile from disk" (fires whenever Game Bar reopens with no game
+            // running) re-reads the stale on-disk value and silently reverts the user's toggle —
+            // observed as "boost turns back on by itself". LocalSettingsHelper is a separate,
+            // reliably-written store (same one TDP uses) and RestoreGlobalProfileSettings now
+            // prefers it over the flaky GlobalProfile.CPUBoost.
+            try
+            {
+                bool gameRunning = systemManager?.RunningGame?.Value.IsValid() == true;
+                if (!gameRunning)
+                {
+                    bool globalBoost = powerManager.CPUBoost.Value;
+                    Settings.LocalSettingsHelper.SetValue("GlobalCPUBoost", globalBoost);
+                    Logger.Info($"[CPUBoost-Persist] Saved global CPU Boost = {globalBoost} (no game running)");
+                }
+                else
+                {
+                    Logger.Debug("[CPUBoost-Persist] Skipped (game running → per-game boost, not global)");
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"Persist GlobalCPUBoost failed: {ex.Message}"); }
         }
 
         private static void CPUEPP_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -145,17 +179,9 @@ namespace XboxGamingBarHelper
                 (ref Shared.Data.GameProfile glo) => glo.CPUEPP = powerManager.CPUEPP);
         }
 
-        // ===== CPU advanced (ToothNClaw port): Boost mode, scheduling policy, P/E max freq =====
-
-        private static void CpuBoostMode_PropertyChanged(object sender, PropertyChangedEventArgs e)
-        {
-            if (isApplyingProfile) { Logger.Debug("Skipping CpuBoostMode_PropertyChanged - applying profile"); return; }
-            if (IsInProfileSwitchCooldown()) { Logger.Debug("Skipping CpuBoostMode_PropertyChanged - cooldown"); return; }
-
-            RouteProfileSave(ProfileSaveFlagsState.CpuAdvanced, "CpuBoostMode",
-                cur => cur.CpuBoostMode = powerManager.CpuBoostMode,
-                (ref Shared.Data.GameProfile glo) => glo.CpuBoostMode = powerManager.CpuBoostMode);
-        }
+        // ===== CPU advanced (ToothNClaw port): scheduling policy, P/E max freq =====
+        // Boost mode was removed — Boost is now plain on/off (CPUBoost_PropertyChanged above),
+        // a single writer to Windows' PERFBOOSTMODE instead of two racing ones.
 
         private static void SchedulingPolicy_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {

@@ -1327,7 +1327,6 @@ namespace XboxGamingBarHelper
                 powerManager.MaxCPUState,
                 powerManager.MinCPUState,
                 powerManager.OSPowerMode,
-                powerManager.CpuBoostMode,
                 powerManager.SchedulingPolicy,
                 powerManager.MaxPCoreFreq,
                 powerManager.MaxECoreFreq,
@@ -1619,7 +1618,6 @@ namespace XboxGamingBarHelper
             powerManager.CPUEPP.PropertyChanged += CPUEPP_PropertyChanged;
             powerManager.MaxCPUState.PropertyChanged += CPUState_PropertyChanged;
             powerManager.MinCPUState.PropertyChanged += CPUState_PropertyChanged;
-            powerManager.CpuBoostMode.PropertyChanged += CpuBoostMode_PropertyChanged;
             powerManager.SchedulingPolicy.PropertyChanged += SchedulingPolicy_PropertyChanged;
             powerManager.MaxPCoreFreq.PropertyChanged += MaxCoreFreq_PropertyChanged;
             powerManager.MaxECoreFreq.PropertyChanged += MaxCoreFreq_PropertyChanged;

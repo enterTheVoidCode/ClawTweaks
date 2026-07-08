@@ -783,13 +783,6 @@ namespace XboxGamingBar
                         rowIndex++;
 
                         // CPU advanced (ToothNClaw port) — only when set on either profile.
-                        if (gameAC.CpuBoostMode > 0 || gameDC.CpuBoostMode > 0)
-                        {
-                            AddTextBlock(acDcGrid, rowIndex, 0, "Boost Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                            AddTextBlock(acDcGrid, rowIndex, 1, GetCpuBoostModeName(gameAC.CpuBoostMode) ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                            AddTextBlock(acDcGrid, rowIndex, 2, GetCpuBoostModeName(gameDC.CpuBoostMode) ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                            rowIndex++;
-                        }
                         if (gameAC.ProcessorSchedulingPolicy >= 0 || gameDC.ProcessorSchedulingPolicy >= 0)
                         {
                             AddTextBlock(acDcGrid, rowIndex, 0, "Scheduling", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
@@ -1114,16 +1107,6 @@ namespace XboxGamingBar
 
         // ===== CPU advanced (ToothNClaw port) — card formatting helpers =====
 
-        private static readonly string[] CpuBoostModeNames =
-            { "Disabled", "Enabled", "Aggressive", "Eff. Enabled", "Eff. Aggressive", "Aggr. (Guar.)", "Eff. Aggr. (Guar.)" };
-
-        internal static string GetCpuBoostModeName(int mode)
-        {
-            if (mode < 0) return null;            // unset
-            if (mode >= 0 && mode < CpuBoostModeNames.Length) return CpuBoostModeNames[mode];
-            return mode.ToString();
-        }
-
         internal static string GetSchedulingPolicyName(int policy)
         {
             switch (policy)
@@ -1165,9 +1148,6 @@ namespace XboxGamingBar
             if (SaveCPUBoost)
             {
                 pairs.Add(("CPU Boost", game.CPUBoost ? "On" : "Off"));
-                string boostModeName = GetCpuBoostModeName(game.CpuBoostMode);
-                if (game.CpuBoostMode > 0 && boostModeName != null)
-                    pairs.Add(("Boost Mode", boostModeName));
                 string schedName = GetSchedulingPolicyName(game.ProcessorSchedulingPolicy);
                 if (game.ProcessorSchedulingPolicy >= 0 && schedName != null)
                     pairs.Add(("Scheduling", schedName));

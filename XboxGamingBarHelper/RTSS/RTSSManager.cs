@@ -19,7 +19,6 @@ namespace XboxGamingBarHelper.RTSS
     internal class RTSSManager : OnScreenDisplayManager
     {
         private const string OSDSeparator = " <C=6E006A>|<C> ";
-        private const string OSDBackground = "<P=0,0><L0><C=80000000><B=0,0>\b<C>";
         private const string OSDAppName = "GoTweaks OSD";
 
         // Set true while an in-app RTSS uninstall runs, so this manager's Update loop does not
@@ -112,7 +111,6 @@ namespace XboxGamingBarHelper.RTSS
         private int osdTextSize = 150;        // Percentage: 50=Small, 100=Medium, 125=Medium-Large, 150=Default, 175=Large, 200=X-Large, 250=XX-Large, 300=XXX-Large
         private string osdTextColor = "FFFFFF";
         private string osdLabelColor = "DEFAULT";  // DEFAULT = use item-specific colors, or hex color code
-        private string osdBackgroundColor = "80000000";
         private int osdOpacity = 100;         // Percentage: 10-100, darkens OSD colors for OLED protection
 
         // OSD position offset for OLED burn-in protection
@@ -356,10 +354,26 @@ namespace XboxGamingBarHelper.RTSS
                         osdLabelColor = value;
                         Logger.Debug($"OSD LabelColor: {value}");
                     }
-                    else if (key == "BackgroundColor")
+                    else if (key == "Background")
                     {
-                        osdBackgroundColor = value;
-                        Logger.Debug($"OSD BackgroundColor: {value}");
+                        // value = "Enabled|OpacityPercent" (e.g. "1|60"). Applied via RTSS's native
+                        // OSD fill ([OSD] EnableFill/FillColor in the Global profile) — a real
+                        // RTSS-rendered backdrop, sized/positioned by RTSS itself so it automatically
+                        // fits whatever overlay level/layout is currently active (Basic/Horizontal/
+                        // Horizontal Detailed/Full), unlike a per-line text-tag hack. Applied off-thread
+                        // like the font (may rewrite the Global profile + live-reload RTSS).
+                        bool bgEnabled = false;
+                        int bgOpacity = 60;
+                        int bar = value.IndexOf('|');
+                        if (bar >= 0)
+                        {
+                            bgEnabled = value.Substring(0, bar) == "1";
+                            int.TryParse(value.Substring(bar + 1), out bgOpacity);
+                        }
+                        bool enabledCapture = bgEnabled;
+                        int opacityCapture = bgOpacity;
+                        _ = System.Threading.Tasks.Task.Run(() => RtssBackgroundManager.EnsureBackground(enabledCapture, opacityCapture));
+                        Logger.Debug($"OSD Background: enabled={bgEnabled} opacity={bgOpacity}");
                     }
                     else if (key == "Opacity")
                     {
