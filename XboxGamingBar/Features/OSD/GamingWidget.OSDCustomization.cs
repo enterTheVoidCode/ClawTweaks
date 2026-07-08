@@ -158,6 +158,8 @@ namespace XboxGamingBar
         private bool osdPositionShiftEnabled = false;
         private bool frametimeGraphPinned = false;
         private int osdOpacity = 100; // percentage 10-100
+        private bool osdBackgroundEnabled = false; // RTSS native OSD fill ([OSD] EnableFill)
+        private int osdBackgroundOpacity = 60; // percentage 10-100 ([OSD] FillColor alpha)
         private bool isLoadingOLEDSettings = false;
         private bool isLoadingPerformanceOverlaySetting = false;
         private readonly Windows.UI.Xaml.Shapes.Ellipse[] fanCurvePoints = new Windows.UI.Xaml.Shapes.Ellipse[10];
@@ -200,6 +202,8 @@ namespace XboxGamingBar
         private int deviceTDPMax = 35;
         private DispatcherTimer tdpLimitsDebounceTimer;
         private const int TDP_LIMITS_DEBOUNCE_MS = 300;
+        private DispatcherTimer osdBackgroundDebounceTimer;
+        private const int OSD_BACKGROUND_DEBOUNCE_MS = 300;
 
         // TDP Custom Presets
         private bool useCustomTDPPresets = false;
@@ -564,6 +568,8 @@ namespace XboxGamingBar
                 settings.Values["OSD_TextColor"] = osdTextColor;
                 settings.Values["OSD_LabelColor"] = osdLabelColor;
                 settings.Values["OSD_Opacity"] = osdOpacity;
+                settings.Values["OSD_BackgroundEnabled"] = osdBackgroundEnabled;
+                settings.Values["OSD_BackgroundOpacity"] = osdBackgroundOpacity;
                 settings.Values["OSD_FrametimeGraphPinned"] = frametimeGraphPinned;
 
                 Logger.Info($"OSD configuration saved to storage (resolution: {currentRes}, text size: {osdTextSize}, opacity: {osdOpacity})");
@@ -718,6 +724,14 @@ namespace XboxGamingBar
                 {
                     osdOpacity = opacity;
                 }
+                if (settings.Values.TryGetValue("OSD_BackgroundEnabled", out object bgEnabledVal) && bgEnabledVal is bool bgEnabled)
+                {
+                    osdBackgroundEnabled = bgEnabled;
+                }
+                if (settings.Values.TryGetValue("OSD_BackgroundOpacity", out object bgOpacityVal) && bgOpacityVal is int bgOpacity)
+                {
+                    osdBackgroundOpacity = bgOpacity;
+                }
                 if (settings.Values.TryGetValue("OSD_FrametimeGraphPinned", out object pinnedVal) && pinnedVal is bool pinned)
                 {
                     frametimeGraphPinned = pinned;
@@ -759,6 +773,7 @@ namespace XboxGamingBar
                 configParts.Add($"TextColor:{osdTextColor}");
                 configParts.Add($"LabelColor:{osdLabelColor}");
                 configParts.Add($"Opacity:{osdOpacity}");
+                configParts.Add($"Background:{(osdBackgroundEnabled ? 1 : 0)}|{osdBackgroundOpacity}");
                 configParts.Add($"FrametimeGraphPinned:{(frametimeGraphPinned ? "1" : "0")}");
 
                 // Add per-level item configuration
@@ -847,7 +862,8 @@ namespace XboxGamingBar
             {
                 OSDColumnsComboBox, OSDTextSizeComboBox, OSDFontComboBox,
                 OSDTextColorDynamicCheckBox, OSDLabelColorDefaultCheckBox,
-                OSDOpacitySlider, OSDPositionShiftToggle, FrametimeGraphPinnedToggle
+                OSDOpacitySlider, OSDBackgroundToggle, OSDBackgroundOpacitySlider,
+                OSDPositionShiftToggle, FrametimeGraphPinnedToggle
             };
         }
 
@@ -894,7 +910,7 @@ namespace XboxGamingBar
             if (isOSDCustomizeExpanded && OSDTextSizeComboBox != null)
                 OSDTextSizeComboBox.Focus(Windows.UI.Xaml.FocusState.Keyboard);
             else
-                CpuBoostModeComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                CPUBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
             e.Handled = true;
         }
 
@@ -904,6 +920,48 @@ namespace XboxGamingBar
             osdOpacity = (int)Math.Round(e.NewValue);
             if (OSDOpacityValue != null)
                 OSDOpacityValue.Text = $"{osdOpacity}%";
+            SaveOSDConfigToStorage();
+            SendOSDConfigToHelper();
+        }
+
+        private void OSDBackgroundToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+            osdBackgroundEnabled = OSDBackgroundToggle.IsOn;
+            if (OSDBackgroundOpacityPanel != null)
+                OSDBackgroundOpacityPanel.Visibility = osdBackgroundEnabled ? Visibility.Visible : Visibility.Collapsed;
+            SaveOSDConfigToStorage();
+            SendOSDConfigToHelper();
+        }
+
+        private void OSDBackgroundOpacitySlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            if (isLoadingOSDConfig) return;
+            osdBackgroundOpacity = (int)Math.Round(e.NewValue);
+            if (OSDBackgroundOpacityValue != null)
+                OSDBackgroundOpacityValue.Text = $"{osdBackgroundOpacity}%";
+            // Debounced: the helper writes + live-reloads RTSS's Global profile file for every call,
+            // so firing on every drag tick races concurrent file writes and can leave RTSS with a
+            // stale value until it happens to restart (e.g. next reboot). Only send the settled value.
+            StartOsdBackgroundDebounce();
+        }
+
+        private void StartOsdBackgroundDebounce()
+        {
+            if (osdBackgroundDebounceTimer == null)
+            {
+                osdBackgroundDebounceTimer = new DispatcherTimer();
+                osdBackgroundDebounceTimer.Interval = TimeSpan.FromMilliseconds(OSD_BACKGROUND_DEBOUNCE_MS);
+                osdBackgroundDebounceTimer.Tick += OsdBackgroundDebounceTimer_Tick;
+            }
+
+            osdBackgroundDebounceTimer.Stop();
+            osdBackgroundDebounceTimer.Start();
+        }
+
+        private void OsdBackgroundDebounceTimer_Tick(object sender, object e)
+        {
+            osdBackgroundDebounceTimer?.Stop();
             SaveOSDConfigToStorage();
             SendOSDConfigToHelper();
         }

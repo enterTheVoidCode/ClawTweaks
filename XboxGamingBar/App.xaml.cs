@@ -644,7 +644,9 @@ namespace XboxGamingBar
         /// <summary>
         /// Post-update notice window: shown instead of the standalone widget window on the first launch
         /// right after an in-app update (see OnLaunched / JustUpdated). Replaces the hanging OS splash
-        /// with a clear "close this and open Game Bar" message. Auto-closes after a short while.
+        /// with a clear "close this and open Game Bar" message. It tries to auto-close after a short
+        /// while, but that doesn't always fire, so the text must not depend on it and instead tells the
+        /// user exactly what to do next (open Game Bar, select ClawTweaks, approve the admin prompt).
         /// </summary>
         private void ShowPostUpdateNotice()
         {
@@ -660,7 +662,7 @@ namespace XboxGamingBar
             };
             var body = new Windows.UI.Xaml.Controls.TextBlock
             {
-                Text = "This window closes automatically in a moment. ClawTweaks runs inside the Xbox Game Bar — press Win + G to open it, and approve the administrator prompt if it appears.",
+                Text = "You can close this window. Press Win + G to open the Xbox Game Bar, select ClawTweaks, and wait for the administrator prompt to appear — approve it to finish.",
                 FontSize = 15,
                 Foreground = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 205)),
                 HorizontalAlignment = Windows.UI.Xaml.HorizontalAlignment.Center,

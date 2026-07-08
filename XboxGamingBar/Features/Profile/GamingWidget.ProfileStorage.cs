@@ -97,7 +97,6 @@ namespace XboxGamingBar
             container.Values["StickyTDPInterval"] = profile.StickyTDPInterval;
             container.Values["OverlayLevel"] = profile.OverlayLevel;
             container.Values["CPUAffinity"] = profile.CPUAffinity;
-            container.Values["CpuBoostMode"] = profile.CpuBoostMode;
             container.Values["ProcessorSchedulingPolicy"] = profile.ProcessorSchedulingPolicy;
             container.Values["MaxPCoreFreqMHz"] = profile.MaxPCoreFreqMHz;
             container.Values["MaxECoreFreqMHz"] = profile.MaxECoreFreqMHz;
@@ -169,7 +168,6 @@ namespace XboxGamingBar
                 profile.StickyTDPInterval = container.Values.ContainsKey("StickyTDPInterval") ? (int)container.Values["StickyTDPInterval"] : 5;
                 profile.OverlayLevel = container.Values.ContainsKey("OverlayLevel") ? (int)container.Values["OverlayLevel"] : 0;
                 profile.CPUAffinity = container.Values.ContainsKey("CPUAffinity") ? (string)container.Values["CPUAffinity"] : "";
-                profile.CpuBoostMode = container.Values.ContainsKey("CpuBoostMode") ? (int)container.Values["CpuBoostMode"] : -1;
                 profile.ProcessorSchedulingPolicy = container.Values.ContainsKey("ProcessorSchedulingPolicy") ? (int)container.Values["ProcessorSchedulingPolicy"] : -1;
                 profile.MaxPCoreFreqMHz = container.Values.ContainsKey("MaxPCoreFreqMHz") ? (int)container.Values["MaxPCoreFreqMHz"] : 0;
                 profile.MaxECoreFreqMHz = container.Values.ContainsKey("MaxECoreFreqMHz") ? (int)container.Values["MaxECoreFreqMHz"] : 0;

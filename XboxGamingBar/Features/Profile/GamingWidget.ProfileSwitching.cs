@@ -240,11 +240,10 @@ namespace XboxGamingBar
             }
             // CPU advanced (ToothNClaw port): capture combo selections into the profile so the
             // saved cards reflect them. Tracked under the CPU Boost save flag (same CPU group).
+            // Boost mode itself was removed (see GamingWidget.CpuAdvanced.cs) — CPUBoost above already
+            // captures the plain on/off state.
             if (SaveCPUBoost)
             {
-                if (CpuBoostModeComboBox != null)
-                    profile.CpuBoostMode = (CPUBoostToggle != null && CPUBoostToggle.IsOn)
-                        ? GetSelectedTagInt(CpuBoostModeComboBox, 1) : 0;
                 if (SchedulingPolicyComboBox != null)
                     profile.ProcessorSchedulingPolicy = GetSelectedTagInt(SchedulingPolicyComboBox, 0);
                 if (MaxPCoreFreqComboBox != null)
