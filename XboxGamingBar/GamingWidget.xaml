@@ -5056,48 +5056,6 @@
                                 <StackPanel x:Name="DebugContent" Visibility="Collapsed" Margin="0,12,0,0">
                                     <!-- Theme selector moved to the top of the System tab (Appearance card) -->
 
-                                    <!-- ═══ EXPERIMENTAL: Controller HID probe + native MSI fan detection ═══
-                                         Harness to reverse-engineer the controller config (button remap) the
-                                         same way the LED protocol was cracked: send a raw vendor frame,
-                                         read the response, diff against MSI Center M changes. -->
-                                    <Border Background="#14000000" BorderBrush="#3D5A80" BorderThickness="1"
-                                            CornerRadius="6" Padding="12" Margin="0,0,0,12">
-                                        <StackPanel>
-                                            <TextBlock Text="Controller HID Probe (experimental)"
-                                                       FontSize="13" FontWeight="SemiBold" Foreground="#4AB3F4"/>
-                                            <TextBlock Text="Send a raw vendor frame (hex bytes) to the physical controller and read the response. Framing: 0F 00 00 3C [opcode] … . Requires controller emulation ON. Read Gamepad Mode = known-good test (0F 00 00 3C 26)."
-                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}"
-                                                       TextWrapping="Wrap" Margin="0,2,0,8"/>
-                                            <TextBox x:Name="ClawHidProbeInput"
-                                                     Text="0F 00 00 3C 26"
-                                                     FontFamily="Consolas, Courier New"
-                                                     Header="Hex frame"
-                                                     Margin="0,0,0,6"/>
-                                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
-                                                <CheckBox x:Name="ClawHidProbeReadCheck" Content="Read response" IsChecked="True"
-                                                          Foreground="#FFFFFF" VerticalAlignment="Center"/>
-                                                <Button Content="Send frame" Style="{StaticResource ModernButtonStyle}"
-                                                        FontSize="11" Padding="10,4" Click="ClawHidProbeSend_Click"/>
-                                                <Button Content="Read Gamepad Mode" Style="{StaticResource ModernButtonStyle}"
-                                                        FontSize="11" Padding="10,4" Click="ClawHidProbeReadMode_Click"/>
-                                            </StackPanel>
-                                            <TextBlock x:Name="ClawHidProbeResult" Text=""
-                                                       FontFamily="Consolas, Courier New" FontSize="11"
-                                                       Foreground="#DDDDDD" TextWrapping="Wrap"/>
-
-                                            <TextBlock Text="Native MSI fan" FontSize="13" FontWeight="SemiBold"
-                                                       Foreground="#4AB3F4" Margin="0,12,0,0"/>
-                                            <TextBlock Text="Read the current fan config from the EC (reflects MSI Center M too). Set a mode in MSI Center M, then detect to learn its signature."
-                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}"
-                                                       TextWrapping="Wrap" Margin="0,2,0,6"/>
-                                            <Button Content="Detect MSI fan" Style="{StaticResource ModernButtonStyle}"
-                                                    FontSize="11" Padding="10,4" Click="MsiFanDetect_Click"/>
-                                            <TextBlock x:Name="MsiFanDetectResult" Text=""
-                                                       FontFamily="Consolas, Courier New" FontSize="11"
-                                                       Foreground="#DDDDDD" TextWrapping="Wrap" Margin="0,6,0,0"/>
-                                        </StackPanel>
-                                    </Border>
-
                                     <!-- Restart Helper / Kill GoTweaks Buttons (side by side) -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -5262,6 +5220,48 @@
                                                              Margin="0,4,0,0"
                                                              Content="Or open usbip-win2 releases"
                                                              NavigateUri="https://github.com/vadimgrn/usbip-win2/releases"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- ═══ EXPERIMENTAL: Controller HID probe + native MSI fan detection ═══
+                                         Harness to reverse-engineer the controller config (button remap) the
+                                         same way the LED protocol was cracked: send a raw vendor frame,
+                                         read the response, diff against MSI Center M changes. -->
+                                    <Border Background="#14000000" BorderBrush="#3D5A80" BorderThickness="1"
+                                            CornerRadius="6" Padding="12" Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <TextBlock Text="Controller HID Probe (experimental)"
+                                                       FontSize="13" FontWeight="SemiBold" Foreground="#4AB3F4"/>
+                                            <TextBlock Text="Send a raw vendor frame (hex bytes) to the physical controller and read the response. Framing: 0F 00 00 3C [opcode] … . Requires controller emulation ON. Read Gamepad Mode = known-good test (0F 00 00 3C 26)."
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}"
+                                                       TextWrapping="Wrap" Margin="0,2,0,8"/>
+                                            <TextBox x:Name="ClawHidProbeInput"
+                                                     Text="0F 00 00 3C 26"
+                                                     FontFamily="Consolas, Courier New"
+                                                     Header="Hex frame"
+                                                     Margin="0,0,0,6"/>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,6">
+                                                <CheckBox x:Name="ClawHidProbeReadCheck" Content="Read response" IsChecked="True"
+                                                          Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                                <Button Content="Send frame" Style="{StaticResource ModernButtonStyle}"
+                                                        FontSize="11" Padding="10,4" Click="ClawHidProbeSend_Click"/>
+                                                <Button Content="Read Gamepad Mode" Style="{StaticResource ModernButtonStyle}"
+                                                        FontSize="11" Padding="10,4" Click="ClawHidProbeReadMode_Click"/>
+                                            </StackPanel>
+                                            <TextBlock x:Name="ClawHidProbeResult" Text=""
+                                                       FontFamily="Consolas, Courier New" FontSize="11"
+                                                       Foreground="#DDDDDD" TextWrapping="Wrap"/>
+
+                                            <TextBlock Text="Native MSI fan" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="#4AB3F4" Margin="0,12,0,0"/>
+                                            <TextBlock Text="Read the current fan config from the EC (reflects MSI Center M too). Set a mode in MSI Center M, then detect to learn its signature."
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}"
+                                                       TextWrapping="Wrap" Margin="0,2,0,6"/>
+                                            <Button Content="Detect MSI fan" Style="{StaticResource ModernButtonStyle}"
+                                                    FontSize="11" Padding="10,4" Click="MsiFanDetect_Click"/>
+                                            <TextBlock x:Name="MsiFanDetectResult" Text=""
+                                                       FontFamily="Consolas, Courier New" FontSize="11"
+                                                       Foreground="#DDDDDD" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                         </StackPanel>
                                     </Border>
 
