@@ -1447,6 +1447,16 @@ namespace XboxGamingBarHelper
                 // Only act on the rising edge (Game Bar just opened).
                 if (!(nowForeground && !wasForeground)) return;
 
+                // Release any latched Macro Hold-toggle (M1/M2 MacroMode=2) unconditionally — a
+                // held virtual button (e.g. RB) would otherwise fight the Game Bar's own controller
+                // navigation, making the overlay unusable. Independent of the RB auto-nav setting
+                // below, so this always runs on Game Bar open regardless of that preference.
+                {
+                    Labs.ClawButtonMonitor holdMonitor;
+                    lock (clawButtonMonitorLock) holdMonitor = clawButtonMonitor;
+                    holdMonitor?.ReleaseActiveMacroHolds();
+                }
+
                 // Position 1 (RB hops = 0) means auto-jump OFF — do nothing at all, not even the
                 // D-pad-down focus drop (InjectGameBarNav always queues a DpadDown, even for rbCount 0,
                 // so we must stop short of calling it). This is the default state.

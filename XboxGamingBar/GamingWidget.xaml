@@ -42,6 +42,22 @@
             </StackPanel>
         </DataTemplate>
 
+        <!-- Fluent glyph(s) next to each Macro repeat-mode name (Once/Repeat while held/Hold/
+             Hold+Repeat). The combined "Hold + Repeat" mode shows both its icons together. -->
+        <local:MacroModeIconConverter x:Key="MacroModeIconConverter"/>
+        <local:MacroModeSecondaryIconConverter x:Key="MacroModeSecondaryIconConverter"/>
+        <local:MacroModeSecondaryIconVisibilityConverter x:Key="MacroModeSecondaryIconVisibilityConverter"/>
+        <DataTemplate x:Key="MacroModeItemTemplate">
+            <StackPanel Orientation="Horizontal">
+                <FontIcon FontFamily="Segoe Fluent Icons" FontSize="14" Width="18" Margin="0,0,4,0" VerticalAlignment="Center"
+                          Glyph="{Binding Converter={StaticResource MacroModeIconConverter}}"/>
+                <FontIcon FontFamily="Segoe Fluent Icons" FontSize="14" Width="18" Margin="0,0,8,0" VerticalAlignment="Center"
+                          Glyph="{Binding Converter={StaticResource MacroModeSecondaryIconConverter}}"
+                          Visibility="{Binding Converter={StaticResource MacroModeSecondaryIconVisibilityConverter}}"/>
+                <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+            </StackPanel>
+        </DataTemplate>
+
         <!-- ════════════════════════════════════════════════════════════════════
              THEME ACCENT BRUSHES — driven entirely by the in-app theme (NOT the
              Windows system accent). Their colours are mutated at runtime in
@@ -9180,11 +9196,13 @@
                                             </ComboBox>
                                         </StackPanel>
                                         <ComboBox x:Name="LegionButtonM1MacroModeComboBox" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                                                  ItemTemplate="{StaticResource MacroModeItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0"
                                                   SelectionChanged="LegionButtonM1MacroModeComboBox_SelectionChanged">
                                             <x:String>Once</x:String>
                                             <x:String>Repeat while held</x:String>
                                             <x:String>Hold (press again to release)</x:String>
+                                            <x:String>Hold + Repeat (press again to stop)</x:String>
                                         </ComboBox>
                                         <Grid x:Name="LegionButtonM1MacroDelayRow" Margin="0,8,0,0" Visibility="Collapsed">
                                             <Grid.ColumnDefinitions>
@@ -9255,11 +9273,13 @@
                                             </ComboBox>
                                         </StackPanel>
                                         <ComboBox x:Name="LegionButtonM2MacroModeComboBox" Margin="0,8,0,0" HorizontalAlignment="Stretch"
+                                                  ItemTemplate="{StaticResource MacroModeItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0"
                                                   SelectionChanged="LegionButtonM2MacroModeComboBox_SelectionChanged">
                                             <x:String>Once</x:String>
                                             <x:String>Repeat while held</x:String>
                                             <x:String>Hold (press again to release)</x:String>
+                                            <x:String>Hold + Repeat (press again to stop)</x:String>
                                         </ComboBox>
                                         <Grid x:Name="LegionButtonM2MacroDelayRow" Margin="0,8,0,0" Visibility="Collapsed">
                                             <Grid.ColumnDefinitions>

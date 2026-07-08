@@ -332,26 +332,31 @@ namespace XboxGamingBarHelper.Labs
         // ViGEm/Viiper output — deliberately NOT routed through KeyboardChordCallback/any keyboard-
         // shortcut or hotkey system, so it can never re-trigger an OS/app shortcut (only real button
         // presses, same RemapAction encoding M1/M2 Gamepad mode already uses via RemapActionHelper).
-        // Three repeat modes (MacroMode): 0=Once (play the sequence once per press), 1=Repeat while
+        // Four repeat modes (MacroMode): 0=Once (play the sequence once per press), 1=Repeat while
         // held (replays the whole sequence for as long as the button stays physically held),
         // 2=Hold toggle (first press latches ALL configured buttons down simultaneously; a second
-        // press releases them — no timing/delay involved).
-        // Once/Repeat run on a background Task (never the 125Hz poll thread); each step just sets/
-        // clears the "active macro actions" overlay array that ProcessDirectInputState ORs into the
-        // outgoing state every tick (same pattern as the existing _m1RemapAction/_m2RemapAction
-        // M1/M2 overlay), so the actual ViGEm/Viiper submit stays single-threaded on the poll
-        // thread. Hold toggle is handled synchronously on the poll thread's own press-edge check
-        // (no background thread needed — it just latches/unlatches the overlay array).
+        // press releases them — no timing/delay involved), 3=Hold+Repeat toggle (first press starts
+        // replaying the sequence at the configured delay continuously; a second press stops it —
+        // same RunMacro loop as mode 1, just gated on a toggle flag instead of the physical hold).
+        // Once/Repeat/Hold+Repeat run on a background Task (never the 125Hz poll thread); each step
+        // just sets/clears the "active macro actions" overlay array that ProcessDirectInputState
+        // ORs into the outgoing state every tick (same pattern as the existing
+        // _m1RemapAction/_m2RemapAction M1/M2 overlay), so the actual ViGEm/Viiper submit stays
+        // single-threaded on the poll thread. Hold toggle (mode 2) is handled synchronously on the
+        // poll thread's own press-edge check (no background thread needed — it just latches/
+        // unlatches the overlay array).
         private volatile int[] _m1MacroActions;       // RemapActionHelper indices, fired in order
         private volatile int[] _m2MacroActions;
         private volatile int _m1MacroDelayMs = 80;
         private volatile int _m2MacroDelayMs = 80;
-        private volatile int _m1MacroMode;             // 0=Once, 1=Repeat while held, 2=Hold toggle
+        private volatile int _m1MacroMode;             // 0=Once, 1=Repeat while held, 2=Hold toggle, 3=Hold+Repeat toggle
         private volatile int _m2MacroMode;
-        private volatile bool _m1MacroRunning;        // re-entrancy guard: one Once/Repeat sequence at a time
+        private volatile bool _m1MacroRunning;        // re-entrancy guard: one Once/Repeat/Hold+Repeat sequence at a time
         private volatile bool _m2MacroRunning;
-        private volatile bool _m1MacroHoldActive;     // Hold-toggle latch state
+        private volatile bool _m1MacroHoldActive;     // Hold-toggle (mode 2) latch state
         private volatile bool _m2MacroHoldActive;
+        private volatile bool _m1MacroToggleActive;   // Hold+Repeat-toggle (mode 3) running state
+        private volatile bool _m2MacroToggleActive;
         private volatile RemapAction[] _m1MacroActiveActions = Array.Empty<RemapAction>();
         private volatile RemapAction[] _m2MacroActiveActions = Array.Empty<RemapAction>();
 
@@ -543,11 +548,13 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
-        /// Sets the inter-step delay and repeat mode (0=Once, 1=Repeat while held, 2=Hold toggle)
-        /// for an M1/M2 Macro mapping. Sent alongside <see cref="ConfigureBackButtonMapping"/> when
-        /// a button is switched to Type=4, and whenever the delay slider / mode dropdown changes.
-        /// Switching away from Hold toggle while it is latched releases the held buttons immediately
-        /// (never leaves the virtual controller stuck with buttons down).
+        /// Sets the inter-step delay and repeat mode (0=Once, 1=Repeat while held, 2=Hold toggle,
+        /// 3=Hold+Repeat toggle) for an M1/M2 Macro mapping. Sent alongside
+        /// <see cref="ConfigureBackButtonMapping"/> when a button is switched to Type=4, and
+        /// whenever the delay slider / mode dropdown changes. Switching away from Hold toggle while
+        /// it is latched releases the held buttons immediately; switching away from Hold+Repeat
+        /// toggle while running stops it (the in-flight RunMacro Task exits after its current pass)
+        /// — never leaves the virtual controller stuck with buttons down or mashing forever.
         /// </summary>
         public void ConfigureBackButtonMacro(string button, int delayMs, int mode)
         {
@@ -561,6 +568,7 @@ namespace XboxGamingBarHelper.Labs
                     _m1MacroActiveActions = Array.Empty<RemapAction>();
                     _m1MacroHoldActive = false;
                 }
+                if (mode != 3) _m1MacroToggleActive = false;
                 _m1MacroMode = mode;
             }
             else
@@ -571,6 +579,7 @@ namespace XboxGamingBarHelper.Labs
                     _m2MacroActiveActions = Array.Empty<RemapAction>();
                     _m2MacroHoldActive = false;
                 }
+                if (mode != 3) _m2MacroToggleActive = false;
                 _m2MacroMode = mode;
             }
             Logger.Info($"ClawButtonMonitor: {button} macro config → delay={clampedDelay}ms mode={mode}");
@@ -610,19 +619,39 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
-        /// Fires the configured Macro gamepad-button sequence for M1 or M2 (MacroMode 0=Once or
-        /// 1=Repeat while held only — Hold toggle/MacroMode=2 is handled synchronously by
-        /// <see cref="ToggleMacroHold"/> instead, never calls this), one action at a time with the
-        /// configured delay between each. Each step sets the shared _mXMacroActiveActions overlay
-        /// array to a single-element array for a brief hold, then clears it to empty — the actual
-        /// ViGEm/Viiper submit happens on the poll thread's next tick(s) via
-        /// ProcessDirectInputState's existing ApplyXInputRemapAction overlay (same mechanism as the
-        /// M1/M2 Gamepad-mode remap), so this background thread never touches ViGEm/Viiper directly
-        /// and there is no separate write path to race against. Xbox Guide is not part of the
-        /// button-mask overlay (see ApplyXInputRemapAction) — fired via the existing thread-safe
-        /// TriggerGuideTap() instead. Runs on a background Task (never the poll thread). In Repeat
-        /// mode the whole sequence repeats for as long as the button stays held, re-checked after
-        /// each full pass. Guarded by _mXMacroRunning so a rapid re-press can't stack overlapping
+        /// Releases any currently-latched Macro Hold toggle (MacroMode=2) AND stops any running
+        /// Hold+Repeat toggle (MacroMode=3) for M1 and/or M2 — same effect as pressing the button
+        /// again. Called when the Game Bar overlay opens: a latched Hold (or a continuously
+        /// mashing Hold+Repeat) otherwise keeps virtual buttons (e.g. RB/A) pinned down or firing,
+        /// which fights the Game Bar's own controller navigation (RB tab-cycling etc.), making it
+        /// impossible to control the overlay while a Hold macro is active. Safe to call
+        /// unconditionally — a no-op if nothing is latched/running.
+        /// </summary>
+        public void ReleaseActiveMacroHolds()
+        {
+            if (_m1MacroHoldActive) ToggleMacroHold(isM1: true);
+            if (_m2MacroHoldActive) ToggleMacroHold(isM1: false);
+            _m1MacroToggleActive = false;
+            _m2MacroToggleActive = false;
+        }
+
+        /// <summary>
+        /// Fires the configured Macro gamepad-button sequence for M1 or M2 (MacroMode 0=Once,
+        /// 1=Repeat while held, or 3=Hold+Repeat toggle — Hold toggle/MacroMode=2 is handled
+        /// synchronously by <see cref="ToggleMacroHold"/> instead, never calls this), one action at
+        /// a time with the configured delay between each. Each step sets the shared
+        /// _mXMacroActiveActions overlay array to a single-element array for a brief hold, then
+        /// clears it to empty — the actual ViGEm/Viiper submit happens on the poll thread's next
+        /// tick(s) via ProcessDirectInputState's existing ApplyXInputRemapAction overlay (same
+        /// mechanism as the M1/M2 Gamepad-mode remap), so this background thread never touches
+        /// ViGEm/Viiper directly and there is no separate write path to race against. Xbox Guide is
+        /// not part of the button-mask overlay (see ApplyXInputRemapAction) — fired via the
+        /// existing thread-safe TriggerGuideTap() instead. Runs on a background Task (never the
+        /// poll thread). In Repeat mode the whole sequence repeats for as long as the button stays
+        /// physically held; in Hold+Repeat toggle mode it repeats for as long as the toggle flag
+        /// stays set (first press starts it, second press via <see cref="ConfigureBackButtonMacro"/>
+        /// or <see cref="ReleaseActiveMacroHolds"/> clears the flag) — both re-checked after each
+        /// full pass. Guarded by _mXMacroRunning so a rapid re-press can't stack overlapping
         /// sequences. Deliberately does not use KeyboardChordCallback/BuildKeyboardToken — Macro
         /// triggers controller buttons only, never keyboard shortcuts/hotkeys.
         /// </summary>
@@ -665,7 +694,9 @@ namespace XboxGamingBarHelper.Labs
                         Thread.Sleep(delayMs);
                     }
                 }
-                while ((isM1 ? _m1MacroMode == 1 && _prevM1 : _m2MacroMode == 1 && _prevM2));
+                while (isM1
+                    ? (_m1MacroMode == 1 && _prevM1) || (_m1MacroMode == 3 && _m1MacroToggleActive)
+                    : (_m2MacroMode == 1 && _prevM2) || (_m2MacroMode == 3 && _m2MacroToggleActive));
             }
             finally
             {
@@ -1985,18 +2016,45 @@ namespace XboxGamingBarHelper.Labs
 
             // M1/M2 Macro target (Type==4) on the press edge: Hold toggle (MacroMode==2) is a
             // synchronous latch/unlatch (no timing, so no background thread needed); Once/Repeat
-            // (MacroMode 0/1) run on a background Task since the inter-step delay is far too slow
-            // to block the poll thread — the running-guard stops a rapid re-press from stacking
-            // overlapping runs.
+            // (MacroMode 0/1) run on a background Task on every qualifying press since the
+            // inter-step delay is far too slow to block the poll thread; Hold+Repeat toggle
+            // (MacroMode==3) flips a toggle flag — first press starts a background Task that keeps
+            // repeating while the flag is set, second press just flips it off (the running Task's
+            // own loop condition in RunMacro picks that up and stops after its current pass). The
+            // running-guard (_mXMacroRunning) stops a rapid re-press from stacking overlapping runs.
             if (m1 && !_prevM1 && _m1MappingType == 4)
             {
-                if (_m1MacroMode == 2) ToggleMacroHold(isM1: true);
-                else if (!_m1MacroRunning) System.Threading.Tasks.Task.Run(() => RunMacro(isM1: true));
+                if (_m1MacroMode == 2)
+                {
+                    ToggleMacroHold(isM1: true);
+                }
+                else if (_m1MacroMode == 3)
+                {
+                    _m1MacroToggleActive = !_m1MacroToggleActive;
+                    if (_m1MacroToggleActive && !_m1MacroRunning)
+                        System.Threading.Tasks.Task.Run(() => RunMacro(isM1: true));
+                }
+                else if (!_m1MacroRunning)
+                {
+                    System.Threading.Tasks.Task.Run(() => RunMacro(isM1: true));
+                }
             }
             if (m2 && !_prevM2 && _m2MappingType == 4)
             {
-                if (_m2MacroMode == 2) ToggleMacroHold(isM1: false);
-                else if (!_m2MacroRunning) System.Threading.Tasks.Task.Run(() => RunMacro(isM1: false));
+                if (_m2MacroMode == 2)
+                {
+                    ToggleMacroHold(isM1: false);
+                }
+                else if (_m2MacroMode == 3)
+                {
+                    _m2MacroToggleActive = !_m2MacroToggleActive;
+                    if (_m2MacroToggleActive && !_m2MacroRunning)
+                        System.Threading.Tasks.Task.Run(() => RunMacro(isM1: false));
+                }
+                else if (!_m2MacroRunning)
+                {
+                    System.Threading.Tasks.Task.Run(() => RunMacro(isM1: false));
+                }
             }
 
             // M1/M2 Mouse target (Type==2): clicks press/release with the button edge; scroll on down.
