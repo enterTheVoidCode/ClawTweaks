@@ -23,6 +23,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             public int[] KeyboardKeys { get; set; } = Array.Empty<int>();
             public int MouseButton { get; set; }
             public string ActionParam { get; set; } = "";
+            public int[] MacroKeys { get; set; } = Array.Empty<int>();
+            /// <summary>Macro gamepad action indices (RemapActionHelper.GetByIndex encoding) — the
+            /// active Macro payload; fired as synthetic controller button presses, not keys.</summary>
+            public int[] MacroButtons { get; set; } = Array.Empty<int>();
+            public int MacroDelayMs { get; set; } = 80;
+            /// <summary>0=Once, 1=Repeat while held, 2=Hold toggle (see ButtonMapping.MacroMode).</summary>
+            public int MacroMode { get; set; } = 0;
         }
 
         public static (int type, int gamepadAction, int[] keyboardKeys, int mouseButton) Parse(string json)
@@ -49,6 +56,10 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 parsed.MouseButton = ExtractInt(json, "MouseButton") ?? 0;
                 parsed.KeyboardKeys = ExtractIntArray(json, "KeyboardKeys");
                 parsed.ActionParam = ExtractString(json, "ActionParam") ?? "";
+                parsed.MacroKeys = ExtractIntArray(json, "MacroKeys");
+                parsed.MacroButtons = ExtractIntArray(json, "MacroButtons");
+                parsed.MacroDelayMs = ExtractInt(json, "MacroDelayMs") ?? 80;
+                parsed.MacroMode = ExtractInt(json, "MacroMode") ?? 0;
 
                 // Backward/forward compatibility:
                 // if old/new payload has only one of the fields, hydrate the other.
@@ -139,7 +150,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         /// <summary>
         /// Gets the mapping values to send to the HID command based on mapping type
         /// </summary>
-        public static int[] GetMappingValues(int type, int gamepadAction, int[] keyboardKeys, int mouseButton, int[] gamepadActions = null)
+        public static int[] GetMappingValues(int type, int gamepadAction, int[] keyboardKeys, int mouseButton, int[] gamepadActions = null, int[] macroButtons = null)
         {
             switch (type)
             {
@@ -161,6 +172,9 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                     return keyboardKeys;
                 case 2: // Mouse
                     return mouseButton > 0 ? new[] { mouseButton } : Array.Empty<int>();
+                case 4: // Macro — ordered gamepad-action sequence, fired one at a time onto the
+                        // virtual controller (not a simultaneous combo, not a keyboard shortcut)
+                    return macroButtons ?? Array.Empty<int>();
                 default:
                     return Array.Empty<int>();
             }
@@ -850,8 +864,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonM1 applying mapping: {Value}");
-            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
-            Manager?.SetButtonMappingAdvanced(3, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+            var parsed = ButtonMappingParser.ParseExtended(Value);
+            Manager?.SetButtonMappingAdvanced(3, parsed.Type, ButtonMappingParser.GetMappingValues(
+                parsed.Type, parsed.GamepadAction, parsed.KeyboardKeys, parsed.MouseButton, parsed.GamepadActions, parsed.MacroButtons));
+            if (parsed.Type == 4)
+                Manager?.SetButtonMacroConfig("M1", parsed.MacroDelayMs, parsed.MacroMode);
         }
     }
 
@@ -868,8 +885,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         {
             base.NotifyPropertyChanged(propertyName);
             Logger.Info($"LegionButtonM2 applying mapping: {Value}");
-            var (type, gamepadAction, keyboardKeys, mouseButton) = ButtonMappingParser.Parse(Value);
-            Manager?.SetButtonMappingAdvanced(4, type, ButtonMappingParser.GetMappingValues(type, gamepadAction, keyboardKeys, mouseButton));
+            var parsed = ButtonMappingParser.ParseExtended(Value);
+            Manager?.SetButtonMappingAdvanced(4, parsed.Type, ButtonMappingParser.GetMappingValues(
+                parsed.Type, parsed.GamepadAction, parsed.KeyboardKeys, parsed.MouseButton, parsed.GamepadActions, parsed.MacroButtons));
+            if (parsed.Type == 4)
+                Manager?.SetButtonMacroConfig("M2", parsed.MacroDelayMs, parsed.MacroMode);
         }
     }
 

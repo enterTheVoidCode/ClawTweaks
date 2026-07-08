@@ -2355,7 +2355,8 @@ namespace XboxGamingBarHelper
             if (legionManager == null) return;
             legionManager.OnButtonMappingChanged = OnMSIClawButtonMappingChanged;
             legionManager.OnGamepadMappingChanged = OnMSIClawGamepadMappingChanged;
-            Logger.Info("MSIClaw: LegionManager.OnButtonMappingChanged + OnGamepadMappingChanged wired → ClawButtonMonitor");
+            legionManager.OnMacroConfigChanged = OnMSIClawMacroConfigChanged;
+            Logger.Info("MSIClaw: LegionManager.OnButtonMappingChanged + OnGamepadMappingChanged + OnMacroConfigChanged wired → ClawButtonMonitor");
         }
 
         /// <summary>
@@ -2413,6 +2414,24 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Warn($"MSIClaw: OnMSIClawButtonMappingChanged threw: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Invoked when an M1/M2 Macro mapping's inter-key delay or repeat mode (0=Once,
+        /// 1=Repeat while held, 2=Hold toggle) is set/changed — sent alongside the main
+        /// ButtonMapping JSON whenever Type=4 (Macro).
+        /// </summary>
+        private static void OnMSIClawMacroConfigChanged(string button, int delayMs, int mode)
+        {
+            try
+            {
+                EnsureClawButtonMonitor().ConfigureBackButtonMacro(button, delayMs, mode);
+                Logger.Info($"MSIClaw: {button} macro config applied — delayMs={delayMs}, mode={mode}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"MSIClaw: OnMSIClawMacroConfigChanged threw: {ex.Message}");
             }
         }
     }

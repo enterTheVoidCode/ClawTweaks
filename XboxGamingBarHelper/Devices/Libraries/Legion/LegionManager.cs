@@ -40,6 +40,15 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         public Action<int, int, int[]> OnButtonMappingChanged;
 
         /// <summary>
+        /// Called when an M1/M2 Macro mapping's inter-key delay or repeat mode (Once/Repeat while
+        /// held/Hold toggle) changes. Same MSI-Claw-only routing as
+        /// <see cref="OnButtonMappingChanged"/> — Legion Go hardware has no equivalent for this
+        /// satellite config, so it is a no-op there.
+        /// Wired by Program.MSIClaw.cs to ClawButtonMonitor.ConfigureBackButtonMacro().
+        /// </summary>
+        public Action<string, int, int> OnMacroConfigChanged;
+
+        /// <summary>
         /// Routes the generic "Re-Map Specific Buttons" 24-button mapping JSON (the three-dropdown
         /// source→target swaps, e.g. A↔B) to ClawButtonMonitor on MSI Claw, where it is applied to
         /// the outgoing ViGEm state. ApplyGamepadButtonMappings() only talks to physical Legion HID
@@ -2730,6 +2739,20 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             catch (Exception ex)
             {
                 Logger.Error($"Error setting button mapping: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets the Macro inter-key delay and repeat mode (0=Once, 1=Repeat while held, 2=Hold
+        /// toggle) for an M1/M2 mapping. MSI Claw only — Legion Go hardware has no Macro mode, so
+        /// this is a no-op there (mirrors the MSI-Claw-only routing in
+        /// <see cref="SetButtonMappingAdvanced"/>).
+        /// </summary>
+        public void SetButtonMacroConfig(string button, int delayMs, int mode)
+        {
+            if (DeviceDetector.DetectDevice().DeviceType == Shared.Enums.DeviceType.MSIClaw)
+            {
+                OnMacroConfigChanged?.Invoke(button, delayMs, mode);
             }
         }
 

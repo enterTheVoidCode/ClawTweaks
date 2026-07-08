@@ -90,6 +90,7 @@
     <Compile Include="Converter\RadeonBoostResolutionStringConverter.cs" />
     <Compile Include="Converter\SharpnessPercentStringConverter.cs" />
     <Compile Include="Converters\GamepadButtonIconConverter.cs" />
+    <Compile Include="Converters\ButtonModeIconConverter.cs" />
     <Compile Include="Data\AMD\AMDRadeonAntiLagEnabledProperty.cs" />
     <Compile Include="Data\AMD\AMDRadeonAntiLagSupportedProperty.cs" />
     <Compile Include="Data\AutoHibernateEnabledProperty.cs" />
