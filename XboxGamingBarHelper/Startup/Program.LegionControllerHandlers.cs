@@ -252,6 +252,16 @@ namespace XboxGamingBarHelper
                 // truth and re-pushes it on profile switch / reconnect. (Performance & controller
                 // profiles are separate; persisting it here was a mistake.)
                 clawButtonMonitor?.SetVibrationIntensity(legionManager.LegionVibrationIntensity.Value);
+
+                // Also write the FW's own vibration-motor ceiling (EEPROM 0x0022/0x0023 — see
+                // ClawButtonMonitor.WriteVibrationCeilingToFw) to the same percent. MSI Center M
+                // ships this ceiling well below 100% (observed 33%/34%), which caps physical rumble
+                // regardless of the software multiplier above. Firing from this same handler covers
+                // both a live slider drag AND a per-game profile swap — game-end already re-applies
+                // the global profile via ApplyControllerProfile → SendControllerSettingsToHelper,
+                // which re-sends this property with the global value, so no separate game-end
+                // reset hook is needed.
+                clawButtonMonitor?.WriteVibrationCeilingToFw(legionManager.LegionVibrationIntensity.Value);
             }
             else if (sender == legionManager?.LegionControllerProfileEnabled)
             {

@@ -1015,6 +1015,76 @@ namespace XboxGamingBarHelper.Labs
             Logger.Info($"ClawButtonMonitor: VibrationIntensity → {clamped}%");
         }
 
+        // ── Vibration motor FW ceiling (EEPROM, addr 0x0022/0x0023) ──────────────
+        // Reverse-engineered from MSI Center M's own GamePad API log — see
+        // reverse_engineered/RE_MSI_ButtonRemap.md ("Deadzones & vibration"). The firmware caps
+        // physical motor output at this stored percentage regardless of the XInput rumble value
+        // SetVibrationIntensity's software multiplier scales — MSI Center M ships both motors
+        // defaulted well below 100% (observed 33%/34% on this unit), which is why in-game rumble
+        // never reached full strength even at VibrationIntensity=100. Confirmed on-device: reading
+        // back after setting both to 100% in MSI Center M returned 0x64/0x64 at the expected offset.
+        //
+        // Debounced (not written on every Slider ValueChanged tick) since this is a real EEPROM
+        // write with finite write-cycle endurance — a live drag would otherwise hammer it every
+        // few milliseconds. Coalesces rapid changes into one write ~400ms after the value settles.
+        private static readonly object _vibrationFwWriteLock = new object();
+        private volatile int _pendingVibrationFwPercent = -1;
+        private Timer _vibrationFwWriteTimer;
+        private const int VibrationFwWriteDebounceMs = 400;
+
+        /// <summary>
+        /// Schedules a debounced write of the FW vibration-motor ceiling (both channels, same
+        /// percent — the widget exposes a single "Vibration Intensity" slider, not separate L/R)
+        /// to EEPROM addresses 0x0022 (left) / 0x0023 (right), followed by SyncToROM. Safe to call
+        /// on every slider tick and on every profile swap (game start/end) — rapid successive calls
+        /// coalesce into the single write for the last value.
+        /// </summary>
+        public void WriteVibrationCeilingToFw(int percent)
+        {
+            int clamped = Math.Max(0, Math.Min(100, percent));
+            lock (_vibrationFwWriteLock)
+            {
+                _pendingVibrationFwPercent = clamped;
+                _vibrationFwWriteTimer?.Dispose();
+                _vibrationFwWriteTimer = new Timer(_ => FlushVibrationCeilingWrite(), null, VibrationFwWriteDebounceMs, Timeout.Infinite);
+            }
+        }
+
+        private void FlushVibrationCeilingWrite()
+        {
+            int percent;
+            lock (_vibrationFwWriteLock)
+            {
+                if (_pendingVibrationFwPercent < 0) return;
+                percent = _pendingVibrationFwPercent;
+                _pendingVibrationFwPercent = -1;
+            }
+
+            byte value = (byte)percent;
+            bool leftOk = SendRawCmd(BuildEepromByteWriteCmd(0x0022, value));
+            Thread.Sleep(50);
+            bool rightOk = SendRawCmd(BuildEepromByteWriteCmd(0x0023, value));
+            Thread.Sleep(50);
+            bool syncOk = SendRawCmd(BuildSyncToRomCmd());
+            Logger.Info($"ClawButtonMonitor: FW vibration ceiling written → {percent}% (left={leftOk}, right={rightOk}, sync={syncOk})");
+        }
+
+        /// <summary>
+        /// Builds a single-byte EEPROM write frame (opcode 0x21, len=1), per
+        /// reverse_engineered/RE_MSI_ButtonRemap.md: "0F 00 00 3C 21 01 &lt;addrHi&gt; &lt;addrLo&gt; 01 &lt;value&gt;".
+        /// Caller must follow with BuildSyncToRomCmd() to persist (matches the deadzone write pattern
+        /// documented there — unlike button remaps, these single-byte writes need the explicit sync).
+        /// </summary>
+        private static byte[] BuildEepromByteWriteCmd(ushort addr, byte value)
+        {
+            byte[] cmd = new byte[64];
+            cmd[0] = REPORT_ID; cmd[1] = 0x00; cmd[2] = 0x00; cmd[3] = 0x3C;
+            cmd[4] = 0x21; cmd[5] = 0x01;
+            cmd[6] = (byte)(addr >> 8); cmd[7] = (byte)(addr & 0xFF);
+            cmd[8] = 0x01; cmd[9] = value;
+            return cmd;
+        }
+
         /// <summary>Left stick radial inner deadzone (0–50 %). Thread-safe (volatile).</summary>
         public void SetLeftStickDeadzone(int percent)
         {
