@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Windows.UI.Xaml;
 using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Media.Imaging;
 
@@ -12,7 +13,7 @@ namespace XboxGamingBar
     /// </summary>
     public sealed class GamepadButtonIconConverter : IValueConverter
     {
-        private static readonly Dictionary<string, string> Map = new Dictionary<string, string>
+        internal static readonly Dictionary<string, string> Map = new Dictionary<string, string>
         {
             { "LS",          "xbox_stick_click_l" },  // tile-hotkey dropdown uses the short "LS"/"RS" labels
             { "RS",          "xbox_stick_click_r" },
@@ -60,6 +61,24 @@ namespace XboxGamingBar
                 return new BitmapImage(new Uri($"ms-appx:///Assets/ButtonIcons/{file}.png"));
             return null;
         }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language)
+            => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// Collapses the icon Image for ComboBox items with no entry in
+    /// <see cref="GamepadButtonIconConverter"/>'s map (e.g. "Disabled", "None", "+ Button") — without
+    /// this, an Image bound to a null Source still reserves its Width+Margin, visually indenting
+    /// those placeholder items relative to ones that do have an icon. Shared by the same
+    /// ItemTemplate the icon Image itself uses.
+    /// </summary>
+    public sealed class GamepadButtonIconVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+            => (value is string s && GamepadButtonIconConverter.Map.ContainsKey(s))
+                ? Visibility.Visible
+                : Visibility.Collapsed;
 
         public object ConvertBack(object value, Type targetType, object parameter, string language)
             => throw new NotSupportedException();

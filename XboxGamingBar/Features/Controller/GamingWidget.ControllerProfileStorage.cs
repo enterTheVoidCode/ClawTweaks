@@ -386,6 +386,8 @@ namespace XboxGamingBar
             var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
             var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
             var keyCombo = FindName($"LegionButton{buttonName}KeyComboBox") as ComboBox;
+            var macroKeyCombo = FindName($"LegionButton{buttonName}MacroKeyComboBox") as ComboBox;
+            var macroButtonCombo = FindName($"LegionButton{buttonName}MacroButtonComboBox") as ComboBox;
 
             EnsureButtonGamepadComboControls(buttonName);
 
@@ -405,6 +407,14 @@ namespace XboxGamingBar
             {
                 keyCombo.SelectionChanged += (s, e) => OnKeyboardKeySelected(buttonName);
             }
+            if (macroKeyCombo != null)
+            {
+                macroKeyCombo.SelectionChanged += (s, e) => OnMacroKeySelected(buttonName);
+            }
+            if (macroButtonCombo != null)
+            {
+                macroButtonCombo.SelectionChanged += (s, e) => OnMacroButtonSelected(buttonName);
+            }
 
             // Desktop button only: wire the Action ComboBox so selecting an action triggers a save
             if (buttonName == "Desktop")
@@ -421,6 +431,7 @@ namespace XboxGamingBar
             var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
             var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
             var keyboardPanel = FindName($"LegionButton{buttonName}KeyboardPanel") as StackPanel;
+            var macroPanel = FindName($"LegionButton{buttonName}MacroPanel") as StackPanel;
 
             if (typeCombo == null) return;
             int typeIndex = typeCombo.SelectedIndex;
@@ -437,13 +448,15 @@ namespace XboxGamingBar
             }
             else
             {
-                // Standard buttons: 0=Gamepad, 1=Keyboard, 2=Mouse
+                // Standard buttons: 0=Gamepad, 1=Keyboard, 2=Mouse, 3=Macro (M1/M2 only)
                 if (gamepadCombo != null)
                     gamepadCombo.Visibility = typeIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
                 if (mouseCombo != null)
                     mouseCombo.Visibility = typeIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
                 if (keyboardPanel != null)
                     keyboardPanel.Visibility = typeIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
+                if (macroPanel != null)
+                    macroPanel.Visibility = typeIndex == 3 ? Visibility.Visible : Visibility.Collapsed;
 
                 UpdateButtonGamepadComboControls(buttonName);
             }
@@ -806,13 +819,7 @@ namespace XboxGamingBar
                 };
 
                 var tagContent = new StackPanel { Orientation = Orientation.Horizontal };
-                var text = new TextBlock
-                {
-                    Text = GetGamepadActionName(action),
-                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
-                    FontSize = 12,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
+                var iconContent = BuildXboxButtonTagContent(GetGamepadActionName(action));
 
                 var removeButton = new Button
                 {
@@ -830,7 +837,7 @@ namespace XboxGamingBar
                 int actionToRemove = action;
                 removeButton.Click += (s, e) => RemoveGamepadComboActionFromButton(buttonName, actionToRemove);
 
-                tagContent.Children.Add(text);
+                tagContent.Children.Add(iconContent);
                 tagContent.Children.Add(removeButton);
                 tagBorder.Child = tagContent;
                 tagPanel.Children.Add(tagBorder);
@@ -1007,6 +1014,283 @@ namespace XboxGamingBar
             }
         }
 
+        private void MacroDelaySlider_ValueChanged(string buttonName, double newValue)
+        {
+            int delayMs = (int)newValue;
+            SetStoredMacroDelayMs(buttonName, delayMs);
+            var delayText = FindName($"LegionButton{buttonName}MacroDelayValueText") as TextBlock;
+            if (delayText != null) delayText.Text = delayMs.ToString();
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(null, null);
+            }
+        }
+
+        private void LegionButtonM1MacroDelaySlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) =>
+            MacroDelaySlider_ValueChanged("M1", e.NewValue);
+
+        private void LegionButtonM2MacroDelaySlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) =>
+            MacroDelaySlider_ValueChanged("M2", e.NewValue);
+
+        /// <summary>
+        /// Macro repeat-behavior dropdown: 0=Once, 1=Repeat while held (shows the delay slider —
+        /// only this mode paces itself with MacroDelayMs), 2=Hold toggle (press once to hold all
+        /// configured buttons down, press again to release; no delay needed).
+        /// </summary>
+        private void MacroModeComboBox_SelectionChanged(string buttonName, int mode)
+        {
+            SetStoredMacroMode(buttonName, mode);
+
+            var delayRow = FindName($"LegionButton{buttonName}MacroDelayRow") as Grid;
+            if (delayRow != null) delayRow.Visibility = mode == 1 ? Visibility.Visible : Visibility.Collapsed;
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(null, null);
+            }
+        }
+
+        private void LegionButtonM1MacroModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb) MacroModeComboBox_SelectionChanged("M1", cb.SelectedIndex);
+        }
+
+        private void LegionButtonM2MacroModeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (sender is ComboBox cb) MacroModeComboBox_SelectionChanged("M2", cb.SelectedIndex);
+        }
+
+        private void OnMacroKeySelected(string buttonName)
+        {
+            var keyCombo = FindName($"LegionButton{buttonName}MacroKeyComboBox") as ComboBox;
+            if (keyCombo == null || keyCombo.SelectedIndex <= 0) return;  // 0 is "+ Key"
+
+            int keyCode = GetKeyCodeFromDropdownIndex(keyCombo.SelectedIndex);
+            if (keyCode == 0) return;
+
+            // Ordered sequence (not a combo set) — up to 5 steps, duplicates allowed (e.g. tap A twice)
+            var keys = GetStoredMacroKeys(buttonName);
+            if (keys.Count >= 5)
+            {
+                keyCombo.SelectedIndex = 0;
+                return;
+            }
+
+            keys.Add(keyCode);
+            SetStoredMacroKeys(buttonName, keys);
+            UpdateMacroKeyTags(buttonName, keys);
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(keyCombo, null);
+            }
+
+            keyCombo.SelectedIndex = 0;
+        }
+
+        private void RemoveKeyFromButtonMacro(string buttonName, int keyIndex)
+        {
+            var keys = GetStoredMacroKeys(buttonName);
+            if (keyIndex < 0 || keyIndex >= keys.Count) return;
+            keys.RemoveAt(keyIndex);
+            SetStoredMacroKeys(buttonName, keys);
+            UpdateMacroKeyTags(buttonName, keys);
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(null, null);
+            }
+        }
+
+        private void UpdateMacroKeyTags(string buttonName, List<int> keys)
+        {
+            var keyTags = FindName($"LegionButton{buttonName}MacroKeyTags") as StackPanel;
+            if (keyTags == null) return;
+
+            keyTags.Children.Clear();
+            if (keys == null) return;
+
+            // Ordered sequence — tags removed by position (index), since the same key can repeat.
+            for (int i = 0; i < keys.Count; i++)
+            {
+                var tagBorder = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 60, 60)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Margin = new Thickness(0, 0, 4, 0)
+                };
+
+                var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+                var keyText = new TextBlock
+                {
+                    Text = $"{i + 1}. {GetKeyDisplayName(keys[i])}",
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    FontSize = 12,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+
+                var removeButton = new Button
+                {
+                    Content = "×",
+                    FontSize = 10,
+                    Padding = new Thickness(4, 0, 0, 0),
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MinWidth = 0,
+                    MinHeight = 0
+                };
+
+                int capturedIndex = i;
+                string btnName = buttonName;
+                removeButton.Click += (s, e) => RemoveKeyFromButtonMacro(btnName, capturedIndex);
+
+                tagPanel.Children.Add(keyText);
+                tagPanel.Children.Add(removeButton);
+                tagBorder.Child = tagPanel;
+                keyTags.Children.Add(tagBorder);
+            }
+        }
+
+        // Display names for gamepad action indices 1-25, matching the order of the
+        // LegionButton{X}MacroButtonComboBox items (and RemapActionHelper.IndexToAction on the
+        // helper side) — used to render macro sequence tags without needing the live ComboBox.
+        private static readonly string[] GamepadActionDisplayNames =
+        {
+            "Disabled",
+            "LS Click", "LS Up", "LS Down", "LS Left", "LS Right",
+            "RS Click", "RS Up", "RS Down", "RS Left", "RS Right",
+            "D-Pad Up", "D-Pad Down", "D-Pad Left", "D-Pad Right",
+            "A", "B", "X", "Y",
+            "LB", "LT", "RB", "RT",
+            "Select", "Start",
+            "Xbox Button"
+        };
+
+        private string GetGamepadActionDisplayName(int actionIndex) =>
+            (actionIndex > 0 && actionIndex < GamepadActionDisplayNames.Length) ? GamepadActionDisplayNames[actionIndex] : "?";
+
+        /// <summary>
+        /// Icon-only content for an Xbox-button-name chip (e.g. "A", "LB", "D-Pad Up") — reuses the
+        /// same icon set as the button-remap action dropdowns (<see cref="GamepadButtonIconConverter"/>).
+        /// Falls back to a plain text label for names with no icon entry so nothing renders blank.
+        /// </summary>
+        private UIElement BuildXboxButtonTagContent(string actionName)
+        {
+            if (GamepadButtonIconConverter.Map.TryGetValue(actionName, out string file))
+            {
+                return new Image
+                {
+                    Width = 20,
+                    Height = 20,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Source = new BitmapImage(new Uri($"ms-appx:///Assets/ButtonIcons/{file}.png"))
+                };
+            }
+
+            return new TextBlock
+            {
+                Text = actionName,
+                Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+        }
+
+        private void OnMacroButtonSelected(string buttonName)
+        {
+            var actionCombo = FindName($"LegionButton{buttonName}MacroButtonComboBox") as ComboBox;
+            if (actionCombo == null || actionCombo.SelectedIndex <= 0) return;  // 0 is "+ Button"
+
+            int actionIndex = actionCombo.SelectedIndex;
+
+            // Ordered sequence — up to 5 steps, duplicates allowed (e.g. tap A twice)
+            var actions = GetStoredMacroButtons(buttonName);
+            if (actions.Count >= 5)
+            {
+                actionCombo.SelectedIndex = 0;
+                return;
+            }
+
+            actions.Add(actionIndex);
+            SetStoredMacroButtons(buttonName, actions);
+            UpdateMacroButtonTags(buttonName, actions);
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(actionCombo, null);
+            }
+
+            actionCombo.SelectedIndex = 0;
+        }
+
+        private void RemoveButtonFromMacro(string buttonName, int stepIndex)
+        {
+            var actions = GetStoredMacroButtons(buttonName);
+            if (stepIndex < 0 || stepIndex >= actions.Count) return;
+            actions.RemoveAt(stepIndex);
+            SetStoredMacroButtons(buttonName, actions);
+            UpdateMacroButtonTags(buttonName, actions);
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(null, null);
+            }
+        }
+
+        private void UpdateMacroButtonTags(string buttonName, List<int> actions)
+        {
+            var tagsPanel = FindName($"LegionButton{buttonName}MacroButtonTags") as StackPanel;
+            if (tagsPanel == null) return;
+
+            tagsPanel.Children.Clear();
+            if (actions == null) return;
+
+            // Ordered sequence — tags removed by position (index), since the same button can repeat.
+            for (int i = 0; i < actions.Count; i++)
+            {
+                var tagBorder = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 60, 60, 60)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 2, 6, 2),
+                    Margin = new Thickness(0, 0, 4, 0)
+                };
+
+                var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
+
+                // Icon-only (no "N." index text) — matches the plain Xbox-icon chip look the user
+                // wants for controller-button sequences; order is still conveyed by chip position.
+                var actionContent = BuildXboxButtonTagContent(GetGamepadActionDisplayName(actions[i]));
+
+                var removeButton2 = new Button
+                {
+                    Content = "×",
+                    FontSize = 10,
+                    Padding = new Thickness(4, 0, 0, 0),
+                    Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
+                    BorderThickness = new Thickness(0),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MinWidth = 0,
+                    MinHeight = 0
+                };
+
+                int capturedStepIndex = i;
+                string macroBtnName = buttonName;
+                removeButton2.Click += (s, e) => RemoveButtonFromMacro(macroBtnName, capturedStepIndex);
+
+                tagPanel.Children.Add(actionContent);
+                tagPanel.Children.Add(removeButton2);
+                tagBorder.Child = tagPanel;
+                tagsPanel.Children.Add(tagBorder);
+            }
+        }
+
         private string FormatButtonMapping(ButtonMapping mapping)
         {
             if (mapping == null) return "none";
@@ -1023,6 +1307,9 @@ namespace XboxGamingBar
                     return $"GP:{mapping.GamepadAction}{(mapping.Turbo ? " Turbo" : "")}";
                 case 1: return $"KB:[{string.Join(",", mapping.KeyboardKeys)}]";
                 case 2: return $"MS:{mapping.MouseButton}";
+                case 4:
+                    string modeName = mapping.MacroMode == 1 ? "Repeat" : mapping.MacroMode == 2 ? "Hold" : "Once";
+                    return $"Macro:[{string.Join(",", mapping.MacroButtons)}]@{mapping.MacroDelayMs}ms {modeName}";
                 default: return "?";
             }
         }
@@ -1034,6 +1321,7 @@ namespace XboxGamingBar
             var gamepadCombo = FindName($"LegionButton{buttonName}ComboBox") as ComboBox;
             var mouseCombo = FindName($"LegionButton{buttonName}MouseComboBox") as ComboBox;
             var keyboardPanel = FindName($"LegionButton{buttonName}KeyboardPanel") as StackPanel;
+            var macroPanel = FindName($"LegionButton{buttonName}MacroPanel") as StackPanel;
             EnsureButtonGamepadComboControls(buttonName);
 
             if (mapping == null) mapping = new ButtonMapping();
@@ -1094,9 +1382,10 @@ namespace XboxGamingBar
             int effectiveMode = mapping.GamepadMode == 1 || (mapping.GamepadActions?.Count ?? 0) > 1 ? 1 : 0;
             SetStoredButtonGamepadMode(buttonName, effectiveMode);
 
-            // Set type dropdown
+            // Set type dropdown — Type=4 (Macro) sits at ComboBox index 3 (Type=3/Action has no
+            // item on standard buttons); 0/1/2 map directly.
             if (typeCombo != null)
-                typeCombo.SelectedIndex = mapping.Type;
+                typeCombo.SelectedIndex = mapping.Type == 4 ? 3 : mapping.Type;
 
             // Show/hide appropriate controls
             if (gamepadCombo != null)
@@ -1116,6 +1405,26 @@ namespace XboxGamingBar
                 keyboardPanel.Visibility = mapping.Type == 1 ? Visibility.Visible : Visibility.Collapsed;
                 if (mapping.Type == 1)
                     UpdateKeyboardKeyTags(buttonName, mapping.KeyboardKeys);
+            }
+            if (macroPanel != null)
+            {
+                macroPanel.Visibility = mapping.Type == 4 ? Visibility.Visible : Visibility.Collapsed;
+                if (mapping.Type == 4)
+                {
+                    SetStoredMacroButtons(buttonName, mapping.MacroButtons);
+                    SetStoredMacroDelayMs(buttonName, mapping.MacroDelayMs);
+                    SetStoredMacroMode(buttonName, mapping.MacroMode);
+                    UpdateMacroButtonTags(buttonName, mapping.MacroButtons);
+
+                    var delaySlider = FindName($"LegionButton{buttonName}MacroDelaySlider") as Slider;
+                    if (delaySlider != null) delaySlider.Value = mapping.MacroDelayMs;
+                    var delayText = FindName($"LegionButton{buttonName}MacroDelayValueText") as TextBlock;
+                    if (delayText != null) delayText.Text = mapping.MacroDelayMs.ToString();
+                    var delayRow = FindName($"LegionButton{buttonName}MacroDelayRow") as Grid;
+                    if (delayRow != null) delayRow.Visibility = mapping.MacroMode == 1 ? Visibility.Visible : Visibility.Collapsed;
+                    var modeCombo2 = FindName($"LegionButton{buttonName}MacroModeComboBox") as ComboBox;
+                    if (modeCombo2 != null) modeCombo2.SelectedIndex = mapping.MacroMode;
+                }
             }
 
             if (_buttonGamepadModeCombos.TryGetValue(buttonName, out ComboBox modeCombo) && modeCombo != null)
@@ -1256,7 +1565,10 @@ namespace XboxGamingBar
                 return mapping;
             }
 
-            mapping.Type = typeCombo?.SelectedIndex ?? 0;
+            // Index 3 is "Macro" (only present on M1/M2 today) — translate to Type=4 since Type=3
+            // is reserved for Action (Desktop button). Index 0-2 map directly (Gamepad/Keyboard/Mouse).
+            int rawTypeIndex = typeCombo?.SelectedIndex ?? 0;
+            mapping.Type = rawTypeIndex == 3 ? 4 : rawTypeIndex;
             mapping.MouseButton = mouseCombo?.SelectedIndex ?? 0;
             mapping.GamepadMode = GetStoredButtonGamepadMode(buttonName);
             mapping.Turbo = GetStoredButtonTurbo(buttonName);
@@ -1276,6 +1588,16 @@ namespace XboxGamingBar
                     mapping.GamepadActions = singleAction > 0 ? new List<int> { singleAction } : new List<int>();
                 }
             }
+            else if (mapping.Type == 4)
+            {
+                mapping.GamepadAction = 0;
+                mapping.GamepadActions = new List<int>();
+                mapping.GamepadMode = 0;
+                mapping.MacroButtons = GetStoredMacroButtons(buttonName);
+                mapping.MacroDelayMs = GetStoredMacroDelayMs(buttonName);
+                mapping.MacroMode = GetStoredMacroMode(buttonName);
+                mapping.Turbo = false;
+            }
             else
             {
                 mapping.GamepadAction = singleAction;
@@ -1293,6 +1615,10 @@ namespace XboxGamingBar
 
         private static readonly string[] LegionRemapButtonNames = new[] { "Y1", "Y2", "Y3", "M1", "M2", "M3", "Desktop", "Page" };
         private readonly Dictionary<string, List<int>> _buttonKeyboardKeys = new Dictionary<string, List<int>>();
+        private readonly Dictionary<string, List<int>> _buttonMacroKeys = new Dictionary<string, List<int>>();
+        private readonly Dictionary<string, List<int>> _buttonMacroButtons = new Dictionary<string, List<int>>();
+        private readonly Dictionary<string, int> _buttonMacroDelayMs = new Dictionary<string, int>();
+        private readonly Dictionary<string, int> _buttonMacroMode = new Dictionary<string, int>();
         private readonly Dictionary<string, List<int>> _buttonGamepadComboActions = new Dictionary<string, List<int>>();
         private readonly Dictionary<string, bool> _buttonGamepadTurbo = new Dictionary<string, bool>();
         private readonly Dictionary<string, int> _buttonGamepadMode = new Dictionary<string, int>();
@@ -1314,6 +1640,50 @@ namespace XboxGamingBar
         private void SetStoredKeyboardKeys(string buttonName, List<int> keys)
         {
             _buttonKeyboardKeys[buttonName] = new List<int>(keys ?? new List<int>());
+        }
+
+        private List<int> GetStoredMacroKeys(string buttonName)
+        {
+            if (_buttonMacroKeys.TryGetValue(buttonName, out var keys))
+                return new List<int>(keys);
+            return new List<int>();
+        }
+
+        private void SetStoredMacroKeys(string buttonName, List<int> keys)
+        {
+            _buttonMacroKeys[buttonName] = new List<int>(keys ?? new List<int>());
+        }
+
+        private List<int> GetStoredMacroButtons(string buttonName)
+        {
+            if (_buttonMacroButtons.TryGetValue(buttonName, out var actions))
+                return new List<int>(actions);
+            return new List<int>();
+        }
+
+        private void SetStoredMacroButtons(string buttonName, List<int> actions)
+        {
+            _buttonMacroButtons[buttonName] = new List<int>(actions ?? new List<int>());
+        }
+
+        private int GetStoredMacroDelayMs(string buttonName)
+        {
+            return _buttonMacroDelayMs.TryGetValue(buttonName, out var delay) ? delay : 80;
+        }
+
+        private void SetStoredMacroDelayMs(string buttonName, int delayMs)
+        {
+            _buttonMacroDelayMs[buttonName] = delayMs;
+        }
+
+        private int GetStoredMacroMode(string buttonName)
+        {
+            return _buttonMacroMode.TryGetValue(buttonName, out var mode) ? mode : 0;
+        }
+
+        private void SetStoredMacroMode(string buttonName, int mode)
+        {
+            _buttonMacroMode[buttonName] = mode;
         }
 
         /// <summary>

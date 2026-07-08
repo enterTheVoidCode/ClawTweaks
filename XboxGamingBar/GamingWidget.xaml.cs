@@ -369,7 +369,7 @@ namespace XboxGamingBar
     /// </summary>
     public class ButtonMapping
     {
-        /// <summary>Mapping type: 0=Gamepad, 1=Keyboard, 2=Mouse</summary>
+        /// <summary>Mapping type: 0=Gamepad, 1=Keyboard, 2=Mouse, 3=Action, 4=Macro</summary>
         public int Type { get; set; } = 0;
         /// <summary>Gamepad action index (0-24, into RemapAction)</summary>
         public int GamepadAction { get; set; } = 0;
@@ -386,6 +386,24 @@ namespace XboxGamingBar
         /// <summary>Action payload for Type=3 program/website actions: the exe/ps1 path
         /// (LaunchUserProgram) or the URL (OpenUserWebsite). Empty for built-in actions.</summary>
         public string ActionParam { get; set; } = "";
+        /// <summary>Macro key codes fired in order for Type=4 (separate from KeyboardKeys,
+        /// which is a simultaneous combo). NOT currently used for firing (Macro triggers
+        /// controller buttons, not keyboard keys) — kept for a possible future keyboard-macro
+        /// pass; logic elsewhere that reads/writes this field is intentionally left in place.</summary>
+        public List<int> MacroKeys { get; set; } = new List<int>();
+        /// <summary>Macro gamepad action indices (into RemapAction, same encoding as GamepadAction/
+        /// GamepadActions) fired in order for Type=4 via the virtual controller — pure synthetic
+        /// button presses on the ViGEm/Viiper output, never routed through any keyboard-shortcut
+        /// or hotkey system.</summary>
+        public List<int> MacroButtons { get; set; } = new List<int>();
+        /// <summary>Delay in ms between each step of the Macro sequence (only relevant for
+        /// MacroMode=1/Repeat).</summary>
+        public int MacroDelayMs { get; set; } = 80;
+        /// <summary>Macro repeat behavior: 0=Once (play the sequence once per press), 1=Repeat
+        /// while held (replays the whole sequence for as long as the button stays physically held),
+        /// 2=Hold toggle (first press presses ALL configured buttons down simultaneously and keeps
+        /// them held; a second press releases them — independent of MacroDelayMs).</summary>
+        public int MacroMode { get; set; } = 0;
 
         /// <summary>
         /// Returns true if this mapping represents "no mapping" / default state.
@@ -402,7 +420,11 @@ namespace XboxGamingBar
             Turbo = this.Turbo,
             KeyboardKeys = new List<int>(this.KeyboardKeys),
             MouseButton = this.MouseButton,
-            ActionParam = this.ActionParam
+            ActionParam = this.ActionParam,
+            MacroKeys = new List<int>(this.MacroKeys),
+            MacroButtons = new List<int>(this.MacroButtons),
+            MacroDelayMs = this.MacroDelayMs,
+            MacroMode = this.MacroMode
         };
 
         /// <summary>
@@ -413,9 +435,11 @@ namespace XboxGamingBar
         {
             var gamepadActions = GamepadActions.Count > 0 ? string.Join(",", GamepadActions) : "";
             var keys = KeyboardKeys.Count > 0 ? string.Join(",", KeyboardKeys) : "";
+            var macroKeys = MacroKeys.Count > 0 ? string.Join(",", MacroKeys) : "";
+            var macroButtons = MacroButtons.Count > 0 ? string.Join(",", MacroButtons) : "";
             string turboJson = Turbo ? "true" : "false";
             string paramJson = (ActionParam ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
-            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"GamepadMode\":{GamepadMode},\"GamepadActions\":[{gamepadActions}],\"Turbo\":{turboJson},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton},\"ActionParam\":\"{paramJson}\"}}";
+            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"GamepadMode\":{GamepadMode},\"GamepadActions\":[{gamepadActions}],\"Turbo\":{turboJson},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton},\"ActionParam\":\"{paramJson}\",\"MacroKeys\":[{macroKeys}],\"MacroButtons\":[{macroButtons}],\"MacroDelayMs\":{MacroDelayMs},\"MacroMode\":{MacroMode}}}";
         }
 
         /// <summary>
@@ -490,6 +514,46 @@ namespace XboxGamingBar
                         }
                     }
                 }
+
+                // Parse MacroKeys array
+                var macroKeysMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MacroKeys\"\\s*:\\s*\\[([^\\]]*)\\]");
+                if (macroKeysMatch.Success)
+                {
+                    var macroKeysStr = macroKeysMatch.Groups[1].Value;
+                    if (!string.IsNullOrWhiteSpace(macroKeysStr))
+                    {
+                        foreach (var part in macroKeysStr.Split(','))
+                        {
+                            if (int.TryParse(part.Trim(), out int key))
+                                result.MacroKeys.Add(key);
+                        }
+                    }
+                }
+
+                // Parse MacroButtons array (gamepad action indices — the active Macro payload)
+                var macroButtonsMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MacroButtons\"\\s*:\\s*\\[([^\\]]*)\\]");
+                if (macroButtonsMatch.Success)
+                {
+                    var macroButtonsStr = macroButtonsMatch.Groups[1].Value;
+                    if (!string.IsNullOrWhiteSpace(macroButtonsStr))
+                    {
+                        foreach (var part in macroButtonsStr.Split(','))
+                        {
+                            if (int.TryParse(part.Trim(), out int action))
+                                result.MacroButtons.Add(action);
+                        }
+                    }
+                }
+
+                // Parse MacroDelayMs
+                var macroDelayMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MacroDelayMs\"\\s*:\\s*(-?\\d+)");
+                if (macroDelayMatch.Success && int.TryParse(macroDelayMatch.Groups[1].Value, out int macroDelayMs))
+                    result.MacroDelayMs = macroDelayMs;
+
+                // Parse MacroMode
+                var macroModeMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MacroMode\"\\s*:\\s*(-?\\d+)");
+                if (macroModeMatch.Success && int.TryParse(macroModeMatch.Groups[1].Value, out int macroMode))
+                    result.MacroMode = macroMode;
             }
             catch
             {
