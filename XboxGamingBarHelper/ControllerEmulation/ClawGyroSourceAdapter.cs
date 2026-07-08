@@ -37,11 +37,10 @@ namespace XboxGamingBarHelper.ControllerEmulation
     ///   accelZ_out = rawY *  1.0   (Y→Z,  factor +1)
     ///
     /// NOTE (EX): the CustomSensor path bypasses whatever orientation normalization
-    /// the standard sensor stack applies, so applying the A1M remap there is a
-    /// same-vendor-chassis starting hypothesis, NOT a measurement. Axis directions
-    /// and signs on the EX are pending physical verification (Phase 5 validation
-    /// rows 6/7 in docs/PORT_PLAN_CLAW_8_AI_PLUS_EX.md); if aim/cursor moves the
-    /// wrong way on the EX, this remap is the first suspect.
+    /// the standard sensor stack applies, so applying the A1M remap there began as a
+    /// same-vendor-chassis hypothesis. Owner play-test on the EX (2026-07-07, Phase 5
+    /// validation rows 6/7) confirmed motion behaves correctly with this remap; if a
+    /// future EX firmware changes axis conventions, this table is the first suspect.
     ///
     /// Note: SetMotionStatus (HC command 0x2F) is not required on either path —
     /// the sensors deliver without it (verified on A2VM for the WinRT path and on
