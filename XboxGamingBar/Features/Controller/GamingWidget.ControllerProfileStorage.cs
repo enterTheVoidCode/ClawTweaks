@@ -1034,16 +1034,18 @@ namespace XboxGamingBar
             MacroDelaySlider_ValueChanged("M2", e.NewValue);
 
         /// <summary>
-        /// Macro repeat-behavior dropdown: 0=Once, 1=Repeat while held (shows the delay slider —
-        /// only this mode paces itself with MacroDelayMs), 2=Hold toggle (press once to hold all
-        /// configured buttons down, press again to release; no delay needed).
+        /// Macro repeat-behavior dropdown: 0=Once, 1=Repeat while held, 2=Hold toggle (press once
+        /// to hold all configured buttons down, press again to release; no delay needed), 3=Hold+
+        /// Repeat toggle (press once to start mashing the sequence at the delay rate, press again
+        /// to stop). The delay slider only applies to (and only shows for) modes 1 and 3 — the ones
+        /// that actually pace themselves with MacroDelayMs.
         /// </summary>
         private void MacroModeComboBox_SelectionChanged(string buttonName, int mode)
         {
             SetStoredMacroMode(buttonName, mode);
 
             var delayRow = FindName($"LegionButton{buttonName}MacroDelayRow") as Grid;
-            if (delayRow != null) delayRow.Visibility = mode == 1 ? Visibility.Visible : Visibility.Collapsed;
+            if (delayRow != null) delayRow.Visibility = (mode == 1 || mode == 3) ? Visibility.Visible : Visibility.Collapsed;
 
             if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
             {
@@ -1308,7 +1310,7 @@ namespace XboxGamingBar
                 case 1: return $"KB:[{string.Join(",", mapping.KeyboardKeys)}]";
                 case 2: return $"MS:{mapping.MouseButton}";
                 case 4:
-                    string modeName = mapping.MacroMode == 1 ? "Repeat" : mapping.MacroMode == 2 ? "Hold" : "Once";
+                    string modeName = mapping.MacroMode == 1 ? "Repeat" : mapping.MacroMode == 2 ? "Hold" : mapping.MacroMode == 3 ? "Hold+Repeat" : "Once";
                     return $"Macro:[{string.Join(",", mapping.MacroButtons)}]@{mapping.MacroDelayMs}ms {modeName}";
                 default: return "?";
             }
@@ -1421,7 +1423,7 @@ namespace XboxGamingBar
                     var delayText = FindName($"LegionButton{buttonName}MacroDelayValueText") as TextBlock;
                     if (delayText != null) delayText.Text = mapping.MacroDelayMs.ToString();
                     var delayRow = FindName($"LegionButton{buttonName}MacroDelayRow") as Grid;
-                    if (delayRow != null) delayRow.Visibility = mapping.MacroMode == 1 ? Visibility.Visible : Visibility.Collapsed;
+                    if (delayRow != null) delayRow.Visibility = (mapping.MacroMode == 1 || mapping.MacroMode == 3) ? Visibility.Visible : Visibility.Collapsed;
                     var modeCombo2 = FindName($"LegionButton{buttonName}MacroModeComboBox") as ComboBox;
                     if (modeCombo2 != null) modeCombo2.SelectedIndex = mapping.MacroMode;
                 }
