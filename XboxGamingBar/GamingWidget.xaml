@@ -8343,6 +8343,7 @@
                                             SnapsTo="Ticks"
                                             Value="100"
                                             IsEnabled="False"
+                                            XYFocusUp="{x:Bind MouseSettingsExpandToggle}"
                                             ValueChanged="ControllerEmulationMouseSensitivitySlider_ValueChanged"/>
 
                                     <Grid Margin="0,10,0,0">
@@ -9050,6 +9051,7 @@
                                                   Background="Transparent"
                                                   BorderThickness="0"
                                                   Padding="8,4"
+                                                  KeyDown="ButtonRemappingExpandToggle_KeyDown"
                                                   Click="ButtonRemappingExpandToggle_Click">
                                         <FontIcon x:Name="ButtonRemappingExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
                                     </ToggleButton>
@@ -9211,17 +9213,18 @@
                                             <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
                                         </ComboBox>
                                     </Grid>
-                                    <StackPanel x:Name="LegionButtonM1KeyboardPanel" Visibility="Collapsed" Margin="0,8,0,0" Orientation="Horizontal">
+                                    <StackPanel x:Name="LegionButtonM1KeyboardPanel" Visibility="Collapsed" Margin="0,8,0,0" Orientation="Horizontal" XYFocusKeyboardNavigation="Enabled">
                                         <StackPanel x:Name="LegionButtonM1KeyTags" Orientation="Horizontal"/>
                                         <ComboBox x:Name="LegionButtonM1KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LMeta</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RMeta</x:String>
                                         </ComboBox>
                                     </StackPanel>
                                     <StackPanel x:Name="LegionButtonM1MacroPanel" Visibility="Collapsed" Margin="0,8,0,0">
-                                        <StackPanel Orientation="Horizontal">
+                                        <StackPanel Orientation="Horizontal" XYFocusKeyboardNavigation="Enabled">
                                             <StackPanel x:Name="LegionButtonM1MacroButtonTags" Orientation="Horizontal"/>
                                             <ComboBox x:Name="LegionButtonM1MacroButtonComboBox" Width="130" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
-                                                      Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                                      Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0"
+                                                      XYFocusUp="{x:Bind LegionButtonM1TypeComboBox}">
                                                 <x:String>+ Button</x:String>
                                                 <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
                                                 <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
@@ -9235,6 +9238,7 @@
                                         <ComboBox x:Name="LegionButtonM1MacroModeComboBox" Margin="0,8,0,0" HorizontalAlignment="Stretch"
                                                   ItemTemplate="{StaticResource MacroModeItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0"
+                                                  XYFocusUp="{x:Bind LegionButtonM1MacroButtonComboBox}"
                                                   SelectionChanged="LegionButtonM1MacroModeComboBox_SelectionChanged">
                                             <x:String>Once</x:String>
                                             <x:String>Repeat while held</x:String>
@@ -9249,10 +9253,26 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="Delay (ms)" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
                                             <Slider x:Name="LegionButtonM1MacroDelaySlider" Grid.Column="1" Margin="8,0"
-                                                    Minimum="10" Maximum="300" Value="80" StepFrequency="10"
+                                                    Minimum="10" Maximum="500" Value="80" StepFrequency="10"
                                                     Style="{StaticResource ModernSliderStyle}"
+                                                    XYFocusUp="{x:Bind LegionButtonM1MacroModeComboBox}"
+                                                    XYFocusDown="{x:Bind LegionButtonM1MacroPressSlider}"
                                                     ValueChanged="LegionButtonM1MacroDelaySlider_ValueChanged"/>
                                             <TextBlock x:Name="LegionButtonM1MacroDelayValueText" Grid.Column="2" Text="80" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                        </Grid>
+                                        <Grid x:Name="LegionButtonM1MacroPressRow" Margin="0,8,0,0" Visibility="Collapsed">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="40"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Press (ms)" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                            <Slider x:Name="LegionButtonM1MacroPressSlider" Grid.Column="1" Margin="8,0"
+                                                    Minimum="10" Maximum="500" Value="40" StepFrequency="10"
+                                                    Style="{StaticResource ModernSliderStyle}"
+                                                    XYFocusUp="{x:Bind LegionButtonM1MacroDelaySlider}"
+                                                    ValueChanged="LegionButtonM1MacroPressSlider_ValueChanged"/>
+                                            <TextBlock x:Name="LegionButtonM1MacroPressValueText" Grid.Column="2" Text="40" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
                                         </Grid>
                                     </StackPanel>
                                 </StackPanel>
@@ -9289,17 +9309,18 @@
                                             <x:String>Scroll Up</x:String><x:String>Scroll Down</x:String><x:String>Scroll Left</x:String><x:String>Scroll Right</x:String>
                                         </ComboBox>
                                     </Grid>
-                                    <StackPanel x:Name="LegionButtonM2KeyboardPanel" Visibility="Collapsed" Margin="0,8,0,0" Orientation="Horizontal">
+                                    <StackPanel x:Name="LegionButtonM2KeyboardPanel" Visibility="Collapsed" Margin="0,8,0,0" Orientation="Horizontal" XYFocusKeyboardNavigation="Enabled">
                                         <StackPanel x:Name="LegionButtonM2KeyTags" Orientation="Horizontal"/>
                                         <ComboBox x:Name="LegionButtonM2KeyComboBox" Width="100" Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
                                             <x:String>+ Key</x:String><x:String>A</x:String><x:String>B</x:String><x:String>C</x:String><x:String>D</x:String><x:String>E</x:String><x:String>F</x:String><x:String>G</x:String><x:String>H</x:String><x:String>I</x:String><x:String>J</x:String><x:String>K</x:String><x:String>L</x:String><x:String>M</x:String><x:String>N</x:String><x:String>O</x:String><x:String>P</x:String><x:String>Q</x:String><x:String>R</x:String><x:String>S</x:String><x:String>T</x:String><x:String>U</x:String><x:String>V</x:String><x:String>W</x:String><x:String>X</x:String><x:String>Y</x:String><x:String>Z</x:String><x:String>1</x:String><x:String>2</x:String><x:String>3</x:String><x:String>4</x:String><x:String>5</x:String><x:String>6</x:String><x:String>7</x:String><x:String>8</x:String><x:String>9</x:String><x:String>0</x:String><x:String>F1</x:String><x:String>F2</x:String><x:String>F3</x:String><x:String>F4</x:String><x:String>F5</x:String><x:String>F6</x:String><x:String>F7</x:String><x:String>F8</x:String><x:String>F9</x:String><x:String>F10</x:String><x:String>F11</x:String><x:String>F12</x:String><x:String>Enter</x:String><x:String>Esc</x:String><x:String>Space</x:String><x:String>Tab</x:String><x:String>Backspace</x:String><x:String>Up</x:String><x:String>Down</x:String><x:String>Left</x:String><x:String>Right</x:String><x:String>LCtrl</x:String><x:String>LShift</x:String><x:String>LAlt</x:String><x:String>LMeta</x:String><x:String>RCtrl</x:String><x:String>RShift</x:String><x:String>RAlt</x:String><x:String>RMeta</x:String>
                                         </ComboBox>
                                     </StackPanel>
                                     <StackPanel x:Name="LegionButtonM2MacroPanel" Visibility="Collapsed" Margin="0,8,0,0">
-                                        <StackPanel Orientation="Horizontal">
+                                        <StackPanel Orientation="Horizontal" XYFocusKeyboardNavigation="Enabled">
                                             <StackPanel x:Name="LegionButtonM2MacroButtonTags" Orientation="Horizontal"/>
                                             <ComboBox x:Name="LegionButtonM2MacroButtonComboBox" Width="130" ItemTemplate="{StaticResource GamepadActionItemTemplate}"
-                                                      Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0">
+                                                      Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0"
+                                                      XYFocusUp="{x:Bind LegionButtonM2TypeComboBox}">
                                                 <x:String>+ Button</x:String>
                                                 <x:String>LS Click</x:String><x:String>LS Up</x:String><x:String>LS Down</x:String><x:String>LS Left</x:String><x:String>LS Right</x:String>
                                                 <x:String>RS Click</x:String><x:String>RS Up</x:String><x:String>RS Down</x:String><x:String>RS Left</x:String><x:String>RS Right</x:String>
@@ -9313,6 +9334,7 @@
                                         <ComboBox x:Name="LegionButtonM2MacroModeComboBox" Margin="0,8,0,0" HorizontalAlignment="Stretch"
                                                   ItemTemplate="{StaticResource MacroModeItemTemplate}"
                                                   Style="{StaticResource ModernComboBoxStyle}" SelectedIndex="0"
+                                                  XYFocusUp="{x:Bind LegionButtonM2MacroButtonComboBox}"
                                                   SelectionChanged="LegionButtonM2MacroModeComboBox_SelectionChanged">
                                             <x:String>Once</x:String>
                                             <x:String>Repeat while held</x:String>
@@ -9327,10 +9349,26 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Text="Delay (ms)" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
                                             <Slider x:Name="LegionButtonM2MacroDelaySlider" Grid.Column="1" Margin="8,0"
-                                                    Minimum="10" Maximum="300" Value="80" StepFrequency="10"
+                                                    Minimum="10" Maximum="500" Value="80" StepFrequency="10"
                                                     Style="{StaticResource ModernSliderStyle}"
+                                                    XYFocusUp="{x:Bind LegionButtonM2MacroModeComboBox}"
+                                                    XYFocusDown="{x:Bind LegionButtonM2MacroPressSlider}"
                                                     ValueChanged="LegionButtonM2MacroDelaySlider_ValueChanged"/>
                                             <TextBlock x:Name="LegionButtonM2MacroDelayValueText" Grid.Column="2" Text="80" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                        </Grid>
+                                        <Grid x:Name="LegionButtonM2MacroPressRow" Margin="0,8,0,0" Visibility="Collapsed">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="40"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Press (ms)" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
+                                            <Slider x:Name="LegionButtonM2MacroPressSlider" Grid.Column="1" Margin="8,0"
+                                                    Minimum="10" Maximum="500" Value="40" StepFrequency="10"
+                                                    Style="{StaticResource ModernSliderStyle}"
+                                                    XYFocusUp="{x:Bind LegionButtonM2MacroDelaySlider}"
+                                                    ValueChanged="LegionButtonM2MacroPressSlider_ValueChanged"/>
+                                            <TextBlock x:Name="LegionButtonM2MacroPressValueText" Grid.Column="2" Text="40" VerticalAlignment="Center" Foreground="#AAAAAA" FontSize="12"/>
                                         </Grid>
                                     </StackPanel>
                                 </StackPanel>
@@ -9597,7 +9635,8 @@
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
                                             Value="70"
-                                            StepFrequency="1"/>
+                                            StepFrequency="1"
+                                            XYFocusUp="{x:Bind LegionGyroActivationModeComboBox}"/>
                                 </StackPanel>
 
                                 <!-- Gyro Sensitivity Y -->
@@ -9612,7 +9651,8 @@
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
                                             Value="70"
-                                            StepFrequency="1"/>
+                                            StepFrequency="1"
+                                            XYFocusUp="{x:Bind LegionGyroSensitivityXSlider}"/>
                                 </StackPanel>
 
                                 <!-- Gyro Deadzone -->
@@ -9627,7 +9667,8 @@
                                             Style="{StaticResource ModernSliderStyle}"
                                             Minimum="1" Maximum="100"
                                             Value="1"
-                                            StepFrequency="1"/>
+                                            StepFrequency="1"
+                                            XYFocusUp="{x:Bind LegionGyroSensitivityYSlider}"/>
                                 </StackPanel>
 
                                 <!-- Gyro Invert X/Y Toggles -->
@@ -9706,7 +9747,8 @@
                                             <TextBlock Text="Vibration Intensity" FontSize="13" Foreground="#AAAAAA"/>
                                             <TextBlock x:Name="VibrationIntensityValue" Text="100%" Style="{StaticResource CardValueStyle}"/>
                                         </Grid>
-                                        <Slider x:Name="VibrationIntensitySlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="100" Value="100" StepFrequency="1"/>
+                                        <Slider x:Name="VibrationIntensitySlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="100" Value="100" StepFrequency="1"
+                                                XYFocusUp="{x:Bind ControllerFeedbackExpandToggle}"/>
                                         <!-- Test pulse: feel the current vibration intensity without a game -->
                                         <Button x:Name="TestVibrationButton"
                                                 Content="Test Vibration"
@@ -9722,14 +9764,16 @@
                                             <TextBlock Text="Left Stick" FontSize="13" Foreground="#AAAAAA"/>
                                             <TextBlock x:Name="LegionLeftStickDeadzoneValue" Text="4%" Style="{StaticResource CardValueStyle}"/>
                                         </Grid>
-                                        <Slider x:Name="LegionLeftStickDeadzoneSlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="50" Value="4" StepFrequency="1"/>
+                                        <Slider x:Name="LegionLeftStickDeadzoneSlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="50" Value="4" StepFrequency="1"
+                                                XYFocusUp="{x:Bind TestVibrationButton}"/>
                                     </StackPanel>
                                     <StackPanel>
                                         <Grid>
                                             <TextBlock Text="Right Stick" FontSize="13" Foreground="#AAAAAA"/>
                                             <TextBlock x:Name="LegionRightStickDeadzoneValue" Text="4%" Style="{StaticResource CardValueStyle}"/>
                                         </Grid>
-                                        <Slider x:Name="LegionRightStickDeadzoneSlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="50" Value="4" StepFrequency="1"/>
+                                        <Slider x:Name="LegionRightStickDeadzoneSlider" Style="{StaticResource ModernSliderStyle}" Minimum="0" Maximum="50" Value="4" StepFrequency="1"
+                                                XYFocusUp="{x:Bind LegionLeftStickDeadzoneSlider}"/>
                                     </StackPanel>
                                 </StackPanel>
                             </StackPanel>

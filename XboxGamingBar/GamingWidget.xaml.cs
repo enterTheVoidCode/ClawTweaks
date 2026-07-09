@@ -397,6 +397,10 @@ namespace XboxGamingBar
         /// <summary>Delay in ms between each step of the Macro sequence (only relevant for
         /// MacroMode=1/Repeat).</summary>
         public int MacroDelayMs { get; set; } = 80;
+        /// <summary>How long each button in the Macro sequence is held down, in ms, before
+        /// releasing it. Capped to MacroDelayMs at execution time so it never overlaps the
+        /// next step.</summary>
+        public int MacroPressMs { get; set; } = 40;
         /// <summary>Macro repeat behavior: 0=Once (play the sequence once per press), 1=Repeat
         /// while held (replays the whole sequence for as long as the button stays physically held),
         /// 2=Hold toggle (first press presses ALL configured buttons down simultaneously and keeps
@@ -422,6 +426,7 @@ namespace XboxGamingBar
             MacroKeys = new List<int>(this.MacroKeys),
             MacroButtons = new List<int>(this.MacroButtons),
             MacroDelayMs = this.MacroDelayMs,
+            MacroPressMs = this.MacroPressMs,
             MacroMode = this.MacroMode
         };
 
@@ -437,7 +442,7 @@ namespace XboxGamingBar
             var macroButtons = MacroButtons.Count > 0 ? string.Join(",", MacroButtons) : "";
             string turboJson = Turbo ? "true" : "false";
             string paramJson = (ActionParam ?? "").Replace("\\", "\\\\").Replace("\"", "\\\"");
-            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"GamepadMode\":{GamepadMode},\"GamepadActions\":[{gamepadActions}],\"Turbo\":{turboJson},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton},\"ActionParam\":\"{paramJson}\",\"MacroKeys\":[{macroKeys}],\"MacroButtons\":[{macroButtons}],\"MacroDelayMs\":{MacroDelayMs},\"MacroMode\":{MacroMode}}}";
+            return $"{{\"Type\":{Type},\"GamepadAction\":{GamepadAction},\"GamepadMode\":{GamepadMode},\"GamepadActions\":[{gamepadActions}],\"Turbo\":{turboJson},\"KeyboardKeys\":[{keys}],\"MouseButton\":{MouseButton},\"ActionParam\":\"{paramJson}\",\"MacroKeys\":[{macroKeys}],\"MacroButtons\":[{macroButtons}],\"MacroDelayMs\":{MacroDelayMs},\"MacroPressMs\":{MacroPressMs},\"MacroMode\":{MacroMode}}}";
         }
 
         /// <summary>
@@ -547,6 +552,11 @@ namespace XboxGamingBar
                 var macroDelayMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MacroDelayMs\"\\s*:\\s*(-?\\d+)");
                 if (macroDelayMatch.Success && int.TryParse(macroDelayMatch.Groups[1].Value, out int macroDelayMs))
                     result.MacroDelayMs = macroDelayMs;
+
+                // Parse MacroPressMs
+                var macroPressMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MacroPressMs\"\\s*:\\s*(-?\\d+)");
+                if (macroPressMatch.Success && int.TryParse(macroPressMatch.Groups[1].Value, out int macroPressMs))
+                    result.MacroPressMs = macroPressMs;
 
                 // Parse MacroMode
                 var macroModeMatch = System.Text.RegularExpressions.Regex.Match(json, "\"MacroMode\"\\s*:\\s*(-?\\d+)");

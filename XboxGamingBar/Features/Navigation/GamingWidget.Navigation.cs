@@ -318,10 +318,18 @@ namespace XboxGamingBar
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
                 if (focusedElement is Windows.UI.Xaml.Controls.Slider sliderUp)
                 {
+                    // 1) Explicit XYFocusUp (deterministic) wins.
                     if (FocusXYTarget(sliderUp.XYFocusUp))
                         e.Handled = true;
+                    // 2) No/disabled XYFocusUp: DON'T jump straight to the tabs (the old bug — a
+                    //    slider mid-content would fling focus all the way up to the nav bar). Instead
+                    //    find the nearest focusable element ABOVE, mirroring how Down already relies on
+                    //    UWP's own navigation. Only if there is genuinely nothing above do we escape to
+                    //    the nav bar.
+                    else if (FocusNearestFocusableAbove(sliderUp))
+                        e.Handled = true;
                     else
-                        { FocusActiveTab(); e.Handled = true; } // escape to nav bar if no enabled target
+                        { FocusActiveTab(); e.Handled = true; }
                 }
                 // else: do NOT handle — per-control KeyDown handles it.
             }
@@ -379,6 +387,27 @@ namespace XboxGamingBar
             var ctrl = xyTarget as Control;
             if (ctrl == null || !ctrl.IsEnabled) return false;
             return ctrl.Focus(FocusState.Keyboard);
+        }
+
+        /// <summary>
+        /// Fallback for a Slider with no (usable) XYFocusUp: focus the nearest focusable element
+        /// strictly ABOVE the slider instead of flinging focus up to the tab bar. Uses
+        /// FindNextFocusableElement only as a candidate source, then verifies the candidate is a
+        /// real, enabled Control that sits above the slider and is NOT in the nav bar — so a flaky
+        /// result at worst returns false (caller then escapes to the tabs, the old behaviour).
+        /// </summary>
+        private bool FocusNearestFocusableAbove(FrameworkElement from)
+        {
+            try
+            {
+                var candidate = FocusManager.FindNextFocusableElement(FocusNavigationDirection.Up) as Control;
+                if (candidate == null || !candidate.IsEnabled) return false;
+                if (IsInNavigationArea(candidate)) return false; // that's the tab-jump we want to avoid
+                // Must actually be above the slider (FindNextFocusableElement can pick sideways/below).
+                if (ElementTopOnPage(candidate) >= ElementTopOnPage(from) - 1) return false;
+                return candidate.Focus(FocusState.Keyboard);
+            }
+            catch { return false; }
         }
 
         private void GamingWidget_PreviewKeyUp(object sender, KeyRoutedEventArgs e)

@@ -124,7 +124,10 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Send a custom shortcut by first closing Game Bar (if in widget mode), then sending the shortcut.
-        /// Sequence: Win+G (close Game Bar) → Custom shortcut
+        /// Sequence: Win+G (close Game Bar) → Custom shortcut. Both steps run helper-side in one
+        /// pipe message (GameBarThenShortcut) — the widget can get suspended the instant Game Bar
+        /// starts closing, so splitting this into two widget-awaited round-trips (as before) let the
+        /// second one silently never fire. See Program.PipeHandlers.cs's GameBarThenShortcut handler.
         /// </summary>
         private async Task SendCustomShortcutAsync(string shortcut, string tileName)
         {
@@ -132,20 +135,18 @@ namespace XboxGamingBar
             {
                 Logger.Info($"Custom shortcut tile clicked: {tileName} -> {shortcut}");
 
-                // Only close Game Bar if we're running as a widget
                 if (widget != null)
                 {
-                    // First close Game Bar with Win+G
-                    await SendKeyboardShortcutViaHelper("Win+G");
-                    Logger.Debug("Win+G sent to close Game Bar");
-
-                    // Wait for Game Bar to close
-                    await Task.Delay(150);
+                    var message = new Windows.Foundation.Collections.ValueSet { { "GameBarThenShortcut", shortcut } };
+                    await SendHelperMessageAsync(message);
+                    Logger.Info($"Sent GameBarThenShortcut to helper: {shortcut}");
                 }
-
-                // Now send the actual shortcut
-                await SendKeyboardShortcutViaHelper(shortcut);
-                Logger.Info($"Custom shortcut sent: {shortcut}");
+                else
+                {
+                    // Not running as a widget (app-mode window) — no Game Bar to close first.
+                    await SendKeyboardShortcutViaHelper(shortcut);
+                    Logger.Info($"Custom shortcut sent: {shortcut}");
+                }
             }
             catch (Exception ex)
             {

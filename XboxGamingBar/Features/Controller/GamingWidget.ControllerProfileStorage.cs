@@ -824,12 +824,16 @@ namespace XboxGamingBar
                 var removeButton = new Button
                 {
                     Content = "×",
-                    FontSize = 10,
-                    Padding = new Thickness(4, 0, 0, 0),
+                    FontSize = 14,
+                    // Larger hit/focus target so it is actually reachable + visible with the
+                    // controller D-pad (the old 10px / 0-padding X was nearly impossible to land on).
+                    Padding = new Thickness(6, 2, 6, 2),
                     Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
                     BorderThickness = new Thickness(0),
-                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
                     VerticalAlignment = VerticalAlignment.Center,
+                    IsTabStop = true,
+                    UseSystemFocusVisuals = true,   // visible focus rect so the user sees where they are
                     MinWidth = 0,
                     MinHeight = 0
                 };
@@ -1033,6 +1037,25 @@ namespace XboxGamingBar
         private void LegionButtonM2MacroDelaySlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) =>
             MacroDelaySlider_ValueChanged("M2", e.NewValue);
 
+        private void MacroPressSlider_ValueChanged(string buttonName, double newValue)
+        {
+            int pressMs = (int)newValue;
+            SetStoredMacroPressMs(buttonName, pressMs);
+            var pressText = FindName($"LegionButton{buttonName}MacroPressValueText") as TextBlock;
+            if (pressText != null) pressText.Text = pressMs.ToString();
+
+            if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+            {
+                ControllerSettingChanged(null, null);
+            }
+        }
+
+        private void LegionButtonM1MacroPressSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) =>
+            MacroPressSlider_ValueChanged("M1", e.NewValue);
+
+        private void LegionButtonM2MacroPressSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e) =>
+            MacroPressSlider_ValueChanged("M2", e.NewValue);
+
         /// <summary>
         /// Macro repeat-behavior dropdown: 0=Once, 1=Repeat while held, 2=Hold toggle (press once
         /// to hold all configured buttons down, press again to release; no delay needed), 3=Hold+
@@ -1044,12 +1067,43 @@ namespace XboxGamingBar
         {
             SetStoredMacroMode(buttonName, mode);
 
+            bool showDelayPress = mode == 1 || mode == 3;
             var delayRow = FindName($"LegionButton{buttonName}MacroDelayRow") as Grid;
-            if (delayRow != null) delayRow.Visibility = (mode == 1 || mode == 3) ? Visibility.Visible : Visibility.Collapsed;
+            if (delayRow != null) delayRow.Visibility = showDelayPress ? Visibility.Visible : Visibility.Collapsed;
+            var pressRow = FindName($"LegionButton{buttonName}MacroPressRow") as Grid;
+            if (pressRow != null) pressRow.Visibility = showDelayPress ? Visibility.Visible : Visibility.Collapsed;
+            UpdateMacroDelayPressFocusChain(buttonName, showDelayPress);
 
             if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
             {
                 ControllerSettingChanged(null, null);
+            }
+        }
+
+        /// <summary>
+        /// Keeps the Mode combo / Delay slider / Press slider / (for M2) the far-below "Reset All
+        /// Re-Mappings" button XYFocus-wired to each other as the Delay+Press rows show/hide — they
+        /// are collapsed together (see MacroModeComboBox_SelectionChanged / ApplyButtonMappingToUI),
+        /// so this is the single place that has to stay in sync with that. When hidden, the explicit
+        /// links are cleared so UWP's own XYFocus algorithm (which already handles the rest of this
+        /// screen fine) takes over instead of pointing at an invisible control.
+        /// </summary>
+        private void UpdateMacroDelayPressFocusChain(string buttonName, bool visible)
+        {
+            var modeCombo = FindName($"LegionButton{buttonName}MacroModeComboBox") as ComboBox;
+            var delaySlider = FindName($"LegionButton{buttonName}MacroDelaySlider") as Slider;
+            var pressSlider = FindName($"LegionButton{buttonName}MacroPressSlider") as Slider;
+            if (modeCombo == null || delaySlider == null || pressSlider == null) return;
+
+            modeCombo.XYFocusDown = visible ? delaySlider : null;
+
+            // M2's Press slider is the last control before "Reset All Re-Mappings Below", which sits
+            // far enough downscreen that the default XYFocus search can miss it — wire it explicitly
+            // both ways. M1's Press slider already flows fine into M2's card via the default algorithm.
+            if (buttonName == "M2" && LegionGamepadResetAllButton != null)
+            {
+                pressSlider.XYFocusDown = visible ? (DependencyObject)LegionGamepadResetAllButton : null;
+                LegionGamepadResetAllButton.XYFocusUp = visible ? (DependencyObject)pressSlider : modeCombo;
             }
         }
 
@@ -1137,12 +1191,16 @@ namespace XboxGamingBar
                 var removeButton = new Button
                 {
                     Content = "×",
-                    FontSize = 10,
-                    Padding = new Thickness(4, 0, 0, 0),
+                    FontSize = 14,
+                    // Larger hit/focus target so it is actually reachable + visible with the
+                    // controller D-pad (the old 10px / 0-padding X was nearly impossible to land on).
+                    Padding = new Thickness(6, 2, 6, 2),
                     Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
                     BorderThickness = new Thickness(0),
-                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
                     VerticalAlignment = VerticalAlignment.Center,
+                    IsTabStop = true,
+                    UseSystemFocusVisuals = true,   // visible focus rect so the user sees where they are
                     MinWidth = 0,
                     MinHeight = 0
                 };
@@ -1272,12 +1330,16 @@ namespace XboxGamingBar
                 var removeButton2 = new Button
                 {
                     Content = "×",
-                    FontSize = 10,
-                    Padding = new Thickness(4, 0, 0, 0),
+                    FontSize = 14,
+                    // Larger hit/focus target so it is actually reachable + visible with the
+                    // controller D-pad (the old 10px / 0-padding X was nearly impossible to land on).
+                    Padding = new Thickness(6, 2, 6, 2),
                     Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
                     BorderThickness = new Thickness(0),
-                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
                     VerticalAlignment = VerticalAlignment.Center,
+                    IsTabStop = true,
+                    UseSystemFocusVisuals = true,   // visible focus rect so the user sees where they are
                     MinWidth = 0,
                     MinHeight = 0
                 };
@@ -1411,22 +1473,37 @@ namespace XboxGamingBar
             if (macroPanel != null)
             {
                 macroPanel.Visibility = mapping.Type == 4 ? Visibility.Visible : Visibility.Collapsed;
-                if (mapping.Type == 4)
-                {
-                    SetStoredMacroButtons(buttonName, mapping.MacroButtons);
-                    SetStoredMacroDelayMs(buttonName, mapping.MacroDelayMs);
-                    SetStoredMacroMode(buttonName, mapping.MacroMode);
-                    UpdateMacroButtonTags(buttonName, mapping.MacroButtons);
 
-                    var delaySlider = FindName($"LegionButton{buttonName}MacroDelaySlider") as Slider;
-                    if (delaySlider != null) delaySlider.Value = mapping.MacroDelayMs;
-                    var delayText = FindName($"LegionButton{buttonName}MacroDelayValueText") as TextBlock;
-                    if (delayText != null) delayText.Text = mapping.MacroDelayMs.ToString();
-                    var delayRow = FindName($"LegionButton{buttonName}MacroDelayRow") as Grid;
-                    if (delayRow != null) delayRow.Visibility = (mapping.MacroMode == 1 || mapping.MacroMode == 3) ? Visibility.Visible : Visibility.Collapsed;
-                    var modeCombo2 = FindName($"LegionButton{buttonName}MacroModeComboBox") as ComboBox;
-                    if (modeCombo2 != null) modeCombo2.SelectedIndex = mapping.MacroMode;
-                }
+                // Sync the macro editor's stored state (chips/mode/delay) on EVERY apply, not just
+                // when Type==4 — these are per-widget dictionaries keyed only by button name, not
+                // scoped per profile, so a fresh/blank profile (Type=0) must explicitly clear them.
+                // Otherwise switching M1/M2 to Macro afterward showed whatever a previously applied
+                // profile (e.g. Global) had left behind, instead of starting blank.
+                var macroButtons = mapping.Type == 4 ? mapping.MacroButtons : new List<int>();
+                var macroDelay = mapping.Type == 4 ? mapping.MacroDelayMs : 80;
+                var macroPress = mapping.Type == 4 ? mapping.MacroPressMs : 40;
+                var macroMode = mapping.Type == 4 ? mapping.MacroMode : 0;
+                SetStoredMacroButtons(buttonName, macroButtons);
+                SetStoredMacroDelayMs(buttonName, macroDelay);
+                SetStoredMacroPressMs(buttonName, macroPress);
+                SetStoredMacroMode(buttonName, macroMode);
+                UpdateMacroButtonTags(buttonName, macroButtons);
+
+                var delaySlider = FindName($"LegionButton{buttonName}MacroDelaySlider") as Slider;
+                if (delaySlider != null) delaySlider.Value = macroDelay;
+                var delayText = FindName($"LegionButton{buttonName}MacroDelayValueText") as TextBlock;
+                if (delayText != null) delayText.Text = macroDelay.ToString();
+                var delayRow = FindName($"LegionButton{buttonName}MacroDelayRow") as Grid;
+                if (delayRow != null) delayRow.Visibility = (macroMode == 1 || macroMode == 3) ? Visibility.Visible : Visibility.Collapsed;
+                var pressSlider = FindName($"LegionButton{buttonName}MacroPressSlider") as Slider;
+                if (pressSlider != null) pressSlider.Value = macroPress;
+                var pressText = FindName($"LegionButton{buttonName}MacroPressValueText") as TextBlock;
+                if (pressText != null) pressText.Text = macroPress.ToString();
+                var pressRow = FindName($"LegionButton{buttonName}MacroPressRow") as Grid;
+                if (pressRow != null) pressRow.Visibility = (macroMode == 1 || macroMode == 3) ? Visibility.Visible : Visibility.Collapsed;
+                var modeCombo2 = FindName($"LegionButton{buttonName}MacroModeComboBox") as ComboBox;
+                if (modeCombo2 != null) modeCombo2.SelectedIndex = macroMode;
+                UpdateMacroDelayPressFocusChain(buttonName, macroMode == 1 || macroMode == 3);
             }
 
             if (_buttonGamepadModeCombos.TryGetValue(buttonName, out ComboBox modeCombo) && modeCombo != null)
@@ -1483,12 +1560,16 @@ namespace XboxGamingBar
                 var removeButton = new Button
                 {
                     Content = "×",
-                    FontSize = 10,
-                    Padding = new Thickness(4, 0, 0, 0),
+                    FontSize = 14,
+                    // Larger hit/focus target so it is actually reachable + visible with the
+                    // controller D-pad (the old 10px / 0-padding X was nearly impossible to land on).
+                    Padding = new Thickness(6, 2, 6, 2),
                     Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
                     BorderThickness = new Thickness(0),
-                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
+                    Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
                     VerticalAlignment = VerticalAlignment.Center,
+                    IsTabStop = true,
+                    UseSystemFocusVisuals = true,   // visible focus rect so the user sees where they are
                     MinWidth = 0,
                     MinHeight = 0
                 };
@@ -1597,6 +1678,7 @@ namespace XboxGamingBar
                 mapping.GamepadMode = 0;
                 mapping.MacroButtons = GetStoredMacroButtons(buttonName);
                 mapping.MacroDelayMs = GetStoredMacroDelayMs(buttonName);
+                mapping.MacroPressMs = GetStoredMacroPressMs(buttonName);
                 mapping.MacroMode = GetStoredMacroMode(buttonName);
                 mapping.Turbo = false;
             }
@@ -1620,6 +1702,7 @@ namespace XboxGamingBar
         private readonly Dictionary<string, List<int>> _buttonMacroKeys = new Dictionary<string, List<int>>();
         private readonly Dictionary<string, List<int>> _buttonMacroButtons = new Dictionary<string, List<int>>();
         private readonly Dictionary<string, int> _buttonMacroDelayMs = new Dictionary<string, int>();
+        private readonly Dictionary<string, int> _buttonMacroPressMs = new Dictionary<string, int>();
         private readonly Dictionary<string, int> _buttonMacroMode = new Dictionary<string, int>();
         private readonly Dictionary<string, List<int>> _buttonGamepadComboActions = new Dictionary<string, List<int>>();
         private readonly Dictionary<string, bool> _buttonGamepadTurbo = new Dictionary<string, bool>();
@@ -1676,6 +1759,16 @@ namespace XboxGamingBar
         private void SetStoredMacroDelayMs(string buttonName, int delayMs)
         {
             _buttonMacroDelayMs[buttonName] = delayMs;
+        }
+
+        private int GetStoredMacroPressMs(string buttonName)
+        {
+            return _buttonMacroPressMs.TryGetValue(buttonName, out var pressMs) ? pressMs : 40;
+        }
+
+        private void SetStoredMacroPressMs(string buttonName, int pressMs)
+        {
+            _buttonMacroPressMs[buttonName] = pressMs;
         }
 
         private int GetStoredMacroMode(string buttonName)
@@ -2365,7 +2458,14 @@ namespace XboxGamingBar
         /// This method is only called from user-initiated changes (ControllerSettingChanged
         /// already has guards for profile loading), so we always want to send.
         /// </summary>
-        private void SendButtonMappingsToHelper(ControllerProfile profile)
+        /// <param name="force">
+        /// Bypass each property's unchanged-value skip. Pass true when re-pushing after a
+        /// helper restart (see ResendActiveControllerProfileToHelper) — the helper's
+        /// ClawButtonMonitor loses all in-memory M1/M2/etc. mappings on restart, but the
+        /// widget's own cached Values never changed, so the normal per-property dedup check
+        /// would otherwise silently skip every button that hadn't been touched since.
+        /// </param>
+        private void SendButtonMappingsToHelper(ControllerProfile profile, bool force = false)
         {
             try
             {
@@ -2373,24 +2473,24 @@ namespace XboxGamingBar
                 // When user explicitly sets a button to Disabled, we need to send that to
                 // the helper so it clears the button mapping on the controller.
                 if (profile.ButtonY1 != null)
-                    legionButtonY1?.SendMapping(profile.ButtonY1.ToJson());
+                    legionButtonY1?.SendMapping(profile.ButtonY1.ToJson(), force);
                 if (profile.ButtonY2 != null)
-                    legionButtonY2?.SendMapping(profile.ButtonY2.ToJson());
+                    legionButtonY2?.SendMapping(profile.ButtonY2.ToJson(), force);
                 if (profile.ButtonY3 != null)
-                    legionButtonY3?.SendMapping(profile.ButtonY3.ToJson());
+                    legionButtonY3?.SendMapping(profile.ButtonY3.ToJson(), force);
                 if (profile.ButtonM1 != null)
-                    legionButtonM1?.SendMapping(profile.ButtonM1.ToJson());
+                    legionButtonM1?.SendMapping(profile.ButtonM1.ToJson(), force);
                 if (profile.ButtonM2 != null)
-                    legionButtonM2?.SendMapping(profile.ButtonM2.ToJson());
+                    legionButtonM2?.SendMapping(profile.ButtonM2.ToJson(), force);
                 if (profile.ButtonM3 != null)
-                    legionButtonM3?.SendMapping(profile.ButtonM3.ToJson());
+                    legionButtonM3?.SendMapping(profile.ButtonM3.ToJson(), force);
                 // Front (Desktop) button is global-only for now: always send the GLOBAL mapping, never
                 // the per-game one — so the single-click action is identical in every game.
                 var desktopGlobal = GetGlobalDesktopButtonMapping();
                 if (desktopGlobal != null)
-                    legionButtonDesktop?.SendMapping(desktopGlobal.ToJson());
+                    legionButtonDesktop?.SendMapping(desktopGlobal.ToJson(), force);
                 if (profile.ButtonPage != null)
-                    legionButtonPage?.SendMapping(profile.ButtonPage.ToJson());
+                    legionButtonPage?.SendMapping(profile.ButtonPage.ToJson(), force);
 
                 // Send gamepad button mappings as JSON dictionary
                 // During profile loading, use gamepadButtonMappings (includes desktop control changes)
@@ -2399,11 +2499,13 @@ namespace XboxGamingBar
                 if (mappingsToSend != null && mappingsToSend.Count > 0)
                 {
                     var gamepadMappingsJson = SerializeGamepadButtonMappings(mappingsToSend);
-                    legionGamepadMapping?.SetValue(gamepadMappingsJson);
+                    if (force) legionGamepadMapping?.ForceSetValue(gamepadMappingsJson);
+                    else legionGamepadMapping?.SetValue(gamepadMappingsJson);
                 }
                 else
                 {
-                    legionGamepadMapping?.SetValue("");
+                    if (force) legionGamepadMapping?.ForceSetValue("");
+                    else legionGamepadMapping?.SetValue("");
                 }
             }
             catch (Exception ex)
@@ -2431,7 +2533,12 @@ namespace XboxGamingBar
                 if (profile == null) return;
 
                 Logger.Info("Re-pushing active controller profile to helper after pipe connect (recovery from cold-start race)");
-                SendButtonMappingsToHelper(profile);
+                // force=true: the helper's ClawButtonMonitor loses its in-memory M1/M2/etc.
+                // mappings whenever the HELPER process restarts (widget keeps running with
+                // the same cached Values), so the normal per-property dedup check would
+                // otherwise skip re-sending anything the user hadn't changed since — leaving
+                // M1/M2 keyboard/mouse/gamepad remaps silently unmapped until next edit.
+                SendButtonMappingsToHelper(profile, force: true);
                 SendControllerSettingsToHelper(profile);
                 SendLightingToHelper(profile);
             }
