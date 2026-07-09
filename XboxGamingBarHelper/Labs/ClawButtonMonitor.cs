@@ -180,6 +180,11 @@ namespace XboxGamingBarHelper.Labs
         // DClawController.WriteVibration: report {0x05,0x01,0x00,0x00, small, large, 0…}.
         // Scaled by the user's stepless intensity (0.0–1.0). Written on the ViGEm callback
         // thread, so guarded by _rumbleLock against the monitor thread's _cmdDevice use.
+        // NOTE: standard XInputSetState was tried and reverted (build 0.1.6.121-124) — the
+        // physical Claw's XInput surface (PID 0x1901) simply never responds to XInputGetState
+        // on this hardware (confirmed via log: "pre-VIIPER-mount physical XInput slot = none
+        // found", probed before any of our own virtual pads existed), so that path is a dead
+        // end here; this raw HID report is the only channel that actually reaches the motor.
         private volatile float _vibrationIntensity = 1.0f;   // 0.0–1.0 (UI: 0–100 %)
         private readonly object _rumbleLock = new object();
         private byte _prevRumbleLarge = 0;
@@ -349,6 +354,8 @@ namespace XboxGamingBarHelper.Labs
         private volatile int[] _m2MacroActions;
         private volatile int _m1MacroDelayMs = 80;
         private volatile int _m2MacroDelayMs = 80;
+        private volatile int _m1MacroPressMs = MacroButtonHoldMs;
+        private volatile int _m2MacroPressMs = MacroButtonHoldMs;
         private volatile int _m1MacroMode;             // 0=Once, 1=Repeat while held, 2=Hold toggle, 3=Hold+Repeat toggle
         private volatile int _m2MacroMode;
         private volatile bool _m1MacroRunning;        // re-entrancy guard: one Once/Repeat/Hold+Repeat sequence at a time
@@ -556,13 +563,15 @@ namespace XboxGamingBarHelper.Labs
         /// toggle while running stops it (the in-flight RunMacro Task exits after its current pass)
         /// — never leaves the virtual controller stuck with buttons down or mashing forever.
         /// </summary>
-        public void ConfigureBackButtonMacro(string button, int delayMs, int mode)
+        public void ConfigureBackButtonMacro(string button, int delayMs, int pressMs, int mode)
         {
             bool isM1 = string.Equals(button, "M1", StringComparison.OrdinalIgnoreCase);
             int clampedDelay = Math.Max(10, delayMs);
+            int clampedPress = Math.Max(10, pressMs);
             if (isM1)
             {
                 _m1MacroDelayMs = clampedDelay;
+                _m1MacroPressMs = clampedPress;
                 if (mode != 2 && _m1MacroHoldActive)
                 {
                     _m1MacroActiveActions = Array.Empty<RemapAction>();
@@ -574,6 +583,7 @@ namespace XboxGamingBarHelper.Labs
             else
             {
                 _m2MacroDelayMs = clampedDelay;
+                _m2MacroPressMs = clampedPress;
                 if (mode != 2 && _m2MacroHoldActive)
                 {
                     _m2MacroActiveActions = Array.Empty<RemapAction>();
@@ -655,6 +665,8 @@ namespace XboxGamingBarHelper.Labs
         /// sequences. Deliberately does not use KeyboardChordCallback/BuildKeyboardToken — Macro
         /// triggers controller buttons only, never keyboard shortcuts/hotkeys.
         /// </summary>
+        // Default press/hold duration (ms) per macro step before the widget's Press slider
+        // (_m1MacroPressMs/_m2MacroPressMs, set via ConfigureBackButtonMacro) overrides it.
         private const int MacroButtonHoldMs = 40;
 
         private void RunMacro(bool isM1)
@@ -668,6 +680,7 @@ namespace XboxGamingBarHelper.Labs
                 {
                     int[] actionIndices = isM1 ? _m1MacroActions : _m2MacroActions;
                     int delayMs = isM1 ? _m1MacroDelayMs : _m2MacroDelayMs;
+                    int pressMs = isM1 ? _m1MacroPressMs : _m2MacroPressMs;
                     if (actionIndices == null || actionIndices.Length == 0) return;
 
                     foreach (int actionIndex in actionIndices)
@@ -687,7 +700,7 @@ namespace XboxGamingBarHelper.Labs
                         {
                             if (isM1) _m1MacroActiveActions = new[] { action };
                             else      _m2MacroActiveActions = new[] { action };
-                            Thread.Sleep(Math.Min(MacroButtonHoldMs, delayMs));
+                            Thread.Sleep(Math.Min(pressMs, delayMs));
                             if (isM1) _m1MacroActiveActions = Array.Empty<RemapAction>();
                             else      _m2MacroActiveActions = Array.Empty<RemapAction>();
                         }
@@ -2562,7 +2575,12 @@ namespace XboxGamingBarHelper.Labs
                 bool ok = SharedHidWrite(dev.DevicePath, report);
                 if (ok)
                 {
-                    Logger.Debug($"ClawButtonMonitor: rumble written large={large}->{scaledLarge} small={small}->{scaledSmall} (intensity={(int)(intensity * 100)}%, len={outLen})");
+                    // Info (not Debug) despite the volume concern in the comment above — the helper's
+                    // NLog minlevel is Info, so this was previously invisible; dedupe already limits it
+                    // to real value changes, and this is the only way to tell "write succeeded but Claw
+                    // didn't buzz" (hardware/firmware issue) apart from "write never reached the HID"
+                    // (a ClawTweaks bug) when diagnosing a dead-vibration report.
+                    Logger.Info($"ClawButtonMonitor: rumble written large={large}->{scaledLarge} small={small}->{scaledSmall} (intensity={(int)(intensity * 100)}%, len={outLen}, path={dev.DevicePath})");
                 }
                 else
                 {

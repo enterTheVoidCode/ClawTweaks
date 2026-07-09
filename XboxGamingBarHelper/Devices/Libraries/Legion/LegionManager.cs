@@ -46,7 +46,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         /// satellite config, so it is a no-op there.
         /// Wired by Program.MSIClaw.cs to ClawButtonMonitor.ConfigureBackButtonMacro().
         /// </summary>
-        public Action<string, int, int> OnMacroConfigChanged;
+        public Action<string, int, int, int> OnMacroConfigChanged;
 
         /// <summary>
         /// Routes the generic "Re-Map Specific Buttons" 24-button mapping JSON (the three-dropdown
@@ -2748,11 +2748,11 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         /// this is a no-op there (mirrors the MSI-Claw-only routing in
         /// <see cref="SetButtonMappingAdvanced"/>).
         /// </summary>
-        public void SetButtonMacroConfig(string button, int delayMs, int mode)
+        public void SetButtonMacroConfig(string button, int delayMs, int pressMs, int mode)
         {
             if (DeviceDetector.DetectDevice().DeviceType == Shared.Enums.DeviceType.MSIClaw)
             {
-                OnMacroConfigChanged?.Invoke(button, delayMs, mode);
+                OnMacroConfigChanged?.Invoke(button, delayMs, pressMs, mode);
             }
         }
 

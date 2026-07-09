@@ -28,6 +28,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             /// active Macro payload; fired as synthetic controller button presses, not keys.</summary>
             public int[] MacroButtons { get; set; } = Array.Empty<int>();
             public int MacroDelayMs { get; set; } = 80;
+            /// <summary>How long each button in the Macro sequence is held down, in ms.</summary>
+            public int MacroPressMs { get; set; } = 40;
             /// <summary>0=Once, 1=Repeat while held, 2=Hold toggle (see ButtonMapping.MacroMode).</summary>
             public int MacroMode { get; set; } = 0;
         }
@@ -59,6 +61,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
                 parsed.MacroKeys = ExtractIntArray(json, "MacroKeys");
                 parsed.MacroButtons = ExtractIntArray(json, "MacroButtons");
                 parsed.MacroDelayMs = ExtractInt(json, "MacroDelayMs") ?? 80;
+                parsed.MacroPressMs = ExtractInt(json, "MacroPressMs") ?? 40;
                 parsed.MacroMode = ExtractInt(json, "MacroMode") ?? 0;
 
                 // Backward/forward compatibility:
@@ -868,7 +871,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             Manager?.SetButtonMappingAdvanced(3, parsed.Type, ButtonMappingParser.GetMappingValues(
                 parsed.Type, parsed.GamepadAction, parsed.KeyboardKeys, parsed.MouseButton, parsed.GamepadActions, parsed.MacroButtons));
             if (parsed.Type == 4)
-                Manager?.SetButtonMacroConfig("M1", parsed.MacroDelayMs, parsed.MacroMode);
+                Manager?.SetButtonMacroConfig("M1", parsed.MacroDelayMs, parsed.MacroPressMs, parsed.MacroMode);
         }
     }
 
@@ -889,7 +892,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             Manager?.SetButtonMappingAdvanced(4, parsed.Type, ButtonMappingParser.GetMappingValues(
                 parsed.Type, parsed.GamepadAction, parsed.KeyboardKeys, parsed.MouseButton, parsed.GamepadActions, parsed.MacroButtons));
             if (parsed.Type == 4)
-                Manager?.SetButtonMacroConfig("M2", parsed.MacroDelayMs, parsed.MacroMode);
+                Manager?.SetButtonMacroConfig("M2", parsed.MacroDelayMs, parsed.MacroPressMs, parsed.MacroMode);
         }
     }
 

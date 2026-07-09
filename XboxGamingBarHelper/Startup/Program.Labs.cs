@@ -673,6 +673,12 @@ namespace XboxGamingBarHelper
                         Logger.Info("Labs: ClawButtonMonitor.HotkeyFeed wired → ControllerHotkeyMonitor (HC single-reader pattern)");
                     }
 
+                    // Wired here (not just in OnMSIClawGamepadMappingChanged) so M1/M2 Keyboard-mode
+                    // chords fire even if the user never touches the separate "Re-Map Specific
+                    // Buttons" feature — previously KeyboardChordCallback stayed null in that case
+                    // and M1/M2 keyboard chords silently no-op'd (KeyboardChordCallback?.Invoke).
+                    clawButtonMonitor.KeyboardChordCallback = SendKeyboardShortcutViaInputInjector;
+
                     Logger.Info("Labs: Created ClawButtonMonitor for MSI Claw M1/M2 paddles");
                 }
                 return clawButtonMonitor;

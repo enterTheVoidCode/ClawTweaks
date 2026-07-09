@@ -162,6 +162,12 @@ namespace XboxGamingBar
                                     var mouseName = mapping.MouseButton < mouseButtons.Length ? mouseButtons[mapping.MouseButton] : "Mouse";
                                     remapParts.Add($"{btnName}:{mouseName}Click");
                                 }
+                                else if (mapping.Type == 4 && mapping.MacroButtons != null && mapping.MacroButtons.Count > 0)
+                                {
+                                    // Macro remap - flag it (the button sequence itself isn't worth
+                                    // the space here, but "active" is important at a glance).
+                                    remapParts.Add($"{btnName}:Macro");
+                                }
                             }
                         }
                     }

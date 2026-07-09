@@ -957,8 +957,91 @@ namespace XboxGamingBarHelper.Windows
 
         [DllImport("user32.dll")]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+        private const uint KEYBDEVENTF_EXTENDEDKEY = 0x0001;
         private const uint KEYBDEVENTF_KEYUP = 0x0002;
         private const uint KEYBDEVENTF_SCANCODE = 0x0008;
+
+        /// <summary>
+        /// Parse and send a keyboard shortcut string (e.g. "Home", "Insert", "Ctrl+Shift+S") via the
+        /// LEGACY keybd_event API with hardware scan codes (and the extended flag for nav keys).
+        ///
+        /// In-game post-processing overlays like ReShade (Home) and OptiScaler (Insert) read their
+        /// toggle key ONLY through this legacy path — verified on the MSI Claw with an on-device probe
+        /// (Diagnostics/Test-ReShadeHome.ps1): SendInput (VK, scancode, or scancode+extended) and
+        /// InputInjector all reached Windows / an AHK hook but did NOT toggle ReShade, while
+        /// keybd_event (methods 4 &amp; 5) opened it. This is the exact same VK-vs-keybd_event
+        /// differentiation already used for Steam Big Picture (SendCtrlComboViaKeybdEvent), just
+        /// generalised to arbitrary shortcuts. Keep using SendInput/InputInjector for everything else;
+        /// only these overlay-toggle tiles need this.
+        /// </summary>
+        public static bool SendKeyboardShortcutViaKeybdEvent(string shortcut)
+        {
+            if (string.IsNullOrWhiteSpace(shortcut))
+            {
+                Logger.Warn("Empty shortcut string provided to SendKeyboardShortcutViaKeybdEvent");
+                return false;
+            }
+
+            try
+            {
+                var parts = shortcut.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
+                var modifiers = new List<int>();
+                var mainKeys = new List<int>();
+
+                foreach (var part in parts)
+                {
+                    var trimmed = part.Trim();
+                    var upper = trimmed.ToUpperInvariant();
+
+                    if (upper == "CTRL" || upper == "CONTROL" || upper == "LCTRL" || upper == "LCONTROL") modifiers.Add(0xA2); // VK_LCONTROL
+                    else if (upper == "RCTRL" || upper == "RCONTROL") modifiers.Add(0xA3);
+                    else if (upper == "ALT" || upper == "LALT") modifiers.Add(0xA4); // VK_LMENU
+                    else if (upper == "RALT") modifiers.Add(0xA5);
+                    else if (upper == "SHIFT" || upper == "LSHIFT") modifiers.Add(0xA0); // VK_LSHIFT
+                    else if (upper == "RSHIFT") modifiers.Add(0xA1);
+                    else if (upper == "WIN" || upper == "WINDOWS" || upper == "LWIN" || upper == "LMETA" || upper == "META") modifiers.Add(0x5B);
+                    else if (upper == "RWIN" || upper == "RMETA") modifiers.Add(0x5C);
+                    else
+                    {
+                        int keyCode = GetVirtualKeyCode(trimmed);
+                        if (keyCode == 0)
+                        {
+                            Logger.Warn($"Unknown key in keybd_event shortcut: {trimmed}");
+                            return false;
+                        }
+                        mainKeys.Add(keyCode);
+                    }
+                }
+
+                if (mainKeys.Count == 0 && modifiers.Count == 0)
+                {
+                    Logger.Warn($"No valid keys found in keybd_event shortcut: {shortcut}");
+                    return false;
+                }
+
+                foreach (var mod in modifiers) { KeybdEventSingle((ushort)mod, false); Sleep(15); }
+                foreach (var key in mainKeys) { KeybdEventSingle((ushort)key, false); Sleep(35); }
+                for (int i = mainKeys.Count - 1; i >= 0; i--) { KeybdEventSingle((ushort)mainKeys[i], true); Sleep(15); }
+                for (int i = modifiers.Count - 1; i >= 0; i--) { KeybdEventSingle((ushort)modifiers[i], true); Sleep(15); }
+
+                Logger.Info($"Sent keyboard shortcut via keybd_event: {shortcut} (modifiers: {modifiers.Count}, keys: {mainKeys.Count})");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending keybd_event shortcut '{shortcut}': {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void KeybdEventSingle(ushort vk, bool keyUp)
+        {
+            byte scan = (byte)MapVirtualKey(vk, MAPVK_VK_TO_VSC);
+            uint flags = KEYBDEVENTF_SCANCODE;
+            if (ExtendedKeys.Contains(vk)) flags |= KEYBDEVENTF_EXTENDEDKEY;
+            if (keyUp) flags |= KEYBDEVENTF_KEYUP;
+            keybd_event((byte)vk, scan, flags, UIntPtr.Zero);
+        }
 
         /// <summary>
         /// Sends Left Ctrl + the given key via the legacy keybd_event API with hardware scan codes —

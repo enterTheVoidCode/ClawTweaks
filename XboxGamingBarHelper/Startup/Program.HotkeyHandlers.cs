@@ -1057,6 +1057,37 @@ namespace XboxGamingBarHelper
                 return;
             }
 
+            // A lone navigation/edit key (no modifier) — Home/End/Insert/Delete/PageUp/PageDown — is
+            // the toggle key of in-game post-processing overlays (ReShade=Home, OptiScaler=Insert).
+            // Those overlays react ONLY to the legacy keybd_event API, not to InputInjector or SendInput
+            // (proven on-device: Diagnostics/Test-ReShadeHome.ps1). Route just these keys through
+            // keybd_event so EVERY caller of this method — Quick Settings tiles fired by a controller
+            // combo, M1/M2 keyboard remaps, the front-button/hotkey paths — can open the overlay. All
+            // other shortcuts (Tab, Win+D, Shift+Tab for the Steam overlay, media keys, etc.) keep the
+            // existing InputInjector path untouched.
+            {
+                var lone = shortcut.Trim();
+                if (lone.IndexOf('+') < 0)
+                {
+                    switch (lone.ToUpperInvariant())
+                    {
+                        case "HOME":
+                        case "END":
+                        case "INSERT":
+                        case "INS":
+                        case "DELETE":
+                        case "DEL":
+                        case "PGUP":
+                        case "PAGEUP":
+                        case "PGDN":
+                        case "PAGEDOWN":
+                            Logger.Info($"Routing lone overlay-toggle key '{lone}' via keybd_event (ReShade/OptiScaler compatible)");
+                            Windows.User32.SendKeyboardShortcutViaKeybdEvent(lone);
+                            return;
+                    }
+                }
+            }
+
             try
             {
                 var parts = shortcut.Split(new[] { '+' }, StringSplitOptions.RemoveEmptyEntries);
@@ -1172,18 +1203,16 @@ namespace XboxGamingBarHelper
                     }
                 }
 
-                // Extended navigation keys require InjectedInputKeyOptions.ExtendedKey so they
-                // are not misinterpreted as numpad keys by the OS or low-level hooks.
-                var extendedVKs = new HashSet<ushort> {
-                    0x21, 0x22, 0x23, 0x24, // PageUp, PageDown, End, Home
-                    0x25, 0x26, 0x27, 0x28, // Arrow keys Left/Up/Right/Down
-                    0x2D, 0x2E,             // Insert, Delete
-                    0x5B, 0x5C,             // Win keys
-                    0x2C,                   // PrintScreen
-                };
-
-                // Build the sequence in four stages: modifiers down, main keys down, main keys up
-                // (reverse), modifiers up (reverse).
+                // NOTE: do NOT set InjectedInputKeyOptions.ExtendedKey here. We previously flagged
+                // nav keys (Insert/Home/PgUp/PgDn/arrows/Delete) as extended, believing it was
+                // required so they aren't read as numpad keys — but an on-device SendInput probe
+                // (Diagnostics/Test-InsertInjection.ps1) proved the OPPOSITE on the MSI Claw: an
+                // Insert event carrying the extended flag is silently DROPPED (never reaches the OS,
+                // invisible even to a global AHK keyboard hook), while a plain VK-only Insert
+                // registers correctly as VK 0x2D. That's exactly why the OptiScaler (Insert) and
+                // ReShade (Home) tiles fired nothing. InputInjector is VirtualKey-based and derives
+                // the extended bit from the VK itself, so an explicit ExtendedKey flag is both
+                // unnecessary and harmful. Plain VirtualKey down/up for every key.
                 var modsDown = new List<InjectedInputKeyboardInfo>();
                 var mainsDown = new List<InjectedInputKeyboardInfo>();
                 var mainsUp = new List<InjectedInputKeyboardInfo>();
@@ -1192,17 +1221,9 @@ namespace XboxGamingBarHelper
                 foreach (var mod in modifierKeys)
                     modsDown.Add(new InjectedInputKeyboardInfo { VirtualKey = mod, KeyOptions = InjectedInputKeyOptions.None });
                 foreach (var key in mainKeys)
-                {
-                    var opts = extendedVKs.Contains(key) ? InjectedInputKeyOptions.ExtendedKey : InjectedInputKeyOptions.None;
-                    mainsDown.Add(new InjectedInputKeyboardInfo { VirtualKey = key, KeyOptions = opts });
-                }
+                    mainsDown.Add(new InjectedInputKeyboardInfo { VirtualKey = key, KeyOptions = InjectedInputKeyOptions.None });
                 for (int i = mainKeys.Count - 1; i >= 0; i--)
-                {
-                    var opts = extendedVKs.Contains(mainKeys[i])
-                        ? InjectedInputKeyOptions.ExtendedKey | InjectedInputKeyOptions.KeyUp
-                        : InjectedInputKeyOptions.KeyUp;
-                    mainsUp.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKeys[i], KeyOptions = opts });
-                }
+                    mainsUp.Add(new InjectedInputKeyboardInfo { VirtualKey = mainKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
                 for (int i = modifierKeys.Count - 1; i >= 0; i--)
                     modsUp.Add(new InjectedInputKeyboardInfo { VirtualKey = modifierKeys[i], KeyOptions = InjectedInputKeyOptions.KeyUp });
 
@@ -1213,7 +1234,7 @@ namespace XboxGamingBarHelper
 
                 if (modifierKeys.Count == 0)
                 {
-                    // No modifier → a single atomic batch is fine (e.g. F12). Unchanged fast path.
+                    // No modifier → a single atomic batch is fine (e.g. F12/Tab/Insert/Home).
                     inputInjector.InjectKeyboardInput(keyInfos);
                 }
                 else

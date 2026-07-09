@@ -83,6 +83,36 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Close Game Bar (Win+G) then send a shortcut, both from the helper in one shot.
+                // Tiles like OptiScaler/ReShade previously had the WIDGET do this as two separate
+                // pipe round-trips (send Win+G, await Task.Delay(150), send the real shortcut) —
+                // but the widget is a Game-Bar-hosted WinRT app that can get suspended the moment
+                // Game Bar starts closing, so the second awaited call after the delay sometimes
+                // never actually fired (Win+G visibly happened, the real shortcut silently didn't).
+                // Running the whole sequence here avoids that race — the helper process is never
+                // suspended by Game Bar closing.
+                if (pipeMsg.Extra.TryGetValue("GameBarThenShortcut", out object gbShortcutValue) && gbShortcutValue is string gbShortcutStr)
+                {
+                    // Win+G (close Game Bar) goes via InputInjector — it's a Windows shell hotkey read
+                    // from the normal message queue. The tile's actual shortcut goes via the LEGACY
+                    // keybd_event path (User32.SendKeyboardShortcutViaKeybdEvent), NOT InputInjector or
+                    // SendInput, because these tiles target in-game overlay hooks (OptiScaler=Insert,
+                    // ReShade=Home) that only react to legacy keybd_event injection. On-device probe
+                    // (Diagnostics/Test-ReShadeHome.ps1) proved it: SendInput (VK / scancode /
+                    // scancode+extended) and InputInjector all reached Windows + an AHK hook but did
+                    // NOT toggle ReShade, while keybd_event opened it. Same VK-vs-keybd_event split as
+                    // Steam Big Picture.
+                    Logger.Info($"Closing Game Bar (Win+G) then sending shortcut via keybd_event: {gbShortcutStr}");
+                    SendKeyboardShortcutViaInputInjector("Win+G");
+                    SendPipeAck(pipeMsg.RequestId);
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(150);
+                        Windows.User32.SendKeyboardShortcutViaKeybdEvent(gbShortcutStr);
+                    });
+                    return;
+                }
+
                 // Run a Special-Controller-Button action requested from a Quick Settings TILE. Tiles
                 // (unlike the front button, which the helper handles directly while Game Bar is closed)
                 // are clicked with Game Bar OPEN, so the widget closes it first and then asks the helper

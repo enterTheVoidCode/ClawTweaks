@@ -2180,6 +2180,19 @@ namespace XboxGamingBarHelper
 
                     Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms monitor.Start() OK — virtual pad live + DInput acquired (controller now usable)");
 
+                    // Re-assert the FW vibration-motor ceiling (EEPROM 0x0022/0x0023) unconditionally
+                    // on every boot, regardless of whether our own cached LegionVibrationIntensity
+                    // value "changed" — the normal handler (Program.LegionControllerHandlers.cs) only
+                    // fires WriteVibrationCeilingToFw on a genuine SetValue change, so if the user last
+                    // left our slider at e.g. 100% and MSI Center M's own vibration test later wrote a
+                    // DIFFERENT ceiling behind our back (e.g. 30%), our cached value never "changes"
+                    // and the drift silently persists — ClawTweaks' rumble then feels weak even at
+                    // 100% because the firmware itself still caps well below that. This is our own
+                    // dedicated control surface (unlike CPU Boost, where external tools are respected),
+                    // so unconditionally re-pushing it here is correct, not fighting the user.
+                    if (mountVigem)
+                        clawButtonMonitor?.WriteVibrationCeilingToFw(legionManager?.LegionVibrationIntensity?.Value ?? 100);
+
                     // Boot LED: the ViGEm virtual controller is now mounted → signal "ready" (green,
                     // then settle to the user's saved color). Only when a virtual pad was actually
                     // mounted (mountVigem); External Gamepad Mode mounts no ViGEm pad. No-op unless the
@@ -2432,12 +2445,12 @@ namespace XboxGamingBarHelper
         /// 1=Repeat while held, 2=Hold toggle) is set/changed — sent alongside the main
         /// ButtonMapping JSON whenever Type=4 (Macro).
         /// </summary>
-        private static void OnMSIClawMacroConfigChanged(string button, int delayMs, int mode)
+        private static void OnMSIClawMacroConfigChanged(string button, int delayMs, int pressMs, int mode)
         {
             try
             {
-                EnsureClawButtonMonitor().ConfigureBackButtonMacro(button, delayMs, mode);
-                Logger.Info($"MSIClaw: {button} macro config applied — delayMs={delayMs}, mode={mode}");
+                EnsureClawButtonMonitor().ConfigureBackButtonMacro(button, delayMs, pressMs, mode);
+                Logger.Info($"MSIClaw: {button} macro config applied — delayMs={delayMs}, pressMs={pressMs}, mode={mode}");
             }
             catch (Exception ex)
             {

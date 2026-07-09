@@ -1094,6 +1094,22 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Button Remapping card header. Down → M1's mode dropdown (the first live control once
+        /// expanded — Y1-Y3 above it are Visibility=Collapsed on MSI Claw, which is why the default
+        /// UWP XYFocus move overshot past M1 to whatever the next focusable element further down
+        /// happened to be) when expanded, else the next collapsible card header below.
+        /// </summary>
+        private void ButtonRemappingExpandToggle_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key != VirtualKey.GamepadDPadDown && e.Key != VirtualKey.Down) return;
+            Control target = isButtonRemappingExpanded
+                ? (Control)LegionButtonM1TypeComboBox
+                : ControllerFeedbackExpandToggle;
+            try { target?.Focus(FocusState.Keyboard); } catch { }
+            e.Handled = true;
+        }
+
         private bool isLegionControllerProfileScopeExpanded = false;
 
         private void LegionControllerProfileScopeExpandToggle_Click(object sender, RoutedEventArgs e)
