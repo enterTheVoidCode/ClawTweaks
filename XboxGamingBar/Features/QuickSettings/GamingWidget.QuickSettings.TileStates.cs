@@ -302,15 +302,23 @@ namespace XboxGamingBar
                 double bright = root.TryGetValue("brightness", out var b) && b.ValueType == Windows.Data.Json.JsonValueType.Number ? b.GetNumber() : 50;
                 double vol = root.TryGetValue("volume", out var v) && v.ValueType == Windows.Data.Json.JsonValueType.Number ? v.GetNumber() : 50;
 
-                _mediaSlidersUpdating = true;
-                try
+                // Marshal the slider/label writes to the UI thread. The main trigger for this refresh is
+                // the Game-Bar-open foreground edge (UpdateGameBarForegroundSignal), which the Game Bar
+                // raises on a BACKGROUND thread — writing UI there throws RPC_E_WRONG_THREAD and the
+                // catch below swallowed it, so the sliders silently never updated. Same background-thread
+                // trap ApplyDefaultTabOnOpen documents and works around.
+                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
-                    if (_mediaBrightnessSlider != null) _mediaBrightnessSlider.Value = bright;
-                    if (_mediaVolumeSlider != null) _mediaVolumeSlider.Value = vol;
-                    if (_mediaBrightnessValue != null) _mediaBrightnessValue.Text = (int)Math.Round(bright) + "%";
-                    if (_mediaVolumeValue != null) _mediaVolumeValue.Text = (int)Math.Round(vol) + "%";
-                }
-                finally { _mediaSlidersUpdating = false; }
+                    _mediaSlidersUpdating = true;
+                    try
+                    {
+                        if (_mediaBrightnessSlider != null) _mediaBrightnessSlider.Value = bright;
+                        if (_mediaVolumeSlider != null) _mediaVolumeSlider.Value = vol;
+                        if (_mediaBrightnessValue != null) _mediaBrightnessValue.Text = (int)Math.Round(bright) + "%";
+                        if (_mediaVolumeValue != null) _mediaVolumeValue.Text = (int)Math.Round(vol) + "%";
+                    }
+                    finally { _mediaSlidersUpdating = false; }
+                });
             }
             catch (Exception ex) { Logger.Warn($"RefreshMediaSliderLevels failed: {ex.Message}"); }
         }
@@ -1170,6 +1178,20 @@ namespace XboxGamingBar
                     fullscreenTile.StateText.Text = "Toggle";
                     fullscreenTile.StateText.Foreground = accentForeground;
                     fullscreenTile.TileButton.Background = tileTriggerBrush;
+                }
+
+                // OptiScaler / ReShade tiles — momentary sends of the overlay's toggle key
+                // (Insert / Home), NOT stateful settings we can read back. Show the same neutral
+                // "Toggle" label + trigger style as Fullscreen instead of a misleading always-"Off".
+                foreach (var overlayToggleId in new[] { "OptiScaler", "ReShade" })
+                {
+                    if (qsTileMap.TryGetValue(overlayToggleId, out var overlayToggleTile)
+                        && overlayToggleTile.TileButton != null && overlayToggleTile.StateText != null)
+                    {
+                        overlayToggleTile.StateText.Text = "Toggle";
+                        overlayToggleTile.StateText.Foreground = accentForeground;
+                        overlayToggleTile.TileButton.Background = tileTriggerBrush;
+                    }
                 }
 
                 // Custom shortcut tiles

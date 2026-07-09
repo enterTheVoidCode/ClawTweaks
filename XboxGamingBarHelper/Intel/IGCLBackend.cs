@@ -288,17 +288,55 @@ namespace XboxGamingBarHelper.Intel
 
             if (intensity <= 0)
             {
-                s.Enable = false;
+                // DISABLE — ported 1:1 from ToothNClaw (SetImageSharpening(false)). The IGCL driver
+                // does NOT clear an active sharpness filter if you flip Enable=false in the SAME call
+                // that still carries a non-zero intensity. It must be a two-step commit: set
+                // Intensity=0 FIRST while Enable is still true, commit, THEN set Enable=false and
+                // commit. Doing it in one call left the filter stuck in the driver, which also poisoned
+                // subsequent enables — so sharpness appeared to "not work at all" and never cleared on
+                // game end. (Our old single-call path was the deviation from the reference.)
                 s.Intensity = 0;
-            }
-            else
-            {
-                if (intensity > 100) intensity = 100;
-                s.Enable = true;
-                s.FilterType = ctl_sharpness_filter_type_flag_t.ADAPTIVE;
-                s.Intensity = intensity;
+                res = _SetSharpnessSettings!(hDev, displayIdx, s);
+                if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+                {
+                    Console.WriteLine($"[IGCL] SetSharpnessSettings(intensity=0) failed: 0x{(uint)res:X8}");
+                    return false;
+                }
+                s.Enable = false;
+                res = _SetSharpnessSettings!(hDev, displayIdx, s);
+                if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+                {
+                    Console.WriteLine($"[IGCL] SetSharpnessSettings(disable) failed: 0x{(uint)res:X8}");
+                    return false;
+                }
+                Console.WriteLine($"[IGCL] Adaptive sharpness disabled (display {displayIdx}).");
+                return true;
             }
 
+            // ENABLE. The driver does not reliably engage a filter that is flipped disabled→enabled
+            // in the SAME commit that also carries the new intensity — it reports SUCCESS but nothing
+            // changes on screen (exactly the "ok=True but no visual effect" we logged). ToothNClaw only
+            // ever changes intensity on an ALREADY-enabled filter (it enables via a separate
+            // SetImageSharpening(true) call), so mirror that: when the filter is currently off, commit
+            // Enable=true FIRST, then commit the intensity in a second Set.
+            if (intensity > 100) intensity = 100;
+
+            if (!s.Enable)
+            {
+                s.Enable = true;
+                s.FilterType = ctl_sharpness_filter_type_flag_t.ADAPTIVE;
+                res = _SetSharpnessSettings!(hDev, displayIdx, s);
+                if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+                {
+                    Console.WriteLine($"[IGCL] SetSharpnessSettings(enable) failed: 0x{(uint)res:X8}");
+                    return false;
+                }
+                _GetSharpnessSettings!(hDev, displayIdx, ref s); // refresh so the intensity commit builds on enabled state
+            }
+
+            s.Enable = true;
+            s.FilterType = ctl_sharpness_filter_type_flag_t.ADAPTIVE;
+            s.Intensity = intensity;
             res = _SetSharpnessSettings!(hDev, displayIdx, s);
             if (res != ctl_result_t.CTL_RESULT_SUCCESS)
             {
@@ -306,6 +344,16 @@ namespace XboxGamingBarHelper.Intel
                 return false;
             }
 
+            // Read back and verify it actually stuck (ToothNClaw does this). A Set can return SUCCESS
+            // while the driver silently ignores the value — the read-back is how we tell "applied" from
+            // "no-op", and returning the match surfaces it as ok=False in the IntelGpuManager log.
+            var verify = new ctl_sharpness_settings_t();
+            if (_GetSharpnessSettings!(hDev, displayIdx, ref verify) == ctl_result_t.CTL_RESULT_SUCCESS)
+            {
+                bool stuck = verify.Enable && (int)verify.Intensity == intensity;
+                Console.WriteLine($"[IGCL] Adaptive sharpness set intensity={intensity}; read-back enable={verify.Enable}, intensity={verify.Intensity}, filter={verify.FilterType} → stuck={stuck}");
+                return stuck;
+            }
             Console.WriteLine($"[IGCL] Adaptive sharpness applied: enable={s.Enable}, intensity={s.Intensity} (display {displayIdx}).");
             return true;
         }
