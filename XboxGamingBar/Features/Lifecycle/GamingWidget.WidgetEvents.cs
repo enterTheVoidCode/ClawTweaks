@@ -136,7 +136,17 @@ namespace XboxGamingBar
                 // safe to run while this widget is still off-screen. Idempotent (VisibleChanged still calls
                 // it too); the earliest successful call wins and the rest are cheap no-ops.
                 if (gameBarForeground && !_lastGameBarForegroundForTab)
+                {
                     ApplyDefaultTabOnOpen("ForegroundEdge:" + source);
+
+                    // Re-read brightness/volume on EVERY return-to-foreground edge, not only on
+                    // VisibleChanged. When the widget is merely backgrounded (Windows brightness/volume
+                    // flyout, hardware keys, switching away and back) it stays "Visible", so
+                    // VisibleChanged doesn't re-fire and the sliders kept their stale value. This edge
+                    // (which also rides LeavingBackground/DisplayModeChanged) covers those cases so an
+                    // external change is reflected as soon as ClawTweaks is foreground again.
+                    _ = RefreshMediaSliderLevelsSoonAsync();
+                }
                 _lastGameBarForegroundForTab = gameBarForeground;
             }
             catch (Exception ex)
