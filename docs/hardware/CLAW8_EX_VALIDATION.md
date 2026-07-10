@@ -98,6 +98,13 @@ while hot, and the preset back (badge gone, fan quiet) within ~1–2 min at the 
 
 ### Candidate EX Quiet/Default mid-band raise — DO NOT MERGE UNTESTED
 
+> **SUPERSEDED by the upstream MSI-axis fan rework (2026-07 rebase).** The 11-point
+> ×1.5-scale `Curve_*` arrays this derivation targets no longer exist; presets are now
+> 5-point (temp,duty) MSI curves on the real firmware axis (`MsiTemps_*`/`MsiDuty_*`,
+> raw EC 0–100). The new MSI Default duty [40,49,58,67,75] over [44,54,64,74,82] °C
+> already holds far more mid-band fan than the old A2VM Quiet curve, so the gap
+> described below may be closed — re-measure on the EX before deriving new numbers.
+
 Derivation from the measured EX firmware table `[58,70,74,76,78,80,84,94]` (0–150 EC
 scale; sample points backup/0/20/50/60/80/90/100 °C): the firmware holds ≈ 76–80
 (≈ 51–53 %) across 50–80 °C, while the current A2VM-tuned Quiet curve writes 0/12/60 and
