@@ -92,9 +92,9 @@ stress re-test.
    badge while the override runs (so the preset no longer appears silently "unset").
    Engage also fires a 4 s RTSS overlay notification, visible in-game.
 
-**Verification needed (owner, on-device):** repeat the row-11 style session in an EC
-Quiet preset — expect the badge + RTSS toast at engage, no restore churn at game end
-while hot, and the preset back (badge gone, fan quiet) within ~1–2 min at the desktop.
+**Verified (owner, on-device, 2026-07-09, on the rebased MSI-axis build):** badge +
+RTSS toast at engage, no restore churn at game end while hot, preset restored (badge
+gone, fan quiet) after the desktop cooldown — as designed.
 
 ### Candidate EX Quiet/Default mid-band raise — DO NOT MERGE UNTESTED
 
