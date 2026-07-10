@@ -447,24 +447,31 @@ namespace XboxGamingBar
             var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
 
             // Icon-based summary: source button icon → key icons (keyboard) or target text (gamepad/mouse).
-            var sourceContent = BuildXboxButtonTagContent(displayName);
+            // Icons sized to match the selection dropdowns (28px) so they are actually recognisable.
+            const double SummaryIconSize = 28;
+            var sourceContent = BuildXboxButtonTagContent(displayName, SummaryIconSize);
             var arrowText = new TextBlock
             {
                 Text = " → ",
                 Foreground = new SolidColorBrush(Windows.UI.Colors.White),
-                FontSize = 11,
+                FontSize = 14,
                 VerticalAlignment = VerticalAlignment.Center
             };
 
             var clearButton = new Button
             {
                 Content = "×",
-                FontSize = 10,
-                Padding = new Thickness(4, 0, 0, 0),
+                FontSize = 14,
+                // Focusable hit target so the controller D-pad can actually reach the × and remove a
+                // mapping from the summary (the old 10px / 0-padding, non-tab-stop × was unreachable).
+                Padding = new Thickness(6, 2, 6, 2),
+                Margin = new Thickness(2, 0, 0, 0),
                 Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
                 BorderThickness = new Thickness(0),
-                Foreground = new SolidColorBrush(Windows.UI.Colors.Gray),
+                Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200)),
                 VerticalAlignment = VerticalAlignment.Center,
+                IsTabStop = true,
+                UseSystemFocusVisuals = true,
                 MinWidth = 0,
                 MinHeight = 0,
                 Tag = buttonName
@@ -477,7 +484,7 @@ namespace XboxGamingBar
             {
                 for (int i = 0; i < mapping.KeyboardKeys.Count; i++)
                 {
-                    var kc = BuildKeyboardKeyTagContent(mapping.KeyboardKeys[i]);
+                    var kc = BuildKeyboardKeyTagContent(mapping.KeyboardKeys[i], SummaryIconSize);
                     if (kc is FrameworkElement fe) fe.Margin = new Thickness(i == 0 ? 0 : 2, 0, 0, 0);
                     tagPanel.Children.Add(kc);
                 }

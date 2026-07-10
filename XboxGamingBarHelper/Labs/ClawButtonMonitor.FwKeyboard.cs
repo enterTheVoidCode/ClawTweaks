@@ -33,6 +33,14 @@ namespace XboxGamingBarHelper.Labs
         private const int FwKbWriteDebounceMs = 400;
         private readonly object _fwKbLock = new object();
         private Timer _fwKbWriteTimer;
+        // Boot race / transient re-enumeration: SetFirmwareKeyboardMode(true) schedules a flush at
+        // startup, but the monitor acquires the vendor command interface (_cmdDevice) ~2s later, so the
+        // first flush writes against a null device and every write silently fails (ok=False) — the map
+        // never lands (UI shows it, firmware doesn't). Retry the flush (bounded) until the channel is up
+        // and the writes stick. Cached (already-written) slots are skipped on retry, so no EEPROM storm.
+        private int _fwKbFlushRetries;
+        private const int FwKbMaxFlushRetries = 10;
+        private const int FwKbRetryDelayMs = 800;
         // Desired keyboard map: canonical button name → HID usage codes (modifiers first). Empty/absent
         // = that button is NOT keyboard-remapped (its slot is written back to default so it works as a
         // normal button → ViGEm/Viiper). Assembled by the profile-application code (Step 4).
@@ -187,6 +195,7 @@ namespace XboxGamingBarHelper.Labs
         {
             lock (_fwKbLock)
             {
+                _fwKbFlushRetries = 0;   // fresh user/profile-triggered flush → full retry budget
                 _fwKbWriteTimer?.Dispose();
                 _fwKbWriteTimer = new Timer(_ => FlushFirmwareKeyboardMap(), null, FwKbWriteDebounceMs, Timeout.Infinite);
             }
@@ -201,6 +210,7 @@ namespace XboxGamingBarHelper.Labs
         {
             lock (_fwKbLock)
             {
+                _fwKbFlushRetries = 0;
                 _fwKbWriteTimer?.Dispose();
                 _fwKbWriteTimer = new Timer(_ => FlushFirmwareKeyboardMap(force: true), null, FwKbWriteDebounceMs, Timeout.Infinite);
             }
@@ -213,9 +223,9 @@ namespace XboxGamingBarHelper.Labs
         /// undoes any stray MSI Center M firmware remap the user cannot otherwise reach. While OFF (or
         /// <paramref name="force"/>), every slot is driven to default = a full reset to normal.
         ///
-        /// Triggers (L2/R2) are NOT in <see cref="FwSlots"/> and are never touched: their analog-restore
-        /// bytes are unverified and writing a remap marker + edge-deadzone kills the axis. LT/RT keyboard
-        /// remaps stay on the software path until that restore is debugged on-device.
+        /// Triggers (L2/R2) are included: remap = `06 0C 03 60 <codes>`, default (analog) =
+        /// `02 0C 03 60 <ownCode>` (verified on-device). Their dead-zone bytes (0x03/0x60) are MSI's
+        /// defaults, so a custom trigger dead-zone is reset when a trigger is (un)mapped.
         ///
         /// Only slots whose bytes actually change are written (per-slot cache), so an unchanged profile
         /// costs no EEPROM writes.
@@ -226,6 +236,14 @@ namespace XboxGamingBarHelper.Labs
             bool modeOn = _fwKeyboardModeEnabled;
             if (!modeOn && !force) return;
 
+            // Boot race: the vendor command interface may not be acquired yet (see field comment).
+            // Defer + retry until it is, instead of writing against a null device and failing silently.
+            if (_cmdDevice == null)
+            {
+                RescheduleFwKeyboardFlush(force, "command channel not ready");
+                return;
+            }
+
             // Snapshot desired under the lock; do the (slow) HID writes outside it.
             Dictionary<string, int[]> desiredSnapshot;
             lock (_fwKbLock)
@@ -234,7 +252,8 @@ namespace XboxGamingBarHelper.Labs
             }
 
             int writes = 0;
-            foreach (var kv in FwSlots)   // face + paddle only (triggers are excluded from FwSlots)
+            int failures = 0;
+            foreach (var kv in FwSlots)   // face + paddle + triggers
             {
                 string button = kv.Key;
                 FwSlot slot = kv.Value;
@@ -264,6 +283,7 @@ namespace XboxGamingBarHelper.Labs
                 }
                 else
                 {
+                    failures++;
                     Logger.Warn($"ClawButtonMonitor: FW keyboard write failed for {button} (addr 0x{slot.Address:X4}).");
                 }
             }
@@ -272,6 +292,33 @@ namespace XboxGamingBarHelper.Labs
             {
                 bool syncOk = SendRawCmd(BuildSyncToRomCmd());
                 Logger.Info($"ClawButtonMonitor: FW keyboard map flushed ({writes} slot(s){(force ? ", full reset" : "")}, sync={syncOk}).");
+            }
+
+            // Any failed slot (transient re-enumeration, brief exclusive handle) → retry the remaining
+            // ones. Successful slots are cached in _fwKbLastWritten and skipped, so this never re-writes
+            // good slots — only the ones that still need to land.
+            if (failures > 0)
+                RescheduleFwKeyboardFlush(force, $"{failures} slot write(s) failed");
+            else
+                _fwKbFlushRetries = 0;
+        }
+
+        /// <summary>Bounded retry of <see cref="FlushFirmwareKeyboardMap"/> — bridges the startup gap
+        /// before the command channel is up and covers transient write failures.</summary>
+        private void RescheduleFwKeyboardFlush(bool force, string reason)
+        {
+            if (_fwKbFlushRetries >= FwKbMaxFlushRetries)
+            {
+                Logger.Warn($"ClawButtonMonitor: FW keyboard flush giving up after {_fwKbFlushRetries} retries ({reason}).");
+                _fwKbFlushRetries = 0;
+                return;
+            }
+            _fwKbFlushRetries++;
+            Logger.Info($"ClawButtonMonitor: FW keyboard flush retry {_fwKbFlushRetries}/{FwKbMaxFlushRetries} in {FwKbRetryDelayMs}ms ({reason}).");
+            lock (_fwKbLock)
+            {
+                _fwKbWriteTimer?.Dispose();
+                _fwKbWriteTimer = new Timer(_ => FlushFirmwareKeyboardMap(force), null, FwKbRetryDelayMs, Timeout.Infinite);
             }
         }
 
@@ -306,8 +353,12 @@ namespace XboxGamingBarHelper.Labs
         private static readonly Dictionary<string, FwSlot> FwSlots =
             new Dictionary<string, FwSlot>(StringComparer.OrdinalIgnoreCase)
             {
-                { "M1",        new FwSlot { Address = 0x00BD, Class = FwSlotClass.Paddle,  OwnCode = M1_DEFAULT_CODE } },
-                { "M2",        new FwSlot { Address = 0x0166, Class = FwSlotClass.Paddle,  OwnCode = M2_DEFAULT_CODE } },
+                // Paddle SLOT START (verified on-device 2026-07-10): the mapping is the 4-byte struct
+                // `01 04 0C <code>` beginning at 0x00BA (M1) / 0x0163 (M2) — NOT a single register at
+                // 0x00BD/0x0166 (that is only the code byte, +3 into the slot). Writing there without the
+                // `01 04 0C` header left the remap marker at 00 00 and the firmware emitted nothing.
+                { "M1",        new FwSlot { Address = 0x00BA, Class = FwSlotClass.Paddle,  OwnCode = M1_DEFAULT_CODE } },
+                { "M2",        new FwSlot { Address = 0x0163, Class = FwSlotClass.Paddle,  OwnCode = M2_DEFAULT_CODE } },
                 { "DPadUp",    new FwSlot { Address = 0x003B, Class = FwSlotClass.Face,    OwnCode = 1  } },
                 { "DPadDown",  new FwSlot { Address = 0x0043, Class = FwSlotClass.Face,    OwnCode = 2  } },
                 { "DPadLeft",  new FwSlot { Address = 0x004B, Class = FwSlotClass.Face,    OwnCode = 3  } },
@@ -320,20 +371,23 @@ namespace XboxGamingBarHelper.Labs
                 { "B",         new FwSlot { Address = 0x0083, Class = FwSlotClass.Face,    OwnCode = 10 } },
                 { "X",         new FwSlot { Address = 0x008B, Class = FwSlotClass.Face,    OwnCode = 11 } },
                 { "Y",         new FwSlot { Address = 0x0093, Class = FwSlotClass.Face,    OwnCode = 12 } },
-                // NOTE: L2/R2 triggers (0x020D/0x021C, class Trigger) are intentionally NOT listed —
-                // their analog-restore bytes are not verified, and writing the remap marker + a default
-                // edge-deadzone kills the analog axis. LT/RT keyboard remaps therefore stay on the
-                // software path. FwSlotClass.Trigger + BuildSlotPayload's Trigger case are kept for when
-                // a verified restore is available.
+                // Triggers L2/R2 — verified on-device 2026-07-10: remap `06 0C 03 60 <codes>`, default
+                // (analog) `02 0C 03 60 <ownCode>` (L2 code 0x13 / R2 0x14). Names match TryGetSwapSource
+                // ("LT"/"RT"). NOTE: bytes 2/3 (0x03/0x60) double as the trigger dead-zone/edge-dead-zone
+                // — a custom trigger dead-zone is reset to MSI's default here (acceptable v1).
+                { "LT",        new FwSlot { Address = 0x020D, Class = FwSlotClass.Trigger, OwnCode = 0x13 } },
+                { "RT",        new FwSlot { Address = 0x021C, Class = FwSlotClass.Trigger, OwnCode = 0x14 } },
             };
 
         /// <summary>
         /// Builds the variable-length slot payload (the bytes after the address/len header), matching
         /// the byte formats that are proven/observed to fire:
-        ///   • Paddle (M1/M2): raw codes in an 8-byte zeroed block — exactly the on-device-PROVEN probe
-        ///     (Write-ButtonMappingTest.ps1) that fired. Default = the paddle's own default byte
-        ///     (0x11/0x12) in an 8-byte block. (MSI itself uses a 55-byte block + companion zeroing;
-        ///     the short block fires and is what we verified, so we use it.)
+        ///   • Paddle (M1/M2): the 4-byte struct `01 04 0C <code(s)>` (RE'd against MSI on-device
+        ///     2026-07-10): default M1 = 01 04 0C 11, M2 = 01 04 0C 12; M1→Win+D = 01 04 0C 75 5E,
+        ///     M2→Alt+Tab = 01 04 0C 76 4D. The `01` prefix + `04 0C` remap marker are MANDATORY —
+        ///     writing only the code byte(s) (previously, at 0x00BD) left the marker at 00 00 and the
+        ///     firmware ignored the codes (no key emitted). Written as `01 04 0C` + up to 5 code slots,
+        ///     zero-padded, so switching to a shorter chord can't leave a ghost key in the trailing bytes.
         ///   • Face/dpad/shoulder/stick-click: EXACTLY MSI's observed `04 0C <codes>` (len 2+N, NO
         ///     padding — MSI's Y→Win+D was len 4 = `04 0C 75 5E`). Default = `00 0C <ownCode>` (len 3).
         /// </summary>
@@ -343,11 +397,15 @@ namespace XboxGamingBarHelper.Labs
             {
                 case FwSlotClass.Paddle:
                 {
+                    // 01 04 0C <up to 5 codes>, zero-padded to a fixed 8-byte slot so a shorter chord
+                    // later can't leave a ghost key in the trailing code bytes. Default = own code
+                    // (0x11/0x12) in the first code slot: reads back as MSI's default 01 04 0C 11/12.
                     byte[] p = new byte[8];
+                    p[0] = 0x01; p[1] = 0x04; p[2] = 0x0C;
                     if (msiCodes != null && msiCodes.Length > 0)
-                        Array.Copy(msiCodes, p, Math.Min(msiCodes.Length, p.Length));   // raw codes, rest zeroed
+                        Array.Copy(msiCodes, 0, p, 3, Math.Min(msiCodes.Length, 5));
                     else
-                        p[0] = slot.OwnCode;                                            // default byte, rest zeroed
+                        p[3] = slot.OwnCode;
                     return p;
                 }
                 case FwSlotClass.Face:
@@ -363,16 +421,24 @@ namespace XboxGamingBarHelper.Labs
                 }
                 case FwSlotClass.Trigger:
                 {
-                    byte[] p = new byte[9];
-                    p[0] = 0x06;         // trigger flag
-                    p[1] = 0x0C;         // const marker
+                    // 8-byte block. Remap: `06 0C <DZ> <EDZ> <up to 4 codes>`. Default (analog):
+                    // `02 0C <DZ> <EDZ> <ownCode> 0 0 0`. Verified vs MSI: L2→Win+D = 06 0C 03 60 75 5E,
+                    // default L2 = 02 0C 03 60 13 / R2 = …14. The flag switches 02↔06; the trailing `01`
+                    // marker further in the slot is left untouched (we never write that far).
+                    byte[] p = new byte[8];
+                    p[1] = 0x0C;
                     p[2] = TRIGGER_DZ;
                     p[3] = TRIGGER_EDZ;
                     if (msiCodes != null && msiCodes.Length > 0)
                     {
-                        Array.Copy(msiCodes, 0, p, 4, Math.Min(msiCodes.Length, p.Length - 4));
+                        p[0] = 0x06;   // remapped-to-keyboard
+                        Array.Copy(msiCodes, 0, p, 4, Math.Min(msiCodes.Length, 4));
                     }
-                    // else: codes zeroed → plain analog trigger restored.
+                    else
+                    {
+                        p[0] = 0x02;             // default analog
+                        p[4] = slot.OwnCode;     // L2=0x13 / R2=0x14 → restores the plain analog trigger
+                    }
                     return p;
                 }
                 default:
@@ -475,6 +541,172 @@ namespace XboxGamingBarHelper.Labs
                 case 0xE6: msi = 0x78; return true; // RAlt
                 case 0xE7: msi = 0x75; return true; // RWin → same Win code
                 default: return false;              // no MSI equivalent → keep software
+            }
+        }
+
+        // ── Read-back: decode the live firmware button map (for the Controller-status refresh) ──
+        /// <summary>
+        /// Reads every known firmware slot (face/paddle/trigger) via the 0x04 ReadProfile opcode and
+        /// returns a human-readable report of the buttons that currently carry a keyboard remap, e.g.
+        /// "M1 → Win+D". Buttons at their default function are omitted. Returns a short status string
+        /// when nothing is mapped or the device isn't capable. Safe to call on demand (Controller
+        /// status refresh); each slot is a separate open/read on the vendor command channel.
+        /// </summary>
+        public string BuildFirmwareButtonMapReport()
+        {
+            if (!_fwKeyboardCapable)
+                return "Firmware key remap not supported on this device.";
+            if (_cmdDevice == null)
+                return "Controller command channel unavailable.";
+
+            var mapped = new List<string>();
+            int readFails = 0;
+            foreach (var kv in FwSlots)
+            {
+                byte[] d = ReadFwSlotRaw(kv.Value.Address, 7);
+                if (d == null) { readFails++; continue; }
+                string keys = DecodeSlotKeys(kv.Value, d);
+                if (!string.IsNullOrEmpty(keys))
+                    mapped.Add($"{FriendlyButtonName(kv.Key)} → {keys}");
+            }
+
+            string body = mapped.Count > 0 ? string.Join("\n", mapped) : "All buttons at default.";
+            if (readFails > 0) body += $"\n({readFails} slot(s) could not be read)";
+            return body;
+        }
+
+        /// <summary>Reads <paramref name="len"/> data bytes at <paramref name="addr"/> via opcode 0x04;
+        /// returns null on failure. Data starts at index 9 of the reply (10 00 00 3C 05 01 addr len …).</summary>
+        private byte[] ReadFwSlotRaw(ushort addr, byte len)
+        {
+            var dev = _cmdDevice;
+            if (dev == null) return null;
+            try
+            {
+                using (var stream = dev.Open())
+                {
+                    stream.WriteTimeout = 600;
+                    stream.ReadTimeout = 600;
+                    byte[] cmd = new byte[64];
+                    cmd[0] = REPORT_ID; cmd[3] = 0x3C; cmd[4] = 0x04; cmd[5] = 0x00;
+                    cmd[6] = (byte)(addr >> 8); cmd[7] = (byte)(addr & 0xFF); cmd[8] = len;
+                    stream.Write(cmd);
+
+                    // Accept only the ReadProfile echo for THIS address (skip unrelated input reports).
+                    for (int attempt = 0; attempt < 6; attempt++)
+                    {
+                        byte[] resp = new byte[64];
+                        int n = stream.Read(resp);
+                        if (n >= 9 + len && resp[4] == 0x05 &&
+                            resp[6] == (byte)(addr >> 8) && resp[7] == (byte)(addr & 0xFF))
+                        {
+                            byte[] data = new byte[len];
+                            Array.Copy(resp, 9, data, 0, len);
+                            return data;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ClawButtonMonitor: ReadFwSlotRaw 0x{addr:X4} failed: {ex.Message}");
+            }
+            return null;
+        }
+
+        /// <summary>Decodes a slot's raw bytes into a "+"-joined key-combo string, or "" if the slot is
+        /// at its default (no keyboard remap). Mirrors <see cref="BuildSlotPayload"/>'s formats.</summary>
+        private static string DecodeSlotKeys(FwSlot slot, byte[] d)
+        {
+            if (d == null || d.Length < 3) return string.Empty;
+            switch (slot.Class)
+            {
+                case FwSlotClass.Face:      // <flag> 0C <code…> — 0x00 default, 0x04 keyboard remap
+                    if (d[1] != 0x0C || d[0] != 0x04) return string.Empty;
+                    return DecodeMsiCodes(d, 2);
+                case FwSlotClass.Paddle:    // 01 04 0C <code…> — default when code == ownCode
+                    if (d.Length < 4 || d[2] != 0x0C) return string.Empty;
+                    if (d[3] == slot.OwnCode && (d.Length < 5 || d[4] == 0x00)) return string.Empty;
+                    return DecodeMsiCodes(d, 3);
+                case FwSlotClass.Trigger:   // <flag> 0C <DZ> <EDZ> <code…> — 0x02 analog, 0x06 remap
+                    if (d[1] != 0x0C || d[0] != 0x06) return string.Empty;
+                    return DecodeMsiCodes(d, 4);
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private static string DecodeMsiCodes(byte[] d, int start)
+        {
+            var parts = new List<string>();
+            for (int i = start; i < d.Length && parts.Count < 5; i++)
+            {
+                if (d[i] == 0x00) break;
+                parts.Add(MsiCodeToName(d[i]));
+            }
+            return parts.Count > 0 ? string.Join("+", parts) : string.Empty;
+        }
+
+        /// <summary>Reverse of the MSI physical-keycode table (RE_MSI_ButtonRemap.md, 0x32–0x83).</summary>
+        private static string MsiCodeToName(byte c)
+        {
+            if (c >= 0x33 && c <= 0x3E) return "F" + (c - 0x33 + 1);           // F1–F12
+            if (c >= 0x40 && c <= 0x48) return ((char)('1' + (c - 0x40))).ToString(); // 1–9
+            if (c >= 0x4E && c <= 0x57) return "QWERTYUIOP".Substring(c - 0x4E, 1);
+            if (c >= 0x5C && c <= 0x64) return "ASDFGHJKL".Substring(c - 0x5C, 1);
+            if (c >= 0x69 && c <= 0x6F) return "ZXCVBNM".Substring(c - 0x69, 1);
+            switch (c)
+            {
+                case 0x32: return "Esc";
+                case 0x3F: return "`";
+                case 0x49: return "0";
+                case 0x4A: return "-";
+                case 0x4B: return "=";
+                case 0x4C: return "Backspace";
+                case 0x4D: return "Tab";
+                case 0x58: return "[";
+                case 0x59: return "]";
+                case 0x5A: return "\\";
+                case 0x5B: return "CapsLock";
+                case 0x65: return ";";
+                case 0x66: return "'";
+                case 0x67: return "Enter";
+                case 0x68: return "Shift";
+                case 0x70: return ",";
+                case 0x71: return ".";
+                case 0x72: return "/";
+                case 0x73: return "RShift";
+                case 0x74: return "Ctrl";
+                case 0x75: return "Win";
+                case 0x76: return "Alt";
+                case 0x77: return "Space";
+                case 0x78: return "RAlt";
+                case 0x79: return "RCtrl";
+                case 0x7A: return "Insert";
+                case 0x7B: return "Home";
+                case 0x7C: return "PgUp";
+                case 0x7D: return "Delete";
+                case 0x7E: return "End";
+                case 0x7F: return "PgDn";
+                case 0x80: return "Up";
+                case 0x81: return "Down";
+                case 0x82: return "Left";
+                case 0x83: return "Right";
+                default:   return $"0x{c:X2}";
+            }
+        }
+
+        private static string FriendlyButtonName(string key)
+        {
+            switch (key)
+            {
+                case "DPadUp": return "D-Pad Up";
+                case "DPadDown": return "D-Pad Down";
+                case "DPadLeft": return "D-Pad Left";
+                case "DPadRight": return "D-Pad Right";
+                case "LSClick": return "L-Stick Click";
+                case "RSClick": return "R-Stick Click";
+                default: return key;   // A/B/X/Y, LB/RB, M1/M2, LT/RT
             }
         }
 

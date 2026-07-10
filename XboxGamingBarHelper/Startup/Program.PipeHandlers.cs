@@ -256,6 +256,22 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Read the live firmware button→keyboard map and push "FwButtonMapResult" (A2VM only).
+                if (pipeMsg.Extra.ContainsKey("ReadFwButtonMap"))
+                {
+                    try
+                    {
+                        ReadMsiClawFwButtonMap();
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: ReadFwButtonMap failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
                 // EXPERIMENTAL: read the native MSI fan config from the EC and push MsiFanDetectResult.
                 if (pipeMsg.Extra.TryGetValue("MsiFanDetect", out object fanDetectObj) && fanDetectObj is string)
                 {

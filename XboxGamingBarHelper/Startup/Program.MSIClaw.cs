@@ -567,6 +567,19 @@ namespace XboxGamingBarHelper
             catch (Exception ex) { Logger.Warn($"DetectMsiFan failed: {ex.Message}"); }
         }
 
+        /// <summary>Reads the live firmware button→keyboard map from the controller and pushes
+        /// "FwButtonMapResult" for the Controller-status card to display (A2VM only).</summary>
+        internal static void ReadMsiClawFwButtonMap()
+        {
+            try
+            {
+                string report = EnsureClawButtonMonitor().BuildFirmwareButtonMapReport();
+                Logger.Info($"ReadMsiClawFwButtonMap ->\n{report}");
+                PushProbeResult("FwButtonMapResult", report);
+            }
+            catch (Exception ex) { Logger.Warn($"ReadMsiClawFwButtonMap failed: {ex.Message}"); }
+        }
+
         private static void PushProbeResult(string key, string value)
         {
             if (pipeServer != null && pipeServer.IsConnected)

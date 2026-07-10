@@ -1250,14 +1250,14 @@ namespace XboxGamingBar
         /// same icon set as the button-remap action dropdowns (<see cref="GamepadButtonIconConverter"/>).
         /// Falls back to a plain text label for names with no icon entry so nothing renders blank.
         /// </summary>
-        private UIElement BuildXboxButtonTagContent(string actionName)
+        private UIElement BuildXboxButtonTagContent(string actionName, double iconSize = 20)
         {
             if (GamepadButtonIconConverter.Map.TryGetValue(actionName, out string file))
             {
                 return new Image
                 {
-                    Width = 20,
-                    Height = 20,
+                    Width = iconSize,
+                    Height = iconSize,
                     VerticalAlignment = VerticalAlignment.Center,
                     Source = new BitmapImage(new Uri($"ms-appx:///Assets/ButtonIcons/{file}.png"))
                 };
@@ -1267,7 +1267,7 @@ namespace XboxGamingBar
             {
                 Text = actionName,
                 Foreground = new SolidColorBrush(Windows.UI.Colors.White),
-                FontSize = 12,
+                FontSize = iconSize >= 28 ? 15 : 12,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -1309,14 +1309,14 @@ namespace XboxGamingBar
         /// Icon-only content for a keyboard-key chip (Kenney input-prompts). Falls back to the text
         /// display name for keys with no icon (e.g. volume) so nothing renders blank.
         /// </summary>
-        private UIElement BuildKeyboardKeyTagContent(int keyCode)
+        private UIElement BuildKeyboardKeyTagContent(int keyCode, double iconSize = 20)
         {
             if (KeyIconFileMap.TryGetValue(keyCode, out string file))
             {
                 return new Image
                 {
-                    Width = 20,
-                    Height = 20,
+                    Width = iconSize,
+                    Height = iconSize,
                     VerticalAlignment = VerticalAlignment.Center,
                     Source = new BitmapImage(new Uri($"ms-appx:///Assets/ButtonIcons/{file}.png"))
                 };
@@ -1326,7 +1326,7 @@ namespace XboxGamingBar
             {
                 Text = GetKeyDisplayName(keyCode),
                 Foreground = new SolidColorBrush(Windows.UI.Colors.White),
-                FontSize = 12,
+                FontSize = iconSize >= 28 ? 15 : 12,
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
@@ -1537,8 +1537,16 @@ namespace XboxGamingBar
             if (keyboardPanel != null)
             {
                 keyboardPanel.Visibility = mapping.Type == 1 ? Visibility.Visible : Visibility.Collapsed;
-                if (mapping.Type == 1)
-                    UpdateKeyboardKeyTags(buttonName, mapping.KeyboardKeys);
+
+                // Sync the keyboard-keys store on EVERY apply (not just Type==1) — exactly like the
+                // macro store below. _buttonKeyboardKeys is keyed only by button name, NOT scoped per
+                // profile, so a fresh/blank profile (Type!=1) must explicitly clear it. Otherwise
+                // switching the button to Keyboard afterward showed the previously applied profile's
+                // keys (e.g. Global's), and saving the blank per-game profile re-injected them —
+                // the same bug that was fixed for macros.
+                var kbKeys = mapping.Type == 1 ? (mapping.KeyboardKeys ?? new List<int>()) : new List<int>();
+                SetStoredKeyboardKeys(buttonName, kbKeys);
+                UpdateKeyboardKeyTags(buttonName, kbKeys);
             }
             if (macroPanel != null)
             {

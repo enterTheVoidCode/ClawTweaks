@@ -206,6 +206,33 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// "Refresh" button under the firmware keyboard-remap toggle: asks the helper to read the live
+        /// firmware button→keyboard map from the controller EEPROM and push it back ("FwButtonMapResult").
+        /// </summary>
+        private async void FwButtonMapRefresh_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            try
+            {
+                if (!App.IsConnected)
+                {
+                    if (FwButtonMapText != null) FwButtonMapText.Text = "Helper not connected.";
+                    return;
+                }
+                if (FwButtonMapText != null) FwButtonMapText.Text = "Reading controller…";
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "ReadFwButtonMap", "1" } });
+                Logger.Info("ReadFwButtonMap requested");
+            }
+            catch (Exception ex) { Logger.Warn($"FwButtonMapRefresh_Click: {ex.Message}"); }
+        }
+
+        /// <summary>Helper pushed the decoded firmware button→key map (wired in GamingWidget.PipeClient).</summary>
+        internal void OnFirmwareButtonMapResult(string report)
+        {
+            try { if (FwButtonMapText != null) FwButtonMapText.Text = string.IsNullOrWhiteSpace(report) ? "(no data)" : report; }
+            catch (Exception ex) { Logger.Warn($"OnFirmwareButtonMapResult: {ex.Message}"); }
+        }
+
         private void SetGyroSectionVisibility(bool visible)
         {
             if (GyroSection != null)
