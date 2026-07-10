@@ -58,6 +58,12 @@ namespace Shared.Data
         public bool SupportsGyro { get; set; } = false;
 
         /// <summary>
+        /// Whether this device's controller firmware supports a REVERSE-ENGINEERED, verified
+        /// button→keyboard remap (MSI Claw A2VM only). Gates the optional firmware keyboard backend.
+        /// </summary>
+        public bool SupportsFirmwareKeyboardRemap { get; set; } = false;
+
+        /// <summary>
         /// Whether this device has a touchpad
         /// </summary>
         public bool HasTouchpad { get; set; } = false;

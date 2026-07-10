@@ -165,7 +165,9 @@ namespace XboxGamingBar
                 { "LCtrl", 0xE0 }, { "LShift", 0xE1 }, { "LAlt", 0xE2 }, { "LWin", 0xE3 }, { "LMeta", 0xE3 },
                 { "RCtrl", 0xE4 }, { "RShift", 0xE5 }, { "RAlt", 0xE6 }, { "RWin", 0xE7 }, { "RMeta", 0xE7 },
                 { "VolMute", 0x7F }, { "VolUp", 0x80 }, { "VolDown", 0x81 },
-                { "[", 0x2F }, { "]", 0x30 }
+                { "[", 0x2F }, { "]", 0x30 },
+                { "`", 0x35 }, { "-", 0x2D }, { "=", 0x2E }, { "\\", 0x31 }, { "CapsLock", 0x39 },
+                { ";", 0x33 }, { "'", 0x34 }, { ",", 0x36 }, { ".", 0x37 }, { "/", 0x38 }
             };
             return keyNames.TryGetValue(name, out int code) ? code : 0;
         }
