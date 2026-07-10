@@ -162,6 +162,17 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes the live firmware button→keyboard map (Controller-status refresh).
+                if (message.TryGetValue("FwButtonMapResult", out object fwMapObj) && fwMapObj is string fwMapResult)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnFirmwareButtonMapResult(fwMapResult); }
+                        catch (Exception ex) { Logger.Error($"FwButtonMapResult dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper pushes the experimental native-fan detection report.
                 if (message.TryGetValue("MsiFanDetectResult", out object fanDetObj) && fanDetObj is string fanDetResult)
                 {
