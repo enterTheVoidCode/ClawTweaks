@@ -446,9 +446,11 @@ namespace XboxGamingBar
 
             var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
 
-            var buttonText = new TextBlock
+            // Icon-based summary: source button icon → key icons (keyboard) or target text (gamepad/mouse).
+            var sourceContent = BuildXboxButtonTagContent(displayName);
+            var arrowText = new TextBlock
             {
-                Text = $"{displayName} → {mappingDesc}",
+                Text = " → ",
                 Foreground = new SolidColorBrush(Windows.UI.Colors.White),
                 FontSize = 11,
                 VerticalAlignment = VerticalAlignment.Center
@@ -469,7 +471,27 @@ namespace XboxGamingBar
             };
             clearButton.Click += (s, e) => ClearSingleGamepadMapping((string)((Button)s).Tag);
 
-            tagPanel.Children.Add(buttonText);
+            tagPanel.Children.Add(sourceContent);
+            tagPanel.Children.Add(arrowText);
+            if (mapping.Type == 1 && mapping.KeyboardKeys != null && mapping.KeyboardKeys.Count > 0)
+            {
+                for (int i = 0; i < mapping.KeyboardKeys.Count; i++)
+                {
+                    var kc = BuildKeyboardKeyTagContent(mapping.KeyboardKeys[i]);
+                    if (kc is FrameworkElement fe) fe.Margin = new Thickness(i == 0 ? 0 : 2, 0, 0, 0);
+                    tagPanel.Children.Add(kc);
+                }
+            }
+            else
+            {
+                tagPanel.Children.Add(new TextBlock
+                {
+                    Text = mappingDesc,
+                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                    FontSize = 11,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
             tagPanel.Children.Add(clearButton);
             tagBorder.Child = tagPanel;
 

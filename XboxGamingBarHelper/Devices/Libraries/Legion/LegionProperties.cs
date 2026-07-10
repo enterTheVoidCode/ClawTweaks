@@ -1602,6 +1602,20 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         }
     }
 
+    // Device Supports Firmware Keyboard Remap (read-only; MSI Claw A2VM only)
+    internal class DeviceSupportsFirmwareKeyboardRemapProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceSupportsFirmwareKeyboardRemapProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceSupportsFirmwareKeyboardRemap, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
     // Device Has Scroll Wheel (read-only, based on device capabilities)
     internal class DeviceHasScrollWheelProperty : HelperProperty<bool, LegionManager>
     {

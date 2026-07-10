@@ -40,6 +40,8 @@ namespace XboxGamingBarHelper.Devices
         public abstract bool SupportsControllerRemap { get; }
         public abstract bool SupportsRgbLighting { get; }
         public abstract bool SupportsGyro { get; }
+        // Firmware button→keyboard remap (MSI Claw A2VM only; verified EEPROM layout). Default false.
+        public virtual bool SupportsFirmwareKeyboardRemap => false;
         public abstract bool HasTouchpad { get; }
         public abstract bool HasScrollWheel { get; }
         public abstract bool HasDetachableControllers { get; }
@@ -55,6 +57,7 @@ namespace XboxGamingBarHelper.Devices
             deviceInfo.SupportsControllerRemap = SupportsControllerRemap;
             deviceInfo.SupportsRgbLighting = SupportsRgbLighting;
             deviceInfo.SupportsGyro = SupportsGyro;
+            deviceInfo.SupportsFirmwareKeyboardRemap = SupportsFirmwareKeyboardRemap;
             deviceInfo.HasTouchpad = HasTouchpad;
             deviceInfo.HasScrollWheel = HasScrollWheel;
             deviceInfo.HasDetachableControllers = HasDetachableControllers;

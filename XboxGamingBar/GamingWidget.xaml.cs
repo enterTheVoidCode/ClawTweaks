@@ -1635,6 +1635,9 @@ namespace XboxGamingBar
         private readonly MsiCenterActiveProperty msiCenterActive;
         // MSI Claw — Controller / Mouse mode Quick Settings tile
         private readonly MsiClawControllerModeProperty msiClawControllerMode;
+        // MSI Claw — firmware keyboard-remap backend toggle (Controller Status card, A2VM only)
+        private readonly MsiClawFwKeyboardModeProperty msiClawFwKeyboardMode;
+        private readonly DeviceSupportsFirmwareKeyboardRemapProperty deviceSupportsFirmwareKeyboardRemap;
         private readonly ExternalGamepadModeProperty externalGamepadMode;
         private readonly MsiClawHwMouseProperty msiClawHwMouse;
 
@@ -2430,6 +2433,10 @@ namespace XboxGamingBar
             msiCenterActive = new MsiCenterActiveProperty();
             // MSI Claw — Controller / Mouse mode Quick Settings tile
             msiClawControllerMode = new MsiClawControllerModeProperty();
+            // MSI Claw — firmware keyboard-remap backend toggle (bound to the Controller Status card
+            // ToggleSwitch; visibility gated by the A2VM-only capability below).
+            msiClawFwKeyboardMode = new MsiClawFwKeyboardModeProperty(MsiClawFwKeyboardModeToggle, this);
+            deviceSupportsFirmwareKeyboardRemap = new DeviceSupportsFirmwareKeyboardRemapProperty(this);
             // MSI Claw — External Gamepad Mode Quick Settings tile (hide all handheld controllers)
             externalGamepadMode = new ExternalGamepadModeProperty();
             msiClawHwMouse = new MsiClawHwMouseProperty();
@@ -2457,6 +2464,7 @@ namespace XboxGamingBar
             deviceSupportsControllerRemap.SetVisibilityCallback(SetControllerRemappingSectionVisibility);
             deviceSupportsRgbLighting.SetVisibilityCallback(SetLightingSectionVisibility);
             deviceSupportsGyro.SetVisibilityCallback(SetGyroSectionVisibility);
+            deviceSupportsFirmwareKeyboardRemap.SetVisibilityCallback(SetFwKeyboardRemapSectionVisibility);
             deviceHasScrollWheel.SetVisibilityCallback(SetScrollWheelSectionVisibility);
             deviceHasDetachableControllers.SetVisibilityCallback(SetControllerBatterySectionVisibility);
             deviceHasTouchpad.SetVisibilityCallback(SetTouchpadVibrationSectionVisibility);
@@ -2682,6 +2690,8 @@ namespace XboxGamingBar
                 fpsCapMode,
                 msiCenterActive,
                 msiClawControllerMode,
+                msiClawFwKeyboardMode,
+                deviceSupportsFirmwareKeyboardRemap,
                 externalGamepadMode,
                 msiClawHwMouse,
                 osPowerMode,

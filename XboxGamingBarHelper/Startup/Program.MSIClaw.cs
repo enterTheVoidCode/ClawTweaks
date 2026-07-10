@@ -1017,6 +1017,17 @@ namespace XboxGamingBarHelper
                 // is the authoritative owner; any previous value is safely overwritten.
                 MsiClawControllerModeManager.OnModeChanged = OnMsiClawControllerModeChanged;
 
+                // Firmware keyboard-remap backend toggle → switch ClawButtonMonitor between the
+                // software injector (default) and writing button-bound keyboard shortcuts to the
+                // controller firmware (A2VM only; SetFirmwareKeyboardMode ignores non-capable devices).
+                MSI.MsiClawFwKeyboardModeManager.OnFwKeyboardModeChanged = OnMsiClawFwKeyboardModeChanged;
+                // Re-assert the PERSISTED backend on start: the property loaded its value from
+                // LocalSettingsHelper, but the callback only fires on live changes — without this a
+                // reboot leaves the firmware backend inactive even though the toggle reads ON. No-op
+                // on non-A2VM (SetFirmwareKeyboardMode ignores non-capable devices).
+                try { OnMsiClawFwKeyboardModeChanged(msiClawFwKeyboardModeManager.MsiClawFwKeyboardMode.Value); }
+                catch (Exception ex) { Logger.Warn($"MSIClaw: applying persisted FW keyboard mode failed: {ex.Message}"); }
+
                 // External Gamepad Mode tile → hide/restore all handheld controllers.
                 MSI.ExternalGamepadModeManager.OnChanged = OnExternalGamepadModeChanged;
 
@@ -1279,6 +1290,18 @@ namespace XboxGamingBarHelper
         {
             Logger.Info($"MSIClaw: MsiClawControllerMode changed → {(controllerOn ? "Controller" : "Mouse")}");
             OnMSIClawEmulationEnabledChanged(controllerOn);
+        }
+
+        /// <summary>
+        /// Firmware keyboard-remap backend toggle. Routes to the (possibly not-yet-created)
+        /// ClawButtonMonitor; SetFirmwareKeyboardMode is a no-op on non-A2VM devices and, when
+        /// enabling, re-applies the current profile's button-bound keyboard map to the firmware,
+        /// when disabling clears every firmware slot back to default.
+        /// </summary>
+        private static void OnMsiClawFwKeyboardModeChanged(bool firmwareOn)
+        {
+            Logger.Info($"MSIClaw: MsiClawFwKeyboardMode changed → {(firmwareOn ? "Firmware" : "Software")}");
+            EnsureClawButtonMonitor().SetFirmwareKeyboardMode(firmwareOn);
         }
 
         // ── HW-mouse killswitch (firmware Desktop mouse mode) ────────────────────────────────

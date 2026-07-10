@@ -193,6 +193,19 @@ namespace XboxGamingBar
         /// Legion Go S has a different HID structure, so gyro configuration doesn't work.
         /// On MSI Claw the section is visible but Calibrate Gyro is disabled (Legion Go firmware-only feature).
         /// </summary>
+        /// <summary>
+        /// Shows the firmware keyboard-remap backend toggle only when the helper reports the device
+        /// supports it (MSI Claw A2VM; verified EEPROM layout). Hidden on every other device.
+        /// </summary>
+        private void SetFwKeyboardRemapSectionVisibility(bool visible)
+        {
+            if (FwKeyboardRemapPanel != null)
+            {
+                FwKeyboardRemapPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                Logger.Info($"Firmware keyboard-remap toggle visibility set to: {visible}");
+            }
+        }
+
         private void SetGyroSectionVisibility(bool visible)
         {
             if (GyroSection != null)

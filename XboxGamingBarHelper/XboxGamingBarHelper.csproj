@@ -342,6 +342,8 @@
     <Compile Include="MSI\MsiClawHwMouseProperty.cs" />
     <Compile Include="MSI\MsiClawControllerModeManager.cs" />
     <Compile Include="MSI\MsiClawControllerModeProperty.cs" />
+    <Compile Include="MSI\MsiClawFwKeyboardModeManager.cs" />
+    <Compile Include="MSI\MsiClawFwKeyboardModeProperty.cs" />
     <Compile Include="Settings\AutoStartRTSSProperty.cs" />
     <Compile Include="Settings\AutoHibernateEnabledProperty.cs" />
     <Compile Include="Settings\AutoHibernateIdleMinutesProperty.cs" />
@@ -468,6 +470,7 @@
     <Compile Include="Labs\ViGEmController.cs" />
     <Compile Include="Labs\LegionButtonMonitor.cs" />
     <Compile Include="Labs\ClawButtonMonitor.cs" />
+    <Compile Include="Labs\ClawButtonMonitor.FwKeyboard.cs" />
     <Compile Include="Labs\ClawButtonMonitor.GamepadSwap.cs" />
     <Compile Include="Labs\ClawButtonMonitor.Viiper.cs" />
     <Compile Include="Labs\ViGEmBusProperties.cs" />

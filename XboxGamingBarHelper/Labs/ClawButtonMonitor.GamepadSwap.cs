@@ -50,6 +50,7 @@ namespace XboxGamingBarHelper.Labs
             public ushort SourceButtonMask;   // 0 when the source is an analog trigger
             public bool SourceIsLeftTrigger;
             public bool SourceIsRightTrigger;
+            public string SourceButtonName;   // canonical name (A/B/DPadUp/LT…), for FW-remap suppression
 
             // Gamepad-target mode: the XInput actions to inject while the source is held.
             public RemapAction[] Actions;
@@ -57,6 +58,7 @@ namespace XboxGamingBarHelper.Labs
             // Keyboard-target mode: fire KeyboardToken once on the press edge.
             public bool IsKeyboard;
             public string KeyboardToken;
+            public int[] KeyboardHidCodes;    // raw HID usage codes (for the firmware keyboard backend)
 
             // Guide-target mode ("Xbox Button"): fire a momentary Guide tap once on the press edge.
             public bool IsGuide;
@@ -83,6 +85,8 @@ namespace XboxGamingBarHelper.Labs
                 GamepadSwapEntry[] built = BuildGamepadSwaps(json);
                 _gamepadSwaps = built;
                 Logger.Info($"ClawButtonMonitor: Gamepad button swaps configured — {built.Length} active entr{(built.Length == 1 ? "y" : "ies")}");
+                // Firmware keyboard backend follows the same profile changes (A2VM only; no-op otherwise).
+                RecomputeFirmwareKeyboardDesired();
             }
             catch (Exception ex)
             {
@@ -135,7 +139,11 @@ namespace XboxGamingBarHelper.Labs
 
                 if (swap.IsKeyboard)
                 {
-                    if (pressed && !swap.PrevPressed && !string.IsNullOrEmpty(swap.KeyboardToken))
+                    // When the firmware keyboard backend owns this button, the firmware emits the real
+                    // HID key itself — don't ALSO fire the software chord (double-fire). The source is
+                    // still cleared above so Viiper never emits the raw button either.
+                    if (pressed && !swap.PrevPressed && !string.IsNullOrEmpty(swap.KeyboardToken)
+                        && !IsButtonFirmwareKeyboardMapped(swap.SourceButtonName))
                     {
                         try { KeyboardChordCallback?.Invoke(swap.KeyboardToken); }
                         catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: gamepad keyboard swap fire threw: {ex.Message}"); }
@@ -231,8 +239,10 @@ namespace XboxGamingBarHelper.Labs
                         SourceButtonMask = sourceMask,
                         SourceIsLeftTrigger = isLeftTrigger,
                         SourceIsRightTrigger = isRightTrigger,
+                        SourceButtonName = buttonName,
                         IsKeyboard = true,
                         KeyboardToken = token,
+                        KeyboardHidCodes = parsed.KeyboardKeys,
                     });
                     continue;
                 }

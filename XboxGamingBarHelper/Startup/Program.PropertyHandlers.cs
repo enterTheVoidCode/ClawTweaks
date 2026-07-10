@@ -211,7 +211,17 @@ namespace XboxGamingBarHelper
             if (isApplyingProfile) { Logger.Debug("Skipping IntelDisplay_PropertyChanged - applying profile"); return; }
             if (IsInProfileSwitchCooldown()) { Logger.Debug("Skipping IntelDisplay_PropertyChanged - cooldown"); return; }
 
-            RouteProfileSave(ProfileSaveFlagsState.IntelDisplay, "IntelDisplay",
+            // Per-game capture only makes sense WHILE a game is running. With no game, CurrentProfile
+            // IS the global profile and RouteProfileSave's onCurrent path only mutates it in memory
+            // (GameProfileProperty setters don't Save) — so the change never reached global.xml and the
+            // boot-time re-apply read the stale on-disk value (observed: Adaptive Sharpness stuck at a
+            // high value, reverting every restart). Gate on gameRunning so the no-game case takes the
+            // onGlobal path, which explicitly g.Save()s to global.xml. (CPUBoost/TDP work around the
+            // same onCurrent-doesn't-persist root cause via LocalSettingsHelper; IntelDisplay never did.)
+            bool gameRunning = systemManager?.RunningGame?.Value.IsValid() == true;
+            bool saveToProfile = ProfileSaveFlagsState.IntelDisplay && gameRunning;
+
+            RouteProfileSave(saveToProfile, "IntelDisplay",
                 cur =>
                 {
                     cur.IntelAdaptiveSharpness = intelGpuManager.IntelAdaptiveSharpness;

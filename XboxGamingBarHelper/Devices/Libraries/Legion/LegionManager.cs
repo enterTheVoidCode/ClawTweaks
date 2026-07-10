@@ -280,6 +280,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         public readonly DeviceSupportsControllerRemapProperty DeviceSupportsControllerRemap;
         public readonly DeviceSupportsRgbLightingProperty DeviceSupportsRgbLighting;
         public readonly DeviceSupportsGyroProperty DeviceSupportsGyro;
+        public readonly DeviceSupportsFirmwareKeyboardRemapProperty DeviceSupportsFirmwareKeyboardRemap;
         public readonly DeviceHasScrollWheelProperty DeviceHasScrollWheel;
         public readonly DeviceHasDetachableControllersProperty DeviceHasDetachableControllers;
         public readonly DeviceHasTouchpadProperty DeviceHasTouchpad;
@@ -562,6 +563,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             bool supportsControllerRemap = deviceInfo?.SupportsControllerRemap ?? true;
             bool supportsRgbLighting = deviceInfo?.SupportsRgbLighting ?? true;
             bool supportsGyro = deviceInfo?.SupportsGyro ?? true;
+            bool supportsFwKeyboardRemap = deviceInfo?.SupportsFirmwareKeyboardRemap ?? false;
             bool hasScrollWheel = deviceInfo?.HasScrollWheel ?? true;
             bool hasDetachableControllers = deviceInfo?.HasDetachableControllers ?? true;
             bool hasTouchpad = deviceInfo?.HasTouchpad ?? true;
@@ -570,6 +572,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             DeviceSupportsControllerRemap = new DeviceSupportsControllerRemapProperty(supportsControllerRemap, this);
             DeviceSupportsRgbLighting = new DeviceSupportsRgbLightingProperty(supportsRgbLighting, this);
             DeviceSupportsGyro = new DeviceSupportsGyroProperty(supportsGyro, this);
+            DeviceSupportsFirmwareKeyboardRemap = new DeviceSupportsFirmwareKeyboardRemapProperty(supportsFwKeyboardRemap, this);
             DeviceHasScrollWheel = new DeviceHasScrollWheelProperty(hasScrollWheel, this);
             DeviceHasDetachableControllers = new DeviceHasDetachableControllersProperty(hasDetachableControllers, this);
             DeviceHasTouchpad = new DeviceHasTouchpadProperty(hasTouchpad, this);

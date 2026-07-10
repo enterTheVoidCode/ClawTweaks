@@ -1000,6 +1000,17 @@ namespace XboxGamingBar
             // Bracket keys
             if (index == 77) return 0x2F;  // [ LeftBracket
             if (index == 78) return 0x30;  // ] RightBracket
+            // Punctuation / remaining printable keys (all firmware-mappable on the Claw A2VM)
+            if (index == 79) return 0x35;  // ` backquote
+            if (index == 80) return 0x2D;  // - minus
+            if (index == 81) return 0x2E;  // = equals
+            if (index == 82) return 0x31;  // \ backslash
+            if (index == 83) return 0x39;  // CapsLock
+            if (index == 84) return 0x33;  // ; semicolon
+            if (index == 85) return 0x34;  // ' apostrophe
+            if (index == 86) return 0x36;  // , comma
+            if (index == 87) return 0x37;  // . period
+            if (index == 88) return 0x38;  // / slash
 
             return 0;
         }
@@ -1255,6 +1266,65 @@ namespace XboxGamingBar
             return new TextBlock
             {
                 Text = actionName,
+                Foreground = new SolidColorBrush(Windows.UI.Colors.White),
+                FontSize = 12,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+        }
+
+        // HID usage code → Kenney "Keyboard & Mouse/Default" (normal, non-outline) icon file (no .png).
+        // Left/right modifier pairs share one glyph; volume keys have no icon (fall back to text).
+        private static readonly Dictionary<int, string> KeyIconFileMap = new Dictionary<int, string>
+        {
+            { 0x04, "keyboard_a" }, { 0x05, "keyboard_b" }, { 0x06, "keyboard_c" }, { 0x07, "keyboard_d" },
+            { 0x08, "keyboard_e" }, { 0x09, "keyboard_f" }, { 0x0A, "keyboard_g" }, { 0x0B, "keyboard_h" },
+            { 0x0C, "keyboard_i" }, { 0x0D, "keyboard_j" }, { 0x0E, "keyboard_k" }, { 0x0F, "keyboard_l" },
+            { 0x10, "keyboard_m" }, { 0x11, "keyboard_n" }, { 0x12, "keyboard_o" }, { 0x13, "keyboard_p" },
+            { 0x14, "keyboard_q" }, { 0x15, "keyboard_r" }, { 0x16, "keyboard_s" }, { 0x17, "keyboard_t" },
+            { 0x18, "keyboard_u" }, { 0x19, "keyboard_v" }, { 0x1A, "keyboard_w" }, { 0x1B, "keyboard_x" },
+            { 0x1C, "keyboard_y" }, { 0x1D, "keyboard_z" },
+            { 0x1E, "keyboard_1" }, { 0x1F, "keyboard_2" }, { 0x20, "keyboard_3" }, { 0x21, "keyboard_4" },
+            { 0x22, "keyboard_5" }, { 0x23, "keyboard_6" }, { 0x24, "keyboard_7" }, { 0x25, "keyboard_8" },
+            { 0x26, "keyboard_9" }, { 0x27, "keyboard_0" },
+            { 0x3A, "keyboard_f1" }, { 0x3B, "keyboard_f2" }, { 0x3C, "keyboard_f3" }, { 0x3D, "keyboard_f4" },
+            { 0x3E, "keyboard_f5" }, { 0x3F, "keyboard_f6" }, { 0x40, "keyboard_f7" }, { 0x41, "keyboard_f8" },
+            { 0x42, "keyboard_f9" }, { 0x43, "keyboard_f10" }, { 0x44, "keyboard_f11" }, { 0x45, "keyboard_f12" },
+            { 0x28, "keyboard_enter" }, { 0x29, "keyboard_escape" }, { 0x2C, "keyboard_space" },
+            { 0x2B, "keyboard_tab" }, { 0x2A, "keyboard_backspace" },
+            { 0x52, "keyboard_arrow_up" }, { 0x51, "keyboard_arrow_down" },
+            { 0x50, "keyboard_arrow_left" }, { 0x4F, "keyboard_arrow_right" },
+            { 0xE0, "keyboard_ctrl" }, { 0xE4, "keyboard_ctrl" }, { 0xE1, "keyboard_shift" }, { 0xE5, "keyboard_shift" },
+            { 0xE2, "keyboard_alt" }, { 0xE6, "keyboard_alt" }, { 0xE3, "keyboard_win" }, { 0xE7, "keyboard_win" },
+            { 0x4A, "keyboard_home" }, { 0x4D, "keyboard_end" }, { 0x4B, "keyboard_page_up" },
+            { 0x4E, "keyboard_page_down" }, { 0x49, "keyboard_insert" }, { 0x4C, "keyboard_delete" },
+            { 0x46, "keyboard_printscreen" }, { 0x48, "keyboard_pause" },
+            { 0x2F, "keyboard_bracket_open" }, { 0x30, "keyboard_bracket_close" },
+            { 0x35, "keyboard_tilde" }, { 0x2D, "keyboard_minus" }, { 0x2E, "keyboard_equals" },
+            { 0x31, "keyboard_slash_back" }, { 0x39, "keyboard_capslock" }, { 0x33, "keyboard_semicolon" },
+            { 0x34, "keyboard_apostrophe" }, { 0x36, "keyboard_comma" }, { 0x37, "keyboard_period" },
+            { 0x38, "keyboard_slash_forward" },
+        };
+
+        /// <summary>
+        /// Icon-only content for a keyboard-key chip (Kenney input-prompts). Falls back to the text
+        /// display name for keys with no icon (e.g. volume) so nothing renders blank.
+        /// </summary>
+        private UIElement BuildKeyboardKeyTagContent(int keyCode)
+        {
+            if (KeyIconFileMap.TryGetValue(keyCode, out string file))
+            {
+                return new Image
+                {
+                    Width = 20,
+                    Height = 20,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Source = new BitmapImage(new Uri($"ms-appx:///Assets/ButtonIcons/{file}.png"))
+                };
+            }
+
+            return new TextBlock
+            {
+                Text = GetKeyDisplayName(keyCode),
                 Foreground = new SolidColorBrush(Windows.UI.Colors.White),
                 FontSize = 12,
                 VerticalAlignment = VerticalAlignment.Center
@@ -1549,13 +1619,8 @@ namespace XboxGamingBar
 
                 var tagPanel = new StackPanel { Orientation = Orientation.Horizontal };
 
-                var keyText = new TextBlock
-                {
-                    Text = GetKeyDisplayName(key),
-                    Foreground = new SolidColorBrush(Windows.UI.Colors.White),
-                    FontSize = 12,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
+                // Icon-only chip (Kenney keyboard glyphs); text fallback for keys without an icon.
+                var keyText = BuildKeyboardKeyTagContent(key);
 
                 var removeButton = new Button
                 {
@@ -1609,8 +1674,8 @@ namespace XboxGamingBar
                 { 0x4C, "Del" }, { 0x4D, "End" }, { 0x4E, "PgDn" }, { 0x4F, "Right" },
                 { 0x50, "Left" }, { 0x51, "Down" }, { 0x52, "Up" },
                 // Modifier keys
-                { 0xE0, "LCtrl" }, { 0xE1, "LShift" }, { 0xE2, "LAlt" }, { 0xE3, "LMeta" },
-                { 0xE4, "RCtrl" }, { 0xE5, "RShift" }, { 0xE6, "RAlt" }, { 0xE7, "RMeta" },
+                { 0xE0, "LCtrl" }, { 0xE1, "LShift" }, { 0xE2, "LAlt" }, { 0xE3, "LWin" },
+                { 0xE4, "RCtrl" }, { 0xE5, "RShift" }, { 0xE6, "RAlt" }, { 0xE7, "RWin" },
                 // Media keys
                 { 0x7F, "VolMute" }, { 0x80, "VolUp" }, { 0x81, "VolDown" }
             };

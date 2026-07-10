@@ -114,6 +114,7 @@ namespace XboxGamingBarHelper
         private static IntelGpuManager intelGpuManager;
         private static MsiCenterManager msiCenterManager;
         private static MsiClawControllerModeManager msiClawControllerModeManager;
+        private static MsiClawFwKeyboardModeManager msiClawFwKeyboardModeManager;
         private static ExternalGamepadModeManager externalGamepadModeManager;
         private static MsiClawHwMouseManager msiClawHwMouseManager;
         private static List<IManager> Managers;
@@ -1157,6 +1158,8 @@ namespace XboxGamingBarHelper
             };
             // MsiClawControllerModeManager: MSI Claw-specific Controller/Mouse mode tile.
             msiClawControllerModeManager = new MsiClawControllerModeManager();
+            // MsiClawFwKeyboardModeManager: firmware keyboard-remap backend toggle (A2VM only).
+            msiClawFwKeyboardModeManager = new MsiClawFwKeyboardModeManager();
             // ExternalGamepadModeManager: hide all handheld controllers for an external gamepad.
             externalGamepadModeManager = new ExternalGamepadModeManager();
             // MsiClawHwMouseManager: HW-mouse killswitch (firmware Desktop mouse mode) tile/action.
@@ -1360,6 +1363,7 @@ namespace XboxGamingBarHelper
                 intelGpuManager.IntelDisplayGamma,
                 msiCenterManager.MsiCenterActive,
                 msiClawControllerModeManager.MsiClawControllerMode,
+                msiClawFwKeyboardModeManager.MsiClawFwKeyboardMode,
                 externalGamepadModeManager.ExternalGamepadMode,
                 msiClawHwMouseManager.MsiClawHwMouse,
                 settingsManager.IsForeground,
@@ -1577,6 +1581,7 @@ namespace XboxGamingBarHelper
                 legionManager.DeviceSupportsControllerRemap,
                 legionManager.DeviceSupportsRgbLighting,
                 legionManager.DeviceSupportsGyro,
+                legionManager.DeviceSupportsFirmwareKeyboardRemap,
                 legionManager.DeviceHasScrollWheel,
                 legionManager.DeviceHasDetachableControllers,
                 legionManager.DeviceHasTouchpad,

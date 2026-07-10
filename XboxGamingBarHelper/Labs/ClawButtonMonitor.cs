@@ -552,6 +552,11 @@ namespace XboxGamingBarHelper.Labs
             Logger.Info($"ClawButtonMonitor: {button} back-button mapping → type={mappingType} " +
                         $"gamepad={gamepadAction} keyboard='{keyboardToken}' mouse={mouseAction} " +
                         $"macroActions=[{string.Join(",", macroActions ?? Array.Empty<int>())}]");
+
+            // Feed the firmware keyboard backend (A2VM only; no-op otherwise): only the Keyboard mode
+            // (Type=1) is firmware-capable — Gamepad/Mouse/Macro stay on the software path, so pass
+            // null for those to clear any previous firmware paddle remap.
+            UpdateFirmwareKeyboardPaddle(button, mappingType == 1 ? values : null);
         }
 
         /// <summary>
@@ -2086,12 +2091,16 @@ namespace XboxGamingBarHelper.Labs
             // M1/M2 Keyboard target (Type==1): fire the configured chord once on the press edge,
             // mirroring the normal-button keyboard path (GamepadSwap IsKeyboard). Uses the same
             // KeyboardChordCallback (→ SendKeyboardShortcutViaInputInjector) wired by Program.MSIClaw.
-            if (m1 && !_prevM1 && _m1MappingType == 1 && !string.IsNullOrEmpty(_m1KeyboardToken))
+            // Skip the software chord when the firmware keyboard backend owns this paddle — the
+            // firmware emits the real HID key itself, so a software fire would double it.
+            if (m1 && !_prevM1 && _m1MappingType == 1 && !string.IsNullOrEmpty(_m1KeyboardToken)
+                && !IsButtonFirmwareKeyboardMapped("M1"))
             {
                 try { KeyboardChordCallback?.Invoke(_m1KeyboardToken); }
                 catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: M1 keyboard chord '{_m1KeyboardToken}' failed: {ex.Message}"); }
             }
-            if (m2 && !_prevM2 && _m2MappingType == 1 && !string.IsNullOrEmpty(_m2KeyboardToken))
+            if (m2 && !_prevM2 && _m2MappingType == 1 && !string.IsNullOrEmpty(_m2KeyboardToken)
+                && !IsButtonFirmwareKeyboardMapped("M2"))
             {
                 try { KeyboardChordCallback?.Invoke(_m2KeyboardToken); }
                 catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: M2 keyboard chord '{_m2KeyboardToken}' failed: {ex.Message}"); }

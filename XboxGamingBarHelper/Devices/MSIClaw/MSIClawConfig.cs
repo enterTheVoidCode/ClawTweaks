@@ -70,6 +70,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         public override bool SupportsControllerRemap    => true;   // XInput controller emulation works
         public override bool SupportsRgbLighting        => true;   // Controller LED via HID vendor commands (firmware-version-aware)
         public override bool SupportsGyro               => true;   // Built-in IMU present
+        public override bool SupportsFirmwareKeyboardRemap => true; // Firmware button→keyboard remap RE'd/verified on A2VM (MatchesModel gates to A2VM only)
         public override bool HasTouchpad                => false;  // No touchpad
         public override bool HasScrollWheel             => false;  // No scroll wheel
         public override bool HasDetachableControllers   => false;  // Integrated controller only

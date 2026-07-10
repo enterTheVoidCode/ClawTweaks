@@ -115,6 +115,7 @@
         DeviceSupportsControllerRemap,  // bool - whether device supports HID controller remapping
         DeviceSupportsRgbLighting,      // bool - whether device supports HID RGB lighting control
         DeviceSupportsGyro,             // bool - whether device supports HID gyro configuration
+        DeviceSupportsFirmwareKeyboardRemap, // bool - MSI Claw A2VM: firmware button→keyboard remap available (verified layout)
         DeviceHasScrollWheel,           // bool - whether device has a scroll wheel (Legion Go/Go2 yes, Go S no)
         DeviceHasDetachableControllers, // bool - whether device has detachable L/R controllers (Legion Go/Go2 yes, Go S no)
         DeviceHasTouchpad,              // bool - whether device has touchpad/vibration settings (uses HID)
@@ -528,6 +529,12 @@
         // state is preserved (Viiper stays mounted, monitor suspended), so OFF restores it exactly.
         // NOT persisted: always starts OFF after a helper start (helper always boots in controller mode).
         MsiClawHwMouse,              // bool - true = firmware Desktop mouse forced on; false = controller
+
+        // Keyboard-remap backend (MSI Claw A2VM only): when ON, button-bound keyboard shortcuts from
+        // the controller profile are written to the controller FIRMWARE so they emit a real HID key
+        // (seen inside DirectInput/RawInput games); when OFF, the existing software injector is used.
+        // Runs alongside the virtual controller; only button-bound shortcuts qualify (tiles/actions stay software).
+        MsiClawFwKeyboardMode,      // bool - true = firmware keyboard remap; false = software injector (default)
 
         // Special Controller Buttons — fire a momentary Xbox Guide tap on the virtual ViGEm Xbox 360
         // controller (Xbox360Button.Guide press+release). This is the button that opens Steam Big

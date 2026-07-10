@@ -679,6 +679,22 @@ namespace XboxGamingBarHelper
                     // and M1/M2 keyboard chords silently no-op'd (KeyboardChordCallback?.Invoke).
                     clawButtonMonitor.KeyboardChordCallback = SendKeyboardShortcutViaInputInjector;
 
+                    // Firmware button→keyboard remap is only reverse-engineered/verified on the A2VM
+                    // (Claw 7/8 AI+, Lunar Lake). A1M / A8 / Claw 8 EX use an unverified EEPROM layout,
+                    // so the feature stays unavailable there (software path only). Same detection key
+                    // MSIClawConfig uses: DeviceType.MSIClaw && ComputerSystemProduct.Name contains "A2VM".
+                    try
+                    {
+                        // Single source of truth: MSIClawConfig sets SupportsFirmwareKeyboardRemap only
+                        // for A2VM (its MatchesModel requires "A2VM"); every other config leaves it false.
+                        var di = Devices.DeviceDetector.DetectDevice();
+                        clawButtonMonitor.SetFirmwareKeyboardCapable(di?.SupportsFirmwareKeyboardRemap ?? false);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Labs: FW keyboard capability probe failed: {ex.Message}");
+                    }
+
                     Logger.Info("Labs: Created ClawButtonMonitor for MSI Claw M1/M2 paddles");
                 }
                 return clawButtonMonitor;
