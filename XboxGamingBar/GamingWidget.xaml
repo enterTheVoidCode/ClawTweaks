@@ -6175,6 +6175,16 @@
                                                       KeyDown="MsiFanEnableToggle_KeyDown"/>
                                     </Grid>
 
+                                    <!-- Fan auto-safety badge: visible while the 70 °C safety has cooling handed
+                                         to EC Sport (helper "MsiFanAutoSport" push). Without it the chosen preset
+                                         stays highlighted while the EC Sport table actually drives the fan. -->
+                                    <Border x:Name="MsiFanAutoSportBadge" Background="#37260C" BorderBrush="#A06E28"
+                                            BorderThickness="1" CornerRadius="4" Padding="8,3" Margin="0,8,0,0"
+                                            HorizontalAlignment="Left" Visibility="Collapsed">
+                                        <TextBlock x:Name="MsiFanAutoSportText" FontSize="11" Foreground="#FFAA46" TextWrapping="Wrap"
+                                                   Text="Auto Sport active — EC Sport is cooling; your preset resumes after cooldown."/>
+                                    </Border>
+
                                     <StackPanel x:Name="MsiFanContent" Margin="0,10,0,0" Visibility="Collapsed">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -6197,7 +6207,7 @@
                                         </Grid>
 
                                         <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#999999" TextWrapping="Wrap"
-                                                   Text="MSI fan curves on the real firmware breakpoints, same scale MSI Center M uses (fan % = raw EC value). MSI Default matches MSI's stock curve; Quiet Idle is quieter at low load; Cooling ramps ~10 °C earlier. Custom lets you edit each bar: drag the bar up/down for fan %, drag the temperature label under it left/right to change that breakpoint. If the fan ever stays uncontrollably loud, shut the device down, wait one minute, then reboot."/>
+                                                   Text="MSI fan curves on the real firmware breakpoints, same scale MSI Center M uses (fan % = raw EC value). MSI Default matches MSI's stock curve; Quiet Idle is quieter at low load; Cooling ramps ~10 °C earlier. Custom lets you edit each bar: drag the bar up/down for fan %, drag the temperature label under it left/right to change that breakpoint. Above 158 °F (70 °C) the auto-safety hands the fan to EC Sport, then restores your curve after the game ends once the CPU cools below 140 °F (60 °C). If the fan ever stays uncontrollably loud, shut the device down, wait one minute, then reboot."/>
 
                                         <!-- Extended range: unlock fan % above MSI's 75 % cap -->
                                         <Grid Margin="0,10,0,0">

@@ -197,6 +197,19 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes the fan auto-safety state ("<0|1>|<tempC>") when the 70 °C safety
+                // hands cooling to EC Sport, when the saved preset is restored, and on connect —
+                // the fan card shows/hides its "Auto Sport active" badge from this.
+                if (message.TryGetValue("MsiFanAutoSport", out object autoSportObj) && autoSportObj is string autoSport)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnMsiFanAutoSport(autoSport); }
+                        catch (Exception ex) { Logger.Error($"OnMsiFanAutoSport dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper pushes DriverUpdatesAvailable as an unsolicited message
                 // after its startup driver probe completes. Light up the Quick
                 // tab tile; no other state needs updating yet.

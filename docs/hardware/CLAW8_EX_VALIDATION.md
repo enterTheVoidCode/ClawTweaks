@@ -71,6 +71,55 @@ EX-specific hand-back/restore policy (e.g. cooldown-based restore when no game i
 running), raising the EX Quiet/Default curves' mid/top band per the measured firmware
 table, or surfacing the auto-Sport state in the widget instead of silently keeping the
 preset highlighted. Needs an on-device stress re-test; do not tune blind.
+
+### Auto-safety EX-aware fix — implemented 2026-07-08 (behavior only, no curve change)
+
+Two of the three follow-up options are implemented on this branch; the third (curve
+raise) is documented below as a candidate and stays OUT of the code until the on-device
+stress re-test.
+
+1. **Cooldown-based restore** (`Program.MSIClaw.cs`). `RestoreFanAfterGame` now only
+   restores the saved preset when the CPU is already below the 70 °C engage threshold —
+   restoring while still hot was the 15:21:24 churn (restore + re-engage 200 ms apart)
+   that left EC Sport loud at the desktop with no game-end left to undo it. While
+   auto-Sport is active, `MsiFanAutoSportTick` gained a restore leg: with **no game
+   running** and the CPU held **≤ 60 °C for 30 consecutive 1 s ticks** (10 °C hysteresis
+   + hold window ⇒ worst-case flapping is a slow ≥ 30 s cycle), the saved preset is
+   re-applied. In-game behavior is unchanged (engage at 70 °C, never restore mid-game).
+2. **Auto-Sport surfaced to the user.** The helper pushes `MsiFanAutoSport = "<0|1>|<tempC>"`
+   on engage, on restore/explicit apply, and on widget connect; the fan card shows an
+   orange "Auto Sport active — EC Sport is cooling; your preset resumes after cooldown"
+   badge while the override runs (so the preset no longer appears silently "unset").
+   Engage also fires a 4 s RTSS overlay notification, visible in-game.
+
+**Verification needed (owner, on-device):** repeat the row-11 style session in an EC
+Quiet preset — expect the badge + RTSS toast at engage, no restore churn at game end
+while hot, and the preset back (badge gone, fan quiet) within ~1–2 min at the desktop.
+
+### Candidate EX Quiet/Default mid-band raise — DO NOT MERGE UNTESTED
+
+Derivation from the measured EX firmware table `[58,70,74,76,78,80,84,94]` (0–150 EC
+scale; sample points backup/0/20/50/60/80/90/100 °C): the firmware holds ≈ 76–80
+(≈ 51–53 %) across 50–80 °C, while the current A2VM-tuned Quiet curve writes 0/12/60 and
+Default 6/21/75 at 50/60/80 °C. That mid-band gap is why an EX game session blows
+through 70 °C within minutes and lives in EC Sport. The EX top band is NOT the problem —
+our 90/100 °C points (94/130 Quiet, 112/145 Default) already exceed the firmware's 84/94.
+
+Candidate 11-point curves (0–100 % UI, ×1.5 → EC), splitting the difference at 50 °C and
+meeting the firmware at 60–80 °C so the safety engages later (or not at all) without
+running fan-always-on like the firmware does:
+
+| Curve (EX) | 0–40 °C | 50 | 60 | 70 | 80 | 90 | 100 | EC @50/60/80 |
+|---|---|---|---|---|---|---|---|---|
+| Quiet candidate | 0,0,0,0,0 | 25 | 34 | 42 | 53 | 63 | 87 | 37/51/79 (fw 76/78/80) |
+| Default candidate | 0,0,0,0,4 | 30 | 40 | 47 | 57 | 75 | 97 | 45/60/85 |
+
+Open questions for the stress test: audibility of EC ≈ 37–51 in the 50–60 °C band
+(desktop/light load), whether the raised mid band keeps a ≥ 30 min session under 70 °C,
+and EC-latch behavior near 90 °C (heed the EC latch history in the
+`MsiClawFanController.cs` curve comments). If adopted, the values must change in BOTH
+`MsiClawFanController.cs` (helper) and `GamingWidget.MsiFanControl.cs` (widget constants),
+variant-gated to the EX.
 4. ~~Re-test DirectInput enumeration from an outside-container process~~ — **done
    2026-07-05, not a container artifact**: still zero devices system-wide from a genuine
    outside-container process. Not a blocker (gyro/controller emu don't use DirectInput);

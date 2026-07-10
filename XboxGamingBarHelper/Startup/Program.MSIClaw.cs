@@ -365,8 +365,8 @@ namespace XboxGamingBarHelper
         /// Apply an MSI Claw fan command from the widget (MSI-axis software-curve model).
         /// value: 0 = MSI Default, 1 = Quiet Idle, 2 = Cooling / early ramp, 3 = Custom (saved curve);
         ///   -1 = disabled → firmware control. Persisted so it can be re-applied on startup (the EC
-        /// resets across reboots). The power-shift coupling + 70 °C auto-Sport safety are kept in code
-        /// but dormant (see MsiFanAutoSportTick) — pure MSI software curves for now.
+        /// resets across reboots). The 70 °C auto-Sport safety rides the 1 s main loop
+        /// (see MsiFanAutoSportTick) and is cleared by any explicit apply below.
         /// </summary>
         internal static void ApplyMsiFan(int value)
         {
@@ -374,7 +374,15 @@ namespace XboxGamingBarHelper
             {
                 Logger.Info($"ApplyMsiFan: value={value}");
                 Settings.LocalSettingsHelper.SetValue(MsiFanValueKey, value);
-                _autoSportActive = false;
+
+                // Any explicit fan-mode apply ends an auto-safety Sport override (the watcher may
+                // re-engage on the next tick if it is still hot and a software-curve mode is selected).
+                if (_autoSportActive)
+                {
+                    _autoSportActive = false;
+                    _autoSportCoolTicks = 0;
+                    PushMsiFanAutoSportToWidget(); // clear the widget's "Auto Sport active" badge
+                }
 
                 if (value < 0)
                 {
@@ -835,14 +843,26 @@ namespace XboxGamingBarHelper
         // regulate the fan DOWN and under-cools under sustained load → the CPU overshoots into the EC's
         // ~90 °C thermal-protection latch (unrecoverable without a shutdown). When the CPU crosses
         // 70 °C while a Quiet curve is active, hand cooling to the EC's own aggressive curve (Sport
-        // 0xC4) which cools well and never latches. Per design we do NOT switch back on temperature —
-        // only when a game ends (RestoreFanAfterGame), so the fan stays competent for the whole session
-        // without flapping. 70 °C (was 78): users reported the quiet modes could still reach the panic
-        // latch, so we engage EC Sport earlier for more headroom below the ~90 °C latch zone.
+        // 0xC4) which cools well and never latches. Per design we do NOT switch back on temperature
+        // while a game runs, so the fan stays competent for the whole session without flapping.
+        // 70 °C (was 78): users reported the quiet modes could still reach the panic latch, so we
+        // engage EC Sport earlier for more headroom below the ~90 °C latch zone.
         // The EC Sport curve modes (Aggressive/Cooling/Custom, values 2-4) already hold Sport
         // permanently, so the safety does not apply to them.
+        //
+        // Restore policy (EX-aware, 2026-07-08): "restore on game end" alone was wrong on the Claw 8
+        // EX — its firmware hand-back table runs the fan audibly at ALL temperatures, and when the CPU
+        // was still hot at game end the restore re-engaged on the next 1 s tick (200 ms churn,
+        // helper_2026-07-07_15.log 15:21:24), leaving the fan loud at the desktop indefinitely. Now
+        // game end only restores when the CPU is already below the engage threshold; otherwise the
+        // per-tick cooldown leg restores once the CPU has held ≤ AutoSportRestoreC for
+        // AutoSportRestoreHoldTicks consecutive ticks with no game running. The 10 °C hysteresis plus
+        // the hold time bound any flapping to a slow ≥30 s cycle.
         private const float AutoSportThresholdC = 70f;
+        private const float AutoSportRestoreC = 60f;      // engage threshold − 10 °C hysteresis
+        private const int AutoSportRestoreHoldTicks = 30; // consecutive 1 s ticks ≤ AutoSportRestoreC
         private static bool _autoSportActive;
+        private static int _autoSportCoolTicks;
         private static bool _msiFanAutoSportEnabled; // true on MSI Claw; gates the per-tick check
 
         // Enabled once from the Claw init. The actual check rides the existing 1s main loop
@@ -851,22 +871,41 @@ namespace XboxGamingBarHelper
         private static void EnableMsiFanAutoSport()
         {
             _msiFanAutoSportEnabled = true;
-            Logger.Info("[MSIClaw] Fan auto-safety enabled (Sport above 70 °C, checked in the 1s main loop, restore on game end)");
+            Logger.Info("[MSIClaw] Fan auto-safety enabled (Sport above 70 °C, checked in the 1s main loop, restore on game end or desktop cooldown)");
         }
 
         internal static void MsiFanAutoSportTick()
         {
             try
             {
-                if (!_msiFanAutoSportEnabled) return; // dormant: not enabled in the MSI-axis software-curve model
-                if (_autoSportActive) return; // already handed to EC Sport — wait for game end
+                if (!_msiFanAutoSportEnabled) return; // not an MSI Claw (or not yet initialised)
+                float temp = performanceManager?.CPUTemperature?.Value ?? 0f;
+
+                if (_autoSportActive)
+                {
+                    // Cooldown restore leg. In-game we never restore (the safety must hold for the
+                    // whole session); at the desktop the saved curve comes back after the CPU has
+                    // stayed cool for the full hold window. temp <= 0 = sensor invalid — don't count
+                    // an unreadable CPU as "cool".
+                    if (systemManager?.RunningGame?.Value.IsValid() == true) { _autoSportCoolTicks = 0; return; }
+                    if (temp <= 0f || temp > AutoSportRestoreC) { _autoSportCoolTicks = 0; return; }
+                    if (++_autoSportCoolTicks < AutoSportRestoreHoldTicks) return;
+
+                    int saved = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int sv) ? sv : -1;
+                    Logger.Info($"[MSIClaw] Fan auto-safety: CPU ≤ {AutoSportRestoreC}°C for {AutoSportRestoreHoldTicks}s with no game running → restoring saved fan mode {saved}");
+                    // Release EC Sport first (power-shift → Comfort 0xC0) — ApplyMsiFan does NOT clear
+                    // the shift itself, and with Sport held the EC ignores the re-applied curve.
+                    performanceManager?.SetMsiSportCooling(false);
+                    ApplyMsiFan(saved); // clears the auto-Sport state + badge, re-applies the curve
+                    return;
+                }
+
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
                 // Engage for ALL software-curve modes (0=Default, 1=Quiet, 2=Cooling, 3=Custom). The old
                 // `> 1` skipped Cooling/Custom — the exact modes users run — so the panic latch resurfaced
                 // there. Skip only firmware mode (<0) and the debug EC-Sport preset (4, already Sport).
                 if (value < 0 || value > 3) return;
 
-                float temp = performanceManager?.CPUTemperature?.Value ?? 0f;
                 if (temp >= AutoSportThresholdC)
                 {
                     Logger.Info($"[MSIClaw] Fan auto-safety: CPU {temp:F0}°C ≥ {AutoSportThresholdC}°C in curve mode {value} → engaging EC Sport");
@@ -877,22 +916,36 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>Hand cooling to the EC's Sport scenario WITHOUT changing the user's saved fan mode,
-        /// so the original curve can be restored when the game ends.</summary>
+        /// so the original curve can be restored after the game / after cooldown. Surfaces the override
+        /// to the widget (fan-card badge) and as an RTSS overlay notification — on the Claw 8 EX the
+        /// EC Sport table is audible at all temperatures, so a silent switch reads as "my preset unset".</summary>
         private static void EngageAutoSport()
         {
             performanceManager?.SetMsiSportCooling(true);
             MsiClawFanController.ApplyHardwareTable("BestPerformance"); // HW mode; EC Sport curve drives the fan
             _autoSportActive = true;
+            _autoSportCoolTicks = 0;
+            PushMsiFanAutoSportToWidget();
+            try { rtssManager?.ShowNotification("Fan auto-safety: EC Sport engaged — preset resumes after cooldown", 4000); } catch { }
         }
 
         /// <summary>Called when a game stops: if auto-safety handed cooling to EC Sport, restore the
-        /// user's saved fan curve (Comfort). No-op otherwise.</summary>
+        /// user's saved fan curve (Comfort) — but only when the CPU has already left the engage zone.
+        /// Restoring while still ≥ 70 °C just re-engaged on the next tick (two EC table writes 200 ms
+        /// apart) and left EC Sport loud at the desktop with no game-end left to restore it; in that
+        /// case keep Sport and let the tick's desktop-cooldown leg restore. No-op otherwise.</summary>
         internal static void RestoreFanAfterGame()
         {
             try
             {
                 if (!_autoSportActive) return;
-                _autoSportActive = false;
+                float temp = performanceManager?.CPUTemperature?.Value ?? 0f;
+                if (temp >= AutoSportThresholdC)
+                {
+                    _autoSportCoolTicks = 0;
+                    Logger.Info($"[MSIClaw] Fan auto-safety: game ended but CPU still {temp:F0}°C ≥ {AutoSportThresholdC}°C — deferring restore to desktop cooldown (≤{AutoSportRestoreC}°C for {AutoSportRestoreHoldTicks}s)");
+                    return;
+                }
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
                 Logger.Info($"[MSIClaw] Fan auto-safety: game ended → restoring saved fan mode {value} (Comfort)");
                 // Release EC Sport first (power-shift → Comfort 0xC0) so the EC stops driving its own
@@ -902,6 +955,24 @@ namespace XboxGamingBarHelper
                 ApplyMsiFan(value); // re-applies the software curve (control back to our table)
             }
             catch (Exception ex) { Logger.Debug($"RestoreFanAfterGame: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Push the fan auto-safety state to the widget as "MsiFanAutoSport":"&lt;0|1&gt;|&lt;tempC&gt;"
+        /// so the fan card can show an "Auto Sport active" badge instead of silently keeping the user's
+        /// preset highlighted while the EC Sport table drives the fan. Sent on engage, on restore (via
+        /// ApplyMsiFan) and on widget connect. Best-effort.
+        /// </summary>
+        internal static void PushMsiFanAutoSportToWidget()
+        {
+            try
+            {
+                if (pipeServer == null || !pipeServer.IsConnected) return;
+                float temp = performanceManager?.CPUTemperature?.Value ?? 0f;
+                pipeServer.SendMessage($"{{\"MsiFanAutoSport\":\"{(_autoSportActive ? 1 : 0)}|{(int)temp}\"}}");
+                Logger.Info($"PushMsiFanAutoSportToWidget: active={_autoSportActive} temp={(int)temp}°C");
+            }
+            catch (Exception ex) { Logger.Debug($"PushMsiFanAutoSportToWidget: {ex.Message}"); }
         }
 
         // Set once the fan-sensor probe has run, so we don't repeat the (potentially slow)
@@ -1112,9 +1183,10 @@ namespace XboxGamingBarHelper
                 RestoreMsiFanOnStartup();
 
                 // Fan auto-safety: above 70 °C in a software-curve mode, hand the fan to the EC's own
-                // aggressive Sport curve (which the Intel IPF panic-latch can't override), then restore the
-                // curve at game end. RE-ENABLED — the panic latch (fan stuck high, won't ramp down under
-                // sustained load, e.g. Cyberpunk) resurfaced after the MSI-axis rework left this dormant.
+                // aggressive Sport curve (which the Intel IPF panic-latch can't override), then restore
+                // the curve at game end (or, if still hot then, after a desktop cooldown — see the
+                // auto-safety region). RE-ENABLED — the panic latch (fan stuck high, won't ramp down
+                // under sustained load, e.g. Cyberpunk) resurfaced after the MSI-axis rework left this dormant.
                 EnableMsiFanAutoSport();
 
                 // Re-apply the saved battery charge limit if it was enabled (EC can reset on reboot).
