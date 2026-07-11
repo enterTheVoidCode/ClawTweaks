@@ -164,7 +164,7 @@
         LegionGyroSensitivityY,         // int - 1-100
         LegionGyroInvertX,              // bool
         LegionGyroInvertY,              // bool
-        LegionGyroMappingType,          // int - 0=Instant, 1=Continuous
+        LegionGyroMappingType,          // int - Claw gyro engine: 0=Adaptive, 1=Direct, 2=Normalized Circular (Legion Instant/Continuous unused on Claw)
         LegionGyroActivationMode,       // int - 0=Hold, 1=Toggle
         LegionGyroActivationButton,     // int - 0-8 (None, LB, LT, RB, RT, Y1, Y2, M2, M3)
 

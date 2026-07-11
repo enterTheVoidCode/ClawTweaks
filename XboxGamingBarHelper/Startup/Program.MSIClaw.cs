@@ -2194,7 +2194,7 @@ namespace XboxGamingBarHelper
                         monitor.SetGyroSensitivityX(legionManager.LegionGyroSensitivityX.Value);
                         monitor.SetGyroSensitivityY(legionManager.LegionGyroSensitivityY.Value);
                         monitor.SetGyroDeadzone(legionManager.LegionGyroDeadzone.Value);
-                        // Gyro engine (Adaptive/ClawTweaks vs Direct/HC 1:1) — repurposed LegionGyroMappingType.
+                        // Gyro engine (0 Adaptive / 1 Direct / 2 Normalized Circular) — repurposed LegionGyroMappingType.
                         monitor.SetGyroEngineMode(legionManager.LegionGyroMappingType.Value);
                         monitor.SetGyroInvertX(legionManager.LegionGyroInvertX.Value);
                         monitor.SetGyroInvertY(legionManager.LegionGyroInvertY.Value);

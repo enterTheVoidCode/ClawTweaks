@@ -9568,7 +9568,8 @@
                                      channel (LegionGyroMappingType, still persisted per controller-profile) now
                                      selects the software gyro→stick engine in ClawButtonMonitor.ApplyGyroToStick:
                                        0 = Adaptive (ClawTweaks)        → One-Euro speed-adaptive smoothing
-                                       1 = Direct (HandheldCompanion)   → HC 1:1, no software low-pass -->
+                                       1 = Direct (HandheldCompanion)   → HC 1:1, no software low-pass
+                                       2 = Normalized (Circular)       → LowPass + /maxGyro + circular clamp -->
                                 <StackPanel>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -9583,9 +9584,10 @@
                                                   SelectedIndex="0">
                                             <x:String>Adaptive (ClawTweaks)</x:String>
                                             <x:String>Direct (HandheldCompanion)</x:String>
+                                            <x:String>Normalized (Circular)</x:String>
                                         </ComboBox>
                                     </Grid>
-                                    <TextBlock Text="Adaptive = smoothed (less jitter) · Direct = HC 1:1, raw and most responsive"
+                                    <TextBlock Text="Adaptive = smoothed · Direct = HC 1:1 raw · Normalized = LowPass + unit-circle clamp"
                                                Foreground="#777777" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
                                 </StackPanel>
 
