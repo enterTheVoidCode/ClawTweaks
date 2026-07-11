@@ -96,8 +96,8 @@ namespace XboxGamingBarHelper.RTSS
         {
             { 1, new HashSet<string> { "Time", "FPS", "Battery" } },
             { 2, new HashSet<string> { "FPS", "Battery", "CPU", "Time" } },
-            { 3, new HashSet<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "TDPLimits", "Time" } },
-            { 4, new HashSet<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "Blank5", "CPU", "CPUClock", "CPUCores", "Blank2", "Memory", "Blank3", "VRAM", "TDPLimits", "Battery", "GPUClock", "Blank4", "Time" } }
+            { 3, new HashSet<string> { "AppName", "FPS", "CPU", "CPUClock", "GPU", "GPUClock", "Battery", "Memory", "TDPLimits", "Fan", "Time" } },
+            { 4, new HashSet<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "Blank5", "CPU", "CPUClock", "CPUCores", "Blank2", "Memory", "Blank3", "VRAM", "TDPLimits", "Battery", "GPUClock", "Fan", "Blank4", "Time" } }
         };
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
         {
@@ -147,8 +147,8 @@ namespace XboxGamingBarHelper.RTSS
         {
             { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "TDPLimits", "FrametimeGraph" } },
             { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "Fan", "TDPLimits", "FrametimeGraph" } },
-            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "VRAM", "Fan", "TDPLimits", "FrametimeGraph" } },
-            { 4, new List<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "Blank5", "CPU", "CPUClock", "CPUCores", "Blank2", "TDPLimits", "Blank3", "Memory", "VRAM", "Battery", "GPUClock", "Blank4", "Time" } }
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "VRAM", "TDPLimits", "Fan", "FrametimeGraph" } },
+            { 4, new List<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "Blank5", "CPU", "CPUClock", "CPUCores", "Blank2", "TDPLimits", "Blank3", "Memory", "VRAM", "Battery", "GPUClock", "Fan", "Blank4", "Time" } }
         };
 
         // Per-level, per-item label colors (e.g., osdItemLabelColors[1]["CPU"] = "FF0000")

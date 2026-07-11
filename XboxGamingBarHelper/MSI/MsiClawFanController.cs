@@ -124,7 +124,10 @@ namespace XboxGamingBarHelper.MSI
         /// there (the old layout, which diverged from MSI on the CPU block).</summary>
         public static byte[] BuildFanTable(int[] duties5)
         {
-            byte D(int i) => (byte)Math.Max(0, Math.Min(100, duties5[i]));
+            // Duty is the RAW EC byte and the real scale is 0–150 (MSI Center M's own Custom slider tops
+            // out at 150 %, verified on-device 2026-07-11 — "%" IS the raw byte; MSI Auto's 75 = HALF fan).
+            // Clamp to 150, NOT 100 — the old 100 cap silently truncated any point in the "beyond MSI" band.
+            byte D(int i) => (byte)Math.Max(0, Math.Min(150, duties5[i]));
             return new byte[8] { 0, 0, D(0), D(1), D(2), D(3), D(4), D(4) };
         }
 
@@ -226,6 +229,48 @@ namespace XboxGamingBarHelper.MSI
         /// writing, so callers (e.g. the widget's "Check applied values") can compute the expected
         /// table for verification. Alias of <see cref="BuildFanTable"/>.</summary>
         public static byte[] CurveToTable(int[] duties5) => BuildFanTable(duties5);
+
+        // ── Live fan RPM from the EC (Get_Fan[0]) ──────────────────────────────────
+        // Get_Fan[0] payload = three 16-bit BIG-ENDIAN tach words [Lüfter1(CPU), Lüfter2(GPU),
+        // Lüfter3(GPU)]; each word is an inverse period, so RPM = 478000 / word. Verified against
+        // HWiNFO on-device 2026-07-11 (word 105 → 4552 RPM exact; idle 194 → 2461). Lüfter3 ≈ 0.
+        private const double RpmPerWord = 478000.0;
+        private static int _cachedFanRpm;
+        private static long _cachedFanRpmAtTicks;
+        private static int _fanRpmFailCount;
+        private static bool _fanRpmUnavailable;
+
+        /// <summary>
+        /// Current CPU-fan RPM (Lüfter1) decoded from Get_Fan[0]. Throttled to one EC read per ~900 ms
+        /// (safe to call every OSD tick) and self-gating — after a few failed reads (e.g. not an MSI
+        /// Claw) it stops probing so it never spams the EC/log. Returns 0 when unavailable.
+        /// </summary>
+        public static int GetCpuFanRpmCached()
+        {
+            if (_fanRpmUnavailable) return 0;
+            long now = DateTime.UtcNow.Ticks;
+            if (_cachedFanRpmAtTicks != 0 && (now - _cachedFanRpmAtTicks) < 9_000_000L) // 900 ms in 100 ns ticks
+                return _cachedFanRpm;
+
+            try
+            {
+                byte[] p = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Fan", 0, 32, out bool ok);
+                _cachedFanRpmAtTicks = now; // throttle retries even on failure
+                if (!ok || p == null || p.Length < 2)
+                {
+                    if (++_fanRpmFailCount >= 3) _fanRpmUnavailable = true; // tolerate a transient startup miss
+                    return _cachedFanRpm = 0;
+                }
+                _fanRpmFailCount = 0;
+                int word = (p[0] << 8) | p[1]; // Lüfter1 (CPU), big-endian tach period
+                return _cachedFanRpm = word > 0 ? (int)Math.Round(RpmPerWord / word) : 0;
+            }
+            catch
+            {
+                if (++_fanRpmFailCount >= 3) _fanRpmUnavailable = true;
+                return _cachedFanRpm;
+            }
+        }
 
         /// <summary>Return fan control to the firmware (used on shutdown / revert).</summary>
         public static void RestoreFirmwareControl()

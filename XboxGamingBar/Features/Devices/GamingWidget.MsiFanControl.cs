@@ -28,7 +28,8 @@ namespace XboxGamingBar
 
         // ── MSI fan model: 5 (temp,duty) points on the real firmware axis ────────────────
         // MUST match MsiClawFanController on the helper side. Temps default to the MSI Center M
-        // breakpoints [44,54,64,74,82]; duty is the RAW EC byte 0–100 (MSI scale, no ×1.5).
+        // breakpoints [44,54,64,74,82]; duty is the RAW EC byte 0–150 (MSI scale, no ×1.5; MSI's own
+        // presets cap at 75 = half fan, the beyond-MSI toggle unlocks up to 150 = full ~8690 RPM).
         internal const int MsiFanPoints = 5;
         private static readonly int[] MsiTempsDefault = { 44, 54, 64, 74, 82 };
         private static readonly int[] MsiTempsCooling = { 34, 44, 54, 64, 72 }; // −10 °C early ramp
@@ -47,17 +48,26 @@ namespace XboxGamingBar
         private const int MsiTempMin = 10;
         private const int MsiTempMax = 99;
 
-        // MSI's own curves cap at 75 %. The >75 % ("beyond MSI") range is opt-in via a toggle.
+        // MSI's own curves cap at 75. The ">75" ("beyond MSI") range is opt-in via a toggle. The real EC
+        // duty scale is 0–150 (MSI Center M's Custom slider tops out at 150 — verified on-device
+        // 2026-07-11; the shown "%" IS the raw EC byte, MSI Auto's 75 = HALF fan / ~4552 RPM, 150 = full
+        // ~8690 RPM). Extended unlocks the full 0–150; non-extended stays on the familiar 0–100 axis capped
+        // at MSI's own 75.
         private const int MsiDutyCap = 75;
         private bool _msiFanExtended;
-        private int MsiDutyMax() => _msiFanExtended ? 100 : MsiDutyCap;
+        private int MsiDutyMax() => _msiFanExtended ? 150 : MsiDutyCap;
+        // Y-axis full-scale for the graph: 0–150 when the beyond-MSI range is on, else the classic 0–100.
+        private double MsiAxisMax() => _msiFanExtended ? 150.0 : 100.0;
+        // The 5 horizontal gridline / Y-label percentages for the current axis: {0, ¼, ½, ¾, full}
+        // → {0,25,50,75,100} at 0–100 or {0,38,75,113,150} at 0–150 (75 stays a gridline in both).
+        private int MsiGridPctAt(int g) => (int)Math.Round(MsiAxisMax() * g / 4.0);
 
         private readonly int[] _msiFanTemps = (int[])MsiTempsDefault.Clone();
         private readonly int[] _msiFanDuties = (int[])MsiDutyDefault.Clone();
         // MSI-style fixed evenly-spaced BARS (not a positional temperature axis). Bar height = fan %
         // (vertical edit via the circle on top). The temperature is shown as a label UNDER each bar
         // (horizontal edit). Horizontal %-gridlines + Y labels give the scale.
-        private static readonly int[] MsiGridPct = { 0, 25, 50, 75, 100 };
+        // Gridline %-values are computed per axis via MsiGridPctAt(g) (dynamic 0–100 / 0–150).
         private static readonly uint[] MsiGridColor = { 0x6FB7FF, 0x8FD06A, 0xE6C84A, 0xF0A030, 0xF0603C };
         private readonly Windows.UI.Xaml.Shapes.Rectangle[] _msiFanBars = new Windows.UI.Xaml.Shapes.Rectangle[MsiFanPoints];
         private readonly Ellipse[] _msiFanPoints = new Ellipse[MsiFanPoints];        // duty circle (top of bar)
@@ -197,8 +207,8 @@ namespace XboxGamingBar
                     FontSize = 13,
                     FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c)),
-                    IsHitTestVisible = false,
-                    Text = $"{MsiGridPct[g]}%"
+                    IsHitTestVisible = false
+                    // Text is set per-render (RenderMsiFanCurve) so it tracks the 0–100 / 0–150 axis switch.
                 };
                 _msiFanGridLabels[g] = glab;
                 MsiFanCurveCanvas.Children.Add(glab);
@@ -358,7 +368,7 @@ namespace XboxGamingBar
                             for (int i = 0; i < MsiFanPoints; i++)
                             {
                                 t[i] = Math.Max(0, Math.Min(120, int.Parse(tp[i], CultureInfo.InvariantCulture)));
-                                d[i] = Math.Max(0, Math.Min(100, int.Parse(dp[i], CultureInfo.InvariantCulture)));
+                                d[i] = Math.Max(0, Math.Min(150, int.Parse(dp[i], CultureInfo.InvariantCulture)));
                             }
                             temps = t; duties = d;
                             return true;
@@ -382,7 +392,7 @@ namespace XboxGamingBar
         private const double MsiPlotLeft = 40;
 
         private double MsiDutyToY(double duty, double plotTop, double plotBottom)
-            => plotBottom - (duty / 100.0) * (plotBottom - plotTop);
+            => plotBottom - (duty / MsiAxisMax()) * (plotBottom - plotTop);
 
         private void RenderMsiFanCurve()
         {
@@ -400,10 +410,11 @@ namespace XboxGamingBar
             if (MsiFanCurvePolyline != null) MsiFanCurvePolyline.Visibility = Visibility.Collapsed;
             if (MsiFanCurveFill != null) MsiFanCurveFill.Visibility = Visibility.Collapsed;
 
-            // Horizontal %-gridlines + Y labels.
+            // Horizontal %-gridlines + Y labels (dynamic: 0–100 or 0–150 depending on the extended range).
             for (int g = 0; g < 5; g++)
             {
-                double gy = MsiDutyToY(MsiGridPct[g], plotTop, plotBottom);
+                int pct = MsiGridPctAt(g);
+                double gy = MsiDutyToY(pct, plotTop, plotBottom);
                 if (_msiFanGridLines[g] != null)
                 {
                     _msiFanGridLines[g].X1 = plotLeft; _msiFanGridLines[g].X2 = width;
@@ -411,6 +422,7 @@ namespace XboxGamingBar
                 }
                 if (_msiFanGridLabels[g] != null)
                 {
+                    _msiFanGridLabels[g].Text = $"{pct}%";
                     Canvas.SetLeft(_msiFanGridLabels[g], 2);
                     Canvas.SetTop(_msiFanGridLabels[g], gy - 9);
                 }
@@ -590,7 +602,7 @@ namespace XboxGamingBar
             else
             {
                 double plotH = plotBottom - plotTop;
-                double duty = plotH > 0 ? (1.0 - (point.Y - plotTop) / plotH) * 100.0 : 0;
+                double duty = plotH > 0 ? (1.0 - (point.Y - plotTop) / plotH) * MsiAxisMax() : 0;
                 _msiFanDuties[_msiFanDragIndex] = (int)Math.Max(0, Math.Min(MsiDutyMax(), Math.Round(duty)));
             }
             RenderMsiFanCurve();
@@ -635,8 +647,9 @@ namespace XboxGamingBar
             SendMsiFanStateToHelper();
         }
 
-        /// <summary>Toggle the >75% "beyond MSI" range. Off caps duty at 75 % (clamping any higher
-        /// custom points) and hides the beyond-zone visuals; on unlocks up to 100 %.</summary>
+        /// <summary>Toggle the ">75" "beyond MSI" range. Off caps duty at 75 (clamping any higher
+        /// custom points) and shows the 0–100 axis; on unlocks the full raw EC range up to 150
+        /// (~8690 RPM) and switches the graph to the 0–150 axis.</summary>
         private void MsiFanExtendedRangeToggle_Toggled(object sender, RoutedEventArgs e)
         {
             if (_msiFanInitializing) return;
@@ -854,7 +867,7 @@ namespace XboxGamingBar
         /// byte (no ×1.5). Layout: [backup=d1, 0, d1, d2, d3, d4, d5, d5(dup)].</summary>
         private byte[] MsiExpectedTable()
         {
-            byte D(int i) => (byte)Math.Max(0, Math.Min(100, _msiFanDuties[i]));
+            byte D(int i) => (byte)Math.Max(0, Math.Min(150, _msiFanDuties[i]));
             return new byte[8] { D(0), 0, D(0), D(1), D(2), D(3), D(4), D(4) };
         }
 
