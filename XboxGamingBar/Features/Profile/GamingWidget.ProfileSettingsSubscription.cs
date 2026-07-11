@@ -172,8 +172,8 @@ namespace XboxGamingBar
                 LegionGamepadActionComboBox.SelectionChanged += LegionGamepadMapping_Changed;
             if (LegionGamepadMouseComboBox != null)
                 LegionGamepadMouseComboBox.SelectionChanged += LegionGamepadMapping_Changed;
-            if (LegionGamepadKeyComboBox != null)
-                LegionGamepadKeyComboBox.SelectionChanged += LegionGamepadKey_SelectionChanged;
+            // LegionGamepadKeyComboBox was replaced by LegionGamepadKeyPickerButton (grouped key
+            // picker); its Click is wired in XAML to LegionGamepadKeyPicker_Click.
             if (LegionGamepadResetAllButton != null)
                 LegionGamepadResetAllButton.Click += LegionGamepadResetAll_Click;
 
@@ -184,6 +184,11 @@ namespace XboxGamingBar
             {
                 UpdateButtonGamepadComboControls(buttonName);
             }
+
+            // Overlay the zone-grouped icon picker on every Xbox-button dropdown (the combos stay
+            // in the tree as the state store). Dynamic combo-mode add-combos are attached in
+            // EnsureButtonGamepadComboControls as they are created.
+            WireGamepadPickers();
         }
 
         private void SettingChanged(object sender, object e)

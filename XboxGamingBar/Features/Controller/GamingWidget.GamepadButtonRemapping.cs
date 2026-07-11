@@ -135,6 +135,24 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Re-asserts gamepad focus on <paramref name="target"/> after a UI rebuild. Rebuilding the
+        /// key-tag / summary panels (or collapsing a mode panel) destroys the element that currently
+        /// holds focus, so WinUI otherwise bounces focus to the top of the page (the tab strip).
+        /// Deferred to Low priority so it runs after the framework has finished its own focus juggling.
+        /// </summary>
+        private void RestoreFocusDeferred(Control target)
+        {
+            if (target == null) return;
+            // Land focus on a sensible control after a rebuild. The root cause (a virtualizing summary
+            // panel tearing down the focus scope) is fixed structurally, so a single deferred re-assert
+            // is enough — no aggressive timers that could yank focus back while the user navigates on.
+            var ignore = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
+            {
+                try { target.Focus(FocusState.Programmatic); } catch { }
+            });
+        }
+
         private void UpdateGamepadMappingUI(int type)
         {
             // Type: 0=Gamepad, 1=Keyboard, 2=Mouse
@@ -202,9 +220,13 @@ namespace XboxGamingBar
             var buttonName = GetGamepadButtonNameFromIndex(LegionGamepadButtonSelectorComboBox.SelectedIndex);
             if (gamepadButtonMappings.TryGetValue(buttonName, out var mapping))
             {
+                // Move focus off the × before the rebuild destroys it, otherwise focus bounces to
+                // the top of the tab.
+                LegionGamepadKeyPickerButton?.Focus(FocusState.Programmatic);
                 mapping.KeyboardKeys.Remove(key);
                 UpdateGamepadKeyboardKeyTags(mapping.KeyboardKeys);
                 SaveAndSendGamepadMappings();
+                RestoreFocusDeferred(LegionGamepadKeyPickerButton);
             }
         }
 
@@ -262,9 +284,21 @@ namespace XboxGamingBar
 
             gamepadButtonMappings[buttonName] = mapping;
             SaveAndSendGamepadMappings();
+
+            // Keep focus on the control the user just used, otherwise the summary rebuild drops focus
+            // and it jumps to the tab strip. Skip combos that are hidden behind an icon picker (the
+            // action dropdown) — OpenGamepadPicker re-asserts focus on their picker button instead.
+            var senderCombo = sender as ComboBox;
+            if (senderCombo != null && (_gamepadPickerAttached == null || !_gamepadPickerAttached.Contains(senderCombo)))
+                RestoreFocusDeferred(senderCombo);
         }
 
-        private void LegionGamepadKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        /// <summary>
+        /// Adds a keyboard key to the currently selected gamepad button (single-selector
+        /// "Create new remappings" path). Value-based: the key code comes straight from the
+        /// grouped key picker, so there is no dependency on dropdown item order.
+        /// </summary>
+        private void AddGamepadKeyboardKey(int keyCode)
         {
             if (isLoadingControllerProfile || isSwitchingControllerProfile)
                 return;
@@ -273,8 +307,8 @@ namespace XboxGamingBar
             if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
                 return;
 
-            if (LegionGamepadKeyComboBox == null || LegionGamepadKeyComboBox.SelectedIndex <= 0)
-                return; // Index 0 is "+ Key" placeholder
+            if (keyCode <= 0)
+                return;
 
             if (LegionGamepadButtonSelectorComboBox == null || LegionGamepadButtonSelectorComboBox.SelectedIndex < 0)
                 return;
@@ -287,20 +321,22 @@ namespace XboxGamingBar
                 mapping = new ButtonMapping { Type = 1, KeyboardKeys = new List<int>() };
                 gamepadButtonMappings[buttonName] = mapping;
             }
+            if (mapping.KeyboardKeys == null)
+                mapping.KeyboardKeys = new List<int>();
 
-            // Add the key (LegionGamepadKeyComboBox is 1-indexed since 0 is "+ Key")
-            // The key code is based on the combo box item order
-            var keyCode = GetKeyCodeFromDropdownIndex(LegionGamepadKeyComboBox.SelectedIndex);
+            if (mapping.KeyboardKeys.Count >= 5)
+                return; // Max 5 keys per combo
+
             if (!mapping.KeyboardKeys.Contains(keyCode))
             {
                 mapping.KeyboardKeys.Add(keyCode);
                 UpdateGamepadKeyboardKeyTags(mapping.KeyboardKeys);
+                SaveAndSendGamepadMappings();
             }
 
-            // Reset dropdown to "+ Key"
-            LegionGamepadKeyComboBox.SelectedIndex = 0;
-
-            SaveAndSendGamepadMappings();
+            // The picker flyout closed on selection — return focus to its launcher button so the
+            // controller stays in the remapping area instead of snapping to the tab strip.
+            RestoreFocusDeferred(LegionGamepadKeyPickerButton);
         }
 
         private void SaveAndSendGamepadMappings()
@@ -381,6 +417,9 @@ namespace XboxGamingBar
             // Update summary display (now empty)
             UpdateGamepadMappingSummary();
 
+            // Keep focus on the Reset button instead of bouncing to the tab strip.
+            RestoreFocusDeferred(sender as Control);
+
             Logger.Info("Reset all gamepad button mappings");
         }
 
@@ -398,26 +437,51 @@ namespace XboxGamingBar
                 .Select(kvp => kvp.Key)
                 .ToList();
 
-            // Clear existing tags
-            LegionGamepadRemappedTags.Items.Clear();
+            // Rebuild via a plain StackPanel's .Children (non-virtualizing) in manual rows. The old
+            // virtualizing ItemsControl+ItemsWrapGrid tore down the gamepad focus scope on Clear(),
+            // bouncing focus to the tab strip on every edit. This mirrors the (working) key-tag panels.
+            LegionGamepadRemappedTags.Children.Clear();
 
-            if (remappedButtons.Count > 0)
-            {
-                LegionGamepadRemappedLabel.Visibility = Visibility.Visible;
-                LegionGamepadNoRemapsLabel.Visibility = Visibility.Collapsed;
-
-                foreach (var buttonName in remappedButtons)
-                {
-                    var mapping = gamepadButtonMappings[buttonName];
-                    var tag = CreateRemappedButtonTag(buttonName, mapping);
-                    LegionGamepadRemappedTags.Items.Add(tag);
-                }
-            }
-            else
+            if (remappedButtons.Count == 0)
             {
                 LegionGamepadRemappedLabel.Visibility = Visibility.Collapsed;
                 LegionGamepadNoRemapsLabel.Visibility = Visibility.Visible;
+                return;
             }
+
+            LegionGamepadRemappedLabel.Visibility = Visibility.Visible;
+            LegionGamepadNoRemapsLabel.Visibility = Visibility.Collapsed;
+
+            const double rowBudget = 500;   // approx. card content width; wrap chips into new rows
+            StackPanel row = null;
+            double rowWidth = 0;
+            foreach (var buttonName in remappedButtons)
+            {
+                var mapping = gamepadButtonMappings[buttonName];
+                var tag = CreateRemappedButtonTag(buttonName, mapping);
+                double est = EstimateRemappedTagWidth(mapping);
+                if (row == null || rowWidth + est > rowBudget)
+                {
+                    row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+                    LegionGamepadRemappedTags.Children.Add(row);
+                    rowWidth = 0;
+                }
+                row.Children.Add(tag);
+                rowWidth += est + 6;
+            }
+        }
+
+        // Rough chip-width estimate for wrapping the summary into rows (source icon + arrow + × +
+        // padding ≈ 92px, plus ~32px per target icon).
+        private double EstimateRemappedTagWidth(ButtonMapping mapping)
+        {
+            int targets;
+            if (mapping.Type == 1) targets = mapping.KeyboardKeys?.Count ?? 1;
+            else if (mapping.Type == 0) targets = (mapping.GamepadActions != null && mapping.GamepadActions.Count > 0)
+                ? mapping.GamepadActions.Count : 1;
+            else targets = 1;
+            if (targets < 1) targets = 1;
+            return 92 + targets * 32;
         }
 
         private bool IsButtonRemapped(ButtonMapping mapping)
@@ -489,6 +553,20 @@ namespace XboxGamingBar
                     tagPanel.Children.Add(kc);
                 }
             }
+            else if (mapping.Type == 0)
+            {
+                // Gamepad target(s) — show the Xbox-button icon(s), not text. Combo mode maps to
+                // several actions; a plain remap has the single GamepadAction.
+                var acts = (mapping.GamepadActions != null && mapping.GamepadActions.Count > 0)
+                    ? mapping.GamepadActions
+                    : new List<int> { mapping.GamepadAction };
+                for (int i = 0; i < acts.Count; i++)
+                {
+                    var gc = BuildXboxButtonTagContent(GetGamepadActionName(acts[i]), SummaryIconSize);
+                    if (gc is FrameworkElement fe) fe.Margin = new Thickness(i == 0 ? 0 : 2, 0, 0, 0);
+                    tagPanel.Children.Add(gc);
+                }
+            }
             else
             {
                 tagPanel.Children.Add(new TextBlock
@@ -517,6 +595,10 @@ namespace XboxGamingBar
         {
             if (gamepadButtonMappings.ContainsKey(buttonName))
             {
+                // Move focus onto a stable control before the summary rebuild destroys the × we just
+                // clicked, otherwise focus bounces to the top of the tab.
+                LegionGamepadTypeComboBox?.Focus(FocusState.Programmatic);
+
                 // Set to reset state (Type=0, GamepadAction=0) to trigger HID command
                 // This maps the button back to itself (default behavior)
                 gamepadButtonMappings[buttonName] = new ButtonMapping { Type = 0, GamepadAction = 0 };
@@ -535,6 +617,11 @@ namespace XboxGamingBar
                     if (currentButtonName == buttonName)
                         LoadGamepadMappingToUI(buttonName);
                 }
+
+                // The × we just clicked was destroyed with the summary rebuild — keep focus in the
+                // remapping area instead of letting it jump to the tab strip. (The button selector is
+                // now a hidden state-store combo, so anchor on the visible type dropdown.)
+                RestoreFocusDeferred(LegionGamepadTypeComboBox);
 
                 Logger.Info($"Cleared gamepad button mapping for {buttonName} (sent HID reset command)");
             }
