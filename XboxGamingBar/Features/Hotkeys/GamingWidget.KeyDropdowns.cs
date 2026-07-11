@@ -172,62 +172,7 @@ namespace XboxGamingBar
             return keyNames.TryGetValue(name, out int code) ? code : 0;
         }
 
-        // Hotkey key selection handlers
-        private void HotkeyMenuAKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingHotkeys || HotkeyMenuAKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuAKeyComboBox.SelectedIndex);
-            AddKeyToSelection("HotkeyMenuA", keyCode, HotkeyMenuAKeyTags, HotkeyMenuAKeyComboBox, () => SaveHotkeyKeys("MenuA", "HotkeyMenuA"));
-        }
-
-        private void HotkeyMenuBKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingHotkeys || HotkeyMenuBKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuBKeyComboBox.SelectedIndex);
-            AddKeyToSelection("HotkeyMenuB", keyCode, HotkeyMenuBKeyTags, HotkeyMenuBKeyComboBox, () => SaveHotkeyKeys("MenuB", "HotkeyMenuB"));
-        }
-
-        private void HotkeyMenuXKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingHotkeys || HotkeyMenuXKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuXKeyComboBox.SelectedIndex);
-            AddKeyToSelection("HotkeyMenuX", keyCode, HotkeyMenuXKeyTags, HotkeyMenuXKeyComboBox, () => SaveHotkeyKeys("MenuX", "HotkeyMenuX"));
-        }
-
-        private void HotkeyMenuYKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingHotkeys || HotkeyMenuYKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuYKeyComboBox.SelectedIndex);
-            AddKeyToSelection("HotkeyMenuY", keyCode, HotkeyMenuYKeyTags, HotkeyMenuYKeyComboBox, () => SaveHotkeyKeys("MenuY", "HotkeyMenuY"));
-        }
-
-        private void HotkeyMenuDpadUpKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingHotkeys || HotkeyMenuDpadUpKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuDpadUpKeyComboBox.SelectedIndex);
-            AddKeyToSelection("HotkeyMenuDpadUp", keyCode, HotkeyMenuDpadUpKeyTags, HotkeyMenuDpadUpKeyComboBox, () => SaveHotkeyKeys("MenuDpadUp", "HotkeyMenuDpadUp"));
-        }
-
-        private void HotkeyMenuDpadDownKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingHotkeys || HotkeyMenuDpadDownKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuDpadDownKeyComboBox.SelectedIndex);
-            AddKeyToSelection("HotkeyMenuDpadDown", keyCode, HotkeyMenuDpadDownKeyTags, HotkeyMenuDpadDownKeyComboBox, () => SaveHotkeyKeys("MenuDpadDown", "HotkeyMenuDpadDown"));
-        }
-
-        private void HotkeyMenuDpadLeftKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingHotkeys || HotkeyMenuDpadLeftKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuDpadLeftKeyComboBox.SelectedIndex);
-            AddKeyToSelection("HotkeyMenuDpadLeft", keyCode, HotkeyMenuDpadLeftKeyTags, HotkeyMenuDpadLeftKeyComboBox, () => SaveHotkeyKeys("MenuDpadLeft", "HotkeyMenuDpadLeft"));
-        }
-
-        private void HotkeyMenuDpadRightKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (isLoadingHotkeys || HotkeyMenuDpadRightKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(HotkeyMenuDpadRightKeyComboBox.SelectedIndex);
-            AddKeyToSelection("HotkeyMenuDpadRight", keyCode, HotkeyMenuDpadRightKeyTags, HotkeyMenuDpadRightKeyComboBox, () => SaveHotkeyKeys("MenuDpadRight", "HotkeyMenuDpadRight"));
-        }
+        // Hotkey key selection is handled by the grouped key picker (ExtraKeyPicker_Click).
 
         private void SaveHotkeyKeys(string hotkeyName, string keyStorageName)
         {
@@ -237,21 +182,6 @@ namespace XboxGamingBar
 
             // Sync updated config to helper so its XInput monitor uses the new key
             SendControllerHotkeyConfigToHelper();
-        }
-
-        // Legion L/R key selection handlers
-        private void LegionLKeyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (LegionLKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(LegionLKeyComboBox.SelectedIndex);
-            AddKeyToSelection("LegionL", keyCode, LegionLKeyTags, LegionLKeyComboBox, SaveLegionLKeys);
-        }
-
-        private void LegionRKeyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (LegionRKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(LegionRKeyComboBox.SelectedIndex);
-            AddKeyToSelection("LegionR", keyCode, LegionRKeyTags, LegionRKeyComboBox, SaveLegionRKeys);
         }
 
         private void SaveLegionLKeys()
@@ -270,21 +200,6 @@ namespace XboxGamingBar
             ApplyLegionButtonConfig(false);
         }
 
-        // Scroll wheel key selection handlers
-        private void ScrollKeyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ScrollKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(ScrollKeyComboBox.SelectedIndex);
-            AddKeyToSelection("Scroll", keyCode, ScrollKeyTags, ScrollKeyComboBox, SaveScrollKeys);
-        }
-
-        private void ScrollClickKeyComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (ScrollClickKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(ScrollClickKeyComboBox.SelectedIndex);
-            AddKeyToSelection("ScrollClick", keyCode, ScrollClickKeyTags, ScrollClickKeyComboBox, SaveScrollClickKeys);
-        }
-
         private void SaveScrollKeys()
         {
             var keysString = GetKeysAsString("Scroll");
@@ -301,17 +216,15 @@ namespace XboxGamingBar
             ApplyScrollWheelConfig("Click");
         }
 
-        // Custom shortcut key selection handler
-        private void CustomShortcutKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        // Custom shortcut key selection (grouped key picker → value-based).
+        private void AddCustomShortcutKey(int keyCode)
         {
-            if (CustomShortcutKeyComboBox?.SelectedIndex <= 0) return;
-            int keyCode = GetKeyCodeFromDropdownIndex(CustomShortcutKeyComboBox.SelectedIndex);
-            if (_customShortcutKeys.Count < 5 && !_customShortcutKeys.Contains(keyCode) && keyCode > 0)
+            if (keyCode <= 0) return;
+            if (_customShortcutKeys.Count < 5 && !_customShortcutKeys.Contains(keyCode))
             {
                 _customShortcutKeys.Add(keyCode);
                 UpdateCustomShortcutKeyTags();
             }
-            CustomShortcutKeyComboBox.SelectedIndex = 0;
         }
 
         private void UpdateCustomShortcutKeyTags()

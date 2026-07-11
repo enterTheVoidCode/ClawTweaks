@@ -43,6 +43,26 @@ namespace XboxGamingBar
 {
     public sealed partial class GamingWidget
     {
+        /// <summary>
+        /// Writes a single LocalSettings value, swallowing the UWP ~8 KB per-value size-limit
+        /// exception so one oversized value can never crash the app. Previously an unhandled
+        /// "state manager setting value has exceeded the limit" took the widget down and aborted
+        /// mapping removal/reset (Reset-All and the summary × appeared to do nothing). Logs the
+        /// offending key + length so an oversize can be diagnosed.
+        /// </summary>
+        private void SetSettingSafe(Windows.Storage.ApplicationDataContainer container, string key, object value)
+        {
+            try
+            {
+                container.Values[key] = value;
+            }
+            catch (Exception ex)
+            {
+                int len = (value as string)?.Length ?? -1;
+                Logger.Error($"SetSettingSafe: could not write '{key}' (len={len}) — {ex.Message}");
+            }
+        }
+
         private void SaveControllerProfileToStorage(string profileName, ControllerProfile profile)
         {
             // Never save to "No game detected" profile
@@ -59,14 +79,14 @@ namespace XboxGamingBar
             var y1Json = profile.ButtonY1.ToJson();
             var y2Json = profile.ButtonY2.ToJson();
             var desktopJson = profile.ButtonDesktop.ToJson();
-            container.Values["ButtonY1"] = y1Json;
-            container.Values["ButtonY2"] = y2Json;
-            container.Values["ButtonY3"] = profile.ButtonY3.ToJson();
-            container.Values["ButtonM1"] = profile.ButtonM1.ToJson();
-            container.Values["ButtonM2"] = profile.ButtonM2.ToJson();
-            container.Values["ButtonM3"] = profile.ButtonM3.ToJson();
-            container.Values["ButtonDesktop"] = desktopJson;
-            container.Values["ButtonPage"] = profile.ButtonPage.ToJson();
+            SetSettingSafe(container, "ButtonY1", y1Json);
+            SetSettingSafe(container, "ButtonY2", y2Json);
+            SetSettingSafe(container, "ButtonY3", profile.ButtonY3.ToJson());
+            SetSettingSafe(container, "ButtonM1", profile.ButtonM1.ToJson());
+            SetSettingSafe(container, "ButtonM2", profile.ButtonM2.ToJson());
+            SetSettingSafe(container, "ButtonM3", profile.ButtonM3.ToJson());
+            SetSettingSafe(container, "ButtonDesktop", desktopJson);
+            SetSettingSafe(container, "ButtonPage", profile.ButtonPage.ToJson());
             Logger.Info($"SaveControllerProfile: {profileName} ButtonY1={y1Json}, ButtonY2={y2Json}, ButtonDesktop={desktopJson}");
             container.Values["NintendoLayout"] = profile.NintendoLayout;
             container.Values["VibrationLevel"] = profile.VibrationLevel;
@@ -105,11 +125,11 @@ namespace XboxGamingBar
             if (profile.GamepadButtonMappings != null && profile.GamepadButtonMappings.Count > 0)
             {
                 var gamepadMappingsJson = SerializeGamepadButtonMappings(profile.GamepadButtonMappings);
-                container.Values["GamepadButtonMappings"] = gamepadMappingsJson;
+                SetSettingSafe(container, "GamepadButtonMappings", gamepadMappingsJson);
             }
             else
             {
-                container.Values["GamepadButtonMappings"] = "";
+                SetSettingSafe(container, "GamepadButtonMappings", "");
             }
 
             // Desktop Controls preset
@@ -407,6 +427,13 @@ namespace XboxGamingBar
             {
                 keyCombo.SelectionChanged += (s, e) => OnKeyboardKeySelected(buttonName);
             }
+            else if (FindName($"LegionButton{buttonName}KeyPickerButton") is Button keyPickerButton)
+            {
+                // Remapping card (M1/M2/M3/Y1/Y2/Y3): the flat key ComboBox was replaced by the
+                // grouped key picker button. Value-based — the picker returns the key code directly.
+                keyPickerButton.Click += (s, e) =>
+                    OpenKeyPicker(keyPickerButton, code => OnKeyboardKeySelected(buttonName, code));
+            }
             if (macroKeyCombo != null)
             {
                 macroKeyCombo.SelectionChanged += (s, e) => OnMacroKeySelected(buttonName);
@@ -665,6 +692,9 @@ namespace XboxGamingBar
             modeCombo.SelectionChanged += (s, e) => OnButtonGamepadModeChanged(buttonName);
             addCombo.SelectionChanged += (s, e) => OnButtonGamepadComboActionSelected(buttonName);
             turboCheck.Click += (s, e) => OnButtonGamepadTurboToggled(buttonName);
+
+            // Overlay the zone-grouped icon picker on the combo-mode "+ Button" add-combo.
+            AttachGamepadPicker(addCombo, 130);
         }
 
         private void OnButtonGamepadActionSelected(string buttonName)
@@ -949,6 +979,33 @@ namespace XboxGamingBar
             keyCombo.SelectedIndex = 0;
         }
 
+        /// <summary>
+        /// Value-based overload used by the grouped key picker (M1/M2/M3/Y1/Y2/Y3 rows). The key
+        /// code arrives directly from the picker, so no dropdown/index lookup is involved.
+        /// </summary>
+        private void OnKeyboardKeySelected(string buttonName, int keyCode)
+        {
+            if (keyCode <= 0) return;
+
+            var keys = GetStoredKeyboardKeys(buttonName);
+            if (keys.Count >= 5) return;  // Max 5 keys
+
+            if (!keys.Contains(keyCode))
+            {
+                keys.Add(keyCode);
+                SetStoredKeyboardKeys(buttonName, keys);
+                UpdateKeyboardKeyTags(buttonName, keys);
+
+                if (!isLoadingControllerProfile && !isSwitchingControllerProfile)
+                {
+                    ControllerSettingChanged(null, null);
+                }
+            }
+
+            // Picker flyout closed on selection — return focus to its launcher button.
+            RestoreFocusDeferred(FindName($"LegionButton{buttonName}KeyPickerButton") as Control);
+        }
+
         private int GetKeyCodeFromDropdownIndex(int index)
         {
             // Map dropdown index to HID key code
@@ -1027,6 +1084,9 @@ namespace XboxGamingBar
             {
                 ControllerSettingChanged(null, null);
             }
+
+            // Chip removal destroyed the focused × — keep focus on the row's key picker button.
+            RestoreFocusDeferred(FindName($"LegionButton{buttonName}KeyPickerButton") as Control);
         }
 
         private void MacroDelaySlider_ValueChanged(string buttonName, double newValue)

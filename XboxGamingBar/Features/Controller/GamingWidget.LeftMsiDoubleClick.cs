@@ -131,14 +131,11 @@ namespace XboxGamingBar
             }
         }
 
-        private void LeftMsiDoubleKey_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        // Grouped key picker → value-based add for the left-MSI double-click keyboard shortcut.
+        private void AddLeftMsiDoubleKey(int keyCode)
         {
             if (_leftMsiDcLoading) return;
-            if (LeftMsiDoubleKeyComboBox == null || LeftMsiDoubleKeyComboBox.SelectedIndex <= 0) return; // 0 = "+ Key"
-
-            int keyCode = GetKeyCodeFromDropdownIndex(LeftMsiDoubleKeyComboBox.SelectedIndex);
-            LeftMsiDoubleKeyComboBox.SelectedIndex = 0; // reset
-            if (keyCode == 0) return;
+            if (keyCode <= 0) return;
             if (_leftMsiDoubleKeys.Count >= 5) return; // max 5
             if (_leftMsiDoubleKeys.Contains(keyCode)) return;
 

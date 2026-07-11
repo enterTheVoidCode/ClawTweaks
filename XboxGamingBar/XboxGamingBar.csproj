@@ -446,6 +446,9 @@
     <Compile Include="Features\Hotkeys\GamingWidget.KeyDropdowns.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Hotkeys\GamingWidget.KeyPicker.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\OSD\GamingWidget.DisplayOSDHandlers.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
@@ -471,6 +474,9 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Controller\GamingWidget.GamepadButtonRemapping.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\Controller\GamingWidget.GamepadPicker.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\OSD\GamingWidget.OSDCustomization.cs">
