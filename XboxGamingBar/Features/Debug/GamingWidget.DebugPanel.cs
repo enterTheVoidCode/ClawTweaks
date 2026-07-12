@@ -780,7 +780,10 @@ namespace XboxGamingBar
                     message.Add("ExportLogs", true);
 
                     Logger.Info("Sending ExportLogs command to helper");
-                    var response = await App.SendMessageAsync(message);
+                    // ExportLogs also runs a live controller-diagnostic dump on the helper, which can
+                    // take longer than the default 10s IPC timeout. Give it a generous window so the
+                    // widget waits for the real result instead of falsely reporting "Export Failed".
+                    var response = await App.SendMessageAsync(message, 60000);
 
                     if (response != null)
                     {

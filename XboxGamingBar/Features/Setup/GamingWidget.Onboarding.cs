@@ -119,6 +119,23 @@ namespace XboxGamingBar
             status.Foreground = installed ? OnbGreenBrush : OnbGrayBrush;
         }
 
+        // Marshal a UI-touching action onto the widget's UI thread. Property-changed handlers wired
+        // directly to WidgetProperty (the "+= (s, e) => ..." lambdas in the constructor) fire on the
+        // pipe batch-sync thread; touching XAML from there throws RPC_E_WRONG_THREAD (0x8001010E).
+        // This surfaced as an unhandled crash on the first start after an in-app update, when the
+        // full property batch syncs at once and fires these handlers off the UI thread. Same guard
+        // idiom already used for the driver-updates render path.
+        private void RunOnUiThread(Action action)
+        {
+            if (action == null) return;
+            if (Dispatcher == null || Dispatcher.HasThreadAccess)
+            {
+                action();
+                return;
+            }
+            _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () => action());
+        }
+
         // usbip-win2 row (VIIPER backend prerequisite). The Install button is offered when the
         // driver is missing; the status doubles as the Legacy-vs-VIIPER primary-tool gate.
         private void UpdateOnboardingUsbip(bool installed)

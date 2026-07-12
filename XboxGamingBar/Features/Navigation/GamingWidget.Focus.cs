@@ -208,6 +208,8 @@ namespace XboxGamingBar
             // ControllerEmulationInputNotesExpandButton removed from UI
             ControllerEmulationEnabledToggle.GotFocus += Control_GotFocus;
             ControllerEmulationEnabledToggle.LostFocus += Control_LostFocus;
+            DefaultControllerModeComboBox.GotFocus += Control_GotFocus;
+            DefaultControllerModeComboBox.LostFocus += Control_LostFocus;
             ControllerEmulationImprovedInputToggle.GotFocus += Control_GotFocus;
             ControllerEmulationImprovedInputToggle.LostFocus += Control_LostFocus;
             ControllerEmulationHideStockControllerToggle.GotFocus += Control_GotFocus;

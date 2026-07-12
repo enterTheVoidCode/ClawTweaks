@@ -161,6 +161,7 @@ namespace XboxGamingBar
                 || msiCenterActive?.Value == true)
             {
                 ControllerEmulationEnabledToggle.IsEnabled = false;
+                if (DefaultControllerModeComboBox != null) DefaultControllerModeComboBox.IsEnabled = false;
                 UpdateControllerEmulationStatusText();
                 return;
             }
@@ -169,6 +170,9 @@ namespace XboxGamingBar
             bool alreadyOn = ControllerEmulationEnabledToggle.IsOn;
             bool allowed = onboardingOk || alreadyOn;
             ControllerEmulationEnabledToggle.IsEnabled = allowed;
+            // Standard-mode picker mirrors the (hidden) master toggle's interactivity — it is the
+            // user-facing control that drives the same Hardware/Virtual mode.
+            if (DefaultControllerModeComboBox != null) DefaultControllerModeComboBox.IsEnabled = allowed;
             UpdateControllerEmulationStatusText();
             Logger.Debug($"[VCtrl] toggle enabled={allowed} (onboarding={onboardingOk}, alreadyOn={alreadyOn}, steam={_steamXboxDriverDetected}, msi={msiCenterActive?.Value})");
         }
@@ -249,12 +253,36 @@ namespace XboxGamingBar
         /// pad for the native HW controller while leaving the master toggle ON). Every controller
         /// feature — remaps, gyro, vibration, deadzones, front buttons — is read-only when this is false.
         /// </summary>
+        /// <summary>
+        /// The EFFECTIVE controller mode for the running game: the standard mode (hidden master toggle
+        /// On = Virtual) XOR the per-game exception. Standard Virtual + exception → Hardware; standard
+        /// Hardware + exception → Virtual.
+        /// </summary>
+        private bool IsEffectiveVirtualMode()
+        {
+            bool standardVirtual = ControllerEmulationEnabledToggle?.IsOn == true;
+            bool exception = HasValidGame(currentGameName) && HwControllerExceptionToggle?.IsOn == true;
+            return standardVirtual ^ exception;
+        }
+
         private bool IsVirtualControllerActive()
         {
-            bool hwExceptionActive = HasValidGame(currentGameName) && HwControllerExceptionToggle?.IsOn == true;
+            return controllerEmulationSupported && IsEffectiveVirtualMode();
+        }
+
+        /// <summary>
+        /// True in Hardware Controller mode on a firmware-remap-capable Claw (A2VM): the virtual pad is
+        /// off, but front/paddle/dpad/shoulder/stick-click buttons can still be remapped through the
+        /// controller firmware. Used to keep the Button Remapping card usable in Hardware mode (Keyboard
+        /// shortcuts + — from Build B — Gamepad→Gamepad) while gyro / mouse / vibration stay locked.
+        /// </summary>
+        private bool IsHardwareRemapActive()
+        {
+            // Effective mode is Hardware (standard XOR per-game exception) and the device supports the
+            // firmware remaps (A2VM). Firmware remapping is what backs the Button Remapping card in HW mode.
             return controllerEmulationSupported
-                && ControllerEmulationEnabledToggle?.IsOn == true
-                && !hwExceptionActive;
+                && !IsEffectiveVirtualMode()
+                && deviceSupportsFirmwareKeyboardRemap?.Value == true;
         }
 
         /// <summary>
@@ -288,7 +316,16 @@ namespace XboxGamingBar
             // controller setting is read-only and the menus can't be expanded.
             GateControllerSection(enabled, ControllerEmulationExpandButton, ControllerEmulationContent, ControllerEmulationExpandIcon, ref isControllerEmulationExpanded);
             GateControllerSection(enabled, GyroSettingsExpandToggle, GyroSettingsContent, GyroSettingsExpandIcon, ref isGyroSettingsExpanded);
-            GateControllerSection(enabled, ButtonRemappingExpandToggle, ButtonRemappingContent, ButtonRemappingExpandIcon, ref isButtonRemappingExpanded);
+            // Button Remapping stays usable in Hardware Controller mode too (firmware remaps), not only
+            // when the virtual pad is active. Everything else remains gated to the virtual controller.
+            bool remapActive = enabled || IsHardwareRemapActive();
+            GateControllerSection(remapActive, ButtonRemappingExpandToggle, ButtonRemappingContent, ButtonRemappingExpandIcon, ref isButtonRemappingExpanded);
+            // Hint banner: in Hardware mode only firmware-backed types work (Keyboard now; Gamepad→Gamepad
+            // is coming). Mouse/Macro need the Virtual Controller.
+            if (HwRemapModeHint != null)
+                HwRemapModeHint.Visibility = (!enabled && IsHardwareRemapActive())
+                    ? Windows.UI.Xaml.Visibility.Visible
+                    : Windows.UI.Xaml.Visibility.Collapsed;
             GateControllerSection(enabled, TouchpadVibrationExpandToggle, TouchpadVibrationContent, TouchpadVibrationExpandIcon, ref isTouchpadVibrationExpanded);
             // "Vibration & Deadzone" card (ControllerFeedback*) is the one actually shown on the MSI Claw
             // (TouchpadVibration* is hidden on devices without a HID touchpad). Gate it the same way.
@@ -489,7 +526,7 @@ namespace XboxGamingBar
             if (!controllerEmulationSupported)
             {
                 ControllerEmulationStatusText.Text = "Controller emulation is not available on this handheld.";
-                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200));
             }
             else if (_steamXboxDriverDetected)
             {
@@ -508,13 +545,13 @@ namespace XboxGamingBar
             }
             else if (!isOn)
             {
-                ControllerEmulationStatusText.Text = "Enable controller emulation to use button remapping, gyro, Mouse Mode and more.";
-                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+                ControllerEmulationStatusText.Text = "Main mode: Hardware Controller — native XInput + firmware remaps (no gyro/Mouse Mode/macros). Per game: enable the Controller Profile to use Virtual as an exception.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200));
             }
             else
             {
-                ControllerEmulationStatusText.Text = "Turn the virtual controller and mouse runtime on or off.";
-                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 136, 136, 136));
+                ControllerEmulationStatusText.Text = "Main mode: Virtual Controller — emulated pad, gyro, Mouse Mode & macros. Per game: enable the Controller Profile to use Hardware as an exception.";
+                ControllerEmulationStatusText.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 200, 200, 200));
             }
         }
 
@@ -694,10 +731,11 @@ namespace XboxGamingBar
                     return;
                 }
 
-                if (ControllerEmulationEnabledToggle != null)
+                // The master toggle is hidden; the standard-mode picker is the visible top control.
+                if (DefaultControllerModeComboBox != null)
                 {
-                    ControllerEmulationExpandButton.XYFocusDown = ControllerEmulationEnabledToggle;
-                    ControllerEmulationEnabledToggle.XYFocusUp = ControllerEmulationExpandButton;
+                    ControllerEmulationExpandButton.XYFocusDown = DefaultControllerModeComboBox;
+                    DefaultControllerModeComboBox.XYFocusUp = ControllerEmulationExpandButton;
                 }
                 else
                 {
@@ -708,13 +746,13 @@ namespace XboxGamingBar
 
                 if (!emulationCardActive)
                 {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationEnabledToggle;
+                    AutoHibernateToggle.XYFocusUp = DefaultControllerModeComboBox;
                     return;
                 }
 
                 if (!emulationModeControlsActive)
                 {
-                    AutoHibernateToggle.XYFocusUp = ControllerEmulationEnabledToggle;
+                    AutoHibernateToggle.XYFocusUp = DefaultControllerModeComboBox;
                     return;
                 }
 
