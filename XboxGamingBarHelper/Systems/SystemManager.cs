@@ -1549,6 +1549,19 @@ namespace XboxGamingBarHelper.Systems
 
         private void ApplyAffinityToProcess(int processId, int pCoresToUse, int eCoresToUse)
         {
+            // DISABLED: the "CPU Core Config" forced-affinity feature is an unused GoTweaks leftover
+            // (its UI is a hidden Collapsed stub) and a suspected game-crash cause (Ori and the Will of
+            // the Wisps hangs when a P-core is cut from a running game). Neutered to a no-op so no
+            // SetProcessAffinityMask is ever written to a game process. Full feature removal tracked
+            // separately; kept as a single guard here to cover every call path (ApplyCoreConfiguration,
+            // ApplyAffinityToRunningGame) with zero build risk. Runtime flag (not const) so the disabled
+            // body below does not trigger a CS0162 unreachable-code warning.
+            bool cpuCoreAffinityDisabled = true;
+            if (cpuCoreAffinityDisabled)
+            {
+                Logger.Info($"ApplyAffinityToProcess: CPU core affinity feature is disabled (no-op) for process {processId}");
+                return;
+            }
             try
             {
                 // Calculate how many threads per P-Core (typically 2 for SMT)
