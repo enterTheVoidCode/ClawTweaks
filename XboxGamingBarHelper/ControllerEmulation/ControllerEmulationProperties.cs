@@ -29,6 +29,28 @@ namespace XboxGamingBarHelper.ControllerEmulation
         }
     }
 
+    /// <summary>
+    /// Standard controller mode: 0 = Hardware Controller (default), 1 = Virtual Controller.
+    /// This is the source of the derived ControllerEmulationEnabled bool — the manager derives
+    /// "virtual pad should run" from this (plus, later, the per-game exception).
+    /// </summary>
+    internal class ControllerEmulationDefaultModeProperty : HelperProperty<int, ControllerEmulationManager>
+    {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        public ControllerEmulationDefaultModeProperty(int initialValue, ControllerEmulationManager manager)
+            : base(initialValue, null, Function.DefaultControllerMode, manager)
+        {
+        }
+
+        protected override void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+            Logger.Info($"DefaultControllerMode changed to {Value}");
+            Manager?.SetDefaultControllerMode(Value);
+        }
+    }
+
     internal class ControllerEmulationHideStockControllerProperty : HelperProperty<bool, ControllerEmulationManager>
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();

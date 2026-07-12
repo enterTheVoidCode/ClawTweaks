@@ -19,6 +19,7 @@ using Windows.System;
 using Windows.UI.Input.Preview.Injection;
 using XboxGamingBarHelper.Core;
 using XboxGamingBarHelper.ControllerEmulation;
+using XboxGamingBarHelper.Diagnostics;
 using XboxGamingBarHelper.Devices.Libraries.GPD;
 using XboxGamingBarHelper.Devices.Libraries.Legion;
 using XboxGamingBarHelper.LosslessScaling;
@@ -741,6 +742,21 @@ namespace XboxGamingBarHelper
                         else
                         {
                             Logger.Warn($"Pipe: widget log dir not found: {widgetLogPath}");
+                        }
+
+                        // Extra deliverable: a live controller-topology diagnostic. Captures what we
+                        // CAN'T see from the widget/helper logs (how many controllers are visible to
+                        // games, XInput slots, HidHide hidden/whitelist, ViGEm/usbip, Steam filter) so
+                        // hard-to-reproduce double-input reports (Forza etc.) can be diagnosed remotely.
+                        try
+                        {
+                            string ctrlDiagPath = Path.Combine(exportFolder, "Controller-Diagnostics.txt");
+                            ControllerDiagnostics.Collect(ctrlDiagPath, BuildControllerDiagHeader());
+                            Logger.Info("Pipe: controller diagnostics collected");
+                        }
+                        catch (Exception cdEx)
+                        {
+                            Logger.Warn($"Pipe: controller diagnostics failed: {cdEx.Message}");
                         }
 
                         Logger.Info($"Pipe: Logs exported to: {exportFolder}");
@@ -3116,6 +3132,48 @@ namespace XboxGamingBarHelper
                 Logger.Debug($"ResolveAppPackagesProbeDir: {ex.Message}");
             }
             return null;
+        }
+
+        /// <summary>
+        /// Builds the ClawTweaks-own state block prepended to the controller diagnostics export — the
+        /// settings the PowerShell system dump can't read from the packaged LocalSettings. Best-effort;
+        /// every field is guarded so a missing manager never breaks the export.
+        /// </summary>
+        private static string BuildControllerDiagHeader()
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                var di = Devices.DeviceDetector.DetectDevice();
+                sb.AppendLine($"    Device type      : {di?.DeviceType}");
+                sb.AppendLine($"    Model            : {di?.Manufacturer} {di?.Model}");
+                sb.AppendLine($"    A2VM FW-remap cap : {di?.SupportsFirmwareKeyboardRemap}");
+            }
+            catch { sb.AppendLine("    Device type      : (detect failed)"); }
+
+            try
+            {
+                var appVer = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "?";
+                sb.AppendLine($"    Helper version   : {appVer}");
+            }
+            catch { }
+
+            try { sb.AppendLine($"    ControllerEmulationEnabled (derived): {controllerEmulationManager?.EmulationEnabled}"); } catch { }
+            try
+            {
+                if (Settings.LocalSettingsHelper.TryGetValue("DefaultControllerMode", out int dm))
+                    sb.AppendLine($"    DefaultControllerMode: {(dm == 1 ? "Virtual" : "Hardware")} ({dm})");
+                if (Settings.LocalSettingsHelper.TryGetValue("ControllerEmulationHideStockController", out bool hide))
+                    sb.AppendLine($"    HideStockController : {hide}");
+                if (Settings.LocalSettingsHelper.TryGetValue("ControllerEmulationHideTarget", out int ht))
+                    sb.AppendLine($"    HideTarget         : {ht}  (0=auto,1=native,2=xbox360,3=both)");
+            }
+            catch { }
+            try { sb.AppendLine($"    VIIPER backend active: {_viiperBackendActive}"); } catch { }
+            try { sb.AppendLine($"    FW keyboard mode toggle: {msiClawFwKeyboardModeManager?.MsiClawFwKeyboardMode?.Value}"); } catch { }
+            try { sb.AppendLine($"    Running game        : {systemManager?.RunningGame?.Value.GameId.Name}"); } catch { }
+
+            return sb.ToString().TrimEnd();
         }
 
     }

@@ -326,6 +326,22 @@ namespace XboxGamingBar
             return null;
         }
 
+        /// <summary>
+        /// Sends a message and waits for a response with an explicit timeout. Used for long-running
+        /// helper operations (e.g. ExportLogs, which now also collects a controller diagnostic dump)
+        /// that legitimately need more than the default 10s.
+        /// </summary>
+        public static async Task<ValueSet> SendMessageAsync(ValueSet message, int timeoutMs)
+        {
+            if (PipeClient?.IsConnected == true)
+            {
+                return await PipeClient.SendRequestAsync(message, timeoutMs);
+            }
+
+            Logger.Warn("Cannot send message - pipe not connected");
+            return null;
+        }
+
         private static void PipeClient_MessageReceived(object sender, PipeMessageEventArgs e)
         {
             Logger.Debug($"Pipe message received from helper");

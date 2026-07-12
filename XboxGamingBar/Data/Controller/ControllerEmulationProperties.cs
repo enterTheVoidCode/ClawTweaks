@@ -54,6 +54,54 @@ namespace XboxGamingBar.Data
         }
     }
 
+    /// <summary>
+    /// Standard controller mode dropdown: 0 = Hardware Controller (default), 1 = Virtual Controller.
+    /// Replaces the old master toggle as the user-facing control. The helper derives
+    /// ControllerEmulationEnabled from this value and keeps the (now hidden) master toggle in sync.
+    /// </summary>
+    internal class DefaultControllerModeProperty : WidgetControlProperty<int, ComboBox>
+    {
+        public DefaultControllerModeProperty(ComboBox inUI, Page inOwner)
+            : base(0, Function.DefaultControllerMode, inUI, inOwner)
+        {
+            if (UI != null)
+            {
+                UI.SelectionChanged += ComboBox_SelectionChanged;
+                if (UI.Items.Count > Value)
+                {
+                    UI.SelectedIndex = Value;
+                }
+            }
+        }
+
+        private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            int newIndex = UI.SelectedIndex;
+            if (newIndex >= 0 && newIndex != Value)
+            {
+                Logger.Info($"{Function} combo box updated to index {newIndex}.");
+                SetValue(newIndex);
+            }
+        }
+
+        protected override async void NotifyPropertyChanged(string propertyName = "")
+        {
+            base.NotifyPropertyChanged(propertyName);
+
+            if (UI != null && Owner != null)
+            {
+                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    if (UI.Items.Count > Value && UI.SelectedIndex != Value)
+                    {
+                        Logger.Info($"{Function} combo box selected index {Value}.");
+                        UI.SelectedIndex = Value;
+                    }
+                });
+            }
+        }
+    }
+
     internal class ControllerEmulationImprovedInputProperty : WidgetToggleProperty
     {
         public ControllerEmulationImprovedInputProperty(ToggleSwitch inUI, Page inOwner)

@@ -1452,6 +1452,7 @@ namespace XboxGamingBarHelper
                 // Handheld-agnostic controller emulation properties
                 controllerEmulationManager.ControllerEmulationAvailable,
                 controllerEmulationManager.ControllerEmulationEnabled,
+                controllerEmulationManager.ControllerEmulationDefaultMode,
                 controllerEmulationManager.ControllerEmulationHideStockController,
                 controllerEmulationManager.ControllerEmulationImprovedInput,
                 controllerEmulationManager.ControllerEmulationHideTarget,

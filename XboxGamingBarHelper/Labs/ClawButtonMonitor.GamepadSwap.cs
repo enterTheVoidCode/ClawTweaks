@@ -318,6 +318,7 @@ namespace XboxGamingBarHelper.Labs
                     SourceButtonMask = sourceMask,
                     SourceIsLeftTrigger = isLeftTrigger,
                     SourceIsRightTrigger = isRightTrigger,
+                    SourceButtonName = buttonName,   // needed for the firmware gamepad→gamepad slot lookup
                     Actions = actions.ToArray(),
                 });
             }

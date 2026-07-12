@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using XboxGamingBarHelper.Devices.Libraries.Legion;   // RemapAction (gamepad→gamepad firmware targets)
 
 namespace XboxGamingBarHelper.Labs
 {
@@ -46,6 +47,13 @@ namespace XboxGamingBarHelper.Labs
         // normal button → ViGEm/Viiper). Assembled by the profile-application code (Step 4).
         private readonly Dictionary<string, int[]> _fwKbDesired =
             new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase);
+        // Desired gamepad→gamepad map: source canonical button name → target physical button code
+        // (1..12, the FwSlot.OwnCode of the target). Same firmware slot/format as a keyboard remap
+        // (face `04 0C <code>`, paddle `01 04 0C <code>`) but the code is a button code, not a key.
+        // Only applied in Hardware Controller mode (virtual pad off); in virtual mode the software
+        // swap path owns gamepad→gamepad, so this stays unwritten there to avoid a double-remap.
+        private readonly Dictionary<string, byte> _fwGpDesired =
+            new Dictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
         // Last payload actually written per slot, so we never re-write an unchanged slot (stresses the
         // EEPROM and, on triggers, collides with the 0x26 poll if we tried to read back). Key = button.
         private readonly Dictionary<string, byte[]> _fwKbLastWritten =
@@ -100,6 +108,38 @@ namespace XboxGamingBarHelper.Labs
         }
 
         /// <summary>
+        /// Enables/disables writing gamepad→gamepad remaps to firmware. Driven by the controller mode
+        /// (Hardware = true, Virtual = false). On change, re-evaluates + re-flushes the map so a mode
+        /// switch takes effect immediately (this is what clears X→A / M1→A when returning to Virtual).
+        /// </summary>
+        public void SetFirmwareGamepadEnabled(bool enabled)
+        {
+            if (!_fwKeyboardCapable) { _fwGamepadEnabled = false; return; }
+            if (_fwGamepadEnabled == enabled) return;
+            _fwGamepadEnabled = enabled;
+            Logger.Info($"ClawButtonMonitor: FW gamepad→gamepad remap = {enabled}");
+            RecomputeFirmwareKeyboardDesired();   // re-evaluate desired + schedule flush
+        }
+
+        /// <summary>
+        /// Re-asserts the firmware map after the virtual monitor's Start, which rewrites the M1/M2 paddle
+        /// slots to their defaults (HC OpenClawInterfaces init) and clobbers any firmware paddle remap.
+        /// Invalidates just the M1/M2 write-cache (their firmware bytes changed underneath us) so the
+        /// flush re-writes them; face slots are untouched by that init, so the cache keeps them skipped.
+        /// </summary>
+        public void ReassertFirmwareMapAfterStart()
+        {
+            if (!_fwKeyboardCapable) return;
+            lock (_fwKbLock)
+            {
+                _fwKbLastWritten.Remove("M1");
+                _fwKbLastWritten.Remove("M2");
+            }
+            Logger.Info("ClawButtonMonitor: re-asserting FW map after monitor start (M1/M2 paddle repair)");
+            RecomputeFirmwareKeyboardDesired();
+        }
+
+        /// <summary>
         /// Declare the COMPLETE set of active button → keyboard mappings for the current profile
         /// (global or per-game). Codes are the widget's HID usage codes (same as
         /// <see cref="ConfigureBackButtonMapping"/> Type=1 values). Buttons absent from
@@ -131,6 +171,16 @@ namespace XboxGamingBarHelper.Labs
         // RecomputeFirmwareKeyboardDesired into the single desired map on every profile change.
         private volatile int[] _fwKbM1Codes;
         private volatile int[] _fwKbM2Codes;
+        // Per-paddle gamepad→gamepad target code (1..12; 0 = none). M1/M2 take the ConfigureBackButtonMapping
+        // path, not the 24-button swap table, so their gamepad targets need their own source (mirrors the
+        // keyboard M1/M2 codes above). Merged into _fwGpDesired by RecomputeFirmwareKeyboardDesired.
+        private volatile byte _fwGpM1Code;
+        private volatile byte _fwGpM2Code;
+        // Whether gamepad→gamepad remaps should be written to firmware. Set explicitly by the helper
+        // from the CONTROLLER MODE (Hardware = true, Virtual = false) — NOT from `_running`, which flips
+        // asynchronously ~6 s after a Start and raced the flush. In Virtual mode the software swap path
+        // owns gamepad→gamepad, so firmware gamepad targets are cleared to default there.
+        private volatile bool _fwGamepadEnabled;
 
         /// <summary>
         /// Called by <see cref="ConfigureBackButtonMapping"/> when an M1/M2 keyboard mapping changes:
@@ -140,6 +190,19 @@ namespace XboxGamingBarHelper.Labs
         {
             if (string.Equals(button, "M1", StringComparison.OrdinalIgnoreCase)) _fwKbM1Codes = codes;
             else if (string.Equals(button, "M2", StringComparison.OrdinalIgnoreCase)) _fwKbM2Codes = codes;
+            RecomputeFirmwareKeyboardDesired();
+        }
+
+        /// <summary>
+        /// Called by <see cref="ConfigureBackButtonMapping"/> when an M1/M2 gamepad mapping changes:
+        /// action = the target XInput button for Type=0, or Disabled when the paddle is not a gamepad
+        /// mapping. Only single-button targets are firmware-expressible (sticks/triggers/Guide clear it).
+        /// </summary>
+        private void UpdateFirmwareGamepadPaddle(string button, RemapAction action)
+        {
+            byte code = TryGamepadActionToTargetCode(action, out byte c) ? c : (byte)0;
+            if (string.Equals(button, "M1", StringComparison.OrdinalIgnoreCase)) _fwGpM1Code = code;
+            else if (string.Equals(button, "M2", StringComparison.OrdinalIgnoreCase)) _fwGpM2Code = code;
             RecomputeFirmwareKeyboardDesired();
         }
 
@@ -174,7 +237,81 @@ namespace XboxGamingBarHelper.Labs
             if (_fwKbM1Codes != null && _fwKbM1Codes.Length > 0) merged["M1"] = _fwKbM1Codes;
             if (_fwKbM2Codes != null && _fwKbM2Codes.Length > 0) merged["M2"] = _fwKbM2Codes;
 
+            // Gamepad→gamepad targets from the same swap table (single-button targets only, e.g. A→Y).
+            // Multi-action, stick-direction, trigger, and Guide/Desktop/Page targets can't be expressed
+            // as a firmware button code and are skipped here (they fall back to software in virtual mode).
+            var mergedGp = new Dictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
+            if (swaps != null)
+            {
+                foreach (GamepadSwapEntry e in swaps)
+                {
+                    if (e == null || e.IsKeyboard || e.IsGuide || string.IsNullOrEmpty(e.SourceButtonName)) continue;
+                    if (e.Actions == null || e.Actions.Length != 1) continue;   // firmware = exactly one target
+                    if (!TryGamepadActionToTargetCode(e.Actions[0], out byte targetCode)) continue;
+                    // Source must be a firmware slot we can write (face/paddle; triggers as source are keyboard-only).
+                    if (!FwSlots.TryGetValue(e.SourceButtonName, out FwSlot srcSlot) || srcSlot.Class == FwSlotClass.Trigger) continue;
+                    mergedGp[e.SourceButtonName] = targetCode;
+                }
+            }
+
+            // M1/M2 paddle gamepad targets (from ConfigureBackButtonMapping, not the swap table).
+            if (_fwGpM1Code != 0) mergedGp["M1"] = _fwGpM1Code;
+            if (_fwGpM2Code != 0) mergedGp["M2"] = _fwGpM2Code;
+
+            lock (_fwKbLock)
+            {
+                _fwGpDesired.Clear();
+                foreach (var kv in mergedGp) _fwGpDesired[kv.Key] = kv.Value;
+            }
+
             SyncFirmwareKeyboardMap(merged);
+        }
+
+        /// <summary>
+        /// Maps an XInput remap target to the MSI firmware physical button code (1..12), matching the
+        /// <see cref="FwSlots"/> OwnCode numbering. Only the 12 discrete buttons the firmware can target
+        /// are expressible; sticks/triggers/Guide/etc. return false.
+        /// </summary>
+        private static bool TryGamepadActionToTargetCode(RemapAction action, out byte code)
+        {
+            switch (action)
+            {
+                case RemapAction.DpadUp:          code = 1;  return true;
+                case RemapAction.DpadDown:        code = 2;  return true;
+                case RemapAction.DpadLeft:        code = 3;  return true;
+                case RemapAction.DpadRight:       code = 4;  return true;
+                case RemapAction.LeftBumper:      code = 5;  return true;
+                case RemapAction.RightBumper:     code = 6;  return true;
+                case RemapAction.LeftStickClick:  code = 7;  return true;
+                case RemapAction.RightStickClick: code = 8;  return true;
+                case RemapAction.A:               code = 9;  return true;
+                case RemapAction.B:               code = 10; return true;
+                case RemapAction.X:               code = 11; return true;
+                case RemapAction.Y:               code = 12; return true;
+                default:                          code = 0;  return false;
+            }
+        }
+
+        // Reverse of TryGamepadActionToTargetCode: firmware button code (1..12) → friendly name, for the
+        // "Re-read firmware" report so a gamepad→gamepad remap shows as "A → Y".
+        private static string TargetCodeToButtonName(byte code)
+        {
+            switch (code)
+            {
+                case 1:  return "D-Pad Up";
+                case 2:  return "D-Pad Down";
+                case 3:  return "D-Pad Left";
+                case 4:  return "D-Pad Right";
+                case 5:  return "LB";
+                case 6:  return "RB";
+                case 7:  return "L3";
+                case 8:  return "R3";
+                case 9:  return "A";
+                case 10: return "B";
+                case 11: return "X";
+                case 12: return "Y";
+                default: return null;
+            }
         }
 
         /// <summary>
@@ -236,8 +373,17 @@ namespace XboxGamingBarHelper.Labs
             bool modeOn = _fwKeyboardModeEnabled;
             if (!modeOn && !force) return;
 
-            // Boot race: the vendor command interface may not be acquired yet (see field comment).
-            // Defer + retry until it is, instead of writing against a null device and failing silently.
+            // Firmware-only channel (HW controller mode): the virtual monitor loop isn't running, so
+            // _cmdDevice was never acquired by Start(). The vendor command interface (PID_1901/0xFFA0)
+            // is present in ALL firmware modes, so acquire it on demand here — this is what lets the
+            // firmware remaps land in Hardware Controller mode without mounting ViGEm/HidHide.
+            if (_cmdDevice == null)
+            {
+                try { _cmdDevice = FindCommandDevice(); }
+                catch (Exception ex) { Logger.Warn($"ClawButtonMonitor: FW-only command channel probe threw: {ex.Message}"); }
+            }
+            // Boot race: the vendor command interface may still not be acquired yet (transient
+            // re-enumeration). Defer + retry until it is, instead of writing against a null device.
             if (_cmdDevice == null)
             {
                 RescheduleFwKeyboardFlush(force, "command channel not ready");
@@ -246,10 +392,17 @@ namespace XboxGamingBarHelper.Labs
 
             // Snapshot desired under the lock; do the (slow) HID writes outside it.
             Dictionary<string, int[]> desiredSnapshot;
+            Dictionary<string, byte> gamepadSnapshot;
             lock (_fwKbLock)
             {
                 desiredSnapshot = new Dictionary<string, int[]>(_fwKbDesired, StringComparer.OrdinalIgnoreCase);
+                gamepadSnapshot = new Dictionary<string, byte>(_fwGpDesired, StringComparer.OrdinalIgnoreCase);
             }
+
+            // Gamepad→gamepad firmware remaps only apply in Hardware Controller mode (see field comment).
+            // In virtual mode the software swap path owns them, so they are cleared to default here.
+            // Keyboard remaps apply in both modes as before.
+            bool applyGamepad = modeOn && _fwGamepadEnabled;
 
             int writes = 0;
             int failures = 0;
@@ -263,6 +416,11 @@ namespace XboxGamingBarHelper.Labs
                     TryTranslateCodes(hidCodes, out byte[] msiCodes))
                 {
                     payload = BuildSlotPayload(slot, msiCodes);   // configured keyboard remap
+                }
+                else if (applyGamepad && gamepadSnapshot.TryGetValue(button, out byte targetCode))
+                {
+                    // Same slot format as a keyboard remap, but the code is the target BUTTON code (1..12).
+                    payload = BuildSlotPayload(slot, new byte[] { targetCode });   // gamepad→gamepad remap
                 }
                 else
                 {
@@ -410,14 +568,25 @@ namespace XboxGamingBarHelper.Labs
                 }
                 case FwSlotClass.Face:
                 {
+                    // Fixed 7-byte slot: `<flag> 0C` + up to 5 code slots, zero-padded. The padding is
+                    // ESSENTIAL — writing only `04 0C <codes>` at MSI's len 2+N leaves the trailing code
+                    // bytes of a PREVIOUS longer chord in the firmware slot (a shorter write doesn't
+                    // overwrite them), so e.g. Ctrl+T → Home read back as "Home + T". Zero-padding
+                    // overwrites those bytes. A Face slot is 8 bytes wide, so 7 bytes stays in-slot.
+                    // The decoder stops at the first 0x00, so the trailing zeros are ignored on read.
+                    byte[] p = new byte[7];
+                    p[1] = 0x0C;
                     if (msiCodes != null && msiCodes.Length > 0)
                     {
-                        byte[] p = new byte[2 + msiCodes.Length];   // 04 0C <codes>, exactly like MSI
-                        p[0] = 0x04; p[1] = 0x0C;
-                        Array.Copy(msiCodes, 0, p, 2, msiCodes.Length);
-                        return p;
+                        p[0] = 0x04;   // remapped-to-keyboard/gamepad
+                        Array.Copy(msiCodes, 0, p, 2, Math.Min(msiCodes.Length, 5));
                     }
-                    return new byte[] { 0x00, 0x0C, slot.OwnCode };  // 00 0C <ownCode> default
+                    else
+                    {
+                        p[0] = 0x00;             // default = button does its own function
+                        p[2] = slot.OwnCode;     // 00 0C <ownCode>
+                    }
+                    return p;
                 }
                 case FwSlotClass.Trigger:
                 {
@@ -556,6 +725,12 @@ namespace XboxGamingBarHelper.Labs
         {
             if (!_fwKeyboardCapable)
                 return "Firmware key remap not supported on this device.";
+            // Firmware-only channel: acquire the always-present command interface on demand so the
+            // report works in Hardware Controller mode too (no virtual monitor running).
+            if (_cmdDevice == null)
+            {
+                try { _cmdDevice = FindCommandDevice(); } catch { /* fall through to the guard below */ }
+            }
             if (_cmdDevice == null)
                 return "Controller command channel unavailable.";
 
@@ -565,6 +740,15 @@ namespace XboxGamingBarHelper.Labs
             {
                 byte[] d = ReadFwSlotRaw(kv.Value.Address, 7);
                 if (d == null) { readFails++; continue; }
+                // Gamepad→gamepad remap (target button code 1..12) is checked first — it shares the
+                // `04 0C <code>` / `01 04 0C <code>` slot format with a keyboard remap but the code is a
+                // button code, so the keyboard decoder would misread it.
+                string gpTarget = DecodeSlotGamepadTarget(kv.Value, d);
+                if (!string.IsNullOrEmpty(gpTarget))
+                {
+                    mapped.Add($"{FriendlyButtonName(kv.Key)} → {gpTarget}");
+                    continue;
+                }
                 string keys = DecodeSlotKeys(kv.Value, d);
                 if (!string.IsNullOrEmpty(keys))
                     mapped.Add($"{FriendlyButtonName(kv.Key)} → {keys}");
@@ -581,36 +765,46 @@ namespace XboxGamingBarHelper.Labs
         {
             var dev = _cmdDevice;
             if (dev == null) return null;
-            try
+            // Retry the exclusive open a few times: the same command interface is polled by the HW-mouse
+            // GamepadMode watcher (and rumble), so a single open can lose the sub-100ms race and throw.
+            // Without this a "Re-read firmware" during the ~7s post-mode-switch window failed for every slot.
+            Exception last = null;
+            for (int openAttempt = 0; openAttempt < 6; openAttempt++)
             {
-                using (var stream = dev.Open())
+                try
                 {
-                    stream.WriteTimeout = 600;
-                    stream.ReadTimeout = 600;
-                    byte[] cmd = new byte[64];
-                    cmd[0] = REPORT_ID; cmd[3] = 0x3C; cmd[4] = 0x04; cmd[5] = 0x00;
-                    cmd[6] = (byte)(addr >> 8); cmd[7] = (byte)(addr & 0xFF); cmd[8] = len;
-                    stream.Write(cmd);
-
-                    // Accept only the ReadProfile echo for THIS address (skip unrelated input reports).
-                    for (int attempt = 0; attempt < 6; attempt++)
+                    using (var stream = dev.Open())
                     {
-                        byte[] resp = new byte[64];
-                        int n = stream.Read(resp);
-                        if (n >= 9 + len && resp[4] == 0x05 &&
-                            resp[6] == (byte)(addr >> 8) && resp[7] == (byte)(addr & 0xFF))
+                        stream.WriteTimeout = 600;
+                        stream.ReadTimeout = 600;
+                        byte[] cmd = new byte[64];
+                        cmd[0] = REPORT_ID; cmd[3] = 0x3C; cmd[4] = 0x04; cmd[5] = 0x00;
+                        cmd[6] = (byte)(addr >> 8); cmd[7] = (byte)(addr & 0xFF); cmd[8] = len;
+                        stream.Write(cmd);
+
+                        // Accept only the ReadProfile echo for THIS address (skip unrelated input reports).
+                        for (int attempt = 0; attempt < 6; attempt++)
                         {
-                            byte[] data = new byte[len];
-                            Array.Copy(resp, 9, data, 0, len);
-                            return data;
+                            byte[] resp = new byte[64];
+                            int n = stream.Read(resp);
+                            if (n >= 9 + len && resp[4] == 0x05 &&
+                                resp[6] == (byte)(addr >> 8) && resp[7] == (byte)(addr & 0xFF))
+                            {
+                                byte[] data = new byte[len];
+                                Array.Copy(resp, 9, data, 0, len);
+                                return data;
+                            }
                         }
+                        return null; // opened + wrote fine but no matching echo — don't churn the open
                     }
                 }
+                catch (Exception ex)
+                {
+                    last = ex;
+                    Thread.Sleep(25);
+                }
             }
-            catch (Exception ex)
-            {
-                Logger.Warn($"ClawButtonMonitor: ReadFwSlotRaw 0x{addr:X4} failed: {ex.Message}");
-            }
+            Logger.Warn($"ClawButtonMonitor: ReadFwSlotRaw 0x{addr:X4} failed after retries: {last?.Message}");
             return null;
         }
 
@@ -632,6 +826,26 @@ namespace XboxGamingBarHelper.Labs
                     if (d[1] != 0x0C || d[0] != 0x06) return string.Empty;
                     return DecodeMsiCodes(d, 4);
                 default:
+                    return string.Empty;
+            }
+        }
+
+        /// <summary>Decodes a slot's raw bytes into a target gamepad-button name when it holds a
+        /// gamepad→gamepad remap (`04 0C &lt;code&gt;` face / `01 04 0C &lt;code&gt;` paddle with a button
+        /// code 1..12), else "". Button codes (1..12) are disjoint from keyboard codes (0x32+) and from
+        /// the paddle default own-codes (0x11/0x12), so this is unambiguous.</summary>
+        private static string DecodeSlotGamepadTarget(FwSlot slot, byte[] d)
+        {
+            if (d == null || d.Length < 3) return string.Empty;
+            switch (slot.Class)
+            {
+                case FwSlotClass.Face:      // 04 0C <code>
+                    if (d[0] != 0x04 || d[1] != 0x0C) return string.Empty;
+                    return TargetCodeToButtonName(d[2]) ?? string.Empty;
+                case FwSlotClass.Paddle:    // 01 04 0C <code>
+                    if (d.Length < 4 || d[2] != 0x0C) return string.Empty;
+                    return TargetCodeToButtonName(d[3]) ?? string.Empty;
+                default:                    // triggers are never gamepad-remap targets
                     return string.Empty;
             }
         }

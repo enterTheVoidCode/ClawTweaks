@@ -570,5 +570,13 @@
         // red → purple). Only active while the LED is on (brightness > 0); the LED is only written
         // when the SoC crosses a 10% band (no HID spam). Persisted helper-side; widget toggle.
         LedColorBySoc,              // bool - true = drive the LED color from battery SoC
+
+        // Standard controller mode (MSI Claw). Chooses the default controller backend for all games:
+        // 0 = Hardware Controller (native XInput, firmware remaps), 1 = Virtual Controller (Viiper/ViGEm
+        // emulated pad + gyro + virtual mouse). Fresh installs default to Hardware. This is the SOURCE
+        // of the derived ControllerEmulationEnabled bool. Orthogonal to MsiClawControllerMode (which is
+        // the firmware mouse-vs-controller mode inside the HW, not HW-vs-Virtual). Helper is
+        // authoritative and persists it; migrated once from legacy ControllerEmulationEnabled.
+        DefaultControllerMode,      // int - 0 = Hardware Controller (default), 1 = Virtual Controller
     }
 }

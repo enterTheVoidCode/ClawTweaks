@@ -557,6 +557,9 @@ namespace XboxGamingBarHelper.Labs
             // (Type=1) is firmware-capable — Gamepad/Mouse/Macro stay on the software path, so pass
             // null for those to clear any previous firmware paddle remap.
             UpdateFirmwareKeyboardPaddle(button, mappingType == 1 ? values : null);
+            // Firmware gamepad→gamepad backend (HW mode only): Type=0 paddle targets a single XInput
+            // button. Non-gamepad types pass Disabled to clear any previous firmware gamepad paddle remap.
+            UpdateFirmwareGamepadPaddle(button, mappingType == 0 ? gamepadAction : RemapAction.Disabled);
         }
 
         /// <summary>
@@ -1649,20 +1652,33 @@ namespace XboxGamingBarHelper.Labs
         /// </summary>
         private bool SendRawCmd(byte[] cmd)
         {
-            if (_cmdDevice == null) return false;
-            try
+            var dev = _cmdDevice;
+            if (dev == null) return false;
+            // The command interface (mi_01) is opened exclusively — and briefly — by other pollers:
+            // rumble writes, the HW-mouse GamepadMode watcher, and the HidHide cycle-port on start.
+            // A single open can lose that race and throw "Unable to open HID class device". Retry over a
+            // few sub-100ms windows instead of bubbling the failure up to the coarse flush reschedule
+            // (which caused a multi-second FW-write storm right after a controller-mode switch). A failed
+            // OPEN writes nothing to EEPROM, so retrying is safe (no extra wear).
+            Exception last = null;
+            for (int attempt = 0; attempt < 6; attempt++)
             {
-                using (var stream = _cmdDevice.Open())
+                try
                 {
-                    stream.Write(cmd);
+                    using (var stream = dev.Open())
+                    {
+                        stream.Write(cmd);
+                    }
+                    return true;
                 }
-                return true;
+                catch (Exception ex)
+                {
+                    last = ex;
+                    Thread.Sleep(25);
+                }
             }
-            catch (Exception ex)
-            {
-                Logger.Warn($"ClawButtonMonitor: SendRawCmd failed: {ex.Message}");
-                return false;
-            }
+            Logger.Warn($"ClawButtonMonitor: SendRawCmd failed after retries: {last?.Message}");
+            return false;
         }
 
         private static byte[] BuildGetM12Cmd(bool isM1, byte[] addr)

@@ -189,9 +189,45 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
 
             enabled = value;
+
+            // Keep the persisted standard mode in lockstep with the enable/disable bool so that
+            // legacy enable paths (onboarding, quick-action tiles) that flip the master toggle
+            // directly also move the standard mode — otherwise the derived `enabled` would reset
+            // on the next reboot. NOTE: the per-game exception (Step 2) must NOT go through here;
+            // it uses a runtime-only override (see SetSuppressedByViiper) that leaves `enabled`
+            // and the mode untouched.
+            int derivedMode = value ? 1 : 0;
+            if (defaultControllerMode != derivedMode)
+            {
+                defaultControllerMode = derivedMode;
+                ControllerEmulationDefaultMode?.SetValue(derivedMode);
+            }
+
             SaveSettings();
             ApplyCurrentConfiguration(enabled ? "enabled changed: on" : "enabled changed: off");
             RaiseEmulationEnabledChanged();
+        }
+
+        /// <summary>
+        /// Standard controller mode: 0 = Hardware Controller, 1 = Virtual Controller. Source of the
+        /// derived <see cref="enabled"/> bool. Persists the mode, then routes the derived on/off state
+        /// through the ControllerEmulationEnabled property so the whole existing enable/disable
+        /// machinery (apply + widget sync) runs unchanged.
+        /// </summary>
+        public void SetDefaultControllerMode(int value)
+        {
+            int normalized = value == 1 ? 1 : 0;
+            if (defaultControllerMode == normalized)
+            {
+                return;
+            }
+
+            defaultControllerMode = normalized;
+            SaveSettings();
+
+            // Derive "virtual pad should run" and drive it through the existing property so the widget
+            // and the runtime apply path both react as if the user flipped the old master toggle.
+            ControllerEmulationEnabled.SetValue(defaultControllerMode == 1);
         }
 
         /// <summary>

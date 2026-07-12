@@ -1264,6 +1264,9 @@ namespace XboxGamingBarHelper
         {
             try
             {
+                // Changing the STANDARD mode supersedes any active per-game exception override.
+                _perGameEffectiveVirtual = null;
+                _hwExceptionSwapActive = false;
                 if (emulationEnabled)
                 {
                     lock (clawButtonMonitorLock)
@@ -1278,11 +1281,17 @@ namespace XboxGamingBarHelper
                     bool controllerModeOn = msiClawControllerModeManager?.MsiClawControllerMode?.Value ?? true;
                     Logger.Info($"MSIClaw: Master emulation toggle → ON — starting ClawButtonMonitor (mouseMode={!controllerModeOn})");
                     StartClawButtonMonitorBackground(startInMouseMode: !controllerModeOn);
+                    // Virtual mode now owns keyboard remaps in software (unless the FW toggle opted in) —
+                    // recompute the effective firmware state (clears the HW-mode firmware slots).
+                    ApplyEffectiveFirmwareKeyboardMode();
                 }
                 else
                 {
-                    Logger.Info("MSIClaw: Master emulation toggle → OFF — stopping ViGEm + restoring physical controllers (HidHide ForceUnhideAll)");
+                    Logger.Info("MSIClaw: Master emulation toggle → OFF (Hardware Controller) — stopping ViGEm + restoring physical controllers (HidHide ForceUnhideAll)");
                     StopMSIClawButtonMonitor();
+                    // Hardware mode: firmware becomes the only remap path — force firmware keyboard on and
+                    // apply the current profile's button-bound shortcuts via the firmware-only channel.
+                    ApplyEffectiveFirmwareKeyboardMode();
                 }
             }
             catch (Exception ex)
@@ -1313,8 +1322,42 @@ namespace XboxGamingBarHelper
         /// </summary>
         private static void OnMsiClawFwKeyboardModeChanged(bool firmwareOn)
         {
-            Logger.Info($"MSIClaw: MsiClawFwKeyboardMode changed → {(firmwareOn ? "Firmware" : "Software")}");
-            EnsureClawButtonMonitor().SetFirmwareKeyboardMode(firmwareOn);
+            Logger.Info($"MSIClaw: MsiClawFwKeyboardMode toggle → {(firmwareOn ? "Firmware" : "Software")}");
+            ApplyEffectiveFirmwareKeyboardMode();
+        }
+
+        /// <summary>
+        /// Computes and applies the EFFECTIVE firmware keyboard-remap state.
+        ///   • Hardware Controller mode (virtual pad off): firmware keyboard is ALWAYS on — it is the
+        ///     only way button-bound keyboard shortcuts can fire without the virtual pad. The firmware
+        ///     command interface (PID_1901/0xFFA0) is present even with no monitor running, so the
+        ///     firmware-only channel picks it up on demand (see ClawButtonMonitor.FlushFirmwareKeyboardMap).
+        ///   • Virtual Controller mode: honour the separate "FW Keyboard Mode" toggle (legacy behaviour;
+        ///     software injector by default, firmware if the user opted in).
+        /// Called on boot, on standard-mode change, and on the FW-keyboard toggle change. No-op on
+        /// non-A2VM (SetFirmwareKeyboardMode ignores non-capable devices).
+        /// </summary>
+        private static void ApplyEffectiveFirmwareKeyboardMode()
+        {
+            try
+            {
+                // Effective controller mode = the standard mode, unless a per-game exception is overriding
+                // it right now (see _perGameEffectiveVirtual, set by the HW/Virtual exception swap).
+                bool virtualMode = _perGameEffectiveVirtual ?? (controllerEmulationManager?.EmulationEnabled ?? false);
+                bool toggleOn = msiClawFwKeyboardModeManager?.MsiClawFwKeyboardMode?.Value ?? false;
+                bool effective = !virtualMode || toggleOn;   // HW mode ⇒ always firmware
+                Logger.Info($"MSIClaw: effective FW keyboard mode = {effective} (virtualMode={virtualMode}, toggle={toggleOn})");
+                var monitor = EnsureClawButtonMonitor();
+                monitor.SetFirmwareKeyboardMode(effective);
+                // Gamepad→gamepad firmware remaps only in Hardware mode (virtual mode uses software swaps).
+                // Set this from the mode (not _running) so a switch re-flushes deterministically — this is
+                // what clears the gamepad firmware remaps when returning to Virtual.
+                monitor.SetFirmwareGamepadEnabled(!virtualMode);
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"MSIClaw: ApplyEffectiveFirmwareKeyboardMode threw: {ex.Message}");
+            }
         }
 
         // ── HW-mouse killswitch (firmware Desktop mouse mode) ────────────────────────────────
@@ -1712,7 +1755,11 @@ namespace XboxGamingBarHelper
         private const string HwExceptionSettingKey = "HwControllerExceptionGames";
         private static readonly object _hwExceptionLock = new object();
         private static System.Collections.Generic.HashSet<string> _hwExceptionGames;
-        private static bool _hwExceptionSwapActive;   // true once we swapped virtual→HW for the running game
+        private static bool _hwExceptionSwapActive;   // true once we deviated from the standard mode for the running game
+        // Non-null while a per-game exception overrides the standard controller mode: the game's EFFECTIVE
+        // virtual-vs-hardware state (standard XOR exception). Read by ApplyEffectiveFirmwareKeyboardMode so
+        // firmware remaps follow the game's actual mode, not the standard. Cleared on game end / mode change.
+        private static bool? _perGameEffectiveVirtual;
         // The game key we last evaluated. RunningGame_PropertyChanged re-fires repeatedly for the
         // SAME game (RTSS re-detection, focus changes, shader-compile churn). Without this guard the
         // swap would re-run on every re-fire → the controller visibly flickers between virtual and HW.
@@ -1811,25 +1858,33 @@ namespace XboxGamingBarHelper
 
                 if (!exception)
                 {
-                    // Safety: a previous exception game may have left us in HW mode — restore virtual.
+                    // No deviation for this game. If a previous exception game left us deviated from the
+                    // standard mode, restore the standard mode now.
                     if (_hwExceptionSwapActive) RestoreVirtualControllerAfterHwException();
                     return;
                 }
 
-                bool emulationEnabled = Settings.LocalSettingsHelper.TryGetValue("ControllerEmulationEnabled", out bool en) && en;
-                if (!emulationEnabled)
-                {
-                    Logger.Info($"[HWExc] Game '{gameKey}' flagged but emulation is off → already HW, no swap");
-                    return;
-                }
+                // Effective mode for this game = standard XOR exception (dynamic direction):
+                //   standard Virtual + exception → Hardware for this game (the classic NBA-2K26 case)
+                //   standard Hardware + exception → Virtual for this game
+                bool standardVirtual = Settings.LocalSettingsHelper.TryGetValue("ControllerEmulationEnabled", out bool en) && en;
+                bool effectiveVirtual = standardVirtual ^ exception;   // exception is true here
 
-                Logger.Info($"[HWExc] Game '{gameKey}' flagged → swapping virtual controller → native HW controller");
+                Logger.Info($"[HWExc] Game '{gameKey}' exception ON → standardVirtual={standardVirtual}, effective={(effectiveVirtual ? "Virtual" : "Hardware")}");
                 _hwExceptionSwapActive = true;
+                _perGameEffectiveVirtual = effectiveVirtual;
                 Task.Run(() =>
                 {
-                    // HW mode = stop the monitor → native XInput, nothing hidden (the game sees the
-                    // real Claw controller). Same baseline the External Gamepad Mode OFF path uses.
-                    try { StopMSIClawButtonMonitor(); }
+                    try
+                    {
+                        // Clean baseline first (stop monitor → native XInput, nothing hidden), then bring
+                        // up the effective mode. Hardware = leave the monitor stopped; Virtual = start the
+                        // virtual pad. Firmware remaps then follow the effective mode.
+                        StopMSIClawButtonMonitor();
+                        if (effectiveVirtual)
+                            StartClawButtonMonitorBackground(mountVigem: true);
+                        ApplyEffectiveFirmwareKeyboardMode();
+                    }
                     catch (Exception ex) { Logger.Warn($"[HWExc] swap task threw: {ex.Message}"); }
                 });
             }
@@ -1850,13 +1905,19 @@ namespace XboxGamingBarHelper
 
             if (!_hwExceptionSwapActive) return;
             _hwExceptionSwapActive = false;
-            Logger.Info("[HWExc] Restoring virtual controller after HW-exception game ended");
+            _perGameEffectiveVirtual = null;   // back to the standard mode
+
+            bool standardVirtual = Settings.LocalSettingsHelper.TryGetValue("ControllerEmulationEnabled", out bool en) && en;
+            Logger.Info($"[HWExc] Restoring standard controller mode ({(standardVirtual ? "Virtual" : "Hardware")}) after exception game ended");
             Task.Run(() =>
             {
                 try
                 {
-                    StopMSIClawButtonMonitor();                          // clean baseline
-                    StartClawButtonMonitorBackground(mountVigem: true);  // restore virtual controller
+                    StopMSIClawButtonMonitor();                              // clean baseline
+                    if (standardVirtual)
+                        StartClawButtonMonitorBackground(mountVigem: true);  // restore the virtual controller
+                    // else: standard is Hardware → leave the monitor stopped (native XInput)
+                    ApplyEffectiveFirmwareKeyboardMode();
                 }
                 catch (Exception ex) { Logger.Warn($"[HWExc] restore task threw: {ex.Message}"); }
             });
@@ -2215,6 +2276,14 @@ namespace XboxGamingBarHelper
                     }
 
                     Logger.Info($"[ClawBoot #{invocation}] +{bootSw.ElapsedMilliseconds}ms monitor.Start() OK — virtual pad live + DInput acquired (controller now usable)");
+
+                    // Repair the firmware paddle map after Start: OpenClawInterfaces rewrites M1/M2 to
+                    // their HC defaults on first open (clobbering a firmware paddle keyboard/gamepad
+                    // remap). Re-assert now that Start is done, so e.g. an M2→Win+D firmware remap that
+                    // must survive into Virtual mode (FW keyboard toggle on) is restored. No-op on
+                    // non-A2VM; only M1/M2 are re-written (face slots are untouched by the HC init).
+                    if (mountVigem)
+                        clawButtonMonitor?.ReassertFirmwareMapAfterStart();
 
                     // Re-assert the FW vibration-motor ceiling (EEPROM 0x0022/0x0023) unconditionally
                     // on every boot, regardless of whether our own cached LegionVibrationIntensity

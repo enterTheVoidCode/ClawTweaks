@@ -33,6 +33,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
         private readonly LegionManager legionManager;
 
         private bool enabled;
+        // Standard controller mode: 0 = Hardware Controller (default), 1 = Virtual Controller.
+        // Source of the derived `enabled` bool (see LoadSettings / SetDefaultControllerMode).
+        private int defaultControllerMode;
         // Runtime-only flag — when true, the VIIPER emulation backend has taken over and
         // this legacy manager must not forward input. Not persisted: the user's saved
         // `enabled` value is preserved for when VIIPER is toggled back off.
@@ -428,6 +431,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
         public readonly ControllerEmulationAvailableProperty ControllerEmulationAvailable;
         public readonly ControllerEmulationEnabledProperty ControllerEmulationEnabled;
+        public readonly ControllerEmulationDefaultModeProperty ControllerEmulationDefaultMode;
         public readonly ControllerEmulationHideStockControllerProperty ControllerEmulationHideStockController;
         public readonly ControllerEmulationImprovedInputProperty ControllerEmulationImprovedInput;
         public readonly ControllerEmulationHideTargetProperty ControllerEmulationHideTarget;
@@ -553,6 +557,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
             ControllerEmulationAvailable = new ControllerEmulationAvailableProperty(isSupported, this);
             ControllerEmulationEnabled = new ControllerEmulationEnabledProperty(enabled, this);
+            ControllerEmulationDefaultMode = new ControllerEmulationDefaultModeProperty(defaultControllerMode, this);
             ControllerEmulationHideStockController = new ControllerEmulationHideStockControllerProperty(hideStockController, this);
             ControllerEmulationImprovedInput = new ControllerEmulationImprovedInputProperty(improvedInputRead, this);
             ControllerEmulationHideTarget = new ControllerEmulationHideTargetProperty(hideTarget, this);

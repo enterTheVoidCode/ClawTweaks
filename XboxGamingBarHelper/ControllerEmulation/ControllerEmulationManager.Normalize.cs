@@ -295,6 +295,23 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     enabled = false;
                 }
 
+                // Standard controller mode (0 = Hardware default, 1 = Virtual). This is the source of
+                // the derived `enabled` bool. On first run after the update, migrate from the legacy
+                // ControllerEmulationEnabled bool so existing virtual-controller users keep Virtual as
+                // their default (fresh installs fall to Hardware, since enabled defaults to false).
+                if (LocalSettingsHelper.TryGetValue("DefaultControllerMode", out int savedDefaultMode))
+                {
+                    defaultControllerMode = savedDefaultMode == 1 ? 1 : 0;
+                }
+                else
+                {
+                    defaultControllerMode = enabled ? 1 : 0;
+                }
+
+                // Derive the runtime "virtual pad should run" bool from the standard mode. The per-game
+                // exception (handled elsewhere) may still flip this at game start/end.
+                enabled = defaultControllerMode == 1;
+
                 if (LocalSettingsHelper.TryGetValue("ControllerEmulationHideStockController", out bool savedHideStockController))
                 {
                     hideStockController = savedHideStockController;
@@ -711,6 +728,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             try
             {
                 LocalSettingsHelper.SetValue("ControllerEmulationEnabled", enabled);
+                LocalSettingsHelper.SetValue("DefaultControllerMode", defaultControllerMode);
                 LocalSettingsHelper.SetValue("ControllerEmulationHideStockController", hideStockController);
                 LocalSettingsHelper.SetValue("ControllerEmulationImprovedInput", improvedInputRead);
                 LocalSettingsHelper.SetValue("ControllerEmulationHideTarget", hideTarget);

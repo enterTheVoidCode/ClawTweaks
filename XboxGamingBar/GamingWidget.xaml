@@ -6886,15 +6886,41 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Enable Virtual Controller &amp; Mouse" FontSize="14" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Main Controller Mode" FontSize="14" Foreground="#FFFFFF"/>
                                         <TextBlock x:Name="ControllerEmulationStatusText"
-                                                   Text="Turn the virtual controller and mouse runtime on or off"
-                                                   FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
+                                                   Text="Main mode for all games. Hardware = native XInput + firmware remaps. Virtual = emulated pad, gyro, Mouse Mode &amp; macros. Per game: enable the Controller Profile to set the opposite mode as an exception."
+                                                   FontSize="11" Foreground="#C8C8C8" TextWrapping="Wrap"/>
                                     </StackPanel>
+                                    <!-- User-facing standard-mode picker. Drives the DefaultControllerMode
+                                         setting; the helper derives ControllerEmulationEnabled and mirrors
+                                         it back into the (now hidden) master toggle that the gating logic
+                                         still reads. Each item carries a round status dot matching the
+                                         Controller Status card colours: blue = Hardware, green = Virtual. -->
+                                    <ComboBox x:Name="DefaultControllerModeComboBox"
+                                              Grid.Column="1" MinWidth="170"
+                                              VerticalAlignment="Center"
+                                              IsEnabled="False">
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <Ellipse Width="12" Height="12" Fill="#2E9BFF" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Hardware Controller" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <Ellipse Width="12" Height="12" Fill="#00C853" VerticalAlignment="Center"/>
+                                                <TextBlock Text="Virtual Controller" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                    </ComboBox>
+                                    <!-- Hidden mirror of the standard mode as a bool ("virtual pad should
+                                         run"). Kept so the existing IsVirtualControllerActive gating and
+                                         focus wiring stay unchanged; the helper drives its value. -->
                                     <ToggleSwitch x:Name="ControllerEmulationEnabledToggle"
                                                   Grid.Column="1" IsOn="False"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="False"
+                                                  Visibility="Collapsed"
                                                   Toggled="ControllerEmulationEnabledToggle_Toggled"/>
                                 </Grid>
                             </StackPanel>
@@ -7215,7 +7241,7 @@
                                                   IsOn="False"
                                                   Style="{StaticResource ModernToggleStyle}"
                                                   IsEnabled="False"
-                                                  XYFocusUp="{x:Bind ControllerEmulationEnabledToggle}"
+                                                  XYFocusUp="{x:Bind DefaultControllerModeComboBox}"
                                                   XYFocusDown="{x:Bind ControllerEmulationHideStockControllerToggle}"/>
                                 </Grid>
 
@@ -9032,6 +9058,17 @@
                                     </ToggleButton>
                                 </Grid>
                                 <StackPanel x:Name="ButtonRemappingContent" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <!-- Hardware-mode hint: in Hardware Controller mode remaps go through the
+                                         controller firmware. Keyboard shortcuts apply now; Gamepad→Gamepad is
+                                         coming. Mouse and Macro need the Virtual Controller. -->
+                                    <Border x:Name="HwRemapModeHint" Background="#14304a" BorderBrush="{StaticResource ThemeAccentBrush}"
+                                            BorderThickness="1" CornerRadius="4" Padding="8,6" Margin="0,0,0,10" Visibility="Collapsed">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                                            <TextBlock FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"
+                                                       Text="Hardware Controller mode: remaps are written to the controller firmware. Keyboard shortcuts and Gamepad→Gamepad remaps apply directly in games. Mouse and Macro types need the Virtual Controller."/>
+                                        </StackPanel>
+                                    </Border>
                                     <!-- Back Buttons Section -->
                                     <TextBlock Text="Back Buttons" FontSize="12" Foreground="#666666" Margin="0,0,0,8"/>
 
@@ -10551,9 +10588,11 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="HW Controller Exception for this Game" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Use the physical hardware controller instead of the virtual one for this game. Helps with competitive titles or special cases (e.g. NBA 2K26) that have issues with the virtual controller."
+                                        <TextBlock x:Name="HwControllerExceptionTitle" Text="Use Hardware Controller for this Game" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock x:Name="HwControllerExceptionSubtitle"
+                                                   Text="Override the standard controller mode for this game only. Helps with titles that have issues with the virtual controller (e.g. NBA 2K26)."
                                                    Style="{StaticResource CardCaptionStyle}"
+                                                   Foreground="#C8C8C8"
                                                    TextWrapping="Wrap"/>
                                     </StackPanel>
                                     <ToggleSwitch x:Name="HwControllerExceptionToggle"

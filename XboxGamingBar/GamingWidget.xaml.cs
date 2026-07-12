@@ -1463,6 +1463,7 @@ namespace XboxGamingBar
         private readonly GPDButtonProperty gpdButtonLSRight;
         private readonly ControllerEmulationAvailableProperty controllerEmulationAvailable;
         private readonly ControllerEmulationEnabledProperty controllerEmulationEnabled;
+        private readonly DefaultControllerModeProperty defaultControllerMode;
         private readonly HwControllerExceptionProperty hwControllerException;
         private readonly LedColorBySocProperty ledColorBySoc;
         private readonly ControllerEmulationHideStockControllerProperty controllerEmulationHideStockController;
@@ -2255,6 +2256,7 @@ namespace XboxGamingBar
             gpdButtonLSRight = new GPDButtonProperty(this, Function.GPDButtonLSRight);
             controllerEmulationAvailable = new ControllerEmulationAvailableProperty(this);
             controllerEmulationEnabled = new ControllerEmulationEnabledProperty(ControllerEmulationEnabledToggle, this);
+            defaultControllerMode = new DefaultControllerModeProperty(DefaultControllerModeComboBox, this);
             hwControllerException = new HwControllerExceptionProperty(HwControllerExceptionToggle, this);
             ledColorBySoc = new LedColorBySocProperty(LedColorBySocToggle, this);
             controllerEmulationHideStockController = new ControllerEmulationHideStockControllerProperty(ControllerEmulationHideStockControllerToggle, this);
@@ -2358,11 +2360,14 @@ namespace XboxGamingBar
             // Show USBIP install card only when VIIPER toggle is on AND driver is missing
             // The active backend changes which primary tool gates onboarding (usbip vs ViGEm), so
             // re-evaluate the onboarding badge/completion on a backend switch too.
-            emulationBackend.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); UpdateViiperLegionLDisabledHint(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); RefreshOnboardingState(); };
-            usbipInstalled.PropertyChanged += (s, e) => { UpdateUsbipCardVisibility(); UpdateOnboardingUsbip(usbipInstalled.Value); };
+            // These handlers fire on the pipe batch-sync thread and touch XAML, so marshal onto the
+            // UI thread (RunOnUiThread) — otherwise the first-start-after-update batch throws
+            // RPC_E_WRONG_THREAD (0x8001010E) and crashes the widget.
+            emulationBackend.PropertyChanged += (s, e) => RunOnUiThread(() => { UpdateUsbipCardVisibility(); UpdateViiperConfigVisibility(); UpdateViiperLegionLDisabledHint(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); RefreshOnboardingState(); });
+            usbipInstalled.PropertyChanged += (s, e) => RunOnUiThread(() => { UpdateUsbipCardVisibility(); UpdateOnboardingUsbip(usbipInstalled.Value); });
             // Show Steam sub-device picker only when a Steam device type is selected
-            viiperDeviceType.PropertyChanged += (s, e) => { UpdateViiperConfigVisibility(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); };
-            controllerEmulationMode.PropertyChanged += (s, e) => UpdateQuickSettingsTileStates();
+            viiperDeviceType.PropertyChanged += (s, e) => RunOnUiThread(() => { UpdateViiperConfigVisibility(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); });
+            controllerEmulationMode.PropertyChanged += (s, e) => RunOnUiThread(() => UpdateQuickSettingsTileStates());
             winRing0Available = new WinRing0AvailableProperty(this);
             pawnIOAvailable = new PawnIOAvailableProperty();
             pawnIOInstalled = new PawnIOInstalledProperty(this);
@@ -2750,6 +2755,7 @@ namespace XboxGamingBar
                 gpdButtonLSRight,
                 controllerEmulationAvailable,
                 controllerEmulationEnabled,
+                defaultControllerMode,
                 hwControllerException,
                 ledColorBySoc,
                 controllerEmulationHideStockController,
@@ -3519,19 +3525,35 @@ namespace XboxGamingBar
         {
             if (HwControllerExceptionCard == null) return;
 
-            // Only relevant when controller emulation is active AND the running game has a per-game
-            // CONTROLLER profile active (LegionControllerProfileToggle) — NOT the per-game
-            // PERFORMANCE profile. The exception swaps the controller for that specific game, so it
-            // belongs to the per-game controller profile.
-            bool emulationOn = IsControllerEmulationActive;
+            // The per-game exception overrides the STANDARD controller mode for one game, so it is
+            // relevant in BOTH standard modes (Hardware and Virtual) — not only when the virtual pad is
+            // active. Show whenever the device supports the controller modes AND the running game has a
+            // per-game CONTROLLER profile active (NOT the per-game PERFORMANCE profile).
             bool perGameControllerProfile = LegionControllerProfileToggle?.IsOn == true;
             bool gameRunning = HasValidGame(currentGameName);
-            bool show = emulationOn && perGameControllerProfile && gameRunning;
+            bool show = controllerEmulationSupported && perGameControllerProfile && gameRunning;
 
             HwControllerExceptionCard.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
             if (!show && HwControllerExceptionHint != null)
             {
                 HwControllerExceptionHint.Visibility = Visibility.Collapsed;
+            }
+
+            // Dynamic label + subtitle: the exception is the OPPOSITE of the current standard mode.
+            // Standard = Virtual (hidden master toggle On) → exception uses the Hardware controller.
+            // Standard = Hardware → exception uses the Virtual controller.
+            bool standardVirtual = ControllerEmulationEnabledToggle?.IsOn == true;
+            if (HwControllerExceptionTitle != null)
+            {
+                HwControllerExceptionTitle.Text = standardVirtual
+                    ? "Use Hardware Controller for this Game"
+                    : "Use Virtual Controller for this Game";
+            }
+            if (HwControllerExceptionSubtitle != null)
+            {
+                HwControllerExceptionSubtitle.Text = standardVirtual
+                    ? "This game uses the physical hardware controller instead of the virtual one. Helps with titles that have issues with the virtual controller (e.g. NBA 2K26)."
+                    : "This game uses the virtual controller (emulated pad, gyro, Mouse Mode) instead of the hardware controller.";
             }
         }
 
