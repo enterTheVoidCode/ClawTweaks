@@ -1104,11 +1104,61 @@ namespace XboxGamingBar
         private void ButtonRemappingExpandToggle_KeyDown(object sender, KeyRoutedEventArgs e)
         {
             if (e.Key != VirtualKey.GamepadDPadDown && e.Key != VirtualKey.Down) return;
-            Control target = isButtonRemappingExpanded
-                ? (Control)LegionButtonM1TypeComboBox
-                : ControllerFeedbackExpandToggle;
-            try { target?.Focus(FocusState.Keyboard); } catch { }
-            e.Handled = true;
+
+            // When expanded, Down enters the remap content (M1's mode dropdown — Y1-Y3 above it are
+            // Collapsed on the MSI Claw). Otherwise (or if that control isn't focusable) fall through
+            // to the next REACHABLE section header, skipping any card that is disabled/collapsed in
+            // Hardware Controller mode (Gyro, Vibration & Deadzone). Only swallow the key when focus
+            // actually moved, so D-Pad navigation can never get stuck on a dead/disabled target.
+            if (isButtonRemappingExpanded && TryFocusControl(LegionButtonM1TypeComboBox))
+            {
+                e.Handled = true;
+                return;
+            }
+
+            if (TryFocusControl(NextReachableControllerSection(ButtonRemappingExpandToggle)))
+            {
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>
+        /// Focuses <paramref name="c"/> only if it is actually focusable (non-null, visible, enabled);
+        /// returns whether focus moved. Guards against Control.Focus() silently failing on a disabled
+        /// or collapsed target — which, combined with e.Handled, is what made D-Pad nav get stuck.
+        /// </summary>
+        private static bool TryFocusControl(Control c)
+        {
+            if (c == null || c.Visibility != Visibility.Visible || !c.IsEnabled) return false;
+            try { return c.Focus(FocusState.Keyboard); } catch { return false; }
+        }
+
+        /// <summary>
+        /// First controller-tab section header below <paramref name="current"/> that is reachable
+        /// (visible + enabled + tab stop), skipping sections disabled/collapsed in Hardware Controller
+        /// mode. Null if none below. The non-KeyDown headers rely on default XYFocus (which already
+        /// skips disabled controls), so only this Button-Remapping handler needs the explicit walk.
+        /// </summary>
+        private Control NextReachableControllerSection(Control current)
+        {
+            var order = new Control[]
+            {
+                ButtonRemappingExpandToggle,
+                GyroSettingsExpandToggle,
+                ControllerFeedbackExpandToggle,   // "Vibration & Deadzone"
+                SavedProfilesExpandToggle,
+                ControllerStateDetailsToggle,     // "Controller Status"
+            };
+            int idx = -1;
+            for (int i = 0; i < order.Length; i++) { if (ReferenceEquals(order[i], current)) { idx = i; break; } }
+            if (idx < 0) return null;
+            for (int i = idx + 1; i < order.Length; i++)
+            {
+                var c = order[i];
+                if (c != null && c.Visibility == Visibility.Visible && c.IsEnabled && c.IsTabStop)
+                    return c;
+            }
+            return null;
         }
 
         private bool isLegionControllerProfileScopeExpanded = false;
