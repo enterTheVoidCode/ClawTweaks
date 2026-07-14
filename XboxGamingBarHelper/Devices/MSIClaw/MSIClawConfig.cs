@@ -6,19 +6,25 @@ using System.Collections.Generic;
 namespace XboxGamingBarHelper.Devices.MSIClaw
 {
     /// <summary>
-    /// Configuration for MSI Claw 7/8 AI+ A2VM handhelds (Lunar Lake, Intel Core Ultra 200H).
+    /// Configuration for MSI Claw 7/8 AI+ A2VM (Lunar Lake) and Claw 8 EX AI+ CG3EM
+    /// (Panther Lake) handhelds.
     ///
-    /// SUPPORTED MODELS ONLY:
-    ///   "Claw 8 AI+ A2VM"   — MS-1T52, Lunar Lake — confirmed WMI Name
-    ///   "Claw 7 AI+ A2VM"   — MS-1T42, Lunar Lake — assumed WMI Name
-    ///   "Claw 7 AI+ A2VMX"  — MS-1T42 variant    — assumed WMI Name
+    /// SUPPORTED MODELS:
+    ///   "Claw 8 AI+ A2VM"     — MS-1T52, Lunar Lake   — confirmed WMI Name
+    ///   "Claw 7 AI+ A2VM"     — MS-1T42, Lunar Lake   — assumed WMI Name
+    ///   "Claw 7 AI+ A2VMX"    — MS-1T42 variant       — assumed WMI Name
+    ///   "Claw 8 EX AI+ CG3EM" — MS-1T91, Panther Lake — confirmed WMI Name (report v1.2)
+    ///
+    /// The EX shares the A2VM software/HID surface 1:1 (MSI ACPI-WMI, controller FFA0
+    /// command channel, EEPROM addresses and profile.rec schema all confirmed identical
+    /// on-device). The only genuinely platform-dependent path is TDP (see SupportsWmiTdp).
     ///
     /// NOT SUPPORTED:
     ///   "Claw A1M"  — Meteor Lake (Intel Core Ultra 100H), different EC, different HW controller.
-    ///   Any other Claw variant not based on Lunar Lake.
+    ///   Any other Claw variant not covered above.
     ///
-    /// Detection key: Win32_ComputerSystemProduct.Name must contain "A2VM".
-    /// The A1M does NOT contain "A2VM" in its WMI name → excluded automatically.
+    /// Detection key: Win32_ComputerSystemProduct.Name must contain "A2VM" (Lunar Lake) OR
+    /// "CG3EM"/"Claw 8 EX" (Panther Lake). The A1M contains none of these → excluded automatically.
     ///
     /// NOTE: GoTweaks queries Win32_ComputerSystemProduct.Name, NOT Win32_ComputerSystem.Model.
     ///
@@ -30,6 +36,11 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
     /// </summary>
     public class MSIClawConfig : DeviceConfig
     {
+        // The concrete Claw generation resolved during Matches(); drives the per-model capability
+        // flags below via MSIClawModelCatalog. See MSIClawModels.cs for the per-device definitions.
+        private MSIClawModel _model = MSIClawModel.Unknown;
+        private MSIClawModelSpec Spec => MSIClawModelCatalog.Spec(_model);
+
         public override DeviceType DeviceType => DeviceType.MSIClaw;
         public override string DisplayName => "MSI Claw";
 
@@ -45,15 +56,16 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         /// </summary>
         public override IReadOnlyList<string> ModelIds => new[]
         {
-            "Claw 8 AI+ A2VM",  // Claw 8 AI+ A2VM  (Lunar Lake, MS-1T52) — confirmed
-            "Claw 7 AI+ A2VM",  // Claw 7 AI+ A2VM  (Lunar Lake, MS-1T42) — assumed
-            "Claw 7 AI+ A2VMX", // Claw 7 AI+ A2VMX (Lunar Lake, MS-1T42 variant) — assumed
+            "Claw 8 AI+ A2VM",     // Claw 8 AI+ A2VM  (Lunar Lake, MS-1T52)   — confirmed
+            "Claw 7 AI+ A2VM",     // Claw 7 AI+ A2VM  (Lunar Lake, MS-1T42)   — assumed
+            "Claw 7 AI+ A2VMX",    // Claw 7 AI+ A2VMX (Lunar Lake, MS-1T42 variant) — assumed
+            "Claw 8 EX AI+ CG3EM", // Claw 8 EX AI+ CG3EM (Panther Lake, MS-1T91) — confirmed
         };
 
         /// <summary>
-        /// Matches only Lunar Lake A2VM/A2VMX variants.
-        /// The Claw A1M (Meteor Lake) is intentionally excluded — it has a different
-        /// processor, EC firmware, and hardware controller.
+        /// Matches the supported Claw generations (Lunar Lake A2VM/A2VMX, Panther Lake EX/CG3EM) and
+        /// caches the resolved model so the capability flags below reflect that exact device. The Claw
+        /// A1M (Meteor Lake) and A8 (AMD) don't resolve to a Supported spec → excluded.
         /// </summary>
         public override bool Matches(DeviceInfo deviceInfo)
         {
@@ -61,18 +73,25 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             if (deviceInfo.Manufacturer.IndexOf(Manufacturer, StringComparison.OrdinalIgnoreCase) < 0)
                 return false;
 
-            // Product name must contain "A2VM" — covers A2VM and A2VMX, excludes A1M.
-            return deviceInfo.Model.IndexOf("A2VM", StringComparison.OrdinalIgnoreCase) >= 0;
+            var model = MSIClawModelCatalog.Resolve(deviceInfo);
+            if (!MSIClawModelCatalog.Spec(model).Supported)
+                return false;
+
+            _model = model; // remember which Claw generation matched (drives the capability flags)
+            return true;
         }
 
-        // Feature flags
-        public override bool SupportsWmiTdp             => false;  // TDP via Intel IGCL, not WMI
-        public override bool SupportsControllerRemap    => true;   // XInput controller emulation works
-        public override bool SupportsRgbLighting        => true;   // Controller LED via HID vendor commands (firmware-version-aware)
-        public override bool SupportsGyro               => true;   // Built-in IMU present
-        public override bool SupportsFirmwareKeyboardRemap => true; // Firmware button→keyboard remap RE'd/verified on A2VM (MatchesModel gates to A2VM only)
-        public override bool HasTouchpad                => false;  // No touchpad
-        public override bool HasScrollWheel             => false;  // No scroll wheel
-        public override bool HasDetachableControllers   => false;  // Integrated controller only
+        // Feature flags — delegated to the resolved per-model spec (MSIClawModels.cs). This is where
+        // per-device differences live; to change a capability for one model, edit its spec, not here.
+        public override bool SupportsWmiTdp             => Spec.SupportsWmiTdp;
+        public override bool SupportsControllerRemap    => Spec.SupportsControllerRemap;
+        public override bool SupportsRgbLighting        => Spec.SupportsRgbLighting;
+        public override bool SupportsGyro               => Spec.SupportsGyro;
+        public override bool SupportsFirmwareKeyboardRemap => Spec.SupportsFirmwareKeyboardRemap;
+        public override bool SupportsFanControl         => Spec.SupportsFanControl;
+        public override bool SupportsDriverManagement   => Spec.SupportsDriverManagement;
+        public override bool HasTouchpad                => Spec.HasTouchpad;
+        public override bool HasScrollWheel             => Spec.HasScrollWheel;
+        public override bool HasDetachableControllers   => Spec.HasDetachableControllers;
     }
 }

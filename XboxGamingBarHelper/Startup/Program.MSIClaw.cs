@@ -1009,14 +1009,23 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
-                // Re-apply any saved custom fan curve (EC resets across reboots).
-                RestoreMsiFanOnStartup();
+                // Custom fan curve is a per-model capability (off on the Claw 8 EX for now). Only touch
+                // the EC fan on fan-capable models — otherwise leave the fan entirely to the firmware.
+                if (deviceInfo.SupportsFanControl)
+                {
+                    // Re-apply any saved custom fan curve (EC resets across reboots).
+                    RestoreMsiFanOnStartup();
 
-                // Fan auto-safety: above 70 °C in a software-curve mode, hand the fan to the EC's own
-                // aggressive Sport curve (which the Intel IPF panic-latch can't override), then restore the
-                // curve at game end. RE-ENABLED — the panic latch (fan stuck high, won't ramp down under
-                // sustained load, e.g. Cyberpunk) resurfaced after the MSI-axis rework left this dormant.
-                EnableMsiFanAutoSport();
+                    // Fan auto-safety: above 70 °C in a software-curve mode, hand the fan to the EC's own
+                    // aggressive Sport curve (which the Intel IPF panic-latch can't override), then restore the
+                    // curve at game end. RE-ENABLED — the panic latch (fan stuck high, won't ramp down under
+                    // sustained load, e.g. Cyberpunk) resurfaced after the MSI-axis rework left this dormant.
+                    EnableMsiFanAutoSport();
+                }
+                else
+                {
+                    Logger.Info("MSIClaw: fan control not supported on this model — leaving fan to firmware (no curve restore / auto-sport)");
+                }
 
                 // Re-apply the saved battery charge limit if it was enabled (EC can reset on reboot).
                 RestoreMsiChargeLimitOnStartup();

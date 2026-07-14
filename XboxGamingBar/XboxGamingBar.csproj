@@ -261,6 +261,8 @@
     <Compile Include="Data\Device\DeviceSupportsRgbLightingProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsGyroProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsFirmwareKeyboardRemapProperty.cs" />
+    <Compile Include="Data\Device\DeviceSupportsFanControlProperty.cs" />
+    <Compile Include="Data\Device\DeviceSupportsDriverManagementProperty.cs" />
     <Compile Include="Data\Device\DeviceHasScrollWheelProperty.cs" />
     <Compile Include="Data\Device\DeviceHasDetachableControllersProperty.cs" />
     <Compile Include="Data\Device\DeviceHasTouchpadProperty.cs" />
@@ -426,6 +428,9 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Devices\GamingWidget.MsiFanControl.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Features\Devices\GamingWidget.TinyCenterM.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Devices\GamingWidget.MsiClawSettings.cs">

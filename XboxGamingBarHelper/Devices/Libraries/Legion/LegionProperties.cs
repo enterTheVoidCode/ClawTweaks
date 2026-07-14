@@ -1616,6 +1616,34 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         }
     }
 
+    // Device Supports Fan Control (read-only; per-model on the MSI Claw — e.g. off on the Claw 8 EX)
+    internal class DeviceSupportsFanControlProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceSupportsFanControlProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceSupportsFanControl, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Device Supports Driver Management / Drivers tab (read-only; per-model on the MSI Claw)
+    internal class DeviceSupportsDriverManagementProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceSupportsDriverManagementProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceSupportsDriverManagement, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
     // Device Has Scroll Wheel (read-only, based on device capabilities)
     internal class DeviceHasScrollWheelProperty : HelperProperty<bool, LegionManager>
     {

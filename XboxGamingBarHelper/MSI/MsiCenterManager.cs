@@ -276,6 +276,53 @@ namespace XboxGamingBarHelper.MSI
             }
         }
 
+        // ── Tiny Center M coexistence sync ───────────────────────────────
+        // Processes to bounce so MSI Center M re-reads profile.rec: the ControlMode server (holds the
+        // controller model in RAM and reloads profile.rec on start — it respawns immediately) and the
+        // UI window (the user reopens it via the left OEM front button). This is a LIGHT bounce, NOT the
+        // full Disable() (which also kills tasks/services + removes the Game Bar extension).
+        private static readonly string[] SyncBounceProcesses = { "MSI Center M", "MSI_Center_M_Server_ControlMode" };
+
+        /// <summary>
+        /// Kills the MSI Center M UI + ControlMode server so it reloads profile.rec (which we just
+        /// wrote), making Center M's own state match what Tiny Center M set. ControlMode respawns on
+        /// its own; the UI is reopened by the user. Used after a Tiny Center M "Apply".
+        /// </summary>
+        public static void RestartControlModeForSync()
+        {
+            foreach (string name in SyncBounceProcesses)
+            {
+                try
+                {
+                    foreach (Process p in Process.GetProcessesByName(name))
+                    {
+                        try { if (!p.HasExited) p.Kill(); }
+                        catch (Exception ex) { Logger.Debug($"[MsiCenterManager] kill '{name}' failed: {ex.Message}"); }
+                        finally { p.Dispose(); }
+                    }
+                }
+                catch (Exception ex) { Logger.Debug($"[MsiCenterManager] enum '{name}' failed: {ex.Message}"); }
+            }
+            Logger.Info("[MsiCenterManager] ControlMode/UI bounced for Tiny Center M sync (ControlMode will respawn + reload profile.rec)");
+        }
+
+        /// <summary>True if the MSI Center M UI or ControlMode server is currently running.</summary>
+        public static bool IsControlModeRunning()
+        {
+            foreach (string name in SyncBounceProcesses)
+            {
+                try
+                {
+                    Process[] ps = Process.GetProcessesByName(name);
+                    bool any = ps.Length > 0;
+                    foreach (Process p in ps) p.Dispose();
+                    if (any) return true;
+                }
+                catch { }
+            }
+            return false;
+        }
+
         // ── Toggle ───────────────────────────────────────────────────────
 
         /// <summary>

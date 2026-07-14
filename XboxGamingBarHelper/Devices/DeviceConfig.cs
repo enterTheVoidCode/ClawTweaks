@@ -46,6 +46,9 @@ namespace XboxGamingBarHelper.Devices
         public abstract bool HasScrollWheel { get; }
         public abstract bool HasDetachableControllers { get; }
         public virtual bool SupportsFanControl => false;
+        // Drivers tab (GPU driver updates etc.). Default true preserves the existing behaviour on
+        // non-MSI devices; the MSI Claw sets it per-model (e.g. off on the EX / AMD A8 for now).
+        public virtual bool SupportsDriverManagement => true;
 
         /// <summary>
         /// Applies this device's feature configuration to a DeviceInfo instance
@@ -62,6 +65,7 @@ namespace XboxGamingBarHelper.Devices
             deviceInfo.HasScrollWheel = HasScrollWheel;
             deviceInfo.HasDetachableControllers = HasDetachableControllers;
             deviceInfo.SupportsFanControl = SupportsFanControl;
+            deviceInfo.SupportsDriverManagement = SupportsDriverManagement;
         }
 
         /// <summary>

@@ -415,6 +415,7 @@
     <Compile Include="Devices\LegionGo2\LegionGo2Config.cs" />
     <Compile Include="Devices\LegionGoS\LegionGoSConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawConfig.cs" />
+    <Compile Include="Devices\MSIClaw\MSIClawModels.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawHidController.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawHwMouseWatcher.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawLedController.cs" />
@@ -472,6 +473,8 @@
     <Compile Include="Labs\LegionButtonMonitor.cs" />
     <Compile Include="Labs\ClawButtonMonitor.cs" />
     <Compile Include="Labs\ClawButtonMonitor.FwKeyboard.cs" />
+    <Compile Include="Labs\ClawButtonMonitor.CenterM.cs" />
+    <Compile Include="MSI\MsiCenterMProfile.cs" />
     <Compile Include="Labs\ClawButtonMonitor.GamepadSwap.cs" />
     <Compile Include="Labs\ClawButtonMonitor.Viiper.cs" />
     <Compile Include="Labs\ViGEmBusProperties.cs" />

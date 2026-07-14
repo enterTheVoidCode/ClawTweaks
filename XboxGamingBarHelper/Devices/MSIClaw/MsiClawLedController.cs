@@ -52,6 +52,11 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             new FwVersion { Firmware = 0x219, Add1 = 0x02, Add2 = 0x4A },
             // ── Claw A8 / Claw 7+8 AI+ A2VM (Lunar Lake) ─────
             new FwVersion { Firmware = 0x308, Add1 = 0x02, Add2 = 0x4A },
+            // ── Claw 8 EX AI+ CG3EM (Panther Lake) ───────────
+            // Nearest-match address for controller fw 0x0414 ([02,4A] like every recent Claw).
+            // Without this the EX would fall back to the wrong Meteor-Lake address 0x01/0xFA.
+            // TODO: confirm the LED writes to the correct zones on-device before finalizing.
+            new FwVersion { Firmware = 0x414, Add1 = 0x02, Add2 = 0x4A },
         };
 
         private const byte DefaultAdd1 = 0x01;

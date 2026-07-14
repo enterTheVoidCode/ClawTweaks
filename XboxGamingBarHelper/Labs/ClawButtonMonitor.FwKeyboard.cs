@@ -23,8 +23,9 @@ namespace XboxGamingBarHelper.Labs
     internal partial class ClawButtonMonitor
     {
         // ── Capability + mode ────────────────────────────────────────────────────
-        // Capable: DeviceType.MSIClaw && model contains "A2VM" (set from Program via DeviceInfo).
-        // A1M/A8/Claw 8 EX stay false — their EEPROM layout is not verified.
+        // Capable: any device MSIClawConfig matches — A2VM (Lunar Lake) and the Claw 8 EX
+        // (CG3EM, Panther Lake), which shares the A2VM controller EEPROM 1:1 (set from Program
+        // via DeviceInfo). A1M/A8 stay false — their EEPROM layout is not verified.
         private volatile bool _fwKeyboardCapable;
         // User toggle (Controller status). When false, the software path handles everything (default).
         private volatile bool _fwKeyboardModeEnabled;

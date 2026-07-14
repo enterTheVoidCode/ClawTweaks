@@ -281,6 +281,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         public readonly DeviceSupportsRgbLightingProperty DeviceSupportsRgbLighting;
         public readonly DeviceSupportsGyroProperty DeviceSupportsGyro;
         public readonly DeviceSupportsFirmwareKeyboardRemapProperty DeviceSupportsFirmwareKeyboardRemap;
+        public readonly DeviceSupportsFanControlProperty DeviceSupportsFanControl;
+        public readonly DeviceSupportsDriverManagementProperty DeviceSupportsDriverManagement;
         public readonly DeviceHasScrollWheelProperty DeviceHasScrollWheel;
         public readonly DeviceHasDetachableControllersProperty DeviceHasDetachableControllers;
         public readonly DeviceHasTouchpadProperty DeviceHasTouchpad;
@@ -564,6 +566,8 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             bool supportsRgbLighting = deviceInfo?.SupportsRgbLighting ?? true;
             bool supportsGyro = deviceInfo?.SupportsGyro ?? true;
             bool supportsFwKeyboardRemap = deviceInfo?.SupportsFirmwareKeyboardRemap ?? false;
+            bool supportsFanControl = deviceInfo?.SupportsFanControl ?? false;
+            bool supportsDriverManagement = deviceInfo?.SupportsDriverManagement ?? true;
             bool hasScrollWheel = deviceInfo?.HasScrollWheel ?? true;
             bool hasDetachableControllers = deviceInfo?.HasDetachableControllers ?? true;
             bool hasTouchpad = deviceInfo?.HasTouchpad ?? true;
@@ -573,11 +577,13 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             DeviceSupportsRgbLighting = new DeviceSupportsRgbLightingProperty(supportsRgbLighting, this);
             DeviceSupportsGyro = new DeviceSupportsGyroProperty(supportsGyro, this);
             DeviceSupportsFirmwareKeyboardRemap = new DeviceSupportsFirmwareKeyboardRemapProperty(supportsFwKeyboardRemap, this);
+            DeviceSupportsFanControl = new DeviceSupportsFanControlProperty(supportsFanControl, this);
+            DeviceSupportsDriverManagement = new DeviceSupportsDriverManagementProperty(supportsDriverManagement, this);
             DeviceHasScrollWheel = new DeviceHasScrollWheelProperty(hasScrollWheel, this);
             DeviceHasDetachableControllers = new DeviceHasDetachableControllersProperty(hasDetachableControllers, this);
             DeviceHasTouchpad = new DeviceHasTouchpadProperty(hasTouchpad, this);
 
-            Logger.Info($"Device capabilities - Name: {displayName}, ControllerRemap: {supportsControllerRemap}, RGB: {supportsRgbLighting}, Gyro: {supportsGyro}, ScrollWheel: {hasScrollWheel}, DetachableControllers: {hasDetachableControllers}, Touchpad: {hasTouchpad}");
+            Logger.Info($"Device capabilities - Name: {displayName}, ControllerRemap: {supportsControllerRemap}, RGB: {supportsRgbLighting}, Gyro: {supportsGyro}, FanControl: {supportsFanControl}, DriverMgmt: {supportsDriverManagement}, ScrollWheel: {hasScrollWheel}, DetachableControllers: {hasDetachableControllers}, Touchpad: {hasTouchpad}");
 
             // NOTE: Battery monitoring is started from Program.cs AFTER widget connection
             // is established. Starting it here blocks the AppService connection.

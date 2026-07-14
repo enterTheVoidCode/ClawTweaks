@@ -615,6 +615,114 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // ── Tiny Center M: read the live hardware controller config ──────────────────
+                // Widget sends "TinyCenterMGet"; response "TinyCenterMStatus" =
+                // "valid:LSDZ:LSEDZ:RSDZ:RSEDZ:LTDZ:LTEDZ:RTDZ:RTEDZ:swap:gyro".
+                if (pipeMsg.Extra.ContainsKey("TinyCenterMGet"))
+                {
+                    try
+                    {
+                        ClawButtonMonitor tcm; lock (clawButtonMonitorLock) tcm = clawButtonMonitor;
+                        var c = tcm?.ReadHwControllerConfig();
+                        string status = c != null
+                            ? $"{c.Valid}:{c.LSDZ}:{c.LSEDZ}:{c.RSDZ}:{c.RSEDZ}:{c.LTDZ}:{c.LTEDZ}:{c.RTDZ}:{c.RTEDZ}:{c.StickSwap}:{c.GyroActive}"
+                            : "False:0:0:0:0:0:0:0:0:False:False";
+                        var responseVs = new global::Windows.Foundation.Collections.ValueSet { { "TinyCenterMStatus", status } };
+                        if (pipeServer != null && pipeServer.IsConnected)
+                        {
+                            var responseMsg = Shared.IPC.PipeMessage.FromValueSet(responseVs);
+                            responseMsg.RequestId = pipeMsg.RequestId;
+                            pipeServer.SendMessage(responseMsg.ToJson());
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: TinyCenterMGet failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // Tiny Center M: set one deadzone/limit field. "TinyCenterMSet" = "FIELD:VALUE".
+                if (pipeMsg.Extra.TryGetValue("TinyCenterMSet", out object tcmSetObj) && tcmSetObj is string tcmSet)
+                {
+                    try
+                    {
+                        var parts = tcmSet.Split(':');
+                        string field = parts.Length > 0 ? parts[0].Trim() : "";
+                        int val = parts.Length > 1 && int.TryParse(parts[1].Trim(), out int p) ? p : 0;
+                        ClawButtonMonitor tcm; lock (clawButtonMonitorLock) tcm = clawButtonMonitor;
+                        bool ok = tcm != null && tcm.SetHwDeadzone(field, val);
+                        SendPipeAck(pipeMsg.RequestId, ok);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: TinyCenterMSet failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // Tiny Center M: reset/action. "TinyCenterMReset" = "sticks"|"triggers"|"gyrooff"|"swapoff".
+                if (pipeMsg.Extra.TryGetValue("TinyCenterMReset", out object tcmRstObj) && tcmRstObj is string tcmRst)
+                {
+                    try
+                    {
+                        ClawButtonMonitor tcm; lock (clawButtonMonitorLock) tcm = clawButtonMonitor;
+                        bool ok = false;
+                        if (tcm != null)
+                        {
+                            switch (tcmRst.Trim().ToLowerInvariant())
+                            {
+                                case "sticks":   ok = tcm.ResetSticks(); break;
+                                case "triggers": ok = tcm.ResetTriggers(); break;
+                                case "gyrooff":  ok = tcm.DisableHwGyro(); break;
+                                case "swapoff":  ok = tcm.DisableStickSwap(); break;
+                            }
+                        }
+                        SendPipeAck(pipeMsg.RequestId, ok);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: TinyCenterMReset failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
+                // Tiny Center M: commit staged changes. "TinyCenterMApply" = "FIELD:VALUE;FIELD:VALUE;..."
+                // Writes each field to FW + profile.rec, then bounces MSI Center M's ControlMode server so
+                // it reloads profile.rec and its own state matches ours (full coexistence).
+                if (pipeMsg.Extra.TryGetValue("TinyCenterMApply", out object tcmApplyObj) && tcmApplyObj is string tcmApply)
+                {
+                    try
+                    {
+                        ClawButtonMonitor tcm; lock (clawButtonMonitorLock) tcm = clawButtonMonitor;
+                        bool allOk = tcm != null;
+                        if (tcm != null && !string.IsNullOrWhiteSpace(tcmApply))
+                        {
+                            foreach (var pair in tcmApply.Split(';'))
+                            {
+                                if (string.IsNullOrWhiteSpace(pair)) continue;
+                                var kv = pair.Split(':');
+                                if (kv.Length < 2) continue;
+                                int val = int.TryParse(kv[1].Trim(), out int p) ? p : 0;
+                                allOk &= tcm.SetHwDeadzone(kv[0].Trim(), val);
+                            }
+                        }
+                        // Bounce Center M's ControlMode so it re-reads the profile.rec we just wrote.
+                        MSI.MsiCenterManager.RestartControlModeForSync();
+                        Logger.Info($"Pipe: TinyCenterMApply committed ('{tcmApply}') + ControlMode bounced (ok={allOk})");
+                        SendPipeAck(pipeMsg.RequestId, allOk);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"Pipe: TinyCenterMApply failed: {ex.Message}");
+                        SendPipeAck(pipeMsg.RequestId, false);
+                    }
+                    return;
+                }
+
                 // Handle LaunchProgram request (Program Actions: default targets + user exe/ps1)
                 if (pipeMsg.Extra.TryGetValue("LaunchProgram", out object progValue) && progValue is string progTarget)
                 {

@@ -1639,6 +1639,10 @@ namespace XboxGamingBar
         // MSI Claw — firmware keyboard-remap backend toggle (Controller Status card, A2VM only)
         private readonly MsiClawFwKeyboardModeProperty msiClawFwKeyboardMode;
         private readonly DeviceSupportsFirmwareKeyboardRemapProperty deviceSupportsFirmwareKeyboardRemap;
+        // MSI Claw — per-model fan-control capability (gates the fan card; off on the Claw 8 EX for now)
+        private readonly DeviceSupportsFanControlProperty deviceSupportsFanControl;
+        // Per-model Drivers-tab capability (default on; off on the Claw 8 EX / AMD A8 for now)
+        private readonly DeviceSupportsDriverManagementProperty deviceSupportsDriverManagement;
         private readonly ExternalGamepadModeProperty externalGamepadMode;
         private readonly MsiClawHwMouseProperty msiClawHwMouse;
 
@@ -2442,6 +2446,8 @@ namespace XboxGamingBar
             // ToggleSwitch; visibility gated by the A2VM-only capability below).
             msiClawFwKeyboardMode = new MsiClawFwKeyboardModeProperty(MsiClawFwKeyboardModeToggle, this);
             deviceSupportsFirmwareKeyboardRemap = new DeviceSupportsFirmwareKeyboardRemapProperty(this);
+            deviceSupportsFanControl = new DeviceSupportsFanControlProperty(this);
+            deviceSupportsDriverManagement = new DeviceSupportsDriverManagementProperty(this);
             // MSI Claw — External Gamepad Mode Quick Settings tile (hide all handheld controllers)
             externalGamepadMode = new ExternalGamepadModeProperty();
             msiClawHwMouse = new MsiClawHwMouseProperty();
@@ -2470,6 +2476,10 @@ namespace XboxGamingBar
             deviceSupportsRgbLighting.SetVisibilityCallback(SetLightingSectionVisibility);
             deviceSupportsGyro.SetVisibilityCallback(SetGyroSectionVisibility);
             deviceSupportsFirmwareKeyboardRemap.SetVisibilityCallback(SetFwKeyboardRemapSectionVisibility);
+            // Fan card is per-model on the Claw — re-run its init whenever the capability changes.
+            deviceSupportsFanControl.SetVisibilityCallback(_ => InitializeMsiFanCard());
+            // Drivers tab is per-model on the Claw — show/hide its nav item on the capability.
+            deviceSupportsDriverManagement.SetVisibilityCallback(SetDriverTabVisibility);
             deviceHasScrollWheel.SetVisibilityCallback(SetScrollWheelSectionVisibility);
             deviceHasDetachableControllers.SetVisibilityCallback(SetControllerBatterySectionVisibility);
             deviceHasTouchpad.SetVisibilityCallback(SetTouchpadVibrationSectionVisibility);
@@ -2697,6 +2707,8 @@ namespace XboxGamingBar
                 msiClawControllerMode,
                 msiClawFwKeyboardMode,
                 deviceSupportsFirmwareKeyboardRemap,
+                deviceSupportsFanControl,
+                deviceSupportsDriverManagement,
                 externalGamepadMode,
                 msiClawHwMouse,
                 osPowerMode,
@@ -3065,9 +3077,10 @@ namespace XboxGamingBar
                 // Show/initialize the MSI Claw fan card + Display tab once the device name is known.
                 // Also re-populate all action dropdowns so MSI-Claw-specific entries appear even
                 // if the helper's device name arrived after the initial dropdown population.
-                deviceDisplayName.PropertyChanged += (s, e) => { InitializeMsiFanCard(); InitializeDisplayTab(); RefreshActionDropdowns(); InitializeMsiClawSettings(); };
+                deviceDisplayName.PropertyChanged += (s, e) => { InitializeMsiFanCard(); InitializeDisplayTab(); RefreshActionDropdowns(); InitializeMsiClawSettings(); InitializeTinyCenterMTab(); };
             }
             InitializeMsiFanCard();
+            InitializeTinyCenterMTab();
             InitializeDisplayTab();
             InitializeMsiClawSettings();
             if (osPowerMode != null)

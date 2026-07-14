@@ -1583,6 +1583,8 @@ namespace XboxGamingBarHelper
                 legionManager.DeviceSupportsRgbLighting,
                 legionManager.DeviceSupportsGyro,
                 legionManager.DeviceSupportsFirmwareKeyboardRemap,
+                legionManager.DeviceSupportsFanControl,
+                legionManager.DeviceSupportsDriverManagement,
                 legionManager.DeviceHasScrollWheel,
                 legionManager.DeviceHasDetachableControllers,
                 legionManager.DeviceHasTouchpad,

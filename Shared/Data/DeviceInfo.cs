@@ -84,6 +84,12 @@ namespace Shared.Data
         public bool SupportsFanControl { get; set; } = false;
 
         /// <summary>
+        /// Whether this device exposes the Drivers tab (GPU driver updates etc.). Default true;
+        /// per-model on the MSI Claw (e.g. off on the Claw 8 EX / AMD A8 for now).
+        /// </summary>
+        public bool SupportsDriverManagement { get; set; } = true;
+
+        /// <summary>
         /// Checks if this is any Legion device (Go, Go 2, or Go S)
         /// </summary>
         public bool IsLegionDevice => DeviceType == DeviceType.LegionGo || DeviceType == DeviceType.LegionGo2 || DeviceType == DeviceType.LegionGoS;

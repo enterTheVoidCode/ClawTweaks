@@ -97,16 +97,22 @@ namespace XboxGamingBar
         private bool IsMsiClawDevice()
             => deviceDisplayName?.Value?.IndexOf("Claw", StringComparison.OrdinalIgnoreCase) >= 0;
 
-        /// <summary>Show the fan card on MSI Claw and restore the saved state. Idempotent.</summary>
+        // Custom fan curve is a per-model capability (helper-driven). It is OFF on some Claw generations
+        // — e.g. the Claw 8 EX, where MSI's own custom curves still have issues. Must be an MSI Claw AND
+        // report the fan-control capability.
+        private bool IsMsiFanControlSupported()
+            => IsMsiClawDevice() && (deviceSupportsFanControl?.Value ?? false);
+
+        /// <summary>Show the fan card on fan-capable MSI Claw models and restore the saved state. Idempotent.</summary>
         private void InitializeMsiFanCard()
         {
             if (MsiFanCard == null) return;
 
-            // Fan tab is MSI-Claw-only; gate its nav item like the Display tab.
+            // Fan tab is gated on the per-model fan-control capability (like the Display tab).
             if (FanNavItem != null)
-                FanNavItem.Visibility = IsMsiClawDevice() ? Visibility.Visible : Visibility.Collapsed;
+                FanNavItem.Visibility = IsMsiFanControlSupported() ? Visibility.Visible : Visibility.Collapsed;
 
-            if (!IsMsiClawDevice())
+            if (!IsMsiFanControlSupported())
             {
                 MsiFanCard.Visibility = Visibility.Collapsed;
                 return;
