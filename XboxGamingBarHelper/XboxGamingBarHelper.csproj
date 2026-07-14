@@ -203,6 +203,7 @@
     <Compile Include="Settings\IsForegroundProperty.cs" />
     <Compile Include="Settings\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Performance\HardwareSensor.cs" />
+    <Compile Include="Performance\IntelMsrCpuFallback.cs" />
     <Compile Include="Performance\PerformanceManager.cs" />
     <Compile Include="Performance\TdpMethodAvailableProperty.cs" />
     <Compile Include="Performance\InstallPawnIOProperty.cs" />
@@ -415,6 +416,7 @@
     <Compile Include="Devices\LegionGo2\LegionGo2Config.cs" />
     <Compile Include="Devices\LegionGoS\LegionGoSConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawConfig.cs" />
+    <Compile Include="Devices\MSIClaw\MSIClaw8EXConfig.cs" />
     <Compile Include="Devices\MSIClaw\MSIClawHidController.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawHwMouseWatcher.cs" />
     <Compile Include="Devices\MSIClaw\MsiClawLedController.cs" />

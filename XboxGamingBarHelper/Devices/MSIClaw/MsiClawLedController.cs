@@ -52,6 +52,13 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             new FwVersion { Firmware = 0x219, Add1 = 0x02, Add2 = 0x4A },
             // ── Claw A8 / Claw 7+8 AI+ A2VM (Lunar Lake) ─────
             new FwVersion { Firmware = 0x308, Add1 = 0x02, Add2 = 0x4A },
+            // ── Claw 8 AI+ EX (Panther Lake, MS-1T91) ────────
+            // Not from HC (no EX support upstream). Measured on-device 2026-07-05: fw
+            // bcdDevice 0x0411; the nearest-match fallback picked [02,4A] and the controller
+            // LEDs VISIBLY responded to on/off/colour writes (human-verified, port log
+            // "evening" entry) — promoted to an exact entry so the EX no longer depends on
+            // nearest-match behavior.
+            new FwVersion { Firmware = 0x411, Add1 = 0x02, Add2 = 0x4A },
         };
 
         private const byte DefaultAdd1 = 0x01;
@@ -115,6 +122,18 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             try
             {
                 if (zones27 == null || zones27.Length < 27) return false;
+
+                // Respect the detected device's RGB capability flag. LED writes go to controller
+                // EEPROM at a firmware-version-specific address; on a device with
+                // SupportsRgbLighting=false (e.g. a future Claw variant whose firmware is not yet
+                // in FirmwareTable) a write would land on an unverified address. Single choke
+                // point: covers the pipe handler, MsiLedBoot and LED-by-SoC callers, none of which
+                // checked the flag (observed ungated writes on the EX, 2026-07-05).
+                if (!DeviceDetector.DetectDevice().SupportsRgbLighting)
+                {
+                    Logger.Warn("[MsiClawLed] LED write blocked: detected device reports SupportsRgbLighting=false");
+                    return false;
+                }
 
                 HidDevice device = MSIClawHidController.FindClawHidDeviceInternal();
                 if (device == null)

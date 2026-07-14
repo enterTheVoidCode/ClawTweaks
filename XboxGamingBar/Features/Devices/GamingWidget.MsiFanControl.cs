@@ -184,6 +184,32 @@ namespace XboxGamingBar
             Logger.Info($"OnMsiFanState applied: value={value} enabled={enabled} preset={preset}");
         }
 
+        /// <summary>
+        /// Handles the helper's "MsiFanAutoSport" push: "&lt;0|1&gt;|&lt;tempC&gt;". While the 70 °C
+        /// auto-safety has cooling handed to EC Sport, the selected preset is NOT what drives the
+        /// fan — surface that instead of silently keeping the preset highlighted. (On the Claw 8 EX
+        /// the EC Sport hand-back table is audible at all temperatures, so the silent switch read as
+        /// "my preset got unset" — see docs/hardware/CLAW8_EX_VALIDATION.md, 2026-07-07 addendum.)
+        /// </summary>
+        internal void OnMsiFanAutoSport(string payload)
+        {
+            try
+            {
+                if (MsiFanAutoSportBadge == null || string.IsNullOrEmpty(payload)) return;
+                var parts = payload.Split('|');
+                bool active = parts[0] == "1";
+                MsiFanAutoSportBadge.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+                if (active && MsiFanAutoSportText != null)
+                {
+                    string temp = parts.Length > 1 ? parts[1] : "";
+                    string at = (string.IsNullOrEmpty(temp) || temp == "0") ? "" : $" (CPU {temp} °C)";
+                    MsiFanAutoSportText.Text = $"Auto Sport active{at} — EC Sport is cooling; your preset resumes after cooldown.";
+                }
+                Logger.Info($"OnMsiFanAutoSport: '{payload}'");
+            }
+            catch (Exception ex) { Logger.Error($"OnMsiFanAutoSport: {ex.Message}"); }
+        }
+
         private void BuildMsiFanPoints()
         {
             if (_msiFanPointsBuilt || MsiFanCurveCanvas == null) return;

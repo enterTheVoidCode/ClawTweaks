@@ -28,8 +28,13 @@ namespace XboxGamingBarHelper.Devices
             new LegionGoSConfig(),   // Check Go S before original Go
             new LegionGoConfig(),    // Original Legion Go
 
-            // MSI Claw devices
+            // MSI Claw devices. The two configs' Matches() are mutually exclusive
+            // ("A2VM" vs "Claw 8 EX" name tokens), so relative order does not affect
+            // matching — but GetByType(MSIClaw) returns the FIRST entry, and both
+            // call sites use it only for DisplayName. A2VM stays first so existing
+            // A2VM installs keep showing "MSI Claw" exactly as before.
             new MSIClawConfig(),     // MSI Claw A1M / A2VM (MS-1T41, MS-1T42, MS-1T52)
+            new MSIClaw8EXConfig(),  // MSI Claw 8 AI+ EX (MS-1T91, Panther Lake)
 
             // GPD devices (check Win Mini before Win 4/5 as Win Mini has more specific model)
             new GPDWinMiniConfig(),  // GPD Win Mini (G1617)

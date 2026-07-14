@@ -381,6 +381,16 @@ namespace XboxGamingBarHelper.Windows
                 Logger.Debug($"Display supports: {res.w}x{res.h}");
             }
 
+            // No display modes at all (locked session, display off, or a headless
+            // start — e.g. launched by the scheduled task before the desktop is
+            // available). GCD(0,0) below would divide by zero and take down the
+            // whole helper at boot; degrade to "no resolution options" instead.
+            if (nativeWidth <= 0 || nativeHeight <= 0)
+            {
+                Logger.Warn("GetSupportedResolutions: EnumDisplaySettings returned no usable modes — returning empty list");
+                return new List<string>();
+            }
+
             // Calculate aspect ratio as a fraction (reduce to simplest form)
             int gcd = GCD(nativeWidth, nativeHeight);
             int aspectW = nativeWidth / gcd;
@@ -392,6 +402,7 @@ namespace XboxGamingBarHelper.Windows
             {
                 int w = res.w;
                 int h = res.h;
+                if (w <= 0 || h <= 0) continue; // degenerate mode — GCD would be 0
 
                 // Check if this resolution matches the native aspect ratio
                 int resGcd = GCD(w, h);

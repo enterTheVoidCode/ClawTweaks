@@ -964,6 +964,12 @@ namespace XboxGamingBarHelper.Performance
             // before we commit pendingValues to the public sensor.Value fields.
             FillGpuSensorsFromAdlxFallback(pendingValues);
 
+            // Direct-MSR fallback for CPU temp/power on Intel CPUs LHM doesn't recognise
+            // (Claw 8 EX / Panther Lake with LHM 0.9.6 — see IntelMsrCpuFallback header).
+            // Same pattern as the ADLX fallback: only fills slots still at -1, so it can
+            // never override an LHM-provided value on recognised CPUs (A2VM unaffected).
+            FillCpuSensorsFromMsrFallback(pendingValues);
+
             // Apply all values at once so PushQuickMetrics never sees partially-reset state
             foreach (var kvp in pendingValues)
             {
@@ -1014,6 +1020,37 @@ namespace XboxGamingBarHelper.Performance
         private static bool IsMissing(Dictionary<HardwareSensor, float> pending, HardwareSensor key)
         {
             return pending.TryGetValue(key, out float v) && v < 0;
+        }
+
+        // Lazily created on the first update where LHM left CPU temp/power unfilled;
+        // stays null forever on machines where LHM covers the CPU (A2VM/Lunar Lake).
+        private IntelMsrCpuFallback msrCpuFallback;
+        private bool msrCpuFallbackDisabled;
+
+        private void FillCpuSensorsFromMsrFallback(Dictionary<HardwareSensor, float> pendingValues)
+        {
+            if (msrCpuFallbackDisabled)
+                return;
+
+            bool tempMissing = IsMissing(pendingValues, CPUTemperature);
+            bool powerMissing = IsMissing(pendingValues, CPUWattage);
+            if (!tempMissing && !powerMissing)
+                return;
+
+            if (msrCpuFallback == null)
+                msrCpuFallback = new IntelMsrCpuFallback();
+
+            if (!msrCpuFallback.TryFill(out float tempC, out float powerW))
+            {
+                // PawnIO absent / non-Intel / MSR reads failing — stop asking every tick.
+                msrCpuFallbackDisabled = true;
+                return;
+            }
+
+            if (tempMissing && tempC >= 0)
+                pendingValues[CPUTemperature] = tempC;
+            if (powerMissing && powerW >= 0)
+                pendingValues[CPUWattage] = powerW;
         }
 
         /// <summary>

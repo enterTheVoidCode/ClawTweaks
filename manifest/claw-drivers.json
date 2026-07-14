@@ -35,6 +35,39 @@
           "_comment": "Installierte Controller-FW-Version wird automatisch aus dem HID-Descriptor (bcdDevice, z.B. 0x308 -> '3.08') gelesen (MsiClawLedController.TryGetControllerFirmwareVersion, portiert aus HC) - die Zeile zeigt also die echte installierte Version. 'version' = neueste FW pflegen, damit der Update-Status berechnet wird; action bleibt deeplink (Firmware nie auto-installieren), sobald eine download.msi.com-URL bekannt ist optional auf install setzen."
         }
       ]
+    },
+    {
+      "deviceType": 40,
+      "_deviceComment": "Claw 8 AI+ EX (Panther Lake, MS-1T91). Board-Code kommt aus Win32_BaseBoard.Product (nicht aus dem Produktnamen) - der Helper liest ihn seit dem EX-Port als Fallback. Support-Slug 'Claw-8-EX-AI-Plus-CG3EMX' von msi.com bestaetigt (2026-07-05).",
+      "models": ["MS-1T91"],
+      "drivers": [
+        {
+          "name": "BIOS / UEFI",
+          "category": "BIOS/UEFI",
+          "providerScope": "msi",
+          "version": "",
+          "releaseDate": "",
+          "downloadUrl": "https://www.msi.com/Handheld/Claw-8-EX-AI-Plus-CG3EMX/support",
+          "severity": "recommended",
+          "pnpMatchHints": [],
+          "deviceIdMatch": "",
+          "action": "deeplink",
+          "_comment": "Wie beim A2VM-Block: action MUSS deeplink bleiben (BIOS-Flasher nie automatisch starten)."
+        },
+        {
+          "name": "MSI Controller-Firmware",
+          "category": "Firmware",
+          "providerScope": "msi",
+          "version": "",
+          "releaseDate": "",
+          "downloadUrl": "https://www.msi.com/Handheld/Claw-8-EX-AI-Plus-CG3EMX/support",
+          "severity": "optional",
+          "pnpMatchHints": ["claw", "controller", "gamepad"],
+          "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
+          "action": "deeplink",
+          "_comment": "EX-Controller-FW gemessen: bcdDevice 0x0411 ('4.11', 2026-07-05). 'version' pflegen sobald MSI eine neuere FW listet."
+        }
+      ]
     }
   ]
 }
