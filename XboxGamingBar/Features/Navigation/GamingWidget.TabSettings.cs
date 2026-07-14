@@ -60,6 +60,7 @@ namespace XboxGamingBar
             new TabDef("Legion",      "Controls"),
             new TabDef("Display",     "Display"),
             new TabDef("Fan",         "Fan"),
+            new TabDef("TinyCenterM", "Tiny Center M"),
             new TabDef("Scaling",     "Lossless Scaling"),
             // "Game" (Profiles) is hidden: its content moved into the Performance tab. Left out of the
             // manageable list so it disappears from the Tab Settings reorder/hide UI and is dropped from
@@ -78,7 +79,7 @@ namespace XboxGamingBar
         // Device-gated tabs: their base visibility is owned by device logic. We only ever HIDE these
         // on user request — never force-show, so we don't surface a tab that doesn't apply.
         private static readonly HashSet<string> _deviceGatedTabs =
-            new HashSet<string> { "Display", "Fan", "Scaling", "Legion", "GPD", "AMD", "Trigger" };
+            new HashSet<string> { "Display", "Fan", "TinyCenterM", "Scaling", "Legion", "GPD", "AMD", "Trigger", "Drivers" };
 
         private const string TabOrderKey = "TabOrder";
         private const string TabHiddenKey = "TabHidden";
@@ -116,6 +117,34 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>
+        /// Per-model gate for the Drivers tab (helper-driven capability). Default on; turned off on
+        /// Claw generations without a verified driver path (e.g. Claw 8 EX, AMD A8). Manages the
+        /// device-gated availability set explicitly so a true→false transition actually hides the tab.
+        /// </summary>
+        internal void SetDriverTabVisibility(bool supported)
+        {
+            if (Dispatcher != null && !Dispatcher.HasThreadAccess)
+            {
+                var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () => SetDriverTabVisibility(supported));
+                return;
+            }
+            if (DriverNavItem == null) return;
+
+            if (supported)
+            {
+                DriverNavItem.Visibility = Visibility.Visible;
+                _everAvailableTabs.Add("Drivers");
+            }
+            else
+            {
+                _everAvailableTabs.Remove("Drivers");   // no longer available → ApplyTabPrefs won't re-show it
+                DriverNavItem.Visibility = Visibility.Collapsed;
+            }
+
+            ApplyTabPrefs();   // respect user hide/order prefs + never leave a hidden tab selected
+        }
+
         private RadioButton NavItemForTag(string tag)
         {
             switch (tag)
@@ -126,6 +155,7 @@ namespace XboxGamingBar
                 case "Display": return DisplayNavItem;
                 case "Legion": return LegionNavItem;
                 case "Fan": return FanNavItem;
+                case "TinyCenterM": return TinyCenterMNavItem;
                 case "Scaling": return ScalingNavItem;
                 case "Game": return ProfilesNavItem;
                 case "System": return SystemNavItem;

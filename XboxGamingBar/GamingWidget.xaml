@@ -666,6 +666,11 @@
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
+                    <RadioButton x:Name="TinyCenterMNavItem" Tag="TinyCenterM" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Tiny Center M">
+                        <RadioButton.Content>
+                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7FC;" FontSize="16"/>
+                        </RadioButton.Content>
+                    </RadioButton>
                     <RadioButton x:Name="ScalingNavItem" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Lossless Scaling">
                         <RadioButton.Content>
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
@@ -6263,6 +6268,81 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- TINY CENTER M TAB (MSI Claw hardware controller config, Center-M-conform) -->
+                <ScrollViewer x:Name="TinyCenterMScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
+                              BringIntoViewOnFocusChange="True">
+                    <StackPanel Padding="16,8,16,16">
+                        <TextBlock Text="Tiny Center M" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                        <TextBlock Text="Hardware controller settings, written straight to the controller and kept in sync with MSI Center M."
+                                   FontSize="13" Foreground="#C8C8C8" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                        <TextBlock x:Name="TcmStatusText" FontSize="13" Foreground="#FFC107" TextWrapping="Wrap"
+                                   Visibility="Collapsed" Margin="0,0,0,10"/>
+
+                        <!-- Global apply: changes are staged; committing writes FW + MSI profile and
+                             restarts MSI Center M's ControlMode so its own state matches. Glows when dirty. -->
+                        <Button x:Name="TcmApplyButton" Click="TcmApply_Click" IsEnabled="False"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                Padding="12,10" Margin="0,0,0,12">
+                            <StackPanel Orientation="Horizontal">
+                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE73E;" FontSize="14" Margin="0,0,8,0"/>
+                                <TextBlock x:Name="TcmApplyText" Text="No unsaved changes"/>
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Sticks -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Sticks" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <Button Content="Reset to default" Click="TcmResetSticks_Click" HorizontalAlignment="Right" Padding="12,4"/>
+                                </Grid>
+                                <StackPanel Margin="0,8,0,0">
+                                    <Grid><TextBlock Text="Left stick — inner deadzone"/><TextBlock x:Name="TcmLSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmLSDZSlider" Tag="LSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <Grid><TextBlock Text="Left stick — outer threshold"/><TextBlock x:Name="TcmLSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmLSEDZSlider" Tag="LSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <Grid><TextBlock Text="Right stick — inner deadzone"/><TextBlock x:Name="TcmRSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmRSDZSlider" Tag="RSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <Grid><TextBlock Text="Right stick — outer threshold"/><TextBlock x:Name="TcmRSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmRSEDZSlider" Tag="RSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Triggers -->
+                        <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <TextBlock Text="Triggers" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <Button Content="Reset to default" Click="TcmResetTriggers_Click" HorizontalAlignment="Right" Padding="12,4"/>
+                                </Grid>
+                                <StackPanel Margin="0,8,0,0">
+                                    <Grid><TextBlock Text="Left trigger — deadzone"/><TextBlock x:Name="TcmLTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmLTDZSlider" Tag="LTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <Grid><TextBlock Text="Left trigger — limit"/><TextBlock x:Name="TcmLTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmLTEDZSlider" Tag="LTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <Grid><TextBlock Text="Right trigger — deadzone"/><TextBlock x:Name="TcmRTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmRTDZSlider" Tag="RTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <Grid><TextBlock Text="Right trigger — limit"/><TextBlock x:Name="TcmRTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmRTEDZSlider" Tag="RTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 

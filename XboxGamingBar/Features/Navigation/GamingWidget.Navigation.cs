@@ -54,6 +54,10 @@ namespace XboxGamingBar
                 // ApplyTheme runs at load, so they'd show the un-themed grey pill on first select).
                 ApplyNavPillTheme(selectedItem);
 
+                // Re-evaluate the Tiny Center M nav item here so its visibility is always correct once
+                // the device name is known (it has no other high-traffic re-trigger, unlike the Fan tab).
+                InitializeTinyCenterMTab();
+
                 // User actively opened Game Bar and is navigating → run the throttled update-availability
                 // probe (drives the green Setup-tab badge). Self-limits via timestamp, so this is cheap.
                 _ = MaybeCheckForAppUpdateAsync();
@@ -65,6 +69,7 @@ namespace XboxGamingBar
                 AMDScrollViewer.Visibility = Visibility.Collapsed;
                 if (DisplayScrollViewer != null) DisplayScrollViewer.Visibility = Visibility.Collapsed;
                 if (FanScrollViewer != null) FanScrollViewer.Visibility = Visibility.Collapsed;
+                if (TinyCenterMScrollViewer != null) TinyCenterMScrollViewer.Visibility = Visibility.Collapsed;
                 ScalingScrollViewer.Visibility = Visibility.Collapsed;
                 LegionScrollViewer.Visibility = Visibility.Collapsed;
                 GPDScrollViewer.Visibility = Visibility.Collapsed;
@@ -125,6 +130,14 @@ namespace XboxGamingBar
                             FanScrollViewer.ChangeView(null, 0, null, true);
                         }
                         InitializeMsiFanCard();
+                        break;
+                    case "TinyCenterM":
+                        if (TinyCenterMScrollViewer != null)
+                        {
+                            TinyCenterMScrollViewer.Visibility = Visibility.Visible;
+                            TinyCenterMScrollViewer.ChangeView(null, 0, null, true);
+                        }
+                        _ = LoadTinyCenterMAsync();
                         break;
                     // case "Trigger":  // Hotkeys tab hidden — redundant with Main > Customize keyboard hotkeys
                     //     TriggerScrollViewer.Visibility = Visibility.Visible;

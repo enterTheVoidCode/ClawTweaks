@@ -578,5 +578,13 @@
         // the firmware mouse-vs-controller mode inside the HW, not HW-vs-Virtual). Helper is
         // authoritative and persists it; migrated once from legacy ControllerEmulationEnabled.
         DefaultControllerMode,      // int - 0 = Hardware Controller (default), 1 = Virtual Controller
+
+        // Device capability: whether this device supports the custom fan curve (helper → widget, gates
+        // the MSI fan card). Per-model on the MSI Claw — e.g. off on the Claw 8 EX for now. Read-only.
+        DeviceSupportsFanControl,   // bool - true = show/enable the custom fan curve UI
+
+        // Device capability: whether this device exposes the Drivers tab (GPU driver updates etc.).
+        // Default true; per-model on the MSI Claw — e.g. off on the Claw 8 EX / AMD A8. Read-only.
+        DeviceSupportsDriverManagement, // bool - true = show the Drivers tab
     }
 }
