@@ -1,0 +1,80 @@
+<Application x:Class="ClawTweaksSetup.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+
+            <!-- Palette (dark, matches the widget's Controller Status accents) -->
+            <Color x:Key="BgColor">#FF15171C</Color>
+            <Color x:Key="CardColor">#FF1E2128</Color>
+            <Color x:Key="AccentColor">#FF00C8FF</Color>
+            <SolidColorBrush x:Key="BgBrush"     Color="{StaticResource BgColor}" />
+            <SolidColorBrush x:Key="CardBrush"   Color="{StaticResource CardColor}" />
+            <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+            <SolidColorBrush x:Key="TextBrush"      Color="#FFF2F2F2" />
+            <SolidColorBrush x:Key="SubtleTextBrush" Color="#FFC8C8C8" />
+            <SolidColorBrush x:Key="OkBrush"      Color="#FF00C853" />
+            <SolidColorBrush x:Key="WarnBrush"    Color="#FFFFC107" />
+            <SolidColorBrush x:Key="ErrorBrush"   Color="#FFFF5252" />
+
+            <!-- Big, controller-friendly focus visual: a thick accent ring around the focused button. -->
+            <Style x:Key="ControllerFocusVisual">
+                <Setter Property="Control.Template">
+                    <Setter.Value>
+                        <ControlTemplate>
+                            <Border BorderBrush="{StaticResource AccentBrush}"
+                                    BorderThickness="3" CornerRadius="8"
+                                    Margin="-3" SnapsToDevicePixels="True" />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Primary button style used across the wizard. -->
+            <Style TargetType="Button" x:Key="SetupButton">
+                <Setter Property="FocusVisualStyle" Value="{StaticResource ControllerFocusVisual}" />
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                <Setter Property="Background" Value="#FF2A2E38" />
+                <Setter Property="BorderBrush" Value="#FF3A3F4B" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="18,10" />
+                <Setter Property="Margin" Value="6,0" />
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="b" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Margin="{TemplateBinding Padding}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="#FF343945" />
+                                </Trigger>
+                                <Trigger Property="IsKeyboardFocused" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="#FF343945" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Accent (primary action) button variant. -->
+            <Style TargetType="Button" x:Key="SetupButtonAccent" BasedOn="{StaticResource SetupButton}">
+                <Setter Property="Background" Value="{StaticResource AccentBrush}" />
+                <Setter Property="Foreground" Value="#FF0A0C10" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

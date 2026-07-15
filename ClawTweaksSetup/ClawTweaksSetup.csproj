@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>ClawTweaksSetup</AssemblyName>
+    <RootNamespace>ClawTweaksSetup</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyTitle>ClawTweaks Center</AssemblyTitle>
+    <Product>ClawTweaks</Product>
+    <Version>0.1.0</Version>
+    <!-- Distribution build:  dotnet publish -c Release -r win-x64 -p:SelfContained=true
+         -p:PublishSingleFile=true  (bundles the runtime so users need nothing preinstalled). -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Xbox controller glyphs shown in the footer action bar (embedded as WPF resources). -->
+    <Resource Include="Assets\xbox\*.png" />
+    <!-- Device photos (background removed) for the Center menu's device-detection banner. -->
+    <Resource Include="Assets\devices\*.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WMI access for the Center menu's device-detection banner (see Core/DeviceDetect.cs). -->
+    <PackageReference Include="System.Management" Version="9.0.0" />
+    <!-- Shared.Data.DeviceInfo — reused rather than redefined. -->
+    <ProjectReference Include="..\Shared\Shared.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,57 @@
+<Window x:Class="ClawTweaksSetup.CenterMenuWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ClawTweaks Center"
+        Width="1100" Height="720"
+        MinWidth="900" MinHeight="600"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />   <!-- header -->
+            <RowDefinition Height="*" />      <!-- build list -->
+            <RowDefinition Height="Auto" />   <!-- footer action bar -->
+        </Grid.RowDefinitions>
+
+        <!-- Header: 2 columns — title/subtitle left, device banner right. -->
+        <StackPanel Grid.Row="0" Margin="32,28,32,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="ClawTweaks Center"
+                               FontSize="26" FontWeight="Bold"
+                               Foreground="{StaticResource TextBrush}" />
+                    <TextBlock Text="Choose a build to install"
+                               FontSize="16"
+                               Foreground="{StaticResource SubtleTextBrush}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <ContentControl x:Name="DeviceBanner" Grid.Column="1"
+                                Margin="16,0,0,0" VerticalAlignment="Center" Focusable="False" />
+            </Grid>
+            <Border Height="1" Background="#FF2A2E38" Margin="0,16,0,0" />
+        </StackPanel>
+
+        <!-- Build list / progress host -->
+        <ScrollViewer x:Name="ContentScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                      Padding="32,16,32,16" Focusable="False">
+            <StackPanel x:Name="ContentHost" Focusable="False" />
+        </ScrollViewer>
+
+        <!-- Footer: glyph action bar -->
+        <Border Grid.Row="2" Background="#FF181B21" BorderBrush="#FF2A2E38" BorderThickness="0,1,0,0">
+            <StackPanel x:Name="ActionBar" Orientation="Horizontal"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Margin="24,18,24,18" />
+        </Border>
+    </Grid>
+</Window>
