@@ -1,0 +1,7 @@
+{
+  "_readme": "Version gate for ClawTweaksSetup.exe ('ClawTweaks Center'). Fetched from the master branch via raw.githubusercontent on every standalone launch. If the running exe's own <Version> (ClawTweaksSetup.csproj, currently 0.1.0 and NOT the same number as the main ClawTweaks app version) is below minimumSetupVersion, the Center shows a warning telling the user their Setup/Center build is outdated and to download a newer one. Only bump minimumSetupVersion when an older Setup build is known broken (e.g. a fixed install-routine bug) so already-downloaded builds get flagged - do not bump on every release. Never blocks Setup from running if this manifest is unreachable (offline-safe).",
+  "schemaVersion": 1,
+  "updatedUtc": "2026-07-16",
+  "minimumSetupVersion": "0.1.0",
+  "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub."
+}
