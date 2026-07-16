@@ -541,25 +541,6 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
-                // ── MSI Claw: startup LED colour cycle on/off ────────────────────────────────
-                // Payload: "MsiLedBootCycle" = "1" (red→green→colour at boot) or "0" (just the colour)
-                if (pipeMsg.Extra.TryGetValue("MsiLedBootCycle", out object ledCycleObj) && ledCycleObj is string ledCycleStr)
-                {
-                    try
-                    {
-                        bool on = ledCycleStr.Trim() != "0";
-                        Devices.MSIClaw.MsiLedColorStore.SaveBootCycle(on);
-                        Logger.Info($"Pipe: MsiLedBootCycle = {on}");
-                        SendPipeAck(pipeMsg.RequestId, true);
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Pipe: MsiLedBootCycle failed: {ex.Message}");
-                        SendPipeAck(pipeMsg.RequestId, false);
-                    }
-                    return;
-                }
-
                 // ── MSI Claw: battery charge limit ───────────────────────────────────────────
                 // Payload: "MsiChargeLimit" = "enabled:percent" e.g. "true:80" or "false:100"
                 if (pipeMsg.Extra.TryGetValue("MsiChargeLimit", out object chgObj) && chgObj is string chgStr)

@@ -63,8 +63,13 @@ namespace XboxGamingBar
                     return;
                 }
 
-                // No real config anywhere (fresh / pristine / legacy-white) → keep the current factory
-                // default (already in _ledComposite) so a legacy-white device migrates to it.
+                // No real config anywhere (fresh / pristine / legacy-white) → (re)assert the factory
+                // default so a legacy-white device migrates to it. Assign it explicitly instead of
+                // trusting whatever is already in _ledComposite: a construction-time XAML event (e.g.
+                // MsiLedSyncToggle's IsOn="True" Toggled) can have written the editor's field defaults —
+                // static WHITE — in here first, and on a fresh install there is no saved value to
+                // overwrite them, so that white would get persisted and pushed as a real user choice.
+                _ledComposite = new LedCompositeSpec();
                 _ledCompositeLoaded = true;
             }
             catch (Exception ex) { Logger.Warn($"[MsiLed] EnsureCompositeLoaded: {ex.Message}"); }

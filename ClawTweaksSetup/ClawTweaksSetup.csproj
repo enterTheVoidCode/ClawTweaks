@@ -15,6 +15,7 @@
     <AssemblyTitle>ClawTweaks Center</AssemblyTitle>
     <Product>ClawTweaks</Product>
     <Version>0.1.0</Version>
+    <ApplicationIcon>Assets\branding\app-icon.ico</ApplicationIcon>
     <!-- Distribution build:  dotnet publish -c Release -r win-x64 -p:SelfContained=true
          -p:PublishSingleFile=true  (bundles the runtime so users need nothing preinstalled). -->
   </PropertyGroup>
@@ -24,6 +25,10 @@
     <Resource Include="Assets\xbox\*.png" />
     <!-- Device photos (background removed) for the Center menu's device-detection banner. -->
     <Resource Include="Assets\devices\*.png" />
+    <!-- Branding: header wordmark logo. -->
+    <Resource Include="Assets\branding\ctw-center-logo.png" />
+    <!-- Loading spinner GIF — replaces the pulsing "…" Working badge everywhere it's used. -->
+    <Resource Include="Assets\branding\loading-spinner.gif" />
   </ItemGroup>
 
   <ItemGroup>

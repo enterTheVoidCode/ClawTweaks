@@ -1644,6 +1644,34 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         }
     }
 
+    // Device Max PL1 in watts — TDP slider maximum (read-only; per-model, see MSIClawModels.cs)
+    internal class DeviceMaxPL1Property : HelperProperty<int, LegionManager>
+    {
+        public DeviceMaxPL1Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceMaxPL1, inManager)
+        {
+        }
+
+        public void SetValueAndSync(int value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
+    // Device Max PL2 in watts — TDP Boost slider maximum (read-only; per-model, see MSIClawModels.cs)
+    internal class DeviceMaxPL2Property : HelperProperty<int, LegionManager>
+    {
+        public DeviceMaxPL2Property(int initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceMaxPL2, inManager)
+        {
+        }
+
+        public void SetValueAndSync(int value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
     // Device Has Scroll Wheel (read-only, based on device capabilities)
     internal class DeviceHasScrollWheelProperty : HelperProperty<bool, LegionManager>
     {

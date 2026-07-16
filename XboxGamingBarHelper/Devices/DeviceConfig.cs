@@ -50,6 +50,14 @@ namespace XboxGamingBarHelper.Devices
         // non-MSI devices; the MSI Claw sets it per-model (e.g. off on the EX / AMD A8 for now).
         public virtual bool SupportsDriverManagement => true;
 
+        // TDP power-limit ceilings (PL1 = sustained, PL2 = boost) and the minimum PL2-over-PL1
+        // headroom the platform enforces. Defaults match the original MSI Claw A2VM values (the
+        // only device that used these before they became per-model); a device without its own TDP
+        // wattage path (e.g. Legion WMI TDP) simply never reads them.
+        public virtual int MaxPL1 => 30;
+        public virtual int MaxPL2 => 37;
+        public virtual int Pl2MinOffset => 1;
+
         /// <summary>
         /// Applies this device's feature configuration to a DeviceInfo instance
         /// </summary>
@@ -66,6 +74,9 @@ namespace XboxGamingBarHelper.Devices
             deviceInfo.HasDetachableControllers = HasDetachableControllers;
             deviceInfo.SupportsFanControl = SupportsFanControl;
             deviceInfo.SupportsDriverManagement = SupportsDriverManagement;
+            deviceInfo.MaxPL1 = MaxPL1;
+            deviceInfo.MaxPL2 = MaxPL2;
+            deviceInfo.Pl2MinOffset = Pl2MinOffset;
         }
 
         /// <summary>

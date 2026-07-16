@@ -819,8 +819,12 @@ namespace XboxGamingBarHelper.Labs
                 case FwSlotClass.Face:      // <flag> 0C <code…> — 0x00 default, 0x04 keyboard remap
                     if (d[1] != 0x0C || d[0] != 0x04) return string.Empty;
                     return DecodeMsiCodes(d, 2);
-                case FwSlotClass.Paddle:    // 01 04 0C <code…> — default when code == ownCode
+                case FwSlotClass.Paddle:    // 01 04 0C <code…> — default when code == ownCode, or MSI's
+                                            // own "NC"/unassigned sentinel 0xFF (Center M can write this
+                                            // directly, e.g. via its own reset — see RE_MSI_ButtonRemap.md,
+                                            // "Per-button delete = <addr> 02 FF 00"). Both mean "no remap".
                     if (d.Length < 4 || d[2] != 0x0C) return string.Empty;
+                    if (d[3] == 0xFF) return string.Empty;
                     if (d[3] == slot.OwnCode && (d.Length < 5 || d[4] == 0x00)) return string.Empty;
                     return DecodeMsiCodes(d, 3);
                 case FwSlotClass.Trigger:   // <flag> 0C <DZ> <EDZ> <code…> — 0x02 analog, 0x06 remap

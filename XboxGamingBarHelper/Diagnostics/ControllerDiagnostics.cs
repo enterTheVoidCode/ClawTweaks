@@ -217,7 +217,7 @@ Step 'ViGEm bus' {
     if (@($vigem).Count -eq 0) { Line '    ViGEm bus device not found' } else { foreach ($d in $vigem) { Line ('    [' + $d.Status + '] ' + $d.Name) } }
 }
 Step 'usbip (VIIPER backend)' {
-    $usbip = @('C:\Program Files\usbip-win2\usbip.exe','C:\Program Files\usbipd-win\usbip.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
+    $usbip = @('C:\Program Files\USBip\usbip.exe','C:\Program Files\usbip-win2\usbip.exe','C:\Program Files\usbipd-win\usbip.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
     $svc = Get-Service -Name 'usbip*','vhci*' -ErrorAction SilentlyContinue
     if ($svc) { foreach ($s in $svc) { Line ('    service ' + $s.Name + ': ' + $s.Status) } } else { Line '    (no usbip/vhci service found)' }
     if ($usbip) {
@@ -235,7 +235,7 @@ Step 'Steam Xbox Extended Feature Support driver (steamxbox)' {
 
 Head 'RELEVANT PROCESSES'
 Step 'Steam / MSI Center / gamepad-related' {
-    $p = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'steam|MSI_Center|MSI Center|Nahimic|DS4Windows|x360ce|reWASD|HidHide|ViGEm|usbip|vgamepad' }
+    $p = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'steam|MSI_Center|MSI Center|GameInput|Nahimic|DS4Windows|x360ce|reWASD|HidHide|ViGEm|usbip|vgamepad' }
     if (@($p).Count -eq 0) { Line '    (none of the watched processes are running)'; return }
     foreach ($pp in ($p | Sort-Object ProcessName -Unique)) { Line ('    ' + $pp.ProcessName + '  (PID ' + $pp.Id + ')') }
 }

@@ -68,6 +68,10 @@ function Test-HidHideInstalled {
     return $false
 }
 
+# Mirrors Shared RTSSHelper.IsInstalled() / ToolDetect.Rtss(): only a real RTSS.exe (or a live RTSS
+# process) counts. A bare registry key must NEVER count - an NSIS uninstall leaves Unwinder\RTSS and
+# Guru3D\RTSS behind, so trusting the key alone reported RTSS as installed on machines where it was
+# long gone and silently skipped the install. Registry is only a POINTER to the install dir.
 function Test-RTSSInstalled {
     $paths = @(
         "$env:ProgramFiles\RivaTuner Statistics Server\RTSS.exe",
@@ -76,10 +80,16 @@ function Test-RTSSInstalled {
     foreach ($p in $paths) {
         if (Test-Path $p) { return $true }
     }
-    $reg = Get-ItemProperty "HKLM:\SOFTWARE\Guru3D\RTSS" -ErrorAction SilentlyContinue
-    if ($reg) { return $true }
-    $reg2 = Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Guru3D\RTSS" -ErrorAction SilentlyContinue
-    if ($reg2) { return $true }
+    $regKeys = @(
+        "HKLM:\SOFTWARE\WOW6432Node\Unwinder\RTSS",
+        "HKLM:\SOFTWARE\Unwinder\RTSS",
+        "HKLM:\SOFTWARE\Guru3D\RTSS",
+        "HKLM:\SOFTWARE\WOW6432Node\Guru3D\RTSS"
+    )
+    foreach ($k in $regKeys) {
+        $dir = (Get-ItemProperty $k -ErrorAction SilentlyContinue).InstallDir
+        if ($dir -and (Test-Path (Join-Path $dir "RTSS.exe"))) { return $true }
+    }
     $proc = Get-Process -Name "RTSS" -ErrorAction SilentlyContinue
     if ($proc) { return $true }
     return $false

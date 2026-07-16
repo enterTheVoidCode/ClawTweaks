@@ -263,6 +263,8 @@
     <Compile Include="Data\Device\DeviceSupportsFirmwareKeyboardRemapProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsFanControlProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsDriverManagementProperty.cs" />
+    <Compile Include="Data\Device\DeviceMaxPL1Property.cs" />
+    <Compile Include="Data\Device\DeviceMaxPL2Property.cs" />
     <Compile Include="Data\Device\DeviceHasScrollWheelProperty.cs" />
     <Compile Include="Data\Device\DeviceHasDetachableControllersProperty.cs" />
     <Compile Include="Data\Device\DeviceHasTouchpadProperty.cs" />
@@ -581,6 +583,8 @@
     <Content Include="Assets\ColorReference2.png" />
     <Content Include="Assets\ColorReference3.png" />
     <Content Include="Assets\kofi-qr.png" />
+    <Content Include="Assets\ButtonIcons\controller_xboxseries.png" />
+    <Content Include="Assets\ButtonIcons\tiny_center_m.png" />
     <Content Include="Assets\ButtonIcons\xbox_button_color_a.png" />
     <Content Include="Assets\ButtonIcons\xbox_button_color_b.png" />
     <Content Include="Assets\ButtonIcons\xbox_button_color_x.png" />

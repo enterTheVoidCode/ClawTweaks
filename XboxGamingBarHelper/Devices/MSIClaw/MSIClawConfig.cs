@@ -93,5 +93,8 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         public override bool HasTouchpad                => Spec.HasTouchpad;
         public override bool HasScrollWheel             => Spec.HasScrollWheel;
         public override bool HasDetachableControllers   => Spec.HasDetachableControllers;
+        public override int MaxPL1                      => Spec.MaxPL1;
+        public override int MaxPL2                      => Spec.MaxPL2;
+        public override int Pl2MinOffset                => Spec.Pl2MinOffset;
     }
 }

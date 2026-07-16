@@ -1643,6 +1643,9 @@ namespace XboxGamingBar
         private readonly DeviceSupportsFanControlProperty deviceSupportsFanControl;
         // Per-model Drivers-tab capability (default on; off on the Claw 8 EX / AMD A8 for now)
         private readonly DeviceSupportsDriverManagementProperty deviceSupportsDriverManagement;
+        // Per-model TDP power-limit ceilings (A2VM: 30W/37W; Claw 8 EX: 35W/45W) — drive slider maxima
+        private readonly DeviceMaxPL1Property deviceMaxPL1;
+        private readonly DeviceMaxPL2Property deviceMaxPL2;
         private readonly ExternalGamepadModeProperty externalGamepadMode;
         private readonly MsiClawHwMouseProperty msiClawHwMouse;
 
@@ -2448,6 +2451,8 @@ namespace XboxGamingBar
             deviceSupportsFirmwareKeyboardRemap = new DeviceSupportsFirmwareKeyboardRemapProperty(this);
             deviceSupportsFanControl = new DeviceSupportsFanControlProperty(this);
             deviceSupportsDriverManagement = new DeviceSupportsDriverManagementProperty(this);
+            deviceMaxPL1 = new DeviceMaxPL1Property(this);
+            deviceMaxPL2 = new DeviceMaxPL2Property(this);
             // MSI Claw — External Gamepad Mode Quick Settings tile (hide all handheld controllers)
             externalGamepadMode = new ExternalGamepadModeProperty();
             msiClawHwMouse = new MsiClawHwMouseProperty();
@@ -2480,6 +2485,9 @@ namespace XboxGamingBar
             deviceSupportsFanControl.SetVisibilityCallback(_ => InitializeMsiFanCard());
             // Drivers tab is per-model on the Claw — show/hide its nav item on the capability.
             deviceSupportsDriverManagement.SetVisibilityCallback(SetDriverTabVisibility);
+            // TDP slider maxima are per-model on the Claw — re-run bounds whenever either arrives.
+            deviceMaxPL1.SetValueCallback(_ => UpdateTDPSliderBounds());
+            deviceMaxPL2.SetValueCallback(_ => UpdateTDPSliderBounds());
             deviceHasScrollWheel.SetVisibilityCallback(SetScrollWheelSectionVisibility);
             deviceHasDetachableControllers.SetVisibilityCallback(SetControllerBatterySectionVisibility);
             deviceHasTouchpad.SetVisibilityCallback(SetTouchpadVibrationSectionVisibility);
@@ -2709,6 +2717,8 @@ namespace XboxGamingBar
                 deviceSupportsFirmwareKeyboardRemap,
                 deviceSupportsFanControl,
                 deviceSupportsDriverManagement,
+                deviceMaxPL1,
+                deviceMaxPL2,
                 externalGamepadMode,
                 msiClawHwMouse,
                 osPowerMode,

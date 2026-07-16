@@ -1833,14 +1833,18 @@ namespace XboxGamingBar
 
         private void UpdateTDPSliderBounds()
         {
+            // PL1 ceiling reported by the helper for this exact device (MSI Claw A2VM = 30W,
+            // Claw 8 EX = 35W; see MSIClawModels.cs). Falls back to 30 until the helper syncs it.
+            int pl1Ceiling = deviceMaxPL1?.Value ?? 30;
+
             // Update Performance tab TDP slider.
-            // UI-only guardrails: the manual TDP slider must never go below 7W or above 30W,
-            // regardless of the device-reported range (deviceTDPMin/Max). Tighter device limits
-            // still win (Math.Max/Min), this only caps the user-selectable range.
+            // UI-only guardrails: the manual TDP slider must never go below 7W or above the
+            // device's PL1 ceiling, regardless of the user-configured range (deviceTDPMin/Max).
+            // Tighter device limits still win (Math.Max/Min), this only caps the user-selectable range.
             if (TDPSlider != null)
             {
                 double tdpSliderMin = Math.Max(deviceTDPMin, 7);
-                double tdpSliderMax = Math.Min(deviceTDPMax, 30);
+                double tdpSliderMax = Math.Min(deviceTDPMax, pl1Ceiling);
                 TDPSlider.Minimum = tdpSliderMin;
                 TDPSlider.Maximum = tdpSliderMax;
 
@@ -1849,6 +1853,31 @@ namespace XboxGamingBar
                     TDPSlider.Value = tdpSliderMin;
                 else if (TDPSlider.Value > tdpSliderMax)
                     TDPSlider.Value = tdpSliderMax;
+            }
+
+            // Settings-panel PL1 ceiling picker (the "Maximum TDP" slider users drag to raise
+            // deviceTDPMax) — its own selectable range must reach the device's real PL1 ceiling too.
+            if (TDPLimitsMaxSlider != null)
+            {
+                TDPLimitsMaxSlider.Maximum = pl1Ceiling;
+                if (TDPLimitsMaxSlider.Value > pl1Ceiling)
+                    TDPLimitsMaxSlider.Value = pl1Ceiling;
+            }
+
+            // PL2-Boost sliders (settings panel + Performance card) — cap at the device's real PL2
+            // ceiling (A2VM = 37W, Claw 8 EX = 45W) instead of the old universal 37W constant.
+            int pl2Ceiling = deviceMaxPL2?.Value ?? 37;
+            if (TDPBoostFPPTSlider != null)
+            {
+                TDPBoostFPPTSlider.Maximum = pl2Ceiling;
+                if (TDPBoostFPPTSlider.Value > pl2Ceiling)
+                    TDPBoostFPPTSlider.Value = pl2Ceiling;
+            }
+            if (TDPBoostFPPTSliderCard != null)
+            {
+                TDPBoostFPPTSliderCard.Maximum = pl2Ceiling;
+                if (TDPBoostFPPTSliderCard.Value > pl2Ceiling)
+                    TDPBoostFPPTSliderCard.Value = pl2Ceiling;
             }
 
             // Update AutoTDP Min slider bounds

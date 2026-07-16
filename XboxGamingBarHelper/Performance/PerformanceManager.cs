@@ -1136,13 +1136,14 @@ namespace XboxGamingBarHelper.Performance
                 // kx.exe (IntelKxExe) targets a different MCHBAR interface and does NOT
                 // work on the MSI Claw 8 AI. PawnIO/RyzenSMU is AMD-only. WMI is the
                 // only working path on Lunar Lake MSI Claw.
-                if (Devices.DeviceDetector.DetectDevice().DeviceType == Shared.Enums.DeviceType.MSIClaw)
+                var deviceInfo = Devices.DeviceDetector.DetectDevice();
+                if (deviceInfo.DeviceType == Shared.Enums.DeviceType.MSIClaw)
                 {
-                    // PL2 must always be > PL1. Clamp to [spl+1 … 37W] (Lunar Lake max PL2).
-                    // When TDP Boost is off, fppt == spl → msiPl2 = spl+1 (minimum burst).
-                    // When PL2-Boost is active, fppt = spl + boost, capped at 37W.
-                    const int MSI_CLAW_MAX_PL2 = 37;
-                    int msiPl2 = Math.Min(Math.Max(fppt, spl + 1), MSI_CLAW_MAX_PL2);
+                    // PL2 must always be >= PL1 + Pl2MinOffset. Clamp to [spl+offset … MaxPL2],
+                    // both per-model (see MSIClawModels.cs — A2VM: offset 1, max 37W; Claw 8 EX:
+                    // offset 2, max 45W). When TDP Boost is off, fppt == spl → msiPl2 = spl+offset
+                    // (minimum burst). When PL2-Boost is active, fppt = spl + boost, capped at MaxPL2.
+                    int msiPl2 = Math.Min(Math.Max(fppt, spl + deviceInfo.Pl2MinOffset), deviceInfo.MaxPL2);
                     bool ok = ApplyMsiClawTdp(spl, msiPl2);
                     if (ok)
                     {

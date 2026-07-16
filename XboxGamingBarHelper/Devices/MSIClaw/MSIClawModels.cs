@@ -43,6 +43,15 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         public bool HasScrollWheel;
         public bool HasDetachableControllers;
 
+        // TDP (PL1 = sustained power, PL2 = boost power). MaxPL1 is also the slider ceiling for the
+        // base TDP control; MaxPL2 is the ceiling for the Boost/FPPT control. Pl2MinOffset is the
+        // minimum PL2-over-PL1 headroom the platform enforces (0 = no minimum offset, i.e. PL2 may
+        // equal PL1) — see ApplyTDPInternal in PerformanceManager.cs, which clamps
+        // PL2 to [PL1 + Pl2MinOffset, MaxPL2].
+        public int MaxPL1;
+        public int MaxPL2;
+        public int Pl2MinOffset;
+
         public string Notes;
 
         /// <summary>Shallow copy so debug overrides never mutate the shared definitions.</summary>
@@ -90,6 +99,9 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             HasTouchpad = false,
             HasScrollWheel = false,
             HasDetachableControllers = false,
+            MaxPL1 = 30,
+            MaxPL2 = 37,
+            Pl2MinOffset = 1,                       // PL2 must be at least PL1 + 1W
             Notes = "RE baseline — controller/LED/fan/gyro/drivers all verified.",
         };
 
@@ -114,6 +126,9 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             HasTouchpad = false,
             HasScrollWheel = false,
             HasDetachableControllers = false,
+            MaxPL1 = 35,
+            MaxPL2 = 45,
+            Pl2MinOffset = 2,                       // PL2 must be at least PL1 + 2W (Panther Lake)
             Notes = "Controller/paddles/front buttons port 1:1. Fan + drivers off; TDP device-gated.",
         };
 

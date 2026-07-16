@@ -130,8 +130,12 @@ namespace ClawTweaksSetup.Navigation
                 if (XInputGetState(i, ref state) != ERROR_SUCCESS) continue;
                 any = true;
                 buttons |= state.Gamepad.wButtons;
-                if (Math.Abs(state.Gamepad.sThumbLY) > Math.Abs(leftStickY)) leftStickY = state.Gamepad.sThumbLY;
-                if (Math.Abs(state.Gamepad.sThumbRY) > Math.Abs(rightStickY)) rightStickY = state.Gamepad.sThumbRY;
+                // Cast to int before Math.Abs: a stick pushed to its exact extreme reports
+                // short.MinValue (-32768), and Math.Abs(short) — the exact overload C# picks here —
+                // throws OverflowException for MinValue since +32768 doesn't fit back in a short.
+                // Math.Abs(int) has no such problem. This was the real crash-on-scroll bug.
+                if (Math.Abs((int)state.Gamepad.sThumbLY) > Math.Abs((int)leftStickY)) leftStickY = state.Gamepad.sThumbLY;
+                if (Math.Abs((int)state.Gamepad.sThumbRY) > Math.Abs((int)rightStickY)) rightStickY = state.Gamepad.sThumbRY;
             }
             return any;
         }

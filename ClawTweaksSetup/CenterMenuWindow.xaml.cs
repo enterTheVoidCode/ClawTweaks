@@ -134,13 +134,21 @@ namespace ClawTweaksSetup
             textStack.Children.Add(new TextBlock
             {
                 Text = d.DisplayName, FontSize = 21, FontWeight = FontWeights.SemiBold, Foreground = UiHelpers.Text,
+                TextWrapping = TextWrapping.Wrap,
             });
             textStack.Children.Add(new TextBlock
             {
                 Text = detail, FontSize = 15, Foreground = UiHelpers.BrushFor(kind), Margin = new Thickness(0, 2, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
             });
 
-            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            // Grid, not a horizontal StackPanel: same wrap-defeating pitfall as the log/status rows —
+            // the "not a recognized MSI Claw" detail line is long enough to need real wrapping.
+            var content = new Grid();
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.SetColumn(image, 0);
+            Grid.SetColumn(textStack, 1);
             content.Children.Add(image);
             content.Children.Add(textStack);
 
@@ -421,7 +429,7 @@ namespace ClawTweaksSetup
                 Padding = new Thickness(16, 12, 16, 12),
                 Margin = new Thickness(0, 0, 10, 10),
                 BorderBrush = selected ? UiHelpers.Accent : Brushes.Transparent,
-                BorderThickness = new Thickness(selected ? 3 : 0, 0, 0, 0),
+                BorderThickness = new Thickness(selected ? 2 : 0), // full outline, matching the Home tile's focus style
                 Child = stack,
                 Cursor = Cursors.Hand,
                 Opacity = _busy ? baseOpacity * 0.5 : baseOpacity,
@@ -713,8 +721,9 @@ namespace ClawTweaksSetup
             // current one — so the user can tell at a glance exactly what's finished vs. still running,
             // instead of a flat scroll of text.
             ContentControl currentLogBadge = null;
+            StackPanel currentLogDetail = null;
 
-            UIElement BuildLogRow(string text, out ContentControl badge)
+            UIElement BuildLogRow(string text, out ContentControl badge, out StackPanel detail)
             {
                 badge = new ContentControl
                 {
@@ -723,29 +732,35 @@ namespace ClawTweaksSetup
                     Margin = new Thickness(0, 2, 0, 0),
                     Content = UiHelpers.Badge(StatusKind.Working, 20),
                 };
-                var pulse = new System.Windows.Media.Animation.DoubleAnimation
-                {
-                    From = 1.0, To = 0.35, Duration = TimeSpan.FromMilliseconds(700),
-                    AutoReverse = true, RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
-                };
-                badge.BeginAnimation(OpacityProperty, pulse);
 
-                var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 3, 0, 3) };
-                row.Children.Add(badge);
-                row.Children.Add(new TextBlock
+                // Grid, not a horizontal StackPanel: a horizontal StackPanel measures its children with
+                // infinite available width, which silently defeats TextWrapping.Wrap and let long lines
+                // (e.g. the usbip reboot notice) run off the right edge of the window.
+                var header = new Grid();
+                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                Grid.SetColumn(badge, 0);
+                var textBlock = new TextBlock
                 {
                     Text = text, FontSize = 15, Foreground = UiHelpers.Subtle,
                     Margin = new Thickness(8, 0, 0, 0), TextWrapping = TextWrapping.Wrap,
                     VerticalAlignment = VerticalAlignment.Center,
-                });
-                return row;
+                };
+                Grid.SetColumn(textBlock, 1);
+                header.Children.Add(badge);
+                header.Children.Add(textBlock);
+
+                detail = new StackPanel { Margin = new Thickness(28, 2, 0, 0) };
+
+                var wrapper = new StackPanel { Margin = new Thickness(0, 3, 0, 3) };
+                wrapper.Children.Add(header);
+                wrapper.Children.Add(detail);
+                return wrapper;
             }
 
             void FinishLogRow(ContentControl badge, bool ok)
             {
                 if (badge == null) return;
-                badge.BeginAnimation(OpacityProperty, null);
-                badge.Opacity = 1.0;
                 badge.Content = UiHelpers.Badge(ok ? StatusKind.Ok : StatusKind.Error, 20);
             }
 
@@ -755,7 +770,19 @@ namespace ClawTweaksSetup
             void Log(string s) => Dispatcher.Invoke(() =>
             {
                 FinishLogRow(currentLogBadge, true);
-                logPanel.Children.Add(BuildLogRow(s, out currentLogBadge));
+                logPanel.Children.Add(BuildLogRow(s, out currentLogBadge, out currentLogDetail));
+            });
+
+            // Appends a sub-line under the CURRENT row instead of starting a new checkmarked row —
+            // used to collapse a multi-step sub-flow (the non-silent usbip installer in particular)
+            // into one group instead of one top-level tick per internal step.
+            void LogDetail(string s) => Dispatcher.Invoke(() =>
+            {
+                currentLogDetail?.Children.Add(new TextBlock
+                {
+                    Text = s, FontSize = 13, Foreground = UiHelpers.Subtle,
+                    TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 1, 0, 1),
+                });
             });
             var progress = new Progress<int>(p =>
             {
@@ -772,10 +799,38 @@ namespace ClawTweaksSetup
                 // Straight into the actual install from here — no manual wizard walk-through. The
                 // Center menu exists for fast iteration on an already-onboarded dev device: pick a
                 // build, the tool triggers the install and watches it succeed. Ported 1:1 from
-                // InstallPhase.InstallAsync (cert trust → Add-AppxPackage → Game Bar → wait for helper);
-                // the release-folder path still gets the full guided wizard via MainWindow, unchanged.
+                // ToolsPhase.InstallAsync + InstallPhase.InstallAsync (required tools → cert trust →
+                // Add-AppxPackage → Game Bar → wait for helper); the release-folder path still gets the
+                // full guided wizard via MainWindow, unchanged.
                 progressBar.IsIndeterminate = true;
                 bool ok = true;
+
+                var hidhide = await Task.Run(() => ToolDetect.HidHide());
+                var rtss = await Task.Run(() => ToolDetect.Rtss());
+                var usbip = await Task.Run(() => ToolDetect.Usbip());
+                if (!hidhide.Installed || !rtss.Installed || !usbip.Installed)
+                {
+                    if (!hidhide.Installed) await Task.Run(() => ToolInstaller.InstallHidHide(Log));
+                    if (!rtss.Installed) await Task.Run(() => ToolInstaller.InstallRtss(Log));
+                    if (!await Task.Run(() => ToolDetect.Usbip().Installed))
+                    {
+                        // Grouped into one row — UsbipSetup.Run's own internal steps (download, verify,
+                        // launch, exit code) go through LogDetail so they land as sub-lines here instead
+                        // of each becoming its own top-level checkmark.
+                        Log("Installing usbip (driver) — not silent, a separate installer window will open.");
+                        LogDetail("Confirm the driver-install prompt when it appears.");
+                        var usbipResult = await Task.Run(() => UsbipSetup.Run(LogDetail));
+                        if (usbipResult == UsbipSetup.Result.RebootRequired || usbipResult == UsbipSetup.Result.Success)
+                        {
+                            LogDetail("Reboot required for the driver to activate.");
+                            statusPanel.Content = BuildBigStatusCard(StatusKind.Warning, "Reboot required",
+                                "Virtual controller support won't work until you reboot — usbip's driver was just installed and needs it to activate.");
+                            AppendHistory(historyPanel, false, "Reboot required",
+                                "usbip's driver needs a restart before virtual controller mode works.");
+                        }
+                    }
+                }
+                else Log("Required tools (HidHide, RTSS, usbip) already installed.");
 
                 string cer = CertInstaller.FindSiblingCer();
                 if (cer != null)
@@ -808,8 +863,15 @@ namespace ClawTweaksSetup
                     progressBar.Value = 0;
                     var helperProgress = new Progress<int>(p => progressBar.Value = p);
 
+                    // Reinstalling the exact version that's already running doesn't restart the helper
+                    // or show a UAC prompt — the "fresh, elevated PID" check below can never be
+                    // satisfied, so a same-version reinstall always times out. Not a failure; the
+                    // timeout message needs to say so instead of implying something went wrong.
+                    bool sameVersionReinstall = previousVersion != null
+                        && TryParseVersion(build.Version, out var selVerForReinstall) && selVerForReinstall == previousVersion;
+
                     bool up = await RunPostInstallMonitorAsync(
-                        priorHelperPids, previousVersion != null, helperProgress, statusPanel, historyPanel);
+                        priorHelperPids, previousVersion != null, sameVersionReinstall, helperProgress, statusPanel, historyPanel);
                     progressBar.Value = 100;
 
                     Log(up
@@ -854,24 +916,10 @@ namespace ClawTweaksSetup
         /// text lines (a permanent log of what happened, deliberately no badge/circle of its own).
         /// </summary>
         private static async Task<bool> RunPostInstallMonitorAsync(
-            int[] priorHelperPids, bool isUpdate, IProgress<int> progress, ContentControl statusPanel, StackPanel historyPanel)
+            int[] priorHelperPids, bool isUpdate, bool sameVersionReinstall, IProgress<int> progress,
+            ContentControl statusPanel, StackPanel historyPanel)
         {
-            void AddHistory(bool ok, string title, string detail)
-            {
-                var stack = new StackPanel { Margin = new Thickness(2, 8, 0, 0) };
-                stack.Children.Add(new TextBlock
-                {
-                    Text = title, FontSize = 16, FontWeight = FontWeights.SemiBold,
-                    Foreground = ok ? UiHelpers.Ok : UiHelpers.Warn,
-                });
-                if (!string.IsNullOrEmpty(detail))
-                    stack.Children.Add(new TextBlock
-                    {
-                        Text = detail, FontSize = 13, Foreground = UiHelpers.Subtle,
-                        Margin = new Thickness(14, 2, 0, 0), TextWrapping = TextWrapping.Wrap,
-                    });
-                historyPanel.Children.Add(stack);
-            }
+            void AddHistory(bool ok, string title, string detail) => AppendHistory(historyPanel, ok, title, detail);
 
             var totalSw = System.Diagnostics.Stopwatch.StartNew();
 
@@ -914,8 +962,11 @@ namespace ClawTweaksSetup
 
             if (!up)
             {
-                statusPanel.Content = BuildBigStatusCard(StatusKind.Warning, "Timed out",
-                    "Open the Game Bar manually (Win+G).");
+                statusPanel.Content = sameVersionReinstall
+                    ? BuildBigStatusCard(StatusKind.Warning, "Timed out",
+                        "Expected for a same-version reinstall — the helper doesn't restart or show a UAC prompt when nothing changed. Open the Game Bar (Win+G) to check it's still running.")
+                    : BuildBigStatusCard(StatusKind.Warning, "Timed out",
+                        "Open the Game Bar manually (Win+G).");
                 return false;
             }
 
@@ -1010,26 +1061,37 @@ namespace ClawTweaksSetup
             catch { return false; }
         }
 
+        /// <summary>Permanent history line (title + optional detail) — unlike the big status card above
+        /// it, these never get overwritten, so a fact like "reboot required" survives later steps
+        /// moving the status card on to something else.</summary>
+        private static void AppendHistory(StackPanel historyPanel, bool ok, string title, string detail)
+        {
+            var stack = new StackPanel { Margin = new Thickness(2, 8, 0, 0) };
+            stack.Children.Add(new TextBlock
+            {
+                Text = title, FontSize = 16, FontWeight = FontWeights.SemiBold,
+                Foreground = ok ? UiHelpers.Ok : UiHelpers.Warn,
+            });
+            if (!string.IsNullOrEmpty(detail))
+                stack.Children.Add(new TextBlock
+                {
+                    Text = detail, FontSize = 13, Foreground = UiHelpers.Subtle,
+                    Margin = new Thickness(14, 2, 0, 0), TextWrapping = TextWrapping.Wrap,
+                });
+            historyPanel.Children.Add(stack);
+        }
+
         /// <summary>
         /// Large, colour-highlighted "what's happening right now" card for the install's right column
         /// — deliberately much bigger than the regular <see cref="UiHelpers.StatusRow"/> rows, since
         /// this is the one thing the user needs to notice even glancing over from behind the Game Bar
-        /// overlay (the UAC prompt in particular). Pulses the badge while <see cref="StatusKind.Working"/>
-        /// as a lightweight stand-in for a spinner.
+        /// overlay (the UAC prompt in particular). Shows the looping loading-spinner GIF while
+        /// <see cref="StatusKind.Working"/> (via <see cref="UiHelpers.Badge"/>).
         /// </summary>
         private static Border BuildBigStatusCard(StatusKind kind, string title, string detail)
         {
             var accent = UiHelpers.BrushFor(kind);
             var badge = UiHelpers.Badge(kind, 56);
-            if (kind == StatusKind.Working)
-            {
-                var pulse = new System.Windows.Media.Animation.DoubleAnimation
-                {
-                    From = 1.0, To = 0.35, Duration = TimeSpan.FromMilliseconds(700),
-                    AutoReverse = true, RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
-                };
-                badge.BeginAnimation(OpacityProperty, pulse);
-            }
 
             var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
             text.Children.Add(new TextBlock
@@ -1044,7 +1106,14 @@ namespace ClawTweaksSetup
                     TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0),
                 });
 
-            var row = new StackPanel { Orientation = Orientation.Horizontal };
+            // Grid, not a horizontal StackPanel — same wrap-defeating pitfall as the log rows above;
+            // a long detail line (e.g. the reboot-required notice) needs to actually wrap, not run
+            // past the window edge.
+            var row = new Grid();
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.SetColumn(badge, 0);
+            Grid.SetColumn(text, 1);
             row.Children.Add(badge);
             row.Children.Add(text);
 

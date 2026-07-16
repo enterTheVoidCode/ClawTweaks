@@ -648,11 +648,18 @@
                     </RadioButton>
                     <RadioButton x:Name="LegionNavItem" Tag="Legion" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Controls">
                         <RadioButton.Content>
-                            <!-- Game controller icon — matches the MSI Controller-Firmware driver row
-                                 (Segoe MDL2 Assets "Game", E7FC). Same 18x18 Viewbox + inherited colour
-                                 as the other tab icons. -->
+                            <!-- BitmapIcon (not Image): ShowAsMonochrome recolors the PNG's opaque pixels
+                                 using the inherited Foreground, so it dims to grey/brightens to white on
+                                 hover/checked exactly like the other tabs' vector icons.
+                                 BitmapIcon's default 16x16 box has a FIXED-PIXEL inset baked into its
+                                 ShowAsMonochrome template — the outer Viewbox scales that whole box
+                                 (inset included) uniformly, so a bigger Viewbox alone never shrinks the
+                                 inset's relative share. Declaring the BitmapIcon itself much larger than
+                                 the target (48x48) before the 18x18 Viewbox scales it back down makes that
+                                 fixed inset a much smaller fraction of the box, so the glyph fills the tab
+                                 the same way the sibling PathIcon/FontIcon tabs do. -->
                             <Viewbox Width="18" Height="18" VerticalAlignment="Center">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7FC;"/>
+                                <BitmapIcon UriSource="ms-appx:///Assets/ButtonIcons/controller_xboxseries.png" ShowAsMonochrome="True" Width="62" Height="62"/>
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
@@ -668,7 +675,7 @@
                     </RadioButton>
                     <RadioButton x:Name="TinyCenterMNavItem" Tag="TinyCenterM" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Visibility="Collapsed" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Tiny Center M">
                         <RadioButton.Content>
-                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE7FC;" FontSize="16"/>
+                            <Image Source="ms-appx:///Assets/ButtonIcons/tiny_center_m.png" Width="18" Height="18"/>
                         </RadioButton.Content>
                     </RadioButton>
                     <RadioButton x:Name="ScalingNavItem" Tag="Scaling" Style="{StaticResource NavRadioButtonStyle}" GroupName="MainNav" Checked="NavRadioButton_Checked" ToolTipService.ToolTip="Lossless Scaling">
@@ -4663,11 +4670,9 @@
                                                Text="Battery: the LED hue follows the charge level (≥90% blue → &lt;20% purple), updated when it crosses a 10% band. The slider above sets its brightness."
                                                FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
 
-                                    <!-- Legacy compat controls — kept Collapsed so their existing code-behind
-                                         handlers keep compiling (boot-cycle is disabled helper-side; the old
-                                         battery toggle is superseded by the Battery mode above). -->
-                                    <ToggleSwitch x:Name="MsiLedBootCycleToggle" Visibility="Collapsed"
-                                                  OnContent="" OffContent="" IsOn="True" Toggled="MsiLedBootCycleToggle_Toggled"/>
+                                    <!-- Legacy compat control — kept Collapsed so its existing code-behind
+                                         handler keeps compiling (the old battery toggle is superseded by the
+                                         Battery mode above). -->
                                     <ToggleSwitch x:Name="LedColorBySocToggle" Visibility="Collapsed"
                                                   OnContent="" OffContent="" IsOn="False" Toggled="LedColorBySocToggle_Toggled"/>
                                 </StackPanel>
@@ -6285,7 +6290,9 @@
                              restarts MSI Center M's ControlMode so its own state matches. Glows when dirty. -->
                         <Button x:Name="TcmApplyButton" Click="TcmApply_Click" IsEnabled="False"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                Padding="12,10" Margin="0,0,0,12">
+                                Padding="12,10" Margin="0,0,0,12"
+                                XYFocusUp="{x:Bind TinyCenterMNavItem}"
+                                XYFocusDown="{x:Bind TcmResetSticksButton}">
                             <StackPanel Orientation="Horizontal">
                                 <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE73E;" FontSize="14" Margin="0,0,8,0"/>
                                 <TextBlock x:Name="TcmApplyText" Text="No unsaved changes"/>
@@ -6297,23 +6304,32 @@
                             <StackPanel>
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Sticks" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                    <Button Content="Reset to default" Click="TcmResetSticks_Click" HorizontalAlignment="Right" Padding="12,4"/>
+                                    <Button x:Name="TcmResetSticksButton" Content="Reset to default" Click="TcmResetSticks_Click" HorizontalAlignment="Right" Padding="12,4"
+                                            XYFocusUp="{x:Bind TcmApplyButton}" XYFocusDown="{x:Bind TcmLSDZSlider}"/>
                                 </Grid>
-                                <StackPanel Margin="0,8,0,0">
-                                    <Grid><TextBlock Text="Left stick — inner deadzone"/><TextBlock x:Name="TcmLSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmLSDZSlider" Tag="LSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,8">
+                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_l.png" Width="20" Height="20" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Left stick" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <StackPanel>
-                                    <Grid><TextBlock Text="Left stick — outer threshold"/><TextBlock x:Name="TcmLSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmLSEDZSlider" Tag="LSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                <StackPanel Margin="28,0,0,0">
+                                    <Grid><TextBlock Text="Inner deadzone"/><TextBlock x:Name="TcmLSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmLSDZSlider" Tag="LSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TcmResetSticksButton}" XYFocusDown="{x:Bind TcmLSEDZSlider}"/>
+                                    <Grid Margin="0,8,0,0"><TextBlock Text="Outer threshold"/><TextBlock x:Name="TcmLSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmLSEDZSlider" Tag="LSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TcmLSDZSlider}" XYFocusDown="{x:Bind TcmRSDZSlider}"/>
                                 </StackPanel>
-                                <StackPanel>
-                                    <Grid><TextBlock Text="Right stick — inner deadzone"/><TextBlock x:Name="TcmRSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmRSDZSlider" Tag="RSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_r.png" Width="20" Height="20" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Right stick" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <StackPanel>
-                                    <Grid><TextBlock Text="Right stick — outer threshold"/><TextBlock x:Name="TcmRSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmRSEDZSlider" Tag="RSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                <StackPanel Margin="28,0,0,0">
+                                    <Grid><TextBlock Text="Inner deadzone"/><TextBlock x:Name="TcmRSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmRSDZSlider" Tag="RSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TcmLSEDZSlider}" XYFocusDown="{x:Bind TcmRSEDZSlider}"/>
+                                    <Grid Margin="0,8,0,0"><TextBlock Text="Outer threshold"/><TextBlock x:Name="TcmRSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmRSEDZSlider" Tag="RSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TcmRSDZSlider}" XYFocusDown="{x:Bind TcmResetTriggersButton}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -6323,23 +6339,32 @@
                             <StackPanel>
                                 <Grid Margin="0,0,0,4">
                                     <TextBlock Text="Triggers" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                    <Button Content="Reset to default" Click="TcmResetTriggers_Click" HorizontalAlignment="Right" Padding="12,4"/>
+                                    <Button x:Name="TcmResetTriggersButton" Content="Reset to default" Click="TcmResetTriggers_Click" HorizontalAlignment="Right" Padding="12,4"
+                                            XYFocusUp="{x:Bind TcmRSEDZSlider}" XYFocusDown="{x:Bind TcmLTDZSlider}"/>
                                 </Grid>
-                                <StackPanel Margin="0,8,0,0">
-                                    <Grid><TextBlock Text="Left trigger — deadzone"/><TextBlock x:Name="TcmLTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmLTDZSlider" Tag="LTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,12,0,8">
+                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_lt.png" Width="20" Height="20" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Left trigger" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <StackPanel>
-                                    <Grid><TextBlock Text="Left trigger — limit"/><TextBlock x:Name="TcmLTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmLTEDZSlider" Tag="LTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                <StackPanel Margin="28,0,0,0">
+                                    <Grid><TextBlock Text="Deadzone"/><TextBlock x:Name="TcmLTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmLTDZSlider" Tag="LTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TcmResetTriggersButton}" XYFocusDown="{x:Bind TcmLTEDZSlider}"/>
+                                    <Grid Margin="0,8,0,0"><TextBlock Text="Limit"/><TextBlock x:Name="TcmLTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmLTEDZSlider" Tag="LTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TcmLTDZSlider}" XYFocusDown="{x:Bind TcmRTDZSlider}"/>
                                 </StackPanel>
-                                <StackPanel>
-                                    <Grid><TextBlock Text="Right trigger — deadzone"/><TextBlock x:Name="TcmRTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmRTDZSlider" Tag="RTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_rt.png" Width="20" Height="20" Margin="0,0,8,0"/>
+                                    <TextBlock Text="Right trigger" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                 </StackPanel>
-                                <StackPanel>
-                                    <Grid><TextBlock Text="Right trigger — limit"/><TextBlock x:Name="TcmRTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmRTEDZSlider" Tag="RTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"/>
+                                <StackPanel Margin="28,0,0,0">
+                                    <Grid><TextBlock Text="Deadzone"/><TextBlock x:Name="TcmRTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmRTDZSlider" Tag="RTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TcmLTEDZSlider}" XYFocusDown="{x:Bind TcmRTEDZSlider}"/>
+                                    <Grid Margin="0,8,0,0"><TextBlock Text="Limit"/><TextBlock x:Name="TcmRTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                    <Slider x:Name="TcmRTEDZSlider" Tag="RTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                            XYFocusUp="{x:Bind TcmRTDZSlider}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>

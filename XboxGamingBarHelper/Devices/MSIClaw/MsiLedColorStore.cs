@@ -19,11 +19,8 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private const string FileName = "msi_led_color.txt";
-        private const string BootCycleFileName = "msi_led_bootcycle.txt";
 
-        private static string ResolvePath() => ResolvePath(FileName);
-
-        private static string ResolvePath(string fileName)
+        private static string ResolvePath()
         {
             string localState;
             try
@@ -39,7 +36,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "Packages", "MSIClaw.ClawTweaks_7eszav2039cvc", "LocalState");
             }
-            return Path.Combine(localState, fileName);
+            return Path.Combine(localState, FileName);
         }
 
         /// <summary>Persists the user's chosen color and brightness. Called whenever the widget pushes a new color.</summary>
@@ -90,42 +87,5 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             }
         }
 
-        /// <summary>Persists the startup colour-cycle on/off preference (red→green→colour at boot).</summary>
-        public static void SaveBootCycle(bool enabled)
-        {
-            try
-            {
-                string path = ResolvePath(BootCycleFileName);
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, enabled ? "1" : "0");
-            }
-            catch (Exception ex)
-            {
-                Logger.Debug($"[MsiLedStore] SaveBootCycle failed: {ex.Message}");
-            }
-        }
-
-        /// <summary>Loads the startup colour-cycle preference. Defaults to TRUE (enabled) when unset.</summary>
-        public static bool LoadBootCycle()
-        {
-            // Startup colour cycle (red loading flash) is disabled: the toggle was removed from the UI
-            // and the cycle code must not run. Forced off here so MsiLedBoot always takes the cycle-off
-            // path (apply the saved colour, no red flash). The original preference-read logic below is
-            // intentionally kept (unreached) so the feature can be re-enabled later.
-            return false;
-#pragma warning disable CS0162 // Unreachable code detected (kept on purpose)
-            try
-            {
-                string path = ResolvePath(BootCycleFileName);
-                if (!File.Exists(path)) return true; // default on
-                return File.ReadAllText(path).Trim() != "0";
-            }
-            catch (Exception ex)
-            {
-                Logger.Debug($"[MsiLedStore] LoadBootCycle failed: {ex.Message}");
-                return true;
-            }
-#pragma warning restore CS0162
-        }
     }
 }
