@@ -13,12 +13,12 @@ namespace ClawTweaksSetup.Core
     public static class ToolInstaller
     {
         public static bool InstallHidHide(Action<string> log = null) =>
-            InstallViaWinget("Nefarius.HidHide", "HidHide", log);
+            InstallViaWinget("Nefarius.HidHide", "HidHide", () => ToolDetect.HidHide().Installed, log);
 
         public static bool InstallRtss(Action<string> log = null) =>
-            InstallViaWinget("Guru3D.RTSS", "RTSS", log);
+            InstallViaWinget("Guru3D.RTSS", "RTSS", () => ToolDetect.Rtss().Installed, log);
 
-        private static bool InstallViaWinget(string packageId, string display, Action<string> log)
+        private static bool InstallViaWinget(string packageId, string display, Func<bool> isInstalled, Action<string> log)
         {
             string winget = ResolveWinget();
             if (winget == null)
@@ -28,6 +28,7 @@ namespace ClawTweaksSetup.Core
             }
 
             log?.Invoke($"Installing {display} via winget…");
+            bool ran;
             try
             {
                 var psi = new ProcessStartInfo
@@ -40,21 +41,33 @@ namespace ClawTweaksSetup.Core
                     RedirectStandardError = true,
                 };
                 using var proc = Process.Start(psi);
-                if (proc == null) return false;
+                if (proc == null) { log?.Invoke($"{display} winget failed to start."); return false; }
                 string _ = proc.StandardOutput.ReadToEnd();
                 string __ = proc.StandardError.ReadToEnd();
-                if (!proc.WaitForExit(300000)) { try { proc.Kill(); } catch { } return false; }
+                if (!proc.WaitForExit(300000)) { try { proc.Kill(); } catch { } log?.Invoke($"{display} winget timed out."); return false; }
                 int code = proc.ExitCode;
                 // 0 = ok; 0x8A15002B (-1978335189) = no applicable installer / already installed.
-                bool ok = code == 0 || code == unchecked((int)0x8A15002B);
-                log?.Invoke($"{display} winget exit {code} (ok={ok}).");
-                return ok;
+                ran = code == 0 || code == unchecked((int)0x8A15002B);
+                log?.Invoke($"{display} winget exit {code} (ran={ran}).");
             }
             catch (Exception ex)
             {
                 log?.Invoke($"{display} install error: {ex.Message}");
                 return false;
             }
+
+            // winget's exit code alone is not proof — ported from RtssInstallHelper.Install() (the
+            // main app's helper), which discovered winget can report success (exit 0) for RTSS while
+            // never actually placing RTSS.exe on disk: a known download/certificate failure
+            // (0x8A15005E), most often caused by the device's system clock being wrong. Trusting the
+            // exit code alone is exactly what silently dropped RTSS from the install here. Re-check
+            // the real, on-disk state instead.
+            bool installed = isInstalled();
+            if (ran && !installed)
+                log?.Invoke($"{display}: winget reported success but it's still not installed — this is " +
+                    "usually a winget download/certificate failure (0x8A15005E), often caused by an " +
+                    $"incorrect system clock. Check the date/time, or install {display} manually.");
+            return installed;
         }
 
         private static string ResolveWinget()

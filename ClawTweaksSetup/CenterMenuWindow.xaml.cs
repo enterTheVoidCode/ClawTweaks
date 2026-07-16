@@ -44,6 +44,8 @@ namespace ClawTweaksSetup
 
         private DeviceDetect.Model _deviceModel = DeviceDetect.Model.Unknown;
         private Version _installedVersion;
+        private SetupVersionCheck.Result _setupVersionCheck;
+        private WindowsChannelDetect.Result _windowsChannel;
         private int _selectedIndex = -1;
         private bool _busy;
         private bool _confirming;
@@ -74,8 +76,14 @@ namespace ClawTweaksSetup
 
                 var deviceTask = Task.Run(() => DeviceDetect.Detect());
                 var sourcesTask = RefreshSourcesAsync();
+                var setupVersionTask = SetupVersionCheck.CheckAsync();
+                var windowsChannelTask = Task.Run(() => WindowsChannelDetect.Detect());
                 RenderDeviceBanner(await deviceTask);
                 await sourcesTask;
+
+                _setupVersionCheck = await setupVersionTask;
+                _windowsChannel = await windowsChannelTask;
+                RenderCurrentView(); // picks up the outdated-Setup / Insider-channel warnings once known
             };
             Closed += (_, __) => _nav?.Dispose();
 
@@ -250,6 +258,14 @@ namespace ClawTweaksSetup
         private void RenderHome()
         {
             ContentHost.Children.Clear();
+
+            if (_setupVersionCheck?.Outdated == true)
+                ContentHost.Children.Add(UiHelpers.StatusRow(StatusKind.Warning, "This Setup build is outdated",
+                    $"{_setupVersionCheck.Message} (running {_setupVersionCheck.RunningVersion}, needs {_setupVersionCheck.MinimumVersion}+)"));
+
+            if (_windowsChannel?.IsInsider == true)
+                ContentHost.Children.Add(UiHelpers.StatusRow(StatusKind.Warning, "Windows Insider Preview detected",
+                    $"You're on the \"{_windowsChannel.ChannelName}\" channel — the install routine is currently known not to work correctly on Insider builds."));
 
             var versionStack = new StackPanel { Margin = new Thickness(0, 0, 0, 20) };
             versionStack.Children.Add(new TextBlock
