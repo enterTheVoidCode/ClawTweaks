@@ -1,7 +1,7 @@
 {
   "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks. Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. NUR MSI-eigene Eintraege (Firmware, BIOS, MSI-spezifisch) pflegen - Intel-Treiber (GPU/WiFi/BT/Chipsatz) werden automatisch erkannt und per Intel-DSA-Deeplink delegiert (Praezedenz: Intel ist bei Ueberschneidung immer aktueller). downloadUrl MUSS auf download.msi.com oder download-2.msi.com zeigen (Whitelist). BIOS-Flasher NIE mit action=install (kein Auto-Launch) - immer deeplink oder download-only.",
   "schemaVersion": 1,
-  "updatedUtc": "2026-06-18",
+  "updatedUtc": "2026-07-14",
   "devices": [
     {
       "deviceType": 40,
@@ -33,6 +33,23 @@
           "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
           "action": "deeplink",
           "_comment": "Installierte Controller-FW-Version wird automatisch aus dem HID-Descriptor (bcdDevice, z.B. 0x308 -> '3.08') gelesen (MsiClawLedController.TryGetControllerFirmwareVersion, portiert aus HC) - die Zeile zeigt also die echte installierte Version. 'version' = neueste FW pflegen, damit der Update-Status berechnet wird; action bleibt deeplink (Firmware nie auto-installieren), sobald eine download.msi.com-URL bekannt ist optional auf install setzen."
+        },
+        {
+          "name": "MSI Center M",
+          "category": "Software",
+          "providerScope": "msi",
+          "version": "2.0.2606.2501",
+          "releaseDate": "2026-07-14",
+          "downloadUrl": "https://download.msi.com/uti_exe/nb/MSI%20Center%20M%20Installer_2.0.2606.2501_2.0.2606.2501_0x4f02e992.zip",
+          "severity": "optional",
+          "pnpMatchHints": [],
+          "deviceIdMatch": "",
+          "action": "install",
+          "installedRegistry": {
+            "path": "HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M",
+            "value": "Package_Version"
+          },
+          "_comment": "Installierte Version kommt aus der Registry (Package_Version), nicht aus PnP-Matching. downloadUrl liefert ein .zip (kein .exe/.msi) - wird nur heruntergeladen, nie automatisch gestartet (siehe InstallDriverAsync ext-Gate); der User entpackt/installiert manuell. Groesse ~184.93 MB."
         }
       ]
     }

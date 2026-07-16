@@ -61,16 +61,18 @@ namespace ClawTweaksSetup.Ui
             Margin = new Thickness(0, 0, 0, 18),
         };
 
-        /// <summary>A coloured badge with a glyph: ✓ ok, ! warning, ✕ error, · info, … working.</summary>
+        /// <summary>A coloured badge with a glyph: ✓ ok, ! warning, ✕ error, · info — or, for Working,
+        /// the looping loading-spinner GIF instead of a static glyph.</summary>
         public static FrameworkElement Badge(StatusKind kind, double size = 30)
         {
+            if (kind == StatusKind.Working) return GifSpinner.Create(size);
+
             Brush fill; string glyph; Brush fg = System.Windows.Media.Brushes.White;
             switch (kind)
             {
                 case StatusKind.Ok:      fill = Ok;   glyph = "✓"; break; // ✓
                 case StatusKind.Warning: fill = Warn; glyph = "!";      fg = System.Windows.Media.Brushes.Black; break;
                 case StatusKind.Error:   fill = Error; glyph = "✕"; break; // ✕
-                case StatusKind.Working: fill = new SolidColorBrush(Color.FromRgb(0x3A,0x3F,0x4B)); glyph = "…"; break; // …
                 // Info = detected, differs from the default but is OK/neutral → grey dash.
                 default:                 fill = new SolidColorBrush(Color.FromRgb(0x3A,0x3F,0x4B)); glyph = "–"; break;
             }
@@ -85,7 +87,6 @@ namespace ClawTweaksSetup.Ui
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, kind == StatusKind.Working ? -size * 0.18 : 0, 0, 0),
             });
             return grid;
         }

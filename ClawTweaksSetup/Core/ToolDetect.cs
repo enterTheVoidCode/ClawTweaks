@@ -75,8 +75,34 @@ namespace ClawTweaksSetup.Core
             return Missing("usbip");
         }
 
+        /// <summary>
+        /// RTSS presence — deliberately mirrors Shared RTSSHelper.IsInstalled(): only an RTSS.exe that
+        /// actually exists on disk counts. A bare registry key must NEVER count: an NSIS uninstall leaves
+        /// Unwinder\RTSS (incl. its InstallDir value) behind, so trusting the key reported RTSS as
+        /// installed on machines where it was long gone. That made this screen disagree with the helper —
+        /// which correctly saw it missing — so the wizard skipped installing RTSS while onboarding could
+        /// never finalize, with no way out for the user. The registry is used only as a POINTER to the
+        /// install dir; the file check is the proof.
+        /// </summary>
         public static ToolStatus Rtss()
         {
+            // 1) Registry InstallDir → verify the exe is really there (orphan-key safe).
+            foreach (var key in new[]
+            {
+                @"SOFTWARE\WOW6432Node\Unwinder\RTSS",
+                @"SOFTWARE\Unwinder\RTSS",
+                @"SOFTWARE\WOW6432Node\Guru3D\RTSS",
+                @"SOFTWARE\Guru3D\RTSS",
+            })
+            {
+                var dir = RegValue(RegistryHive.LocalMachine, key, "InstallDir");
+                if (string.IsNullOrEmpty(dir)) continue;
+                var exe = Path.Combine(dir, "RTSS.exe");
+                if (File.Exists(exe))
+                    return Ok("RTSS", exe);
+            }
+
+            // 2) Default install locations.
             foreach (var exe in new[]
             {
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
@@ -87,19 +113,6 @@ namespace ClawTweaksSetup.Core
             {
                 if (File.Exists(exe))
                     return Ok("RTSS", exe);
-            }
-
-            // Registry install marker (Unwinder\RTSS or Guru3D\RTSS)
-            foreach (var key in new[]
-            {
-                @"SOFTWARE\WOW6432Node\Unwinder\RTSS",
-                @"SOFTWARE\Unwinder\RTSS",
-                @"SOFTWARE\WOW6432Node\Guru3D\RTSS",
-                @"SOFTWARE\Guru3D\RTSS",
-            })
-            {
-                if (RegKeyExists(RegistryHive.LocalMachine, key))
-                    return Ok("RTSS", "registry install marker present");
             }
 
             return Missing("RTSS");
@@ -124,6 +137,17 @@ namespace ClawTweaksSetup.Core
                 return k != null;
             }
             catch { return false; }
+        }
+
+        private static string RegValue(RegistryHive hive, string subKey, string valueName)
+        {
+            try
+            {
+                using var baseKey = RegistryKey.OpenBaseKey(hive, RegistryView.Registry64);
+                using var k = baseKey.OpenSubKey(subKey);
+                return k?.GetValue(valueName) as string;
+            }
+            catch { return null; }
         }
 
         private static bool ArpDisplayNameContains(string needle)

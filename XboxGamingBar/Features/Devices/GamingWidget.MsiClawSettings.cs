@@ -26,7 +26,6 @@ namespace XboxGamingBar
         private const string MsiLedColorKey         = "MsiClaw_LedColor";       // "R,G,B"
         private const string MsiLedBrightnessKey    = "MsiClaw_LedBrightness";  // int 0..100 (0 = LED off)
         private const string MsiLedOnBrightnessKey  = "MsiClaw_LedOnBrightness"; // int 1..100 — level to restore when the tile turns the LED back on
-        private const string MsiLedBootCycleKey     = "MsiClaw_LedBootCycle";   // bool (startup red→green→colour)
         private const string MsiChargeLimitEnabledKey = "MsiClaw_ChargeLimitOn";  // bool
         private const string MsiChargeLimitPercentKey = "MsiClaw_ChargeLimitPct"; // int 20..100
         // Set true the first time the user enables the charge limiter in the System tab. The
@@ -36,10 +35,15 @@ namespace XboxGamingBar
 
         // ── State ───────────────────────────────────────────────────────────────────
         private bool   _msiLedExpanded       = false;
-        private bool   _msiLedLoading        = false;
-        // Start TRUE so the ToggleSwitch's construction-time Toggled (XAML IsOn="True") is ignored
-        // until RestoreMsiLedBootCycleFromSettings loads the real value (same pattern as charge limit).
-        private bool   _msiLedBootCycleLoading = true;
+        // Start TRUE (same rationale as _msiChargeLimitLoading below): MsiLedSyncToggle has IsOn="True"
+        // in XAML, so its Toggled fires during page construction — BEFORE RestoreMsiLedEffectFromSettings
+        // runs. With this false, that spurious Toggled ran WriteEditorToComposite(), which copied the
+        // editor's own field defaults (Static + white + RGB wave colours) into _ledComposite and
+        // persisted/pushed them. On a device WITH a saved config EnsureCompositeLoaded overwrote that
+        // again, hiding the bug — but on a FRESH INSTALL there is nothing to overwrite it with, so white
+        // was written to LocalSettings and pushed to the controller as if the user had picked it. That is
+        // the "LED goes white after every reinstall" bug. Restore clears this flag when done.
+        private bool   _msiLedLoading        = true;
         // Start TRUE so the Slider's XAML-default ValueChanged (Value="80") and the ToggleSwitch's
         // default Toggled — both raised during page construction, BEFORE RestoreMsiChargeLimitFromSettings
         // runs — are ignored. Otherwise that spurious 80 clobbered the stored percent and got pushed to
@@ -73,7 +77,6 @@ namespace XboxGamingBar
             RequestControllerState();
 
             RestoreMsiLedEffectFromSettings();
-            RestoreMsiLedBootCycleFromSettings();
             RestoreMsiChargeLimitFromSettings();
             RestoreGameBarWidgetPositionFromSettings();
 
@@ -267,17 +270,14 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Re-pushes the composite + startup-cycle preference to the helper on pipe (re)connect (widget is
-        /// authoritative). Kept under the original name so the pipe-connect caller stays unchanged.
+        /// Re-pushes the composite to the helper on pipe (re)connect (widget is authoritative). Kept
+        /// under the original name so the pipe-connect caller stays unchanged.
         /// </summary>
         internal void ResendMsiLedColorToHelper()
         {
             try
             {
                 if (!IsMsiClawDevice()) return;
-                var s = ApplicationData.Current.LocalSettings.Values;
-                bool cycleOn = !(s.TryGetValue(MsiLedBootCycleKey, out var cv) && cv is bool cb) || cb;
-                _ = SendMsiLedBootCycleAsync(cycleOn);
                 ResendMsiLedEffectToHelper();
             }
             catch (Exception ex) { Logger.Warn($"[MsiLed] ResendMsiLedColorToHelper: {ex.Message}"); }
@@ -297,46 +297,6 @@ namespace XboxGamingBar
                 Logger.Info($"[MsiLed] Sent color R={r} G={g} B={b} Brightness={bright}");
             }
             catch (Exception ex) { Logger.Warn($"[MsiLed] Send failed: {ex.Message}"); }
-        }
-
-        // ── Startup colour cycle (red→green→saved colour) on/off ──────────────────────
-        private void RestoreMsiLedBootCycleFromSettings()
-        {
-            try
-            {
-                _msiLedBootCycleLoading = true;
-                bool on = true; // default: cycle enabled
-                var s = ApplicationData.Current.LocalSettings.Values;
-                if (s.TryGetValue(MsiLedBootCycleKey, out var v) && v is bool b) on = b;
-                if (MsiLedBootCycleToggle != null) MsiLedBootCycleToggle.IsOn = on;
-            }
-            catch (Exception ex) { Logger.Warn($"[MsiLed] Restore boot cycle failed: {ex.Message}"); }
-            finally { _msiLedBootCycleLoading = false; }
-        }
-
-        internal void MsiLedBootCycleToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (_msiLedBootCycleLoading) return;
-            bool on = MsiLedBootCycleToggle?.IsOn ?? true;
-            try { ApplicationData.Current.LocalSettings.Values[MsiLedBootCycleKey] = on; }
-            catch (Exception ex) { Logger.Warn($"[MsiLed] persist boot cycle failed: {ex.Message}"); }
-            _ = SendMsiLedBootCycleAsync(on);
-            Logger.Info($"[MsiLed] Startup colour cycle → {(on ? "on" : "off")}");
-        }
-
-        private async Task SendMsiLedBootCycleAsync(bool on)
-        {
-            try
-            {
-                if (!App.IsConnected) return;
-                var msg = new Windows.Foundation.Collections.ValueSet
-                {
-                    { "MsiLedBootCycle", on ? "1" : "0" }
-                };
-                await App.SendMessageAsync(msg);
-                Logger.Info($"[MsiLed] Sent boot cycle = {on}");
-            }
-            catch (Exception ex) { Logger.Warn($"[MsiLed] Send boot cycle failed: {ex.Message}"); }
         }
 
         // ── Charge Limit ─────────────────────────────────────────────────────────────

@@ -586,5 +586,13 @@
         // Device capability: whether this device exposes the Drivers tab (GPU driver updates etc.).
         // Default true; per-model on the MSI Claw — e.g. off on the Claw 8 EX / AMD A8. Read-only.
         DeviceSupportsDriverManagement, // bool - true = show the Drivers tab
+
+        // Device capability: PL1 (sustained) TDP power-limit ceiling in watts. Per-model on the
+        // MSI Claw (A2VM = 30W, Claw 8 EX = 35W). Drives the TDP slider maximum. Read-only.
+        DeviceMaxPL1,               // int - PL1 slider maximum in watts
+
+        // Device capability: PL2 (boost) TDP power-limit ceiling in watts. Per-model on the
+        // MSI Claw (A2VM = 37W, Claw 8 EX = 45W). Drives the TDP Boost slider maximum. Read-only.
+        DeviceMaxPL2,               // int - PL2/Boost slider maximum in watts
     }
 }

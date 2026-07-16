@@ -90,6 +90,22 @@ namespace Shared.Data
         public bool SupportsDriverManagement { get; set; } = true;
 
         /// <summary>
+        /// TDP power-limit ceiling for PL1 (sustained power). Also the base TDP slider maximum.
+        /// </summary>
+        public int MaxPL1 { get; set; } = 30;
+
+        /// <summary>
+        /// TDP power-limit ceiling for PL2 (boost power). Also the TDP Boost slider maximum.
+        /// </summary>
+        public int MaxPL2 { get; set; } = 37;
+
+        /// <summary>
+        /// Minimum PL2-over-PL1 headroom this platform enforces (e.g. MSI Claw A2VM requires
+        /// PL2 &gt;= PL1 + 1; Claw 8 EX requires PL2 &gt;= PL1 + 2).
+        /// </summary>
+        public int Pl2MinOffset { get; set; } = 1;
+
+        /// <summary>
         /// Checks if this is any Legion device (Go, Go 2, or Go S)
         /// </summary>
         public bool IsLegionDevice => DeviceType == DeviceType.LegionGo || DeviceType == DeviceType.LegionGo2 || DeviceType == DeviceType.LegionGoS;
