@@ -997,6 +997,17 @@ namespace XboxGamingBarHelper
                         globalProfile.FPSLimit_DC = import.GlobalProfile.FPSLimit_DC;
                         globalProfile.OSPowerMode = import.GlobalProfile.OSPowerMode;
                         globalProfile.OSPowerMode_DC = import.GlobalProfile.OSPowerMode_DC;
+
+                        // Mirror the imported TDP into the GlobalTDP setting too. RestoreGlobalProfileSettings
+                        // prefers that setting over GlobalProfile.TDP (the struct field goes stale), so without
+                        // this the pre-import value would win and the imported TDP would silently never apply.
+                        try
+                        {
+                            Settings.LocalSettingsHelper.SetValue("GlobalTDP", import.GlobalProfile.TDP);
+                            Logger.Info($"Import: mirrored global TDP {import.GlobalProfile.TDP}W into GlobalTDP");
+                        }
+                        catch (Exception ex) { Logger.Debug($"Import: mirroring GlobalTDP failed: {ex.Message}"); }
+
                         Logger.Info("Global profile settings imported");
                         importedCount++;
 

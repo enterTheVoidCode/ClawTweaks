@@ -418,6 +418,40 @@ namespace XboxGamingBarHelper
         /// - Per-game profile is explicitly disabled by widget
         /// Must be called within isApplyingProfile = true context.
         /// </summary>
+        /// <summary>
+        /// The user's global TDP, preferring the reliably-persisted setting over GlobalProfile.TDP.
+        ///
+        /// GameProfile is a struct, so the property handlers' RouteProfileSave writes into a copy
+        /// (CurrentProfile) that does not reliably reach global.xml — GlobalProfile.TDP goes stale.
+        /// TDP_PropertyChanged therefore also mirrors the value into the GlobalTDP setting, gated on
+        /// "no game running" so a per-game override never lands in it, and ApplyPersistedStartupTdp
+        /// already reads it back at startup. This restore path was the one place still trusting the
+        /// struct — which is why the CPUBoost comment claiming "Same fix as GlobalTDP" did not hold.
+        ///
+        /// Observed on a Claw 8 EX: the user sets 35W, [TDP-Persist] stores it, and then every apply
+        /// of the global profile (game ends, Game Bar reopens, widget connects) re-read a global.xml
+        /// still holding 25W and slammed the hardware back down — for 85 minutes. A helper restart
+        /// showed both stores three seconds apart: "Applying persisted startup TDP: 35W" followed by
+        /// "Refreshed GlobalProfile from disk: TDP=25" undoing it. Device-independent; the EX only
+        /// makes it obvious because a fresh 25W default is far below that device's 35W ceiling.
+        ///
+        /// Falls back to the profile when the setting is absent (first run, pre-upgrade installs).
+        /// Profile import mirrors into GlobalTDP so an imported value is not shadowed by this.
+        /// </summary>
+        private static int ResolveGlobalTdp() =>
+            Settings.LocalSettingsHelper.TryGetValue<int>("GlobalTDP", out int persistedTdp) && persistedTdp > 0
+                ? persistedTdp
+                : profileManager.GlobalProfile.TDP;
+
+        /// <summary>
+        /// The user's global CPU Boost state. Same stale-struct problem and same fix as
+        /// <see cref="ResolveGlobalTdp"/> — see there for why GlobalProfile cannot be trusted.
+        /// </summary>
+        private static bool ResolveGlobalCpuBoost() =>
+            Settings.LocalSettingsHelper.TryGetValue<bool>("GlobalCPUBoost", out bool persistedBoost)
+                ? persistedBoost
+                : profileManager.GlobalProfile.CPUBoost;
+
         private static void RestoreGlobalProfileSettings()
         {
             // Refresh GlobalProfile from cache — property change handlers (TDP_PropertyChanged, etc.)
@@ -427,7 +461,11 @@ namespace XboxGamingBarHelper
 
             profileManager.CurrentProfile.SetValue(profileManager.GlobalProfile);
 
-            Logger.Info($"Applying global profile settings: TDP={profileManager.GlobalProfile.TDP}, CPUBoost={profileManager.GlobalProfile.CPUBoost}, EPP={profileManager.GlobalProfile.CPUEPP}");
+            // Log what actually gets applied, not what the profile struct happens to hold: TDP and
+            // CPUBoost are taken from LocalSettings below when present. Logging the struct here while
+            // applying something else is how the stale-TDP bug stayed hidden - the log agreed with the
+            // wrong value.
+            Logger.Info($"Applying global profile settings: TDP={ResolveGlobalTdp()}, CPUBoost={ResolveGlobalCpuBoost()}, EPP={profileManager.GlobalProfile.CPUEPP}");
 
             // IMPORTANT: Disable AutoTDP FIRST, before setting TDP.
             // TDPProperty.NotifyPropertyChanged() skips hardware apply when IsAutoTDPActive is true.
@@ -452,16 +490,9 @@ namespace XboxGamingBarHelper
                 }
             }
 
-            performanceManager.TDP.SetProfileValue(profileManager.GlobalProfile.TDP);
+            performanceManager.TDP.SetProfileValue(ResolveGlobalTdp());
             performanceManager.TDPBoostEnabled.SetValue(profileManager.GlobalProfile.TDPBoostEnabled);
-            // Prefer the reliably-persisted global boost state over GlobalProfile.CPUBoost — the
-            // latter goes stale because CPUBoost_PropertyChanged's RouteProfileSave saves into
-            // CurrentProfile (a struct copy) that doesn't reliably reach global.xml on disk (see
-            // the comment at the top of this method). Same fix as GlobalTDP.
-            bool globalBoost = Settings.LocalSettingsHelper.TryGetValue<bool>("GlobalCPUBoost", out bool persistedBoost)
-                ? persistedBoost
-                : profileManager.GlobalProfile.CPUBoost;
-            powerManager.CPUBoost.SetValue(globalBoost);
+            powerManager.CPUBoost.SetValue(ResolveGlobalCpuBoost());
             powerManager.CPUEPP.SetValue(profileManager.GlobalProfile.CPUEPP);
             powerManager.MaxCPUState.SetValue(profileManager.GlobalProfile.MaxCPUState);
             powerManager.MinCPUState.SetValue(profileManager.GlobalProfile.MinCPUState);
