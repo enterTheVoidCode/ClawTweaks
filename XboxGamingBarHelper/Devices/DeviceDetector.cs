@@ -53,6 +53,20 @@ namespace XboxGamingBarHelper.Devices
         public static bool IsDebugModeActive => _isDebugModeActive;
 
         /// <summary>
+        /// True when a probe actually identified the machine. QueryDeviceInfoCombined swallows WMI
+        /// errors and leaves DeviceInfo on its "Unknown" defaults, which look exactly like a real
+        /// result to the cache — so this is the gate that keeps a failed probe out of it. A device
+        /// whose vendor/model genuinely read "Unknown" matches no DeviceConfig anyway, so refusing to
+        /// cache it costs nothing but a WMI query per start.
+        /// </summary>
+        private static bool IsUsableDeviceInfo(DeviceInfo info) =>
+            info != null
+            && !string.IsNullOrWhiteSpace(info.Manufacturer)
+            && !string.Equals(info.Manufacturer, "Unknown", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(info.Model)
+            && !string.Equals(info.Model, "Unknown", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
         /// Detects device information from WMI and determines device type.
         /// Results are cached in memory and on disk for fast startup.
         /// Thread-safe - only one WMI query will be made even if called from multiple threads.
@@ -437,6 +451,18 @@ namespace XboxGamingBarHelper.Devices
                         SystemFamily = root.GetProperty("systemFamily").GetString() ?? "Unknown"
                     };
 
+                    // Never trust a cache written from a failed probe: nothing re-queries WMI once the
+                    // cache loads, so an "Unknown" entry would pin the machine to Generic forever (no
+                    // Claw features, no recovery — InvalidateDiskCache has no callers). Rejecting it
+                    // here is also what heals devices that already carry a poisoned cache from an
+                    // earlier build.
+                    if (!IsUsableDeviceInfo(deviceInfo))
+                    {
+                        Logger.Warn("Device cache holds a failed detection (Unknown) — ignoring it and re-querying WMI");
+                        deviceInfo = null;
+                        return false;
+                    }
+
                     Logger.Debug($"Loaded device info from disk cache: {deviceInfo.Manufacturer} {deviceInfo.Model}");
                     return true;
                 }
@@ -455,6 +481,16 @@ namespace XboxGamingBarHelper.Devices
         {
             try
             {
+                // Only persist a probe that actually identified the machine. The helper starts from a
+                // scheduled task at boot, possibly before Winmgmt is ready — that WMI query can fail,
+                // and QueryDeviceInfoCombined just logs and leaves the "Unknown" defaults. Caching
+                // those would turn one transient hiccup into a permanent Generic device.
+                if (!IsUsableDeviceInfo(deviceInfo))
+                {
+                    Logger.Warn("Not caching device info — detection produced no usable values (WMI unavailable?); will re-query next start");
+                    return;
+                }
+
                 var cachePath = GetCacheFilePath();
                 if (string.IsNullOrEmpty(cachePath))
                 {
