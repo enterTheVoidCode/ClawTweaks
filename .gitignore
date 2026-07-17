@@ -43,3 +43,8 @@ XboxGamingBarPackage/internal_build.txt
 # Local-only diagnostics tooling and button-icon assets (kept off GitHub)
 /Diagnostics/
 /XboxGamingBar/Assets/ButtonIcons/
+
+# Claude's assistant memory — local working notes, never published.
+# The real files live here; C:\Users\<user>\.claude\projects\<slug>\memory is a
+# directory junction pointing at this folder, so both paths are the same data.
+/memory/
