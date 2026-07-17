@@ -8,7 +8,9 @@ namespace ClawTweaksSetup.Core
     /// Installs HidHide and RTSS via winget (the same package IDs the helper uses: Nefarius.HidHide,
     /// Guru3D.RTSS). The setup is already elevated, so we resolve the REAL winget.exe inside the
     /// Microsoft.DesktopAppInstaller package (the per-user "winget" alias does not resolve elevated).
-    /// usbip is handled separately by <see cref="UsbipSetup"/>.
+    /// usbip is handled separately by <see cref="UsbipSetup"/>; PawnIO by <see cref="PawnIoSetup"/>
+    /// (its own direct-download path, with winget as PawnIoSetup's fallback via
+    /// <see cref="InstallPawnIOViaWinget"/> below).
     /// </summary>
     public static class ToolInstaller
     {
@@ -17,6 +19,9 @@ namespace ClawTweaksSetup.Core
 
         public static bool InstallRtss(Action<string> log = null) =>
             InstallViaWinget("Guru3D.RTSS", "RTSS", () => ToolDetect.Rtss().Installed, log);
+
+        public static bool InstallPawnIOViaWinget(Action<string> log = null) =>
+            InstallViaWinget("namazso.PawnIO", "PawnIO", () => ToolDetect.PawnIO().Installed, log);
 
         private static bool InstallViaWinget(string packageId, string display, Func<bool> isInstalled, Action<string> log)
         {

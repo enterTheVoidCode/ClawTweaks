@@ -4,8 +4,9 @@
         Title="ClawTweaks Center"
         Width="1100" Height="720"
         MinWidth="900" MinHeight="600"
-        WindowState="Maximized"
-        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
         Background="{StaticResource BgBrush}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
@@ -27,9 +28,16 @@
 
                 <!-- Base height matches the device banner border's rendered height (72px image + 10px
                      top/bottom padding in RenderDeviceBanner = 92), bumped 20% per request. -->
-                <Image Grid.Column="0" Source="pack://application:,,,/Assets/branding/ctw-center-logo.png"
-                       Height="110" Stretch="Uniform" HorizontalAlignment="Left"
-                       VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                <StackPanel Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <Image Source="pack://application:,,,/Assets/branding/ctw-center-logo.png"
+                           Height="110" Stretch="Uniform" HorizontalAlignment="Left"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <!-- The Setup/Center tool's own version (ClawTweaksSetup.csproj <Version>) — distinct
+                         from the installed ClawTweaks app version shown further down. -->
+                    <TextBlock x:Name="SetupVersionLabel" FontSize="13"
+                               Foreground="{StaticResource SubtleTextBrush}"
+                               HorizontalAlignment="Left" Margin="4,4,0,0" />
+                </StackPanel>
 
                 <ContentControl x:Name="DeviceBanner" Grid.Column="1"
                                 Margin="16,0,0,0" VerticalAlignment="Center" Focusable="False" />

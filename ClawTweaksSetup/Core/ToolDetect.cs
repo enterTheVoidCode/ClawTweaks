@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
 namespace ClawTweaksSetup.Core
@@ -117,6 +118,32 @@ namespace ClawTweaksSetup.Core
 
             return Missing("RTSS");
         }
+
+        /// <summary>
+        /// PawnIO presence — ported 1:1 from the helper's CheckPawnIODriverInstalled()
+        /// (XboxGamingBarHelper/Performance/PerformanceManager.cs): PawnIO exposes no registry/file
+        /// marker the helper trusts, so "installed" means its device object actually opens, nothing
+        /// else. Same check used for the TDP Method card's Install/Installed status in the main app.
+        /// </summary>
+        public static ToolStatus PawnIO()
+        {
+            IntPtr handle = CreateFile(@"\\.\PawnIO", GENERIC_READ, FILE_SHARE_READ,
+                IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero);
+            bool ok = handle != IntPtr.Zero && handle.ToInt64() != -1;
+            if (ok) CloseHandle(handle);
+            return ok ? Ok("PawnIO", "device opened") : Missing("PawnIO");
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern IntPtr CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode,
+            IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        private const uint GENERIC_READ = 0x80000000;
+        private const uint FILE_SHARE_READ = 0x1;
+        private const uint OPEN_EXISTING = 3;
 
         #region helpers
         private static ToolStatus Ok(string name, string detail) =>

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
@@ -19,32 +18,18 @@ namespace ClawTweaksSetup.Core.Sources
     {
         private const string FolderId = "1yLUyaYy20eZHFWy0ygyP6LbJsApAHBXF";
 
-        private static readonly Regex VersionRegex = new Regex(@"ClawTweaks_([\d.]+)_Installer\.zip", RegexOptions.IgnoreCase);
+        // Read-only, restricted-to-Drive-API key so end users get a working nightly list out of the
+        // box — no per-user setup step. Shipping in the exe means it's extractable via decompilation
+        // like any client-embedded key; mitigate by keeping it restricted to the Drive API only and
+        // capped with a quota in Google Cloud Console, and rotate it there (+ rebuild) if it's ever
+        // abused.
+        private const string ApiKey = "AIzaSyCnOwAdpy8Z3CFkCp0nNz2SovHyuBPFD2o";
 
-        /// <summary>
-        /// The Drive API key lives outside the repo entirely — same trust model as ClawTweaks.pfx
-        /// (never committed). Drop it in %LOCALAPPDATA%\ClawTweaksCenter\drive-api-key.txt on any
-        /// machine that should be able to list nightlies; without it, this section just shows a
-        /// clean "not configured" error instead of crashing anything else.
-        /// </summary>
-        private static string LoadApiKey()
-        {
-            try
-            {
-                string path = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "ClawTweaksCenter", "drive-api-key.txt");
-                return File.Exists(path) ? File.ReadAllText(path).Trim() : null;
-            }
-            catch { return null; }
-        }
+        private static readonly Regex VersionRegex = new Regex(@"ClawTweaks_([\d.]+)_Installer\.zip", RegexOptions.IgnoreCase);
 
         public static async Task<List<BuildSource>> FetchAsync()
         {
-            string apiKey = LoadApiKey();
-            if (string.IsNullOrEmpty(apiKey))
-                throw new InvalidOperationException(
-                    "Google Drive API key not configured — add one to %LOCALAPPDATA%\\ClawTweaksCenter\\drive-api-key.txt");
+            string apiKey = ApiKey;
 
             string url = "https://www.googleapis.com/drive/v3/files"
                 + "?q=" + Uri.EscapeDataString($"'{FolderId}' in parents and trashed=false")

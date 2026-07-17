@@ -12,15 +12,17 @@ namespace ClawTweaksSetup.Phases
 {
     /// <summary>
     /// Phase 2 — required tools. Per-tool rows describe what each tool does and its live status.
-    /// Ⓐ installs the missing ones: the silent tools first (HidHide, RTSS via winget), then usbip
-    /// (VIIPER backend) which cannot be silent — its installer window opens and a reboot is required
-    /// afterwards (flagged in bold red). Ⓨ re-checks. Content scrolls with the D-Pad / left stick.
+    /// Ⓐ installs the missing ones: the silent tools first (HidHide, RTSS via winget; PawnIO via its
+    /// own direct-download-then-winget-fallback path), then usbip (VIIPER backend) which cannot be
+    /// silent — its installer window opens and a reboot is required afterwards (flagged in bold red).
+    /// Ⓨ re-checks. Content scrolls with the D-Pad / left stick.
     /// </summary>
     public sealed class ToolsPhase : PhaseBase
     {
         private const string DescHidHide = "Hides the physical controller so games only see the virtual one — prevents double input.";
         private const string DescUsbip = "Kernel driver behind the VIIPER virtual controller. Mandatory for virtual mode.";
         private const string DescRtss = "RivaTuner Statistics Server — powers the FPS limiter and the on-screen overlay.";
+        private const string DescPawnIO = "Kernel driver used for TDP control.";
 
         private readonly StackPanel _root = new StackPanel();
         private readonly List<PhaseAction> _actions;
@@ -68,16 +70,17 @@ namespace ClawTweaksSetup.Phases
             var hidhide = await Task.Run(() => ToolDetect.HidHide());
             var usbip = await Task.Run(() => ToolDetect.Usbip());
             var rtss = await Task.Run(() => ToolDetect.Rtss());
+            var pawnio = await Task.Run(() => ToolDetect.PawnIO());
 
-            _anyMissing = !hidhide.Installed || !usbip.Installed || !rtss.Installed;
-            Render(hidhide, usbip, rtss);
+            _anyMissing = !hidhide.Installed || !usbip.Installed || !rtss.Installed || !pawnio.Installed;
+            Render(hidhide, usbip, rtss, pawnio);
 
             State = _anyMissing ? PhaseState.Action : PhaseState.Ok;
             _busy = false;
             RaiseActionsChanged();
         }
 
-        private void Render(ToolStatus hidhide, ToolStatus usbip, ToolStatus rtss)
+        private void Render(ToolStatus hidhide, ToolStatus usbip, ToolStatus rtss, ToolStatus pawnio)
         {
             _root.Children.Clear();
             _root.Children.Add(UiHelpers.Title("Required tools"));
@@ -95,6 +98,7 @@ namespace ClawTweaksSetup.Phases
             _root.Children.Add(ToolRow(hidhide, "HidHide", DescHidHide));
             _root.Children.Add(ToolRow(usbip, "usbip  (required for virtual controller)", DescUsbip));
             _root.Children.Add(ToolRow(rtss, "RTSS", DescRtss));
+            _root.Children.Add(ToolRow(pawnio, "PawnIO", DescPawnIO));
 
             _root.Children.Add(_spinner);
             if (_log.Text.Length > 0) _root.Children.Add(_log);
@@ -115,11 +119,13 @@ namespace ClawTweaksSetup.Phases
                 if (!_root.Children.Contains(_log)) _root.Children.Add(_log);
             });
 
-            // 1) Silent tools first (winget): HidHide, then RTSS.
+            // 1) Silent tools first: HidHide + RTSS via winget, PawnIO via its own direct-download-
+            // then-winget-fallback path (PawnIoSetup.Run) — none of these open a visible window.
             await Task.Run(() =>
             {
                 if (!ToolDetect.HidHide().Installed) ToolInstaller.InstallHidHide(Log);
                 if (!ToolDetect.Rtss().Installed) ToolInstaller.InstallRtss(Log);
+                if (!ToolDetect.PawnIO().Installed) PawnIoSetup.Run(Log);
             });
 
             // Re-render so the silent tools flip to green before we tackle usbip.
@@ -146,7 +152,8 @@ namespace ClawTweaksSetup.Phases
             var h = await Task.Run(() => ToolDetect.HidHide());
             var u = await Task.Run(() => ToolDetect.Usbip());
             var r = await Task.Run(() => ToolDetect.Rtss());
-            Render(h, u, r);
+            var p = await Task.Run(() => ToolDetect.PawnIO());
+            Render(h, u, r, p);
         }
 
         private static Border ToolRow(ToolStatus s, string label, string desc)

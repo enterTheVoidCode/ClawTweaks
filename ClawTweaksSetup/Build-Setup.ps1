@@ -37,8 +37,8 @@ Write-Host ">> Publishing self-contained single-file exe..." -ForegroundColor Gr
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
     -o $publishDir | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
-$exe = Join-Path $publishDir 'ClawTweaksSetup.exe'
-if (-not (Test-Path $exe)) { throw "setup.exe not found after publish." }
+$exe = Join-Path $publishDir 'CTW_Center.exe'
+if (-not (Test-Path $exe)) { throw "CTW_Center.exe not found after publish." }
 Write-Host "   [OK] $exe" -ForegroundColor Green
 
 # 2. Locate the built package + cert.
@@ -86,4 +86,4 @@ Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host "  Folder: $outDir"
 Write-Host "  ZIP:    $zip  ($zipMb MB)"
 Write-Host ""
-Write-Host "  Copy the folder (or extracted ZIP) to the Claw and run ClawTweaksSetup.exe." -ForegroundColor Gray
+Write-Host "  Copy the folder (or extracted ZIP) to the Claw and run CTW_Center.exe." -ForegroundColor Gray
