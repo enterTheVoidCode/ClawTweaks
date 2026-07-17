@@ -651,15 +651,17 @@
                             <!-- BitmapIcon (not Image): ShowAsMonochrome recolors the PNG's opaque pixels
                                  using the inherited Foreground, so it dims to grey/brightens to white on
                                  hover/checked exactly like the other tabs' vector icons.
-                                 BitmapIcon's default 16x16 box has a FIXED-PIXEL inset baked into its
-                                 ShowAsMonochrome template — the outer Viewbox scales that whole box
-                                 (inset included) uniformly, so a bigger Viewbox alone never shrinks the
-                                 inset's relative share. Declaring the BitmapIcon itself much larger than
-                                 the target (48x48) before the 18x18 Viewbox scales it back down makes that
-                                 fixed inset a much smaller fraction of the box, so the glyph fills the tab
-                                 the same way the sibling PathIcon/FontIcon tabs do. -->
-                            <Viewbox Width="18" Height="18" VerticalAlignment="Center">
-                                <BitmapIcon UriSource="ms-appx:///Assets/ButtonIcons/controller_xboxseries.png" ShowAsMonochrome="True" Width="62" Height="62"/>
+                                 Sizing: the PNG is cropped to the bare controller silhouette (96x66, no
+                                 padding) and the Viewbox is 20x18 rather than 18x18. A controller is much
+                                 wider than tall, so a square 18x18 Viewbox caps it on WIDTH and leaves the
+                                 glyph only ~10px high — visibly smaller than the roughly square sibling
+                                 icons. Giving it 20 of width lets Uniform scale off the height instead
+                                 (min(20/96, 18/66) = 0.208 -> 20x13.8), matching the others' optical size
+                                 while the 18px height keeps the nav row aligned. Setting an explicit size on
+                                 the BitmapIcon itself does nothing here: inside a Viewbox only the aspect
+                                 ratio survives, the Viewbox rescales whatever size it declares. -->
+                            <Viewbox Width="20" Height="18" VerticalAlignment="Center">
+                                <BitmapIcon UriSource="ms-appx:///Assets/ButtonIcons/controller_xboxseries.png" ShowAsMonochrome="True"/>
                             </Viewbox>
                         </RadioButton.Content>
                     </RadioButton>
@@ -4352,333 +4354,6 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- ═══ MSI CLAW FEATURES — shown only on MSI Claw hardware ═══ -->
-
-                        <!-- Charge Limit Card (MSI Claw A1M / A2VM) -->
-                        <Border x:Name="MsiChargeLimitCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
-                            <StackPanel>
-                                <!-- Header: title + expand toggle. The enable toggle lives inside the
-                                     collapsible body (there is a separate Quick Settings tile that shows
-                                     the charge limit), so the header stays clean when collapsed. -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Charge Limit" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Limit battery charging to extend long-term lifespan"
-                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="ChargeLimitExpandButton" Grid.Column="1" IsChecked="False"
-                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
-                                                  Click="ChargeLimitExpandButton_Click" UseSystemFocusVisuals="True">
-                                        <FontIcon x:Name="ChargeLimitExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-
-                                <!-- Collapsible content -->
-                                <StackPanel x:Name="MsiChargeLimitContent" Visibility="Collapsed" Margin="0,12,0,0">
-                                <!-- Enable toggle (moved out of the header) -->
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Enable charge limit" FontSize="13" Foreground="#FFFFFF"/>
-                                        <TextBlock Text="Stop charging once the battery reaches the level below."
-                                                   FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleSwitch x:Name="MsiChargeLimitToggle"
-                                                  Grid.Column="1"
-                                                  OnContent="" OffContent=""
-                                                  IsOn="False"
-                                                  Toggled="MsiChargeLimitToggle_Toggled"/>
-                                </Grid>
-                                <!-- Percentage selection — shown when toggle is on -->
-                                <StackPanel x:Name="MsiChargeLimitPercentPanel" Visibility="Collapsed" Margin="0,12,0,0">
-                                    <Grid Margin="0,0,0,2">
-                                        <TextBlock Text="Charge to at most" FontSize="12" Foreground="#AAAAAA" VerticalAlignment="Center"/>
-                                        <TextBlock x:Name="MsiChargeLimitValue" Text="80%"
-                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                   FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold"/>
-                                    </Grid>
-                                    <Slider x:Name="MsiChargeLimitSlider"
-                                            Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="20" Maximum="100"
-                                            StepFrequency="5" TickFrequency="10"
-                                            TickPlacement="Outside" SnapsTo="StepValues"
-                                            Value="80"
-                                            XYFocusUp="{x:Bind MsiChargeLimitToggle}"
-                                            XYFocusDown="{x:Bind MsiChargeLimitVerifyButton}"
-                                            ValueChanged="MsiChargeLimitSlider_ValueChanged"/>
-
-                                    <!-- Read-back / verification row (reads the actual EC value) -->
-                                    <Grid Margin="0,8,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock x:Name="MsiChargeLimitStatusText" Grid.Column="0"
-                                                   Text="" FontSize="11" Foreground="{StaticResource HintTextBrush}"
-                                                   TextWrapping="Wrap" VerticalAlignment="Center"/>
-                                        <Button x:Name="MsiChargeLimitVerifyButton" Grid.Column="1"
-                                                Content="Verify" FontSize="12" Padding="12,4"
-                                                Click="MsiChargeLimitVerifyButton_Click"/>
-                                    </Grid>
-
-                                    <TextBlock Text="Note: the limit is enforced by the controller (EC) itself, so it keeps working while the Claw is asleep or shut down but plugged in. The EC value can be cleared by an EC reset, BIOS update or a full battery drain — use Verify to re-check the live value after sleep / hibernation."
-                                               FontSize="11" Foreground="#FF8C00"
-                                               TextWrapping="Wrap" Margin="0,8,0,0"/>
-                                </StackPanel>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Controller LED Color (MSI Claw) — placed directly below Charge Limit.
-                             Visibility is enabled by code on MSI Claw. -->
-                        <Border x:Name="MsiLedColorCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                        <TextBlock Text="Controller LED Color" Style="{StaticResource CardTitleStyle}"/>
-                                        <TextBlock Text="Set the controller LED color."
-                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
-                                    </StackPanel>
-                                    <ToggleButton x:Name="MsiLedExpandButton"
-                                                  Grid.Column="1"
-                                                  IsChecked="False"
-                                                  IsEnabled="True"
-                                                  VerticalAlignment="Top"
-                                                  Background="Transparent"
-                                                  BorderThickness="0"
-                                                  Padding="8,4"
-                                                  Click="MsiLedExpandButton_Click">
-                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
-                                    </ToggleButton>
-                                </Grid>
-                                <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0"
-                                            XYFocusKeyboardNavigation="Enabled">
-
-                                    <!-- ── Sync all zones ─────────────────────────────────────────────── -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Sync right stick, left stick &amp; buttons" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock Text="Off lets you give the right stick, left stick and buttons their own individual colors and effects."
-                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="MsiLedSyncToggle" Grid.Column="1"
-                                                      OnContent="" OffContent="" IsOn="True"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="MsiLedSyncToggle_Toggled"/>
-                                    </Grid>
-
-                                    <!-- ── Zone selector (only when NOT synced) ───────────────────────── -->
-                                    <StackPanel x:Name="MsiLedZoneRow" Margin="0,0,0,12" Visibility="Collapsed">
-                                        <TextBlock Text="Zone" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
-                                        <ComboBox x:Name="MsiLedZoneCombo" Width="280" HorizontalAlignment="Left"
-                                                  SelectionChanged="MsiLedZoneCombo_SelectionChanged">
-                                            <ComboBoxItem>
-                                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_r.png" Width="20" Height="20"/>
-                                                    <TextBlock Text="Right stick" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </ComboBoxItem>
-                                            <ComboBoxItem>
-                                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_l.png" Width="20" Height="20"/>
-                                                    <TextBlock Text="Left stick" VerticalAlignment="Center"/>
-                                                </StackPanel>
-                                            </ComboBoxItem>
-                                            <ComboBoxItem>
-                                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_a.png" Width="20" Height="20"/>
-                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_b.png" Width="20" Height="20"/>
-                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_x.png" Width="20" Height="20"/>
-                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_y.png" Width="20" Height="20"/>
-                                                    <TextBlock Text="Buttons" VerticalAlignment="Center" Margin="4,0,0,0"/>
-                                                </StackPanel>
-                                            </ComboBoxItem>
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <!-- ── Mode selector (per zone) ───────────────────────────────────── -->
-                                    <TextBlock Text="Mode" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
-                                    <ComboBox x:Name="MsiLedModeCombo" Width="280" HorizontalAlignment="Left"
-                                              SelectionChanged="MsiLedModeCombo_SelectionChanged">
-                                        <ComboBoxItem>
-                                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                                <FontIcon Glyph="&#xE790;" FontSize="16"/><TextBlock Text="Static" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                        </ComboBoxItem>
-                                        <ComboBoxItem>
-                                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                                <FontIcon Glyph="&#xE706;" FontSize="16"/><TextBlock Text="Breathing" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                        </ComboBoxItem>
-                                        <ComboBoxItem>
-                                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                                <FontIcon Glyph="&#xE895;" FontSize="16"/><TextBlock Text="Color Cycle" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                        </ComboBoxItem>
-                                        <ComboBoxItem>
-                                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                                <FontIcon Glyph="&#xE72C;" FontSize="16"/><TextBlock Text="Wave" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                        </ComboBoxItem>
-                                        <ComboBoxItem>
-                                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                                <FontIcon Glyph="&#xE83F;" FontSize="16"/><TextBlock Text="Battery" VerticalAlignment="Center"/>
-                                            </StackPanel>
-                                        </ComboBoxItem>
-                                    </ComboBox>
-
-                                    <!-- ── Color (Static / Breathing-solid): swatch opens the colour wheel ── -->
-                                    <StackPanel x:Name="MsiLedColorRow" Margin="0,14,0,0">
-                                        <TextBlock Text="Color" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
-                                        <Button x:Name="MsiLedColorSwatchButton" Padding="2" BorderThickness="1"
-                                                BorderBrush="#55FFFFFF" Background="#22FFFFFF" HorizontalAlignment="Left">
-                                            <Border x:Name="MsiLedColorSwatch" Width="56" Height="28" CornerRadius="3" Background="#FFFFFF"/>
-                                            <Button.Flyout>
-                                                <Flyout>
-                                                    <muxc:ColorPicker x:Name="MsiLedColorPicker"
-                                                                      ColorSpectrumShape="Ring"
-                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False"
-                                                                      IsColorSliderVisible="False"
-                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
-                                                                      IsMoreButtonVisible="False"
-                                                                      Loaded="MsiLedPicker_Loaded"
-                                                                      ColorChanged="MsiLedColorPicker_ColorChanged"/>
-                                                </Flyout>
-                                            </Button.Flyout>
-                                        </Button>
-                                    </StackPanel>
-
-                                    <!-- ── Rainbow toggle (Breathing + Wave) ──────────────────────────── -->
-                                    <Grid x:Name="MsiLedRainbowRow" Margin="0,14,0,0" Visibility="Collapsed">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="Rainbow" FontSize="13" Foreground="#FFFFFF"/>
-                                            <TextBlock x:Name="MsiLedRainbowCaption" Text="On = rainbow. Off = your colour(s)."
-                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
-                                        </StackPanel>
-                                        <ToggleSwitch x:Name="MsiLedRainbowToggle" Grid.Column="1"
-                                                      OnContent="" OffContent="" IsOn="False"
-                                                      Style="{StaticResource ModernToggleStyle}"
-                                                      Toggled="MsiLedRainbowToggle_Toggled"/>
-                                    </Grid>
-
-                                    <!-- ── Wave custom colours: 4 swatches (Wave, Rainbow off) ────────── -->
-                                    <StackPanel x:Name="MsiLedWaveSwatchRow" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" Visibility="Collapsed">
-                                        <Button x:Name="MsiLedWaveSwatchButton0" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
-                                            <Border x:Name="MsiLedWaveSwatch0" Width="40" Height="28" CornerRadius="3" Background="#FF0000"/>
-                                            <Button.Flyout>
-                                                <Flyout>
-                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker0" Tag="0" ColorSpectrumShape="Ring"
-                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
-                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
-                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
-                                                </Flyout>
-                                            </Button.Flyout>
-                                        </Button>
-                                        <Button x:Name="MsiLedWaveSwatchButton1" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
-                                            <Border x:Name="MsiLedWaveSwatch1" Width="40" Height="28" CornerRadius="3" Background="#FFFF00"/>
-                                            <Button.Flyout>
-                                                <Flyout>
-                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker1" Tag="1" ColorSpectrumShape="Ring"
-                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
-                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
-                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
-                                                </Flyout>
-                                            </Button.Flyout>
-                                        </Button>
-                                        <Button x:Name="MsiLedWaveSwatchButton2" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
-                                            <Border x:Name="MsiLedWaveSwatch2" Width="40" Height="28" CornerRadius="3" Background="#00FF00"/>
-                                            <Button.Flyout>
-                                                <Flyout>
-                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker2" Tag="2" ColorSpectrumShape="Ring"
-                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
-                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
-                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
-                                                </Flyout>
-                                            </Button.Flyout>
-                                        </Button>
-                                        <Button x:Name="MsiLedWaveSwatchButton3" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
-                                            <Border x:Name="MsiLedWaveSwatch3" Width="40" Height="28" CornerRadius="3" Background="#0000FF"/>
-                                            <Button.Flyout>
-                                                <Flyout>
-                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker3" Tag="3" ColorSpectrumShape="Ring"
-                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
-                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
-                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
-                                                </Flyout>
-                                            </Button.Flyout>
-                                        </Button>
-                                    </StackPanel>
-
-                                    <!-- ── Speed (Breathing / Color Cycle / Wave) ─────────────────────── -->
-                                    <StackPanel x:Name="MsiLedSpeedRow" Margin="0,14,0,0" Visibility="Collapsed">
-                                        <TextBlock Text="Speed" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
-                                        <ComboBox x:Name="MsiLedSpeedCombo" Width="280" HorizontalAlignment="Left"
-                                                  SelectionChanged="MsiLedSpeedCombo_SelectionChanged">
-                                            <ComboBoxItem Content="Slow"/>
-                                            <ComboBoxItem Content="Medium"/>
-                                            <ComboBoxItem Content="Fast"/>
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <!-- ── Direction (Wave) ───────────────────────────────────────────── -->
-                                    <StackPanel x:Name="MsiLedDirectionRow" Margin="0,14,0,0" Visibility="Collapsed">
-                                        <TextBlock Text="Direction" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
-                                        <ComboBox x:Name="MsiLedDirectionCombo" Width="280" HorizontalAlignment="Left"
-                                                  SelectionChanged="MsiLedDirectionCombo_SelectionChanged">
-                                            <ComboBoxItem Content="Clockwise"/>
-                                            <ComboBoxItem Content="Counter-clockwise"/>
-                                        </ComboBox>
-                                    </StackPanel>
-
-                                    <!-- ── Color Cycle note (shown only in Color Cycle mode) ──────────── -->
-                                    <TextBlock x:Name="MsiLedCycleNote" Visibility="Collapsed" Margin="0,14,0,0"
-                                               Text="Color Cycle sweeps smoothly through a colour spectrum. Custom cycle colours are coming in a follow-up."
-                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
-
-                                    <!-- ── Brightness — GLOBAL (applies to ALL zones); visually separated ── -->
-                                    <Border Height="1" Background="#22FFFFFF" Margin="0,18,0,0"/>
-                                    <TextBlock x:Name="MsiLedBrightnessLabel" Text="Brightness"
-                                               FontSize="12" Foreground="#DDDDDD" Margin="0,12,0,0"/>
-                                    <TextBlock Text="Applies to all zones" FontSize="11"
-                                               Foreground="{StaticResource HintTextBrush}" Margin="0,0,0,2"/>
-                                    <Slider x:Name="MsiLedBrightnessSlider" Minimum="0" Maximum="100"
-                                            Width="280" HorizontalAlignment="Left"
-                                            XYFocusUp="{x:Bind MsiLedSpeedCombo}"
-                                            ValueChanged="MsiLedBrightnessSlider_ValueChanged"/>
-
-                                    <!-- ── Battery note (shown only in Battery mode) ──────────────────── -->
-                                    <TextBlock x:Name="MsiLedBatteryNote" Visibility="Collapsed" Margin="0,10,0,0"
-                                               Text="Battery: the LED hue follows the charge level (≥90% blue → &lt;20% purple), updated when it crosses a 10% band. The slider above sets its brightness."
-                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
-
-                                    <!-- Legacy compat control — kept Collapsed so its existing code-behind
-                                         handler keeps compiling (the old battery toggle is superseded by the
-                                         Battery mode above). -->
-                                    <ToggleSwitch x:Name="LedColorBySocToggle" Visibility="Collapsed"
-                                                  OnContent="" OffContent="" IsOn="False" Toggled="LedColorBySocToggle_Toggled"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
                         <!-- Display Color Settings Card — hidden (not relevant for MSI Claw) -->
                         <Border Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
@@ -6276,7 +5951,11 @@
                     </StackPanel>
                 </ScrollViewer>
 
-                <!-- TINY CENTER M TAB (MSI Claw hardware controller config, Center-M-conform) -->
+                <!-- TINY CENTER M TAB (MSI Claw hardware controller config, Center-M-conform).
+                     Four collapsible sections, all collapsed by default: LED, charge limit,
+                     stick/trigger deadzones and the hardware gyro. The LED + charge-limit cards
+                     moved here verbatim from the System tab (same controls, same handlers) so
+                     everything that talks to the controller hardware lives in one place. -->
                 <ScrollViewer x:Name="TinyCenterMScrollViewer" VerticalScrollBarVisibility="Auto" Visibility="Collapsed"
                               BringIntoViewOnFocusChange="True">
                     <StackPanel Padding="16,8,16,16">
@@ -6286,85 +5965,470 @@
                         <TextBlock x:Name="TcmStatusText" FontSize="13" Foreground="#FFC107" TextWrapping="Wrap"
                                    Visibility="Collapsed" Margin="0,0,0,10"/>
 
-                        <!-- Global apply: changes are staged; committing writes FW + MSI profile and
-                             restarts MSI Center M's ControlMode so its own state matches. Glows when dirty. -->
-                        <Button x:Name="TcmApplyButton" Click="TcmApply_Click" IsEnabled="False"
-                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                Padding="12,10" Margin="0,0,0,12"
-                                XYFocusUp="{x:Bind TinyCenterMNavItem}"
-                                XYFocusDown="{x:Bind TcmResetSticksButton}">
-                            <StackPanel Orientation="Horizontal">
-                                <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE73E;" FontSize="14" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="TcmApplyText" Text="No unsaved changes"/>
-                            </StackPanel>
-                        </Button>
-
-                        <!-- Sticks -->
-                        <Border Style="{StaticResource CardStyle}">
+                        <!-- ═══ 1. LED lighting ═══════════════════════════════════════════ -->
+                        <!-- Controller LED Color (MSI Claw) — placed directly below Charge Limit.
+                             Visibility is enabled by code on MSI Claw. -->
+                        <Border x:Name="MsiLedColorCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Sticks" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                    <Button x:Name="TcmResetSticksButton" Content="Reset to default" Click="TcmResetSticks_Click" HorizontalAlignment="Right" Padding="12,4"
-                                            XYFocusUp="{x:Bind TcmApplyButton}" XYFocusDown="{x:Bind TcmLSDZSlider}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Controller LED Color" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Set the controller LED color."
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="MsiLedExpandButton"
+                                                  Grid.Column="1"
+                                                  IsChecked="False"
+                                                  IsEnabled="True"
+                                                  VerticalAlignment="Top"
+                                                  Background="Transparent"
+                                                  BorderThickness="0"
+                                                  Padding="8,4"
+                                                  Click="MsiLedExpandButton_Click">
+                                        <FontIcon x:Name="MsiLedExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
                                 </Grid>
-                                <StackPanel Orientation="Horizontal" Margin="0,12,0,8">
-                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_l.png" Width="20" Height="20" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Left stick" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <StackPanel Margin="28,0,0,0">
-                                    <Grid><TextBlock Text="Inner deadzone"/><TextBlock x:Name="TcmLSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmLSDZSlider" Tag="LSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TcmResetSticksButton}" XYFocusDown="{x:Bind TcmLSEDZSlider}"/>
-                                    <Grid Margin="0,8,0,0"><TextBlock Text="Outer threshold"/><TextBlock x:Name="TcmLSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmLSEDZSlider" Tag="LSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TcmLSDZSlider}" XYFocusDown="{x:Bind TcmRSDZSlider}"/>
-                                </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
-                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_r.png" Width="20" Height="20" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Right stick" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <StackPanel Margin="28,0,0,0">
-                                    <Grid><TextBlock Text="Inner deadzone"/><TextBlock x:Name="TcmRSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmRSDZSlider" Tag="RSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TcmLSEDZSlider}" XYFocusDown="{x:Bind TcmRSEDZSlider}"/>
-                                    <Grid Margin="0,8,0,0"><TextBlock Text="Outer threshold"/><TextBlock x:Name="TcmRSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmRSEDZSlider" Tag="RSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TcmRSDZSlider}" XYFocusDown="{x:Bind TcmResetTriggersButton}"/>
+                                <StackPanel x:Name="MsiLedContent" Visibility="Collapsed" Margin="0,12,0,0"
+                                            XYFocusKeyboardNavigation="Enabled">
+
+                                    <!-- ── Sync all zones ─────────────────────────────────────────────── -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Sync right stick, left stick &amp; buttons" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="Off lets you give the right stick, left stick and buttons their own individual colors and effects."
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="MsiLedSyncToggle" Grid.Column="1"
+                                                      OnContent="" OffContent="" IsOn="True"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="MsiLedSyncToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- ── Zone selector (only when NOT synced) ───────────────────────── -->
+                                    <StackPanel x:Name="MsiLedZoneRow" Margin="0,0,0,12" Visibility="Collapsed">
+                                        <TextBlock Text="Zone" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="MsiLedZoneCombo" Width="280" HorizontalAlignment="Left"
+                                                  SelectionChanged="MsiLedZoneCombo_SelectionChanged">
+                                            <ComboBoxItem>
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_r.png" Width="20" Height="20"/>
+                                                    <TextBlock Text="Right stick" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </ComboBoxItem>
+                                            <ComboBoxItem>
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_l.png" Width="20" Height="20"/>
+                                                    <TextBlock Text="Left stick" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </ComboBoxItem>
+                                            <ComboBoxItem>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_a.png" Width="20" Height="20"/>
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_b.png" Width="20" Height="20"/>
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_x.png" Width="20" Height="20"/>
+                                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_button_color_y.png" Width="20" Height="20"/>
+                                                    <TextBlock Text="Buttons" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                                </StackPanel>
+                                            </ComboBoxItem>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- ── Mode selector (per zone) ───────────────────────────────────── -->
+                                    <TextBlock Text="Mode" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                    <ComboBox x:Name="MsiLedModeCombo" Width="280" HorizontalAlignment="Left"
+                                              SelectionChanged="MsiLedModeCombo_SelectionChanged">
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE790;" FontSize="16"/><TextBlock Text="Static" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE706;" FontSize="16"/><TextBlock Text="Breathing" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE895;" FontSize="16"/><TextBlock Text="Color Cycle" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE72C;" FontSize="16"/><TextBlock Text="Wave" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                        <ComboBoxItem>
+                                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                                <FontIcon Glyph="&#xE83F;" FontSize="16"/><TextBlock Text="Battery" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </ComboBoxItem>
+                                    </ComboBox>
+
+                                    <!-- ── Color (Static / Breathing-solid): swatch opens the colour wheel ── -->
+                                    <StackPanel x:Name="MsiLedColorRow" Margin="0,14,0,0">
+                                        <TextBlock Text="Color" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                        <Button x:Name="MsiLedColorSwatchButton" Padding="2" BorderThickness="1"
+                                                BorderBrush="#55FFFFFF" Background="#22FFFFFF" HorizontalAlignment="Left">
+                                            <Border x:Name="MsiLedColorSwatch" Width="56" Height="28" CornerRadius="3" Background="#FFFFFF"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedColorPicker"
+                                                                      ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False"
+                                                                      IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False"
+                                                                      Loaded="MsiLedPicker_Loaded"
+                                                                      ColorChanged="MsiLedColorPicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <!-- ── Rainbow toggle (Breathing + Wave) ──────────────────────────── -->
+                                    <Grid x:Name="MsiLedRainbowRow" Margin="0,14,0,0" Visibility="Collapsed">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Rainbow" FontSize="13" Foreground="#FFFFFF"/>
+                                            <TextBlock x:Name="MsiLedRainbowCaption" Text="On = rainbow. Off = your colour(s)."
+                                                       FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <ToggleSwitch x:Name="MsiLedRainbowToggle" Grid.Column="1"
+                                                      OnContent="" OffContent="" IsOn="False"
+                                                      Style="{StaticResource ModernToggleStyle}"
+                                                      Toggled="MsiLedRainbowToggle_Toggled"/>
+                                    </Grid>
+
+                                    <!-- ── Wave custom colours: 4 swatches (Wave, Rainbow off) ────────── -->
+                                    <StackPanel x:Name="MsiLedWaveSwatchRow" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0" Visibility="Collapsed">
+                                        <Button x:Name="MsiLedWaveSwatchButton0" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
+                                            <Border x:Name="MsiLedWaveSwatch0" Width="40" Height="28" CornerRadius="3" Background="#FF0000"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker0" Tag="0" ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                        <Button x:Name="MsiLedWaveSwatchButton1" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
+                                            <Border x:Name="MsiLedWaveSwatch1" Width="40" Height="28" CornerRadius="3" Background="#FFFF00"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker1" Tag="1" ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                        <Button x:Name="MsiLedWaveSwatchButton2" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
+                                            <Border x:Name="MsiLedWaveSwatch2" Width="40" Height="28" CornerRadius="3" Background="#00FF00"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker2" Tag="2" ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                        <Button x:Name="MsiLedWaveSwatchButton3" Padding="2" BorderThickness="1" BorderBrush="#55FFFFFF" Background="#22FFFFFF">
+                                            <Border x:Name="MsiLedWaveSwatch3" Width="40" Height="28" CornerRadius="3" Background="#0000FF"/>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <muxc:ColorPicker x:Name="MsiLedWavePicker3" Tag="3" ColorSpectrumShape="Ring"
+                                                                      IsAlphaEnabled="False" IsAlphaSliderVisible="False" IsColorSliderVisible="False"
+                                                                      IsHexInputVisible="False" IsColorChannelTextInputVisible="False"
+                                                                      IsMoreButtonVisible="False" Loaded="MsiLedPicker_Loaded" ColorChanged="MsiLedWavePicker_ColorChanged"/>
+                                                </Flyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <!-- ── Speed (Breathing / Color Cycle / Wave) ─────────────────────── -->
+                                    <StackPanel x:Name="MsiLedSpeedRow" Margin="0,14,0,0" Visibility="Collapsed">
+                                        <TextBlock Text="Speed" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="MsiLedSpeedCombo" Width="280" HorizontalAlignment="Left"
+                                                  SelectionChanged="MsiLedSpeedCombo_SelectionChanged">
+                                            <ComboBoxItem Content="Slow"/>
+                                            <ComboBoxItem Content="Medium"/>
+                                            <ComboBoxItem Content="Fast"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- ── Direction (Wave) ───────────────────────────────────────────── -->
+                                    <StackPanel x:Name="MsiLedDirectionRow" Margin="0,14,0,0" Visibility="Collapsed">
+                                        <TextBlock Text="Direction" FontSize="12" Foreground="#DDDDDD" Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="MsiLedDirectionCombo" Width="280" HorizontalAlignment="Left"
+                                                  SelectionChanged="MsiLedDirectionCombo_SelectionChanged">
+                                            <ComboBoxItem Content="Clockwise"/>
+                                            <ComboBoxItem Content="Counter-clockwise"/>
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <!-- ── Color Cycle note (shown only in Color Cycle mode) ──────────── -->
+                                    <TextBlock x:Name="MsiLedCycleNote" Visibility="Collapsed" Margin="0,14,0,0"
+                                               Text="Color Cycle sweeps smoothly through a colour spectrum. Custom cycle colours are coming in a follow-up."
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
+
+                                    <!-- ── Brightness — GLOBAL (applies to ALL zones); visually separated ── -->
+                                    <Border Height="1" Background="#22FFFFFF" Margin="0,18,0,0"/>
+                                    <TextBlock x:Name="MsiLedBrightnessLabel" Text="Brightness"
+                                               FontSize="12" Foreground="#DDDDDD" Margin="0,12,0,0"/>
+                                    <TextBlock Text="Applies to all zones" FontSize="11"
+                                               Foreground="{StaticResource HintTextBrush}" Margin="0,0,0,2"/>
+                                    <Slider x:Name="MsiLedBrightnessSlider" Minimum="0" Maximum="100"
+                                            Width="280" HorizontalAlignment="Left"
+                                            XYFocusUp="{x:Bind MsiLedSpeedCombo}"
+                                            ValueChanged="MsiLedBrightnessSlider_ValueChanged"/>
+
+                                    <!-- ── Battery note (shown only in Battery mode) ──────────────────── -->
+                                    <TextBlock x:Name="MsiLedBatteryNote" Visibility="Collapsed" Margin="0,10,0,0"
+                                               Text="Battery: the LED hue follows the charge level (≥90% blue → &lt;20% purple), updated when it crosses a 10% band. The slider above sets its brightness."
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
+
+                                    <!-- Legacy compat control — kept Collapsed so its existing code-behind
+                                         handler keeps compiling (the old battery toggle is superseded by the
+                                         Battery mode above). -->
+                                    <ToggleSwitch x:Name="LedColorBySocToggle" Visibility="Collapsed"
+                                                  OnContent="" OffContent="" IsOn="False" Toggled="LedColorBySocToggle_Toggled"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <!-- Triggers -->
-                        <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                        <!-- ═══ 2. Charge limit ══════════════════════════════════════════ -->
+                        <!-- Charge Limit Card (MSI Claw A1M / A2VM) -->
+                        <Border x:Name="MsiChargeLimitCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
                             <StackPanel>
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Triggers" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                    <Button x:Name="TcmResetTriggersButton" Content="Reset to default" Click="TcmResetTriggers_Click" HorizontalAlignment="Right" Padding="12,4"
-                                            XYFocusUp="{x:Bind TcmRSEDZSlider}" XYFocusDown="{x:Bind TcmLTDZSlider}"/>
+                                <!-- Header: title + expand toggle. The enable toggle lives inside the
+                                     collapsible body (there is a separate Quick Settings tile that shows
+                                     the charge limit), so the header stays clean when collapsed. -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Charge Limit" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Limit battery charging to extend long-term lifespan"
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="ChargeLimitExpandButton" Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  Click="ChargeLimitExpandButton_Click" UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="ChargeLimitExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
                                 </Grid>
-                                <StackPanel Orientation="Horizontal" Margin="0,12,0,8">
-                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_lt.png" Width="20" Height="20" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Left trigger" FontWeight="SemiBold" VerticalAlignment="Center"/>
+
+                                <!-- Collapsible content -->
+                                <StackPanel x:Name="MsiChargeLimitContent" Visibility="Collapsed" Margin="0,12,0,0">
+                                <!-- Enable toggle (moved out of the header) -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Enable charge limit" FontSize="13" Foreground="#FFFFFF"/>
+                                        <TextBlock Text="Stop charging once the battery reaches the level below."
+                                                   FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="MsiChargeLimitToggle"
+                                                  Grid.Column="1"
+                                                  OnContent="" OffContent=""
+                                                  IsOn="False"
+                                                  Toggled="MsiChargeLimitToggle_Toggled"/>
+                                </Grid>
+                                <!-- Percentage selection — shown when toggle is on -->
+                                <StackPanel x:Name="MsiChargeLimitPercentPanel" Visibility="Collapsed" Margin="0,12,0,0">
+                                    <Grid Margin="0,0,0,2">
+                                        <TextBlock Text="Charge to at most" FontSize="12" Foreground="#AAAAAA" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="MsiChargeLimitValue" Text="80%"
+                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   FontSize="14" Foreground="#4CAF50" FontWeight="SemiBold"/>
+                                    </Grid>
+                                    <Slider x:Name="MsiChargeLimitSlider"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Minimum="20" Maximum="100"
+                                            StepFrequency="5" TickFrequency="10"
+                                            TickPlacement="Outside" SnapsTo="StepValues"
+                                            Value="80"
+                                            XYFocusUp="{x:Bind MsiChargeLimitToggle}"
+                                            XYFocusDown="{x:Bind MsiChargeLimitVerifyButton}"
+                                            ValueChanged="MsiChargeLimitSlider_ValueChanged"/>
+
+                                    <!-- Read-back / verification row (reads the actual EC value) -->
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="MsiChargeLimitStatusText" Grid.Column="0"
+                                                   Text="" FontSize="11" Foreground="{StaticResource HintTextBrush}"
+                                                   TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                        <Button x:Name="MsiChargeLimitVerifyButton" Grid.Column="1"
+                                                Content="Verify" FontSize="12" Padding="12,4"
+                                                Click="MsiChargeLimitVerifyButton_Click"/>
+                                    </Grid>
+
+                                    <TextBlock Text="Note: the limit is enforced by the controller (EC) itself, so it keeps working while the Claw is asleep or shut down but plugged in. The EC value can be cleared by an EC reset, BIOS update or a full battery drain — use Verify to re-check the live value after sleep / hibernation."
+                                               FontSize="11" Foreground="#FF8C00"
+                                               TextWrapping="Wrap" Margin="0,8,0,0"/>
                                 </StackPanel>
-                                <StackPanel Margin="28,0,0,0">
-                                    <Grid><TextBlock Text="Deadzone"/><TextBlock x:Name="TcmLTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmLTDZSlider" Tag="LTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TcmResetTriggersButton}" XYFocusDown="{x:Bind TcmLTEDZSlider}"/>
-                                    <Grid Margin="0,8,0,0"><TextBlock Text="Limit"/><TextBlock x:Name="TcmLTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmLTEDZSlider" Tag="LTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TcmLTDZSlider}" XYFocusDown="{x:Bind TcmRTDZSlider}"/>
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
-                                    <Image Source="ms-appx:///Assets/ButtonIcons/xbox_rt.png" Width="20" Height="20" Margin="0,0,8,0"/>
-                                    <TextBlock Text="Right trigger" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ═══ 3. Stick & trigger deadzones / limits ════════════════════ -->
+                        <Border x:Name="TcmSticksCard" Style="{StaticResource CardStyle}">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Stick &amp; Trigger Settings" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Deadzones and limits for both sticks and triggers, written straight to the controller."
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="TcmSticksExpandButton" Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  Click="TcmSticksExpandButton_Click" UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="TcmSticksExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <StackPanel x:Name="TcmSticksContent" Visibility="Collapsed" Margin="0,12,0,0"
+                                            XYFocusKeyboardNavigation="Enabled">
+                                    <!-- Slider drags only STAGE a change; this button is what actually writes
+                                         firmware + profile.rec and bounces Center M. Hence it sits on top. -->
+                                    <Button x:Name="TcmApplyButton" Click="TcmApply_Click" IsEnabled="False"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                            Padding="12,10" Margin="0,0,0,8"
+                                            XYFocusUp="{x:Bind TcmSticksExpandButton}"
+                                            XYFocusDown="{x:Bind TcmResetButton}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <FontIcon FontFamily="Segoe MDL2 Assets" Glyph="&#xE73E;" FontSize="14" Margin="0,0,8,0"/>
+                                            <TextBlock x:Name="TcmApplyText" Text="No unsaved changes"/>
+                                        </StackPanel>
+                                    </Button>
+
+                                    <!-- One reset for sticks AND triggers. Stages the MSI factory values like any
+                                         other edit, so it still goes through Apply above. -->
+                                    <Button x:Name="TcmResetButton" Content="Reset sticks &amp; triggers to default"
+                                            Click="TcmResetAll_Click"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="12,6"
+                                            XYFocusUp="{x:Bind TcmApplyButton}"
+                                            XYFocusDown="{x:Bind TcmLSDZSlider}"/>
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+                                        <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_l.png" Width="20" Height="20" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Left stick" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="28,0,0,0">
+                                        <Grid><TextBlock Text="Inner deadzone"/><TextBlock x:Name="TcmLSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                        <Slider x:Name="TcmLSDZSlider" Tag="LSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                                XYFocusUp="{x:Bind TcmResetButton}" XYFocusDown="{x:Bind TcmLSEDZSlider}"/>
+                                        <Grid Margin="0,8,0,0"><TextBlock Text="Outer threshold"/><TextBlock x:Name="TcmLSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                        <Slider x:Name="TcmLSEDZSlider" Tag="LSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                                XYFocusUp="{x:Bind TcmLSDZSlider}" XYFocusDown="{x:Bind TcmRSDZSlider}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+                                        <Image Source="ms-appx:///Assets/ButtonIcons/xbox_stick_r.png" Width="20" Height="20" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Right stick" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="28,0,0,0">
+                                        <Grid><TextBlock Text="Inner deadzone"/><TextBlock x:Name="TcmRSDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                        <Slider x:Name="TcmRSDZSlider" Tag="RSDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                                XYFocusUp="{x:Bind TcmLSEDZSlider}" XYFocusDown="{x:Bind TcmRSEDZSlider}"/>
+                                        <Grid Margin="0,8,0,0"><TextBlock Text="Outer threshold"/><TextBlock x:Name="TcmRSEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                        <Slider x:Name="TcmRSEDZSlider" Tag="RSEDZ" Minimum="75" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                                XYFocusUp="{x:Bind TcmRSDZSlider}" XYFocusDown="{x:Bind TcmLTDZSlider}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+                                        <Image Source="ms-appx:///Assets/ButtonIcons/xbox_lt.png" Width="20" Height="20" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Left trigger" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="28,0,0,0">
+                                        <Grid><TextBlock Text="Deadzone"/><TextBlock x:Name="TcmLTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                        <Slider x:Name="TcmLTDZSlider" Tag="LTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                                XYFocusUp="{x:Bind TcmRSEDZSlider}" XYFocusDown="{x:Bind TcmLTEDZSlider}"/>
+                                        <Grid Margin="0,8,0,0"><TextBlock Text="Limit"/><TextBlock x:Name="TcmLTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                        <Slider x:Name="TcmLTEDZSlider" Tag="LTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                                XYFocusUp="{x:Bind TcmLTDZSlider}" XYFocusDown="{x:Bind TcmRTDZSlider}"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+                                        <Image Source="ms-appx:///Assets/ButtonIcons/xbox_rt.png" Width="20" Height="20" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Right trigger" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Margin="28,0,0,0">
+                                        <Grid><TextBlock Text="Deadzone"/><TextBlock x:Name="TcmRTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                        <Slider x:Name="TcmRTDZSlider" Tag="RTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                                XYFocusUp="{x:Bind TcmLTEDZSlider}" XYFocusDown="{x:Bind TcmRTEDZSlider}"/>
+                                        <Grid Margin="0,8,0,0"><TextBlock Text="Limit"/><TextBlock x:Name="TcmRTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
+                                        <Slider x:Name="TcmRTEDZSlider" Tag="RTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
+                                                XYFocusUp="{x:Bind TcmRTDZSlider}"/>
+                                    </StackPanel>
                                 </StackPanel>
-                                <StackPanel Margin="28,0,0,0">
-                                    <Grid><TextBlock Text="Deadzone"/><TextBlock x:Name="TcmRTDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmRTDZSlider" Tag="RTDZ" Minimum="0" Maximum="50" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TcmLTEDZSlider}" XYFocusDown="{x:Bind TcmRTEDZSlider}"/>
-                                    <Grid Margin="0,8,0,0"><TextBlock Text="Limit"/><TextBlock x:Name="TcmRTEDZValue" Text="—" HorizontalAlignment="Right"/></Grid>
-                                    <Slider x:Name="TcmRTEDZSlider" Tag="RTEDZ" Minimum="50" Maximum="100" StepFrequency="1" SmallChange="1" ValueChanged="TcmSlider_ValueChanged"
-                                            XYFocusUp="{x:Bind TcmRTDZSlider}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ═══ 4. Hardware gyro (detect + disable only) ═════════════════ -->
+                        <!-- The firmware gyro is MSI Center M's own motion feature, living in EEPROM
+                             0x0029 bit0 (RE-verified on A2VM). It runs inside the controller and keeps
+                             running independently of ClawTweaks' virtual gyro, which is why the two can
+                             fight. This section only READS that bit and offers a one-way off switch —
+                             there is deliberately no enable path, turning it back on stays Center M's job. -->
+                        <Border x:Name="TcmGyroCard" Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="Hardware Gyro" Style="{StaticResource CardTitleStyle}"/>
+                                        <TextBlock Text="Detect MSI's firmware gyro and turn it off."
+                                                   Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleButton x:Name="TcmGyroExpandButton" Grid.Column="1" IsChecked="False"
+                                                  VerticalAlignment="Center" Background="Transparent" BorderThickness="0" Padding="8,4"
+                                                  Click="TcmGyroExpandButton_Click" UseSystemFocusVisuals="True">
+                                        <FontIcon x:Name="TcmGyroExpandIcon" Glyph="&#xE70D;" FontSize="12"/>
+                                    </ToggleButton>
+                                </Grid>
+
+                                <StackPanel x:Name="TcmGyroContent" Visibility="Collapsed" Margin="0,12,0,0"
+                                            XYFocusKeyboardNavigation="Enabled">
+                                    <Grid>
+                                        <TextBlock Text="Firmware gyro" FontSize="13" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                        <TextBlock x:Name="TcmGyroStateText" Text="—"
+                                                   HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   FontSize="14" FontWeight="SemiBold" Foreground="#C8C8C8"/>
+                                    </Grid>
+                                    <TextBlock Text="Set in MSI Center M and stored in the controller itself, so it stays active even with Center M closed. If it is on while ClawTweaks' own gyro runs, both drive the stick at once."
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                    <Button x:Name="TcmGyroDisableButton" Content="Turn firmware gyro off"
+                                            Click="TcmGyroDisable_Click" IsEnabled="False"
+                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                            Padding="12,6" Margin="0,10,0,0"
+                                            XYFocusUp="{x:Bind TcmGyroExpandButton}"/>
+                                    <TextBlock Text="Writes straight to the controller. Turning it back on is done in MSI Center M."
+                                               FontSize="11" Foreground="{StaticResource HintTextBrush}" TextWrapping="Wrap" Margin="0,6,0,0"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
