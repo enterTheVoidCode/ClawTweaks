@@ -35,6 +35,7 @@ if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 Write-Host ">> Publishing self-contained single-file exe..." -ForegroundColor Gray
 & dotnet publish $proj -c $Configuration -r win-x64 --self-contained `
     -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:EnableCompressionInSingleFile=true `
     -o $publishDir | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
 $exe = Join-Path $publishDir 'CTW_Center.exe'

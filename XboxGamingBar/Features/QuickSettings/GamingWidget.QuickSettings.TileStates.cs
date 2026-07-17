@@ -1389,9 +1389,15 @@ namespace XboxGamingBar
                 if (qsTileMap.TryGetValue("MsiCenter", out var msiCenterTile) && msiCenterTile.TileButton != null)
                 {
                     bool active = msiCenterActive?.Value == true;
+                    // Virtual controller blocks activation (ToggleMsiCenter shows a dialog explaining
+                    // why). State the reason on the tile too: the dialog is gone after one tap, and
+                    // "Off" alone would look like the tile simply did nothing.
+                    bool blockedByVirtualPad = !active && defaultControllerMode?.Value == 1;
                     if (msiCenterTile.StateText != null)
                     {
-                        msiCenterTile.StateText.Text = active ? "On" : "Off";
+                        msiCenterTile.StateText.Text = active ? "On"
+                                                     : blockedByVirtualPad ? "Needs HW controller"
+                                                     : "Off";
                         msiCenterTile.StateText.Foreground = active ? accentForeground : offForeground;
                     }
                     msiCenterTile.TileButton.Background = active ? tileOnBrush : tileOffBrush;

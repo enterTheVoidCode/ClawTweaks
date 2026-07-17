@@ -2696,14 +2696,29 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Toggle MSI Center M OEM software on/off.
-        /// When activating MSI Center: disable controller emulation FIRST to avoid
-        /// duplicate controllers (ClawTweaks virtual + MSI physical both active).
+        /// When activating MSI Center: the virtual controller must be off first (see
+        /// <see cref="ShowMsiCenterNeedsHardwareControllerDialogAsync"/>).
         /// When deactivating: stop processes/service/tasks via helper.
         /// </summary>
         private void ToggleMsiCenter()
         {
             if (msiCenterActive == null) return;
             bool newState = !msiCenterActive.Value;
+
+            // Re-enabling MSI Center M while the virtual controller runs makes both fight over the
+            // pad: MSI Center M owns controller input and its driver collides with HidHide, so the
+            // services must not come up until the device is back on the hardware controller.
+            // Rather than switching the user's mode behind their back and waiting for the physical
+            // pad to re-enumerate, ask them to flip it themselves - it is their persisted choice, and
+            // a silent switch would leave them on Hardware after MSI Center M is turned off again.
+            if (newState && defaultControllerMode?.Value == 1)
+            {
+                Logger.Info("MSI Center M activation blocked — Main Controller Mode is Virtual; prompting user to switch to Hardware first");
+                _ = ShowMsiCenterNeedsHardwareControllerDialogAsync();
+                UpdateQuickSettingsTileStates();
+                return;
+            }
+
             // The helper handles stopping ClawButtonMonitor + MouseForwarder in
             // OnMsiCenterStateChanged(true) — no pre-stop needed here.
             // Sending msiClawControllerMode=false first caused a race where the
@@ -2711,6 +2726,34 @@ namespace XboxGamingBar
             // the msiCenterActive=true message arriving milliseconds later.
             msiCenterActive.SetValue(newState);
             Logger.Info($"MSI Center M toggled → active={newState}");
+        }
+
+        /// <summary>
+        /// Explains why MSI Center M was not activated: the Main Controller Mode is still Virtual.
+        /// Info-only - the user changes the mode in the Controller tab and taps the tile again.
+        /// Mirrors ShowVersionMismatchRebootDialogAsync (GamingWidget.ConnectionBanner.cs), the
+        /// existing ContentDialog in this widget, so it inherits a layout that is known to work here.
+        /// </summary>
+        private async Task ShowMsiCenterNeedsHardwareControllerDialogAsync()
+        {
+            try
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = "Switch to the hardware controller first",
+                    Content = "MSI Center M takes over the controller and cannot run alongside the virtual one.\n\n"
+                            + "Open the Controller tab, set Main Controller Mode to \"Hardware Controller\", "
+                            + "then activate MSI Center M again.",
+                    CloseButtonText = "Got it",
+                    DefaultButton = ContentDialogButton.Close
+                };
+                await dialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                // Never let a failed dialog swallow the reason the tile did nothing.
+                Logger.Warn($"MSI Center M hardware-controller dialog failed: {ex.Message}");
+            }
         }
 
         /// <summary>

@@ -18,6 +18,10 @@
     <ApplicationIcon>Assets\branding\app-icon.ico</ApplicationIcon>
     <!-- Distribution build:  dotnet publish -c Release -r win-x64 -p:SelfContained=true
          -p:PublishSingleFile=true  (bundles the runtime so users need nothing preinstalled). -->
+    <!-- Size: no culture-aware sorting/formatting needed (English-only UI) — drops the ICU
+         globalization database and non-English WPF resource satellites from the publish output. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>

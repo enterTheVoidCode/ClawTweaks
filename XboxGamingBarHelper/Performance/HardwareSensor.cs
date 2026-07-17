@@ -24,7 +24,11 @@ namespace XboxGamingBarHelper.Performance
             get { return sensorType; }
         }
 
-        public float Value { get; set; }
+        /// <summary>
+        /// Latest reading. Virtual so a sensor can sanitise what LibreHardwareMonitor reports —
+        /// see <see cref="Sensors.GPUUsageSensor"/>, which clamps an unbounded percentage.
+        /// </summary>
+        public virtual float Value { get; set; }
 
         protected HardwareSensor(string inSensorName, HardwareType inHardwareType, SensorType inSensorType)
             : this(new[] { inSensorName }, new[] { inHardwareType }, inSensorType)
