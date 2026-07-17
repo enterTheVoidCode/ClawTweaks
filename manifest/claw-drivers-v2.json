@@ -81,14 +81,14 @@
           "name": "BIOS / UEFI",
           "category": "BIOS/UEFI",
           "providerScope": "msi",
-          "version": "E1T91IMS.105",
-          "releaseDate": "",
-          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T91IMS.105.zip",
+          "version": "E1T91IMS.109",
+          "releaseDate": "2026-07-17",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T91IMS.109.zip",
           "severity": "recommended",
           "pnpMatchHints": [],
           "deviceIdMatch": "",
           "action": "install",
-          "_comment": "System-BIOS (MS-1T91). Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T91IMS.106)."
+          "_comment": "System-BIOS (MS-1T91). Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T91IMS.110)."
         },
         {
           "name": "MSI Center M",
