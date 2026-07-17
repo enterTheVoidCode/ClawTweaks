@@ -840,7 +840,8 @@ namespace XboxGamingBarHelper
                         try
                         {
                             string ctrlDiagPath = Path.Combine(exportFolder, "Controller-Diagnostics.txt");
-                            ControllerDiagnostics.Collect(ctrlDiagPath, BuildControllerDiagHeader());
+                            ControllerDiagnostics.Collect(ctrlDiagPath, BuildControllerDiagHeader(),
+                                                          performanceManager?.BuildSensorReport());
                             Logger.Info("Pipe: controller diagnostics collected");
                         }
                         catch (Exception cdEx)

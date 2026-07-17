@@ -27,7 +27,7 @@ namespace XboxGamingBarHelper.Diagnostics
         /// read from the packaged LocalSettings) is prepended. Never throws — on failure it writes what
         /// it can plus the error, so the export always produces the file.
         /// </summary>
-        public static void Collect(string outFilePath, string headerFromHelper)
+        public static void Collect(string outFilePath, string headerFromHelper, string sensorReport = null)
         {
             string tempScript = null;
             try
@@ -42,6 +42,19 @@ namespace XboxGamingBarHelper.Diagnostics
                 sb.AppendLine("  --- ClawTweaks state (from helper) ---");
                 sb.AppendLine(headerFromHelper ?? "  (unavailable)");
                 sb.AppendLine();
+
+                // Live sensor inventory. Must come from the helper: the LibreHardwareMonitor Computer
+                // instance is in-process, and the PowerShell script below cannot see it. Read the
+                // "sensor count by type" block at the end first — zero Temperature/Power there means
+                // the CPU is unrecognised by this LHM build, not that the hardware lacks sensors.
+                if (!string.IsNullOrWhiteSpace(sensorReport))
+                {
+                    sb.AppendLine("==============================================================================");
+                    sb.AppendLine("  HARDWARE SENSORS  (live, via LibreHardwareMonitor + PawnIO)");
+                    sb.AppendLine("==============================================================================");
+                    sb.AppendLine(sensorReport);
+                    sb.AppendLine();
+                }
                 File.WriteAllText(outFilePath, sb.ToString(), new UTF8Encoding(false));
 
                 tempScript = Path.Combine(Path.GetTempPath(), "ClawTweaks_CtrlDiag_" + Guid.NewGuid().ToString("N") + ".ps1");
@@ -137,6 +150,24 @@ Head 'SYSTEM'
 Step 'OS' { $os = Get-CimInstance Win32_OperatingSystem -ErrorAction Stop; Line ('    ' + $os.Caption + ' build ' + $os.BuildNumber + ' (' + $os.OSArchitecture + ')') }
 Step 'Machine' { $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop; Line ('    ' + $cs.Manufacturer + ' / ' + $cs.Model) ; $p = Get-CimInstance Win32_ComputerSystemProduct -ErrorAction Stop; Line ('    product: ' + $p.Name) }
 Line ('    elevated: ' + $isAdmin)
+
+# CPU identity. The decimal+hex model is the point: LibreHardwareMonitor keys its microarchitecture
+# off CPUID family/model, and an unknown model silently degrades to MicroArchitecture.Unknown --
+# no TjMax, no THERM_STATUS, no RAPL, so temperature and power sensors vanish entirely while loads
+# still look fine. Panther Lake is model 204 / 0xCC. Without this line that diagnosis needs an
+# external hardware report, which is exactly what happened for the Claw 8 EX.
+Step 'CPU' {
+    $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
+    Line ('    ' + $cpu.Name.Trim())
+    Line ('    ' + $cpu.Caption)
+    $m = $null
+    if ($cpu.Caption -match 'Family (\d+) Model (\d+) Stepping (\d+)') {
+        $fam = [int]$Matches[1]; $m = [int]$Matches[2]; $st = [int]$Matches[3]
+        Line ('    Family ' + $fam + ' / Model ' + $m + ' (0x' + ('{0:X}' -f $m) + ') / Stepping ' + $st)
+    }
+    if ($m -eq 204) { Line '    -> Panther Lake (0xCC): needs LibreHardwareMonitorLib >= 0.9.7-pre (0.9.6 has no case for it)' }
+    Line ('    Cores/Threads: ' + $cpu.NumberOfCores + '/' + $cpu.NumberOfLogicalProcessors)
+}
 
 Head 'GAME CONTROLLERS  (double-input = more than one visible to games)'
 Step 'Controller / gamepad PnP devices' {

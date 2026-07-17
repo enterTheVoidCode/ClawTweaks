@@ -367,6 +367,87 @@ namespace XboxGamingBarHelper.Performance
         /// </summary>
         public bool IsPawnIOAvailable => pawnIOAvailable;
 
+        /// <summary>
+        /// Live sensor inventory for the log-export report. Distinct from the one-shot dump in
+        /// InitializeHardwareSensors(): that one runs at helper start, so its values are boot-idle
+        /// noise and it only covers five hardware types. This runs on demand, when the machine is in
+        /// whatever state the user is reporting about (possibly mid-game), and walks everything.
+        ///
+        /// The counts-by-type block at the end is the actual point. On the Claw 8 EX (Panther Lake)
+        /// LibreHardwareMonitor 0.9.6 does not know CPUID model 0xCC, falls back to
+        /// MicroArchitecture.Unknown and therefore never reads THERM_STATUS/RAPL at all — the device
+        /// reports zero Temperature and zero Power sensors while loads/clocks look perfectly normal.
+        /// Diagnosing that from a raw sensor list took a trip through LHM's source; a line saying
+        /// "Temperature: 0" states it outright. Read-only: no polling loop, nothing cached.
+        /// </summary>
+        public string BuildSensorReport()
+        {
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                sb.AppendLine($"    PawnIO driver installed : {pawnIOInstalled}   (LHM reads every MSR through PawnIO's");
+                sb.AppendLine($"                              IntelMsr module — no PawnIO means no temperature/power at all.");
+                sb.AppendLine($"                              'available' below is our own TDP-method check and is AMD-only.)");
+                sb.AppendLine($"    PawnIO TDP available    : {pawnIOAvailable}");
+                sb.AppendLine($"    LHM sensors initialized : {hardwareInitialized}");
+
+                if (computer == null || !hardwareInitialized)
+                {
+                    sb.AppendLine("    (LHM not initialized — no sensor data)");
+                    return sb.ToString().TrimEnd();
+                }
+
+                var counts = new Dictionary<SensorType, int>();
+                foreach (IHardware hw in computer.Hardware)
+                {
+                    try { hw.Update(); } catch { /* a failing device must not kill the report */ }
+                    sb.AppendLine();
+                    sb.AppendLine($"    [{hw.HardwareType}] {hw.Name}");
+                    DumpSensors(sb, hw, counts, "      ");
+
+                    foreach (IHardware sub in hw.SubHardware)
+                    {
+                        try { sub.Update(); } catch { }
+                        sb.AppendLine($"      [sub] {sub.Name}");
+                        DumpSensors(sb, sub, counts, "        ");
+                    }
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("    --- sensor count by type (the verdict line) ---");
+                foreach (SensorType t in Enum.GetValues(typeof(SensorType)))
+                {
+                    counts.TryGetValue(t, out int n);
+                    // Only Temperature and Power get an explicit callout: every supported handheld has
+                    // both, so a zero here means the CPU wasn't recognised, not that it lacks sensors.
+                    string flag = (n == 0 && (t == SensorType.Temperature || t == SensorType.Power))
+                        ? "   <<< NONE — CPU likely unrecognised by this LHM build"
+                        : string.Empty;
+                    if (n > 0 || !string.IsNullOrEmpty(flag))
+                        sb.AppendLine($"      {t,-14}: {n}{flag}");
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"    (sensor report failed: {ex.Message})");
+            }
+            return sb.ToString().TrimEnd();
+        }
+
+        private static void DumpSensors(System.Text.StringBuilder sb, IHardware hw,
+                                        Dictionary<SensorType, int> counts, string indent)
+        {
+            foreach (ISensor s in hw.Sensors)
+            {
+                counts.TryGetValue(s.SensorType, out int n);
+                counts[s.SensorType] = n + 1;
+                // null Value = sensor exists but never produced a reading — a different failure from
+                // the sensor being absent entirely, and worth keeping visually distinct.
+                string val = s.Value.HasValue ? s.Value.Value.ToString("0.##") : "(null)";
+                sb.AppendLine($"{indent}{s.SensorType,-12} {s.Name,-28} = {val}");
+            }
+        }
+
         // WinRing0 removed - deprecated TDP method
         // /// <summary>
         // /// Gets whether WinRing0 files are available in C:\GoTweaks.
