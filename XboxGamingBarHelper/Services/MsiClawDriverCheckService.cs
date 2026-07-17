@@ -42,8 +42,16 @@ namespace XboxGamingBarHelper.Services
         // Curated manifest. Hosted on the long-lived 'master' branch so the URL
         // does not churn with per-release branches. If the repo layout changes,
         // this single constant is the only thing to update.
+        //
+        // v2 exists because this constant is compiled into every binary we ever shipped, so the file
+        // it points at is live config for ALL versions at once. Until the BaseBoard fix below,
+        // ModelCode was always empty, and the manifest's models[] filter only applies to a non-empty
+        // ModelCode — old clients therefore render every device block. Adding the Claw 8 EX to
+        // claw-drivers.json would have offered Claw 8 AI+ users the EX's BIOS as a recommended
+        // update. Old builds cannot resolve the v2 name, so v1 must stay as-is (and keep being
+        // maintained) for as long as old installs exist.
         private const string ManifestUrl =
-            "https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/master/manifest/claw-drivers.json";
+            "https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/master/manifest/claw-drivers-v2.json";
 
         // Intel delegates to the Driver & Support Assistant (keeps itself current).
         private const string IntelDsaUrl =
@@ -285,11 +293,31 @@ namespace XboxGamingBarHelper.Services
             }
             catch (Exception ex) { Logger.Debug($"Win32_BIOS read failed: {ex.Message}"); }
 
-            // MSI = "Micro-Star International" (Vendor). Model code is "MS-1T52" etc.
+            // The board code lives in Win32_BaseBoard.Product and nowhere else. Win32_ComputerSystemProduct
+            // reports marketing names — "Claw 8 AI+ A2VM" / "Claw 8 EX AI+ CG3EM Launch Pack" — and Version
+            // is "REV:1.0", so extracting from those never matched and ModelCode came out empty on every
+            // Claw. That silently disabled the manifest's models[] filter (it only applies when ModelCode
+            // is non-empty), so a single device block happened to apply everywhere. With two blocks that
+            // would have offered each Claw the other's BIOS.
+            try
+            {
+                using var bb = new ManagementObjectSearcher("SELECT Product FROM Win32_BaseBoard");
+                foreach (ManagementObject obj in bb.Get())
+                {
+                    result.BoardProduct = obj["Product"]?.ToString()?.Trim() ?? "";
+                    break;
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"Win32_BaseBoard read failed: {ex.Message}"); }
+
+            // MSI = "Micro-Star International" (Vendor). Model code is "MS-1T52" (A2VM) / "MS-1T91" (EX).
             var mfr = result.Manufacturer;
             result.IsMsiClaw = mfr.IndexOf("Micro-Star", StringComparison.OrdinalIgnoreCase) >= 0
                             || mfr.IndexOf("MSI", StringComparison.OrdinalIgnoreCase) >= 0;
-            result.ModelCode = ExtractModelCode(result.Model) ?? ExtractModelCode(result.ModelVersion) ?? "";
+            result.ModelCode = ExtractModelCode(result.BoardProduct)
+                            ?? ExtractModelCode(result.Model)
+                            ?? ExtractModelCode(result.ModelVersion)
+                            ?? "";
         }
 
         private static string ExtractModelCode(string source)
@@ -1375,6 +1403,8 @@ namespace XboxGamingBarHelper.Services
         public string Manufacturer { get; set; } = "";
         public string Model { get; set; } = "";
         public string ModelVersion { get; set; } = "";
+        /// <summary>Win32_BaseBoard.Product — the only place the MS-xxxx board code appears.</summary>
+        public string BoardProduct { get; set; } = "";
         /// <summary>Serialised as machineTypeCode for widget compatibility.</summary>
         [JsonPropertyName("machineTypeCode")]
         public string ModelCode { get; set; } = "";

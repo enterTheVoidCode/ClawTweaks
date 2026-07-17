@@ -122,14 +122,14 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             SupportsGyro = true,
             SupportsFirmwareKeyboardRemap = true,   // EEPROM confirmed 1:1 with A2VM
             SupportsFanControl = false,             // ← OFF until MSI's custom-curve issues are resolved
-            SupportsDriverManagement = false,       // Panther Lake driver path unverified — keep the tab off for now
+            SupportsDriverManagement = true,        // manifest v2 has an EX-scoped block (BIOS E1T91IMS.105, Center M 3.0, Intel Arc; no controller FW); ModelCode gate keeps it EX-only
             HasTouchpad = false,
             HasScrollWheel = false,
             HasDetachableControllers = false,
             MaxPL1 = 35,
             MaxPL2 = 45,
             Pl2MinOffset = 2,                       // PL2 must be at least PL1 + 2W (Panther Lake)
-            Notes = "Controller/paddles/front buttons port 1:1. Fan + drivers off; TDP device-gated.",
+            Notes = "Controller/paddles/front buttons port 1:1. Fan off; drivers on (manifest v2, EX-scoped); TDP device-gated.",
         };
 
         // ── Claw A8 (AMD Z2 Extreme) — FUTURE, not wired up yet ───────────────────
