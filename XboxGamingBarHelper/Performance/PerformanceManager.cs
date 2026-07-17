@@ -1644,8 +1644,8 @@ namespace XboxGamingBarHelper.Performance
         ///      HC: v = (GetShiftValue() &amp; 195) | 128 &amp; 191; SetShiftValue(v) → dataBlock 210.
         ///      For the "deactive" case this resolves to 0x80 for the normal shift states, so we write
         ///      0x80 directly (no fragile Get_Data round-trip).
-        ///   2. set_long_limit(35) + set_short_limit(37) — raise the EC's power-limit ceiling
-        ///      ("unlock TDP for Lunar Lake" in HC). The user's actual value is applied right after.
+        ///   2. set_long_limit + set_short_limit — raise the EC's power-limit ceiling to this model's
+        ///      own maxima (A2VM 30/37, Claw 8 EX 35/45). The user's actual value is applied right after.
         /// </summary>
         private void EnsureMsiClawTdpUnlock()
         {
@@ -1658,13 +1658,22 @@ namespace XboxGamingBarHelper.Performance
                 //    sustained power to ~15W no matter what PL1/PL2 we push.
                 Devices.MSIClaw.MsiOverBoost.EnsureOverBoostEnabled();
 
-                // 1. Raise the ceiling (PL1=35, PL2=37 — HC's A2VM "unlock TDP for Lunar Lake").
-                //    The concrete power-shift (Sport/Green/ECO) is set per-apply in SetMsiPowerShiftForTdp,
-                //    mirroring HC: HC only uses Deactive transiently at Open() and immediately overwrites
-                //    it with a real shift type on the first profile apply. Forcing Deactive permanently
-                //    was our bug — it lets the EC fall back to ~15W sustained after Tau.
-                bool unlockOk = SetMsiAcpiTDP(35, 37);
-                Logger.Info($"[MSIClaw] TDP unlock applied (ceiling35/37={unlockOk}) — like HC Open()");
+                // 1. Raise the ceiling to this model's own maxima (see MSIClawModels.cs): the ceiling
+                //    only has to cover the highest value the device can actually request, and the real
+                //    value is written milliseconds later anyway.
+                //    Previously hardcoded 35/37. Those came from a0535f1, attributed to HC's Open(), and
+                //    were wrong on both models we ship: 35 exceeds the A2VM's own 30W PL1 maximum, so it
+                //    wrote a limit the slider can never ask for, and 37 is the A2VM's PL2 maximum, which
+                //    capped the Claw 8 EX below its 45W. Now A2VM 30/37, EX 35/45.
+                //    Note the ~15W-after-Tau fallback is prevented by the power-shift block (210) in
+                //    SetMsiPowerShiftForTdp, not by this ceiling — see the a2vm control-surface notes.
+                //    That shift (Sport/Green/ECO) is set per-apply; forcing Deactive permanently was our
+                //    bug, since it lets the EC fall back to ~15W sustained after Tau.
+                var deviceInfo = Devices.DeviceDetector.DetectDevice();
+                int unlockPl1 = deviceInfo?.MaxPL1 ?? 30;
+                int unlockPl2 = deviceInfo?.MaxPL2 ?? 37;
+                bool unlockOk = SetMsiAcpiTDP(unlockPl1, unlockPl2);
+                Logger.Info($"[MSIClaw] TDP unlock applied (ceiling {unlockPl1}/{unlockPl2} = {unlockOk})");
             }
             catch (Exception ex)
             {
@@ -1673,7 +1682,7 @@ namespace XboxGamingBarHelper.Performance
         }
 
         /// <summary>
-        /// Forces the one-time MSI Claw TDP unlock (OverBoost + EC ceiling 35/37) to re-run.
+        /// Forces the one-time MSI Claw TDP unlock (OverBoost + per-model EC ceiling) to re-run.
         /// Call on resume from sleep/hibernate: the helper PROCESS survives the power transition so
         /// <see cref="msiClawUnlockDone"/> stays true and <see cref="EnsureMsiClawTdpUnlock"/> would
         /// no-op — but the EC power-cycles during S3/S4 (and S0 Modern Standby) and clears the
