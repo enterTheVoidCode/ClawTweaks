@@ -1548,36 +1548,23 @@ namespace XboxGamingBarHelper.Performance
                 const string scope = "root\\WMI";
                 const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
 
-                // Use the *base active* scenario (0xC0 = HC ShiftType.None / Comfort) for every case.
-                // What actually holds the sustained TDP is the "active" bit (0x40), NOT the specific
-                // scenario — confirmed on battery, where 0xC0 held 23-24W rock-solid. The mode bits only
-                // pick how aggressive the scenario is, and crucially the EC's *fan* profile rides along:
-                // Sport (0xC4) makes the EC run its own aggressive fan curve that overrides our software
-                // fan table entirely (re-applying our table does nothing while Sport is active). Comfort
-                // (0xC0) is the calmest active scenario, so the fan can follow our table while the TDP
-                // still holds. Single value → the shift no longer changes on AC/DC or per watts.
-                // EC Sport cooling: Sport (0xC4) makes the EC run its own aggressive fan curve (cools
-                // well, never latches) at the cost of our software table being ignored. Comfort (0xC0)
-                // keeps the software table in control but caps fan aggressiveness. HC maps BestPerformance
-                // → Sport; we expose it as the "Cooling (EC Sport)" fan mode.
-                int shiftValue = _msiSportCooling ? 0xC4 : 0xC0;
-                string label = _msiSportCooling ? "Sport (EC cooling)" : "Comfort/None (active)";
+                // MSI-conform, fixed per model (decompile SetScenario_Value case 4 = Manual TDP):
+                //   EX (1T91)  -> 0xC6 (Manual)   A2VM (1T52) -> 0xC0 (Comfort)
+                // MSI sets the shift ONCE when the mode is established and does NOT flip it per watt or
+                // couple it to a "cooling" toggle; the fan is a fully independent concern (Set_Fan + 212).
+                // So the value is fixed and the write-once guard below makes repeat applies a no-op — the
+                // EC no longer re-grabs the fan on every TDP tick. (Was: 0xC0/0xC4 via _msiSportCooling +
+                // ReassertMsiFanAfterShift — the coupling that fought our fan table; removed.)
+                int shiftValue = IsClawEx() ? 0xC6 : 0xC0;
+                string label   = IsClawEx() ? "Manual (EX 0xC6)" : "Comfort (A2VM 0xC0)";
 
-                // Only write when the scenario actually changes. Re-writing block 210 on every TDP
-                // apply (which happens often) makes the EC re-grab the fan with the scenario's own
-                // aggressive curve, fighting our software fan table. HC writes the shift once per
-                // profile change, not per TDP tick — match that.
+                // Write only when the value actually changes (fixed per model → effectively once per mode).
                 if (shiftValue == lastMsiShiftValue) return;
 
                 bool ok = SetMsiCpuPowerLimit(scope, path, 210, shiftValue);
-                Logger.Info($"[MSIClaw] PowerShift set to {label} (0x{shiftValue:X2}, pl1={pl1}W) — ok={ok}, like HC PowerProfileManager_Applied");
+                Logger.Info($"[MSIClaw] PowerShift set to {label} (0x{shiftValue:X2}, pl1={pl1}W) — ok={ok}, MSI-conform (fixed per mode, fan decoupled)");
                 if (!ok) return;
                 lastMsiShiftValue = shiftValue;
-
-                // Activating a shift scenario makes the EC re-assert its own fan profile, overriding
-                // our software fan table. HC always (re)applies the fan table + control together with
-                // the shift; do the same here so our curve wins. No-op in firmware fan mode.
-                XboxGamingBarHelper.Program.ReassertMsiFanAfterShift();
             }
             catch (Exception ex)
             {
@@ -1603,39 +1590,32 @@ namespace XboxGamingBarHelper.Performance
             return false;
         }
 
+        // Cached "is this the Claw 8 EX (Panther Lake)?" — the model can't change at runtime, so resolve once.
+        // Gates the EX-only TDP recipe (RE_ClawEX_TDP_CenterM_decompile.md): power-shift 0xC6 (Manual) and the
+        // low(8)->PL2->PL1 write ordering. The A2VM path stays exactly as-is.
+        private bool? _isClawExCached;
+        private bool IsClawEx()
+        {
+            if (_isClawExCached.HasValue) return _isClawExCached.Value;
+            try
+            {
+                var di = Devices.DeviceDetector.DetectDevice();
+                _isClawExCached = di != null
+                    && di.DeviceType == Shared.Enums.DeviceType.MSIClaw
+                    && Devices.MSIClaw.MSIClawModelCatalog.Resolve(di) == Devices.MSIClaw.MSIClawModel.Ex;
+            }
+            catch { _isClawExCached = false; }
+            return _isClawExCached.Value;
+        }
+
         private bool msiClawUnlockDone;
         // Last MSI power-shift value written to EC block 210. -1 = none yet. Used to avoid re-writing
         // the shift (and thereby re-triggering the EC's scenario fan) on every TDP apply.
         private int lastMsiShiftValue = -1;
 
-        // When true, the MSI power-shift scenario is Sport (0xC4) so the EC runs its own aggressive fan
-        // curve ("Cooling (EC Sport)" fan mode); when false, the calm Comfort scenario (0xC0).
-        private bool _msiSportCooling = false;
-
-        /// <summary>
-        /// Enable/disable "EC Sport cooling". On → power-shift Sport (0xC4): the EC drives its own
-        /// aggressive fan curve (cools well, never latches), overriding our software fan table. Off →
-        /// Comfort (0xC0): the software fan table is honoured again. 1:1 HC behaviour (BestPerformance→Sport).
-        /// </summary>
-        public void SetMsiSportCooling(bool enable)
-        {
-            try
-            {
-                if (_msiSportCooling == enable) return;
-                _msiSportCooling = enable;
-
-                const string scope = "root\\WMI";
-                const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
-                int shiftValue = enable ? 0xC4 : 0xC0;
-                bool ok = SetMsiCpuPowerLimit(scope, path, 210, shiftValue);
-                lastMsiShiftValue = shiftValue;
-                Logger.Info($"[MSIClaw] SetMsiSportCooling({enable}) → power-shift 0x{shiftValue:X2} (ok={ok})");
-            }
-            catch (Exception ex)
-            {
-                Logger.Debug($"[MSIClaw] SetMsiSportCooling failed: {ex.Message}");
-            }
-        }
+        // (Removed 2026-07-17: SetMsiSportCooling / _msiSportCooling — the EC-Sport (0xC4) power-shift
+        //  coupling used by the old auto-Sport latch guard. Fan is now decoupled from the power-shift;
+        //  the shift is fixed per mode in SetMsiPowerShiftForTdp. See Doku/PLAN_MSI_Exact_Fan_TDP.md.)
 
         /// <summary>
         /// Replicates HC ClawA1M/A2VM.Open()'s runtime TDP unlock (once per helper run; the EC clears
@@ -1745,9 +1725,17 @@ namespace XboxGamingBarHelper.Performance
         {
             const string scope = "root\\WMI";
             const string path  = "MSI_ACPI.InstanceName='ACPI\\PNP0C14\\0_0'";
-            bool ok1 = SetMsiCpuPowerLimit(scope, path, 80, pl1);  // dataBlock 80 = PL1/SPL
-            bool ok2 = SetMsiCpuPowerLimit(scope, path, 81, pl2);  // dataBlock 81 = PL2/sPPT
-            return ok1 && ok2;
+
+            // MSI-conform ordering for BOTH models (decompile API_UserScenario.setPowerLimit, all models,
+            // RE_ClawEX_TDP_CenterM_decompile.md §3): write PL1 low->PL2->PL1 — first drop PL1 to the platform
+            // floor (8W = LimitValue_PowerLow, same for 1T52 and 1T91), then set PL2 (block 81), then raise
+            // PL1 (block 80) to the target. This is how the EC latches the sustained limit. Same blocks/raw
+            // watts as before; only the ordering changed (was: A2VM wrote 80,81 directly).
+            const int floorPl1 = 8;
+            bool a = SetMsiCpuPowerLimit(scope, path, 80, floorPl1); // 1) PL1 -> floor (8W)
+            bool b = SetMsiCpuPowerLimit(scope, path, 81, pl2);      // 2) PL2 (block 81)
+            bool c = SetMsiCpuPowerLimit(scope, path, 80, pl1);      // 3) PL1 -> target
+            return a && b && c;
         }
 
         /// <summary>

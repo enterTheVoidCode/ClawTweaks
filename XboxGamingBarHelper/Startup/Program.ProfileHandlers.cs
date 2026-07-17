@@ -1197,10 +1197,6 @@ namespace XboxGamingBarHelper
                     // widget toggle (no game → option hidden anyway).
                     RestoreVirtualControllerAfterHwException();
 
-                    // MSI Claw fan auto-safety: if the watcher handed cooling to EC Sport during the
-                    // session (CPU crossed 78 °C in a curve mode), restore the user's saved fan curve now.
-                    RestoreFanAfterGame();
-
                     // Reset Lossless Scaling to Default profile when game stops
                     if (losslessScalingManager.LosslessScalingInstalled.Value)
                     {

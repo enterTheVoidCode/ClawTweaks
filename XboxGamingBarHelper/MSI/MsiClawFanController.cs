@@ -148,14 +148,15 @@ namespace XboxGamingBarHelper.MSI
         /// </summary>
         public static bool ApplyFirmwareAutoBaseline()
         {
-            byte[] fan = BuildFanTable(MsiDuty_Default);
-            byte[] thermal = BuildThermalTable(MsiTemps_Default);
-
-            SetFanFullSpeed(false);   // never hand back with a latched full-speed override
-            SetThermalTable(thermal); // MSI default temperature axis
-            SetFanTable(fan);         // MSI default duty curve (byte0=0, MSI-identical)
-            SetFanControl(false);     // firmware/Auto → EC regulates (212 bit7 = 0)
-            Logger.Info($"MsiClawFanController: firmware hand-back (MSI Auto baseline) fan=[{string.Join(",", fan)}] thermal=[{string.Join(",", thermal)}] control=OFF");
+            // MSI-exact "Auto": Auto_Fan() in the Center M decompile ONLY clears the software-control bit
+            // (Set_Data(212, 0)) and lets the EC firmware run its OWN per-model default curve — it does NOT
+            // write a fan/thermal table. We mirror that: clear the full-speed override (safety — never hand
+            // back latched at 100%) + return control to firmware. Model-agnostic: A2VM and EX each get their
+            // own firmware curve, no hardcoded per-model table. (Was: wrote the A2VM default curve first,
+            // which was A2VM-specific and wrong for the EX.)
+            SetFanFullSpeed(false);
+            SetFanControl(false);     // firmware/Auto → EC regulates its own default curve (212 bit7 = 0)
+            Logger.Info("MsiClawFanController: firmware hand-back (MSI-exact Auto: control OFF, EC runs its own curve; full-speed cleared)");
             return true;
         }
 
@@ -229,6 +230,42 @@ namespace XboxGamingBarHelper.MSI
         /// writing, so callers (e.g. the widget's "Check applied values") can compute the expected
         /// table for verification. Alias of <see cref="BuildFanTable"/>.</summary>
         public static byte[] CurveToTable(int[] duties5) => BuildFanTable(duties5);
+
+        /// <summary>
+        /// The MSI firmware temperature axis (5 breakpoints °C) read LIVE from the EC (Get_Thermal block 1,
+        /// bytes [1..5]). MSI Center M never WRITES the axis — it is a per-model firmware constant that MSI
+        /// only reads — so this returns the true MSI axis on whatever device we run (A2VM or EX) with NO
+        /// hardcoded per-model values and no external/tester read. Falls back to <see cref="MsiTemps_Default"/>
+        /// only if the EC read fails or the values are implausible (not strictly increasing / out of 1..120).
+        /// This is the base axis for the "MSI Default" / preset curves; the user can still shift it (our
+        /// editable-axis differentiator, written via Set_Thermal in ApplyMsiCurve).
+        /// </summary>
+        public static int[] GetFirmwareTempAxis()
+        {
+            try
+            {
+                byte[] th = ReadThermal(); // [0, t1..t5, t5]
+                if (th != null && th.Length >= 6)
+                {
+                    var axis = new int[5];
+                    bool ok = true;
+                    for (int i = 0; i < 5; i++)
+                    {
+                        axis[i] = th[i + 1];
+                        if (axis[i] <= 0 || axis[i] > 120) ok = false;
+                        if (i > 0 && axis[i] <= axis[i - 1]) ok = false; // must strictly increase
+                    }
+                    if (ok)
+                    {
+                        Logger.Info($"MsiClawFan: firmware temp axis (live from EC) = [{string.Join(",", axis)}]");
+                        return axis;
+                    }
+                    Logger.Debug($"MsiClawFan: EC temp axis implausible [{Hex(th, 7)}] — using MsiTemps_Default fallback");
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"MsiClawFan.GetFirmwareTempAxis: {ex.Message}"); }
+            return (int[])MsiTemps_Default.Clone();
+        }
 
         // ── Live fan RPM from the EC (Get_Fan[0]) ──────────────────────────────────
         // Get_Fan[0] payload = three 16-bit BIG-ENDIAN tach words [Lüfter1(CPU), Lüfter2(GPU),
