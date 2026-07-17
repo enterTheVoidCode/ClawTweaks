@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -44,6 +45,7 @@ namespace ClawTweaksSetup
 
         private DeviceDetect.Model _deviceModel = DeviceDetect.Model.Unknown;
         private Version _installedVersion;
+        private bool _installedVersionChecked;
         private SetupVersionCheck.Result _setupVersionCheck;
         private WindowsChannelDetect.Result _windowsChannel;
         private int _selectedIndex = -1;
@@ -57,6 +59,23 @@ namespace ClawTweaksSetup
         public CenterMenuWindow()
         {
             InitializeComponent();
+
+            // Fill the screen without covering the taskbar. WindowStyle="None" + WindowState="Maximized"
+            // is the common trap here — without window chrome, WPF maximizes to the full monitor bounds
+            // instead of the work area, which hides the taskbar entirely. Sizing manually to the work
+            // area gets the borderless look while leaving the taskbar visible. Read the work area in
+            // SourceInitialized, not the constructor — SystemParameters.WorkArea can still report the
+            // full monitor bounds before the window has an actual display/HWND association, only
+            // settling to the real (taskbar-excluded) value once one exists.
+            SourceInitialized += (_, __) =>
+            {
+                Left = SystemParameters.WorkArea.Left;
+                Top = SystemParameters.WorkArea.Top;
+                Width = SystemParameters.WorkArea.Width;
+                Height = SystemParameters.WorkArea.Height;
+            };
+
+            SetupVersionLabel.Text = "CTW Center v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "?");
             RenderDeviceBanner(null);
             RenderHome();
             RefreshActionBar();
@@ -188,6 +207,7 @@ namespace ClawTweaksSetup
             await Task.WhenAll(versionTask, ghTask, driveTask);
 
             _installedVersion = versionTask.Result;
+            _installedVersionChecked = true;
             RenderCurrentView(); // installed version is now known — Home's update banner + Browse's tags show up
 
             _busy = false;
@@ -268,11 +288,47 @@ namespace ClawTweaksSetup
                     $"You're on the \"{_windowsChannel.ChannelName}\" channel — the install routine is currently known not to work correctly on Insider builds."));
 
             var versionStack = new StackPanel { Margin = new Thickness(0, 0, 0, 20) };
-            versionStack.Children.Add(new TextBlock
+            if (!_installedVersionChecked)
             {
-                Text = _installedVersion != null ? $"Currently installed: {_installedVersion}" : "ClawTweaks is not installed yet.",
-                FontSize = 18, FontWeight = FontWeights.SemiBold, Foreground = UiHelpers.Text,
-            });
+                // Checking PackageInstaller.GetInstalledVersion() takes a moment (PowerShell
+                // Get-AppxPackage) — showing the "not installed" text as a placeholder during that
+                // window was actively misleading on machines that DO have ClawTweaks installed. Show
+                // a spinner instead of any default text until the real state is known.
+                var checkingRow = new StackPanel { Orientation = Orientation.Horizontal };
+                checkingRow.Children.Add(new ContentControl
+                {
+                    Width = 22, Height = 22, Focusable = false,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Content = UiHelpers.Badge(StatusKind.Working, 22),
+                });
+                checkingRow.Children.Add(new TextBlock
+                {
+                    Text = "Checking installed ClawTweaks version…", FontSize = 18,
+                    FontWeight = FontWeights.SemiBold, Foreground = UiHelpers.Subtle,
+                    VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0),
+                });
+                versionStack.Children.Add(checkingRow);
+            }
+            else
+            {
+                versionStack.Children.Add(new Border
+                {
+                    BorderBrush = UiHelpers.Ok,
+                    BorderThickness = new Thickness(2),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(14, 10, 14, 10),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Child = new TextBlock
+                    {
+                        // Called out as "ClawTweaks" specifically — this is the main app's version, not
+                        // the Setup/Center tool's own (shown separately under the header logo).
+                        Text = _installedVersion != null
+                            ? $"Currently installed: ClawTweaks {_installedVersion}"
+                            : "ClawTweaks is not installed yet.",
+                        FontSize = 18, FontWeight = FontWeights.SemiBold, Foreground = UiHelpers.Ok,
+                    },
+                });
+            }
             var update = FindNewestGithubUpdate();
             if (update != null)
                 versionStack.Children.Add(new TextBlock
@@ -349,21 +405,35 @@ namespace ClawTweaksSetup
         {
             ContentHost.Children.Clear();
             _rowElements.Clear();
-            AddSection("Releases", _releases, _releasesError);
-            AddSection("Test builds", _testBuilds, _testBuildsError);
-            AddSection("Nightly builds", _nightlies, _nightliesError);
+            AddSection("Stable Releases", "✅", UiHelpers.Ok, _releases, _releasesError);
+            AddSection("Test releases", "⚠️", UiHelpers.Warn, _testBuilds, _testBuildsError);
+            AddSection("Nightly Releases (Experimental Builds)", "🥼", UiHelpers.Error, _nightlies, _nightliesError);
         }
 
-        private void AddSection(string header, List<BuildSource> items, string error)
+        private void AddSection(string header, string iconEmoji, Brush titleColor, List<BuildSource> items, string error)
         {
-            ContentHost.Children.Add(new TextBlock
+            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 8) };
+            headerRow.Children.Add(new TextBlock
+            {
+                // WPF's text renderer doesn't support color-emoji font layers (unlike UWP/WinUI or a
+                // browser) — these render as plain monochrome outlines. Foreground defaults to black
+                // when unset, which is invisible against the dark theme; white reads fine instead.
+                Text = iconEmoji,
+                FontFamily = new FontFamily("Segoe UI Emoji"),
+                FontSize = 20,
+                Foreground = UiHelpers.Text,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0),
+            });
+            headerRow.Children.Add(new TextBlock
             {
                 Text = header,
                 FontSize = 20,
                 FontWeight = FontWeights.Bold,
-                Foreground = UiHelpers.Text,
-                Margin = new Thickness(0, 14, 0, 8),
+                Foreground = titleColor,
+                VerticalAlignment = VerticalAlignment.Center,
             });
+            ContentHost.Children.Add(headerRow);
 
             if (error != null)
             {
@@ -549,7 +619,6 @@ namespace ClawTweaksSetup
                 return;
             }
 
-            AddAction(PadButton.X, "Next", _flat.Count > 1, CycleNext);
             AddAction(PadButton.A, "Install this build", _flat.Count > 0, () =>
             {
                 if (_selectedIndex >= 0 && _selectedIndex < _flat.Count) ShowConfirm(_flat[_selectedIndex]);
@@ -591,13 +660,6 @@ namespace ClawTweaksSetup
             ActionBar.Children.Add(ActionBarBuilder.BuildChip(b, label, enabled, action));
         }
 
-        private void CycleNext()
-        {
-            if (_flat.Count == 0) return;
-            _selectedIndex = (_selectedIndex + 1) % _flat.Count;
-            RenderBrowse();
-            if (_rowElements.TryGetValue(_flat[_selectedIndex], out var el)) el.BringIntoView();
-        }
         #endregion
 
         #region Confirm
@@ -824,10 +886,18 @@ namespace ClawTweaksSetup
                 var hidhide = await Task.Run(() => ToolDetect.HidHide());
                 var rtss = await Task.Run(() => ToolDetect.Rtss());
                 var usbip = await Task.Run(() => ToolDetect.Usbip());
-                if (!hidhide.Installed || !rtss.Installed || !usbip.Installed)
+                var pawnio = await Task.Run(() => ToolDetect.PawnIO());
+                if (!hidhide.Installed || !rtss.Installed || !usbip.Installed || !pawnio.Installed)
                 {
                     if (!hidhide.Installed) await Task.Run(() => ToolInstaller.InstallHidHide(Log));
                     if (!rtss.Installed) await Task.Run(() => ToolInstaller.InstallRtss(Log));
+                    if (!pawnio.Installed)
+                    {
+                        // Silent like HidHide/RTSS (no interactive window), but its own multi-step
+                        // download+verify+install flow is grouped the same way usbip's is below.
+                        Log("Installing PawnIO (driver)…");
+                        await Task.Run(() => PawnIoSetup.Run(LogDetail));
+                    }
                     if (!await Task.Run(() => ToolDetect.Usbip().Installed))
                     {
                         // Grouped into one row — UsbipSetup.Run's own internal steps (download, verify,
@@ -846,7 +916,7 @@ namespace ClawTweaksSetup
                         }
                     }
                 }
-                else Log("Required tools (HidHide, RTSS, usbip) already installed.");
+                else Log("Required tools (HidHide, RTSS, usbip, PawnIO) already installed.");
 
                 string cer = CertInstaller.FindSiblingCer();
                 if (cer != null)

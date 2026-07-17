@@ -9,12 +9,12 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>ClawTweaksSetup</AssemblyName>
+    <AssemblyName>CTW_Center</AssemblyName>
     <RootNamespace>ClawTweaksSetup</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyTitle>ClawTweaks Center</AssemblyTitle>
     <Product>ClawTweaks</Product>
-    <Version>0.1.0</Version>
+    <Version>0.1.0.1</Version>
     <ApplicationIcon>Assets\branding\app-icon.ico</ApplicationIcon>
     <!-- Distribution build:  dotnet publish -c Release -r win-x64 -p:SelfContained=true
          -p:PublishSingleFile=true  (bundles the runtime so users need nothing preinstalled). -->
