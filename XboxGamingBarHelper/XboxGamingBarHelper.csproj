@@ -91,8 +91,17 @@
     <Reference Include="SharpDX.DirectInput, Version=4.2.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\SharpDX.DirectInput.4.2.0\lib\net45\SharpDX.DirectInput.dll</HintPath>
     </Reference>
-    <Reference Include="LibreHardwareMonitorLib, Version=0.9.6.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\LibreHardwareMonitorLib.0.9.6\lib\net472\LibreHardwareMonitorLib.dll</HintPath>
+    <!-- 0.9.7-pre: prerelease is required, not a preference. Panther Lake (CPUID model 0xCC, the
+         Claw 8 EX) is absent from the family-6 switch in 0.9.6's IntelCpu, so it resolves to
+         MicroArchitecture.Unknown and LHM never reads THERM_STATUS/RAPL — the EX reports zero
+         Temperature and zero Power sensors. Upstream added 0xCC in PR #2332 (merged 2026-04-26),
+         after v0.9.6 shipped (2026-02-14), so no release carries it. The Lunar Lake path (0xBD,
+         A2VM) is untouched by that diff.
+         Note the HintPath: unlike 0.9.6, this package has no lib/ folder at all — only ref/ (compile
+         -time facades) and runtimes/<rid>/lib/. packages.config does not understand RID assets, so
+         the runtime DLL must be referenced explicitly. ref/ would compile but ship a facade. -->
+    <Reference Include="LibreHardwareMonitorLib, Version=0.9.7.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\LibreHardwareMonitorLib.0.9.7-pre708\runtimes\win-x64\lib\net472\LibreHardwareMonitorLib.dll</HintPath>
     </Reference>
     <Reference Include="RAMSPDToolkit-NDD">
       <HintPath>..\packages\RAMSPDToolkit-NDD.1.3.2\lib\net472\RAMSPDToolkit-NDD.dll</HintPath>
