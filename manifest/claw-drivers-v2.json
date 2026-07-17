@@ -1,0 +1,123 @@
+{
+  "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks - SCHEMA 2 (modell-gefiltert). Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. MSI-Eintraege (Firmware, BIOS, MSI-spezifisch): action=install laedt von download.msi.com (Whitelist). Intel-Eintraege (providerScope=intel): liefern die NEUESTE (WHQL-)Version fuer die automatisch erkannte Intel-Zeile - der Helper vergleicht installiert (PnP) vs. diese 'version' und meldet 'Update verfuegbar' (Update-Kachel). 'version' bei neuem WHQL-Release aktualisieren (~1x/Monat); action=deeplink (oeffnet die Intel-Seite). .zip-Dateien werden heruntergeladen aber NIE automatisch gestartet (nur .exe/.msi) - fuer Firmware/BIOS sicher.",
+  "_v2Comment": "WARUM ES DIESE DATEI GIBT: claw-drivers.json (v1) MUSS unveraendert bleiben - sie ist die URL, die in JEDER alten ClawTweaks-Binary einkompiliert ist. Bis 0.1.7.94 war ModelCode immer leer (der Board-Code wurde aus Win32_ComputerSystemProduct.Name gelesen, wo er nicht steht - er lebt in Win32_BaseBoard.Product). Der models[]-Filter greift aber nur bei nicht-leerem ModelCode, d.h. alte Clients ignorieren ihn und wuerden JEDEN device-Block anzeigen. Ein zweiter Block in v1 haette Claw-8-AI-Usern das BIOS des Claw 8 EX als Update angeboten. Alte Builds kennen diese v2-URL nicht und koennen sie nie laden - deshalb ist die Trennung dicht. v1 bleibt gepflegt, solange es alte Installationen gibt.",
+  "schemaVersion": 2,
+  "updatedUtc": "2026-07-17",
+  "_moddedWifiComment": "Optional: Drittanbieter-Modded-WiFi-Treiber (theboss619). url = aktueller TechPowerUp-Anhang (aendert sich pro Release; im ersten Post des Threads). Wird nur genutzt, wenn der User den Toggle 'Use modded Wi-Fi driver' aktiviert. Bei neuem Release nur 'url' (und optional 'version') aktualisieren. Geraeteunabhaengig (Top-Level, kein device-Block).",
+  "moddedWifi": {
+    "name": "Intel Ultra Killer Wi-Fi (modded, theboss619)",
+    "version": "24.50.0.4",
+    "url": "https://www.techpowerup.com/forums/attachments/intel-r-ultra-killer-r-wi-fi-ax1xx-ax2xx-ax4xx-ax16xx-be2xx-be17xxi-zip.445340/",
+    "threadUrl": "https://www.techpowerup.com/forums/threads/intel-ax1xx-ax2xx-ax4xx-ax16xx-be2xx-be17xx-intel-modded-wi-fi-driver-with-intel%C2%AE-killer%E2%84%A2-features.326229/"
+  },
+  "_modelsComment": "models[] wird gegen den Board-Code aus Win32_BaseBoard.Product gematcht (MS-1T52 = Claw 8 AI+ A2VM, MS-1T91 = Claw 8 EX AI+ CG3EM). NICHT gegen Win32_ComputerSystemProduct.Name - dort steht nur der Marketing-Name ('Claw 8 AI+ A2VM'), der keinen MS-Code enthaelt. Ein Block ohne models[] gilt fuer alle Claw-Modelle. Bloecke sind additiv: jeder passende Block steuert Eintraege bei, daher muss jeder Block ALLE seine Zeilen selbst fuehren (auch die Intel-GPU-Zeile - sie wird nicht geerbt).",
+  "devices": [
+    {
+      "deviceType": 40,
+      "_deviceComment": "40 = MSIClaw. Claw 8 AI+ / A2VM (Lunar Lake, Arc 140V) - Boards MS-1T52 / MS-1T42 / MS-1T41.",
+      "models": ["MS-1T52", "MS-1T42", "MS-1T41"],
+      "drivers": [
+        {
+          "name": "BIOS / UEFI",
+          "category": "BIOS/UEFI",
+          "providerScope": "msi",
+          "version": "E1T52IMS.112",
+          "releaseDate": "",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T52IMS.112.zip",
+          "severity": "recommended",
+          "pnpMatchHints": [],
+          "deviceIdMatch": "",
+          "action": "install",
+          "_comment": "System-BIOS (MS-1T52). Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T52IMS.113)."
+        },
+        {
+          "name": "MSI Controller-Firmware",
+          "category": "Firmware",
+          "providerScope": "msi",
+          "version": "2.29",
+          "releaseDate": "2026-04-21",
+          "downloadUrl": "https://download.msi.com/archive/frm_exe/nb/MSI%20Controller%20FW%20Updater_2604_1601.zip",
+          "severity": "recommended",
+          "pnpMatchHints": ["claw", "controller", "gamepad"],
+          "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
+          "action": "install",
+          "_comment": "Nur A2VM: fuer den Claw 8 EX bietet MSI keinen separaten Controller-FW-Download mehr an (kommt ueber Center M), deshalb fehlt der Eintrag im MS-1T91-Block. Installierte Controller-FW-Version wird automatisch aus dem HID-Descriptor (bcdDevice, z.B. 0x229 -> '2.29') gelesen (MsiClawLedController.TryGetControllerFirmwareVersion, portiert aus HC). Vergleich gegen 'version' (neueste FW) ergibt den Update-Status. .zip -> Download ohne Auto-Start (Firmware nie auto-flashen)."
+        },
+        {
+          "name": "MSI Center M",
+          "category": "Software",
+          "providerScope": "msi",
+          "version": "2.0.2605.1501",
+          "releaseDate": "2026-05-29",
+          "downloadUrl": "https://download.msi.com/uti_exe/nb/MSI%20Center%20M%20Installer_2.0.2605.1501_2.0.2605.1501_0x88a161f2.zip",
+          "severity": "optional",
+          "pnpMatchHints": ["center"],
+          "deviceIdMatch": "",
+          "installedRegistry": { "path": "HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M", "value": "Package_Version" },
+          "action": "install",
+          "_comment": "Der Claw 8 AI+ faehrt Center M 2.x (der EX 3.x - eigener Eintrag im MS-1T91-Block). Installierte Version aus der Registry (MSI Center M legt sie unter HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M : Package_Version ab; zuverlaessiger als Uninstall-Fuzzy-Match). .zip -> Download, danach manuell entpacken/installieren."
+        },
+        {
+          "name": "Intel Arc Grafik",
+          "category": "Graphics",
+          "providerScope": "intel",
+          "version": "32.0.101.8826",
+          "releaseDate": "2026-06-03",
+          "downloadUrl": "https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html",
+          "severity": "recommended",
+          "pnpMatchHints": ["graphics", "arc"],
+          "deviceIdMatch": "",
+          "action": "deeplink",
+          "_comment": "providerScope=intel: 'version' = neueste WHQL (hier 32.0.101.8826, 2026-06-03). Helper liest die installierte GPU-Treiberversion aus PnP und meldet bei aelterer Version 'Update verfuegbar'. Bei jedem neuen Intel-WHQL nur 'version'+'releaseDate' aktualisieren. action bleibt deeplink (Intel gated Direkt-Downloads + monatliche Releases) -> Button oeffnet die Arc-Downloadseite (ID 785597, stabil)."
+        }
+      ]
+    },
+    {
+      "deviceType": 40,
+      "_deviceComment": "40 = MSIClaw. Claw 8 EX AI+ CG3EM (Panther Lake, Arc B390) - Board MS-1T91. Bewusst OHNE Controller-Firmware-Eintrag: MSI bietet dafuer keinen separaten Download mehr an, die FW kommt ueber Center M.",
+      "models": ["MS-1T91"],
+      "drivers": [
+        {
+          "name": "BIOS / UEFI",
+          "category": "BIOS/UEFI",
+          "providerScope": "msi",
+          "version": "E1T91IMS.105",
+          "releaseDate": "",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T91IMS.105.zip",
+          "severity": "recommended",
+          "pnpMatchHints": [],
+          "deviceIdMatch": "",
+          "action": "install",
+          "_comment": "System-BIOS (MS-1T91). Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T91IMS.106)."
+        },
+        {
+          "name": "MSI Center M",
+          "category": "Software",
+          "providerScope": "msi",
+          "version": "3.0.2606.3001",
+          "releaseDate": "2026-07-17",
+          "downloadUrl": "https://download.msi.com/uti_exe/nb/MSI%20Center%20M%20Installer_3.0.2606.3001_3.0.2606.3001_0x1e9dfea7.zip",
+          "severity": "optional",
+          "pnpMatchHints": ["center"],
+          "deviceIdMatch": "",
+          "installedRegistry": { "path": "HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M", "value": "Package_Version" },
+          "action": "install",
+          "_comment": "Der EX faehrt Center M 3.x - ein Major-Sprung gegenueber dem Claw 8 AI+ (2.x), deshalb ein eigener Eintrag statt eines gemeinsamen. Installierte Version aus der Registry (Package_Version). .zip -> Download, danach manuell entpacken/installieren."
+        },
+        {
+          "name": "Intel Arc Grafik",
+          "category": "Graphics",
+          "providerScope": "intel",
+          "version": "32.0.101.8826",
+          "releaseDate": "2026-06-03",
+          "downloadUrl": "https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html",
+          "severity": "recommended",
+          "pnpMatchHints": ["graphics", "arc"],
+          "deviceIdMatch": "",
+          "action": "deeplink",
+          "_comment": "Bewusst dupliziert statt geerbt: Bloecke vererben nichts, ohne diese Zeile haette der EX keine GPU-Zeile im Treiber-Tab. Der EX (Arc B390, Xe3) laeuft laut Tester-Report auf demselben WHQL-Build wie der A2VM und dieselbe Arc-Downloadseite (ID 785597) deckt beide ab -> bei neuem WHQL BEIDE Bloecke aktualisieren. Die restlichen Intel-Treiber (WiFi/Chipsatz/GPU-Detection) laufen ohnehin dynamisch ueber den Intel-DSA-Katalog (IntelDsaCatalogService); VEN_8086&DEV_B080 (Arc B390) ist dort bereits enthalten - hier nichts weiter pflegen."
+        }
+      ]
+    }
+  ]
+}
