@@ -2043,6 +2043,12 @@ namespace XboxGamingBarHelper.Performance
                 float timeToFull = BatteryTimeToFull;
                 bool isCharging = BatteryChargeRate.Value > 0;
 
+                // MSI Claw fan RPM from the EC tach (Get_Fan[0] → 478000/word), same source the RTSS OSD
+                // uses. GetCpuFanRpmCached is throttled + self-gating (returns 0 and stops probing on
+                // non-Claw hardware), so it's safe to read every push; feeds the fan card's live RPM line.
+                int fanRpm = 0;
+                try { fanRpm = MSI.MsiClawFanController.GetCpuFanRpmCached(); } catch { }
+
                 // Format as JSON with all metrics
                 string json = $"{{" +
                     $"\"batteryDrain\":{batteryDrain:F1}," +
@@ -2054,6 +2060,7 @@ namespace XboxGamingBarHelper.Performance
                     $"\"gpuWattage\":{gpuWattage:F1}," +
                     $"\"memoryUsage\":{memoryUsage:F0}," +
                     $"\"batteryLevel\":{batteryLevel:F0}," +
+                    $"\"fanRpm\":{fanRpm}," +
                     $"\"timeRemaining\":{timeRemaining:F0}," +
                     $"\"timeToFull\":{timeToFull:F0}," +
                     $"\"isCharging\":{(isCharging ? "true" : "false")}}}";

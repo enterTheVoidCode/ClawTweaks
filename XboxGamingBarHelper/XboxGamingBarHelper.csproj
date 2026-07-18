@@ -467,6 +467,7 @@
     <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroStick.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroActivation.cs" />
     <Compile Include="ControllerEmulation\ClawGyroSourceAdapter.cs" />
+    <Compile Include="ControllerEmulation\ClawHidGyroSourceAdapter.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationManager.GyroSource.cs" />
     <Compile Include="ControllerEmulation\ControllerEmulationProperties.cs" />
     <Compile Include="ControllerEmulation\ControllerSuppressionManager.cs" />

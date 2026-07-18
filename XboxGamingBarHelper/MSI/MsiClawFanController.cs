@@ -35,9 +35,13 @@ namespace XboxGamingBarHelper.MSI
         public static readonly int[] MsiTemps_Default = { 44, 54, 64, 74, 82 };
         public static readonly int[] MsiTemps_Cooling = { 34, 44, 54, 64, 72 }; // −10 °C: early ramp
 
-        public static readonly int[] MsiDuty_Default   = { 40, 49, 58, 67, 75 }; // MSI Center M default
+        public static readonly int[] MsiDuty_Default   = { 40, 49, 58, 67, 75 }; // MSI Center M default (A2VM, verified)
         public static readonly int[] MsiDuty_QuietIdle = { 20, 30, 45, 67, 75 }; // quieter low band, MSI top
         public static readonly int[] MsiDuty_Cooling   = { 40, 49, 58, 67, 75 }; // same duty, earlier temps
+        // Claw 8 EX (Panther Lake) MSI default duty — decompile-documented (5-point, leading idle dropped
+        // like the A2VM constant). ONLY a fallback: the EX default is normally read live from the EC via
+        // GetFirmwareDutyAxis; this seeds the "MSI Default" preset if that read is unavailable.
+        public static readonly int[] MsiDuty_ExDefault = { 21, 35, 51, 69, 84 };
 
         /// <summary>
         /// EXPERIMENTAL: read the CURRENT native fan config straight from the EC and format a report.
@@ -267,11 +271,48 @@ namespace XboxGamingBarHelper.MSI
             return (int[])MsiTemps_Default.Clone();
         }
 
+        /// <summary>
+        /// The device's CURRENT fan duty curve (5 duty %) read LIVE from the EC (Get_Fan block 1, the
+        /// duty bytes [2..6] on the BuildFanTable layout {0,0,d1..d5,d5}). Mirrors how MSI Center M sources
+        /// its "MSI Default" curve — it reads the per-model factory duty from the EC rather than hardcoding
+        /// it. Used to seed the "MSI Default" preset on models where the factory duty is NOT the A2VM
+        /// constant (e.g. the Claw 8 EX). Returns null if the read fails or the values are implausible
+        /// (all zero, out of 0..150, or not non-decreasing), so the caller can fall back to a constant.
+        /// </summary>
+        public static int[] GetFirmwareDutyAxis()
+        {
+            try
+            {
+                if (!ReadStatus(out byte[] t, out _)) return null;
+                if (t == null || t.Length < 7) return null;
+
+                var duty = new int[5];
+                bool anyNonZero = false;
+                for (int i = 0; i < 5; i++)
+                {
+                    duty[i] = t[i + 2];               // [2..6] = d1..d5
+                    if (duty[i] < 0 || duty[i] > 150) return null;
+                    if (duty[i] > 0) anyNonZero = true;
+                    if (i > 0 && duty[i] < duty[i - 1]) return null; // a fan curve never ramps DOWN
+                }
+                if (!anyNonZero) return null;
+
+                Logger.Info($"MsiClawFan: firmware duty curve (live from EC) = [{string.Join(",", duty)}]");
+                return duty;
+            }
+            catch (Exception ex) { Logger.Debug($"MsiClawFan.GetFirmwareDutyAxis: {ex.Message}"); }
+            return null;
+        }
+
         // ── Live fan RPM from the EC (Get_Fan[0]) ──────────────────────────────────
-        // Get_Fan[0] payload = three 16-bit BIG-ENDIAN tach words [Lüfter1(CPU), Lüfter2(GPU),
-        // Lüfter3(GPU)]; each word is an inverse period, so RPM = 478000 / word. Verified against
-        // HWiNFO on-device 2026-07-11 (word 105 → 4552 RPM exact; idle 194 → 2461). Lüfter3 ≈ 0.
-        private const double RpmPerWord = 478000.0;
+        // Formula taken VERBATIM from MSI Center M's own OSD (MCMOSDInfo.CalculateRPM): it reads
+        // Get_Fan(0) and computes RPM from the first two bytes as
+        //     RPM = |60_000_000 / ((byte0 - byte1) * 2 * 62.5)|  ==  |480_000 / (byte0 - byte1)|
+        // (byte0 is 0 in practice, so this is 480000/byte1). This is MSI's exact firmware→RPM math and
+        // is MODEL-AGNOSTIC — MSI uses the identical conversion on the A2VM and the Claw 8 EX. Matching
+        // it byte-for-byte makes our readout show the same number MSI's OSD does on both models. (Was an
+        // empirical 478000/word fit; MSI's constant is 480000 and it uses the byte DIFFERENCE.)
+        private const double RpmDividend = 480000.0;
         private static int _cachedFanRpm;
         private static long _cachedFanRpmAtTicks;
         private static int _fanRpmFailCount;
@@ -299,8 +340,8 @@ namespace XboxGamingBarHelper.MSI
                     return _cachedFanRpm = 0;
                 }
                 _fanRpmFailCount = 0;
-                int word = (p[0] << 8) | p[1]; // Lüfter1 (CPU), big-endian tach period
-                return _cachedFanRpm = word > 0 ? (int)Math.Round(RpmPerWord / word) : 0;
+                int diff = p[0] - p[1]; // MSI's (highByte - lowByte) on Get_Fan[0] (Lüfter1 = CPU)
+                return _cachedFanRpm = diff != 0 ? (int)Math.Round(Math.Abs(RpmDividend / diff)) : 0;
             }
             catch
             {

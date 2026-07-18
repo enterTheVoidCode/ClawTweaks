@@ -130,6 +130,9 @@ namespace XboxGamingBar
                         // Feed the MSI fan graph's live CPU package-temperature indicator.
                         if (currentMetricsData.TryGetValue("cpuTemp", out var ct) && ct > 0)
                             UpdateMsiFanGraphTemp(ct);
+                        // Feed the MSI fan card's live RPM readout (EC tach, same source as the OSD).
+                        if (currentMetricsData.TryGetValue("fanRpm", out var fr))
+                            UpdateMsiFanRpm(fr);
                     }
                     catch (Exception ex)
                     {

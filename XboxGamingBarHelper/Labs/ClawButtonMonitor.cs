@@ -272,7 +272,19 @@ namespace XboxGamingBarHelper.Labs
 
         // Adapter — read on monitor thread; written under _gyroTarget checks from UI thread.
         // Reference reads/writes are atomic on .NET; capture to local before use.
-        private ClawGyroSourceAdapter _gyroAdapter;
+        private IGyroSourceAdapter _gyroAdapter;
+
+        /// <summary>True on the Claw 8 EX (Panther Lake). DetectDevice() is cached, so this is cheap.</summary>
+        private static bool IsClaw8ExDevice()
+        {
+            try
+            {
+                var di = Devices.DeviceDetector.DetectDevice();
+                return di != null
+                    && Devices.MSIClaw.MSIClawModelCatalog.Resolve(di) == Devices.MSIClaw.MSIClawModel.Ex;
+            }
+            catch { return false; }
+        }
 
         // Activation gate — accessed only from monitor thread (ProcessDirectInputState).
         private bool  _gyroToggleActive;
@@ -2733,16 +2745,24 @@ namespace XboxGamingBarHelper.Labs
                 return;
             }
             if (_gyroAdapter != null) return; // already running
-            var adapter = new ClawGyroSourceAdapter();
+
+            // Device-gated gyro source. The A2VM (our dev device) keeps the proven Windows-sensor
+            // path. The Claw 8 EX does not expose the IMU as a Windows sensor, so it reads the
+            // controller's own vendor-HID motion stream instead — which is what MSI Center M does on
+            // both devices (RE_MSI_Gyro_and_RPM_sources.md).
+            IGyroSourceAdapter adapter = IsClaw8ExDevice()
+                ? (IGyroSourceAdapter)new ClawHidGyroSourceAdapter()
+                : new ClawGyroSourceAdapter();
+
             if (!adapter.Start())
             {
                 adapter.Dispose();
-                Logger.Warn("ClawButtonMonitor: ClawGyroSourceAdapter failed to start");
+                Logger.Warn($"ClawButtonMonitor: gyro adapter '{adapter.Name}' failed to start");
                 return;
             }
             adapter.SampleReady += OnGyroSampleReady;
             _gyroAdapter = adapter;
-            Logger.Info("ClawButtonMonitor: ClawGyroSourceAdapter started");
+            Logger.Info($"ClawButtonMonitor: gyro adapter '{adapter.Name}' started");
         }
 
         private void StopGyroAdapter()

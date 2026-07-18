@@ -5894,7 +5894,7 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="Fan Control" Style="{StaticResource CardTitleStyle}"/>
-                                            <TextBlock Text="Custom fan curve (Lunar Lake)"
+                                            <TextBlock Text="Custom fan curve"
                                                        Style="{StaticResource CardCaptionStyle}"/>
                                         </StackPanel>
                                         <ToggleSwitch x:Name="MsiFanEnableToggle"
@@ -5927,29 +5927,23 @@
                                             </ComboBox>
                                         </Grid>
 
-                                        <TextBlock Margin="0,6,0,0" FontSize="11" Foreground="#999999" TextWrapping="Wrap"
-                                                   Text="MSI fan curves on the real firmware breakpoints, same scale MSI Center M uses (fan % = raw EC value). MSI Default matches MSI's stock curve; Quiet Idle is quieter at low load; Cooling ramps ~10 °C earlier. Custom lets you edit each bar: drag the bar up/down for fan %, drag the temperature label under it left/right to change that breakpoint. If the fan ever stays uncontrollably loud, shut the device down, wait one minute, then reboot."/>
+                                        <!-- One dark panel holds the live readout, the bar graph and Apply, so the
+                                             readout/Apply read as part of the graph instead of floating loose. -->
+                                        <Border Background="#1A1A1A" CornerRadius="6" Padding="10,8,10,10" Margin="0,10,0,0">
+                                          <StackPanel>
 
-                                        <!-- Extended range: unlock fan % above MSI's 75 % cap -->
-                                        <Grid Margin="0,10,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="Extended range (&gt;75%)" FontSize="13" Foreground="#E0E0E0"/>
-                                                <TextBlock Text="Allow fan % beyond what MSI does" FontSize="11" Foreground="#999999"/>
-                                            </StackPanel>
-                                            <ToggleSwitch x:Name="MsiFanExtendedRangeToggle"
-                                                          Grid.Column="1"
-                                                          Style="{StaticResource ModernToggleStyle}"
-                                                          IsOn="False"
-                                                          VerticalAlignment="Center"
-                                                          Toggled="MsiFanExtendedRangeToggle_Toggled"/>
-                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Margin="2,0,0,6">
+                                            <!-- Spacing via Margin, not trailing spaces in Text: XAML trims/collapses
+                                                 attribute whitespace, so the values would otherwise touch the colons. -->
+                                            <TextBlock Text="CPU package temperature:" FontSize="13" Foreground="#B0B0B0"/>
+                                            <TextBlock x:Name="MsiFanTempLabel" Text="--&#xB0;C" Margin="5,0,0,0" FontSize="13" Foreground="#FF8800" FontWeight="SemiBold"/>
+                                            <TextBlock Text="·" Margin="10,0,10,0" FontSize="13" Foreground="#B0B0B0"/>
+                                            <TextBlock Text="Fan:" FontSize="13" Foreground="#B0B0B0"/>
+                                            <TextBlock x:Name="MsiFanRpmLabel" Text="0 RPM" Margin="5,0,0,0" FontSize="13" Foreground="#00AAFF" FontWeight="SemiBold"/>
+                                        </StackPanel>
 
                                         <!-- MSI-style bars: fan % per fixed breakpoint; the temperature is the label under each bar -->
-                                        <Grid Height="230" Margin="0,10,0,0">
+                                        <Grid Height="230">
                                             <!-- Focusable wrapper so the graph is reachable by controller
                                                  (Canvas itself is a Panel and cannot be a tab stop). -->
                                             <ContentControl x:Name="MsiFanCurveFocus"
@@ -5961,7 +5955,7 @@
                                                             LostFocus="MsiFanCurveCanvas_LostFocus"
                                                             KeyDown="MsiFanCurveCanvas_KeyDown">
                                                 <Canvas x:Name="MsiFanCurveCanvas"
-                                                        Background="#1A1A1A"
+                                                        Background="Transparent"
                                                         PointerPressed="MsiFanCurveCanvas_PointerPressed"
                                                         PointerMoved="MsiFanCurveCanvas_PointerMoved"
                                                         PointerReleased="MsiFanCurveCanvas_PointerReleased"
@@ -5982,10 +5976,33 @@
                                             </ContentControl>
                                         </Grid>
 
-                                        <StackPanel Orientation="Horizontal" Margin="2,8,0,0">
-                                            <TextBlock Text="CPU package temperature: " FontSize="13" Foreground="#B0B0B0"/>
-                                            <TextBlock x:Name="MsiFanTempLabel" Text="--&#xB0;C" FontSize="13" Foreground="#FF8800" FontWeight="SemiBold"/>
-                                        </StackPanel>
+                                        <!-- Apply pending curve/temp edits to the EC. Lit + focusable only when
+                                             there are unsaved manual edits (protects the fan/EC from a write on
+                                             every drag); disabled + skipped by the D-Pad focus chain otherwise.
+                                             It only appears on a change, so it pulses while pending to catch the eye. -->
+                                        <Button x:Name="MsiFanApplyButton"
+                                                Content="Apply fan curve"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,10,0,0"
+                                                IsEnabled="False"
+                                                IsTabStop="False"
+                                                Opacity="0.45"
+                                                Background="#1F6FEB"
+                                                Foreground="White"
+                                                Style="{StaticResource StandaloneButtonStyle}"
+                                                Click="MsiFanApplyButton_Click"
+                                                KeyDown="MsiFanApplyButton_KeyDown">
+                                            <Button.Resources>
+                                                <Storyboard x:Name="MsiFanApplyBlink" RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation Storyboard.TargetName="MsiFanApplyButton"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     From="1.0" To="0.5" Duration="0:0:0.7"/>
+                                                </Storyboard>
+                                            </Button.Resources>
+                                        </Button>
+
+                                          </StackPanel>
+                                        </Border>
 
                                         <!-- Verify the values actually written to the EC against the graph -->
                                         <StackPanel Margin="0,10,0,0">
@@ -6001,6 +6018,26 @@
                                                        Foreground="#A0A0A0"
                                                        Text=""/>
                                         </StackPanel>
+
+                                        <!-- Extended range: unlock fan % above MSI's 75 % cap. Sits below the
+                                             graph/verify block: it is a rarely-touched escape hatch, not part of
+                                             the everyday edit-then-apply flow above. -->
+                                        <Grid Margin="0,14,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="Extended range (&gt;75%)" FontSize="13" Foreground="#E0E0E0"/>
+                                                <TextBlock Text="Allow fan % beyond what MSI does" FontSize="11" Foreground="#999999"/>
+                                            </StackPanel>
+                                            <ToggleSwitch x:Name="MsiFanExtendedRangeToggle"
+                                                          Grid.Column="1"
+                                                          Style="{StaticResource ModernToggleStyle}"
+                                                          IsOn="False"
+                                                          VerticalAlignment="Center"
+                                                          Toggled="MsiFanExtendedRangeToggle_Toggled"/>
+                                        </Grid>
                                         <TextBlock Margin="0,8,0,0"
                                                    FontSize="11" Foreground="#A0A0A0" TextWrapping="Wrap"
                                                    Text="Custom curve: drag a bar up/down for its fan %; drag the temperature label under a bar left/right to change that breakpoint. With a controller: D-Pad left/right to pick a bar, up/down to switch between the fan-% bar and its temperature, A to grab, D-Pad to adjust, A/B to release. The curve is written to the EC (both fans). Turn this off to return to MSI's firmware control."/>
@@ -7293,7 +7330,9 @@
                                                       Foreground="{StaticResource ThemeAccentBrush}" VerticalAlignment="Center"/>
                                             <TextBlock Text="Front Buttons" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
                                         </StackPanel>
-                                        <TextBlock Text="Setup Left MSI (Claw) Button"
+                                        <!-- Preview line: names what the two front buttons do, so the collapsed
+                                             card still says what is configured in here. -->
+                                        <TextBlock Text="Choose what pressing the MSI button does, and which widget the Quick Settings button jumps to."
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"/>
                                     </StackPanel>
@@ -7316,7 +7355,7 @@
                                 <Border Background="#14FFFFFF" CornerRadius="8" Padding="12,10,12,12"
                                         BorderThickness="1" BorderBrush="#22FFFFFF" Margin="0,0,0,12">
                                   <StackPanel x:Name="LeftMsiButtonCard">
-                                    <TextBlock Text="Left MSI Button (Front)" FontSize="12" FontWeight="SemiBold"
+                                    <TextBlock Text="MSI Button" FontSize="12" FontWeight="SemiBold"
                                                Foreground="#CCCCCC" Margin="0,0,0,10"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -7416,16 +7455,17 @@
                                 <Border Background="#14FFFFFF" CornerRadius="8" Padding="12,10,12,12"
                                         BorderThickness="1" BorderBrush="#22FFFFFF" Margin="0,0,0,12">
                                   <StackPanel x:Name="RightMsiButtonCard">
-                                    <TextBlock Text="Auto Jump to Clawtweaks on Gamebar Open" FontSize="12" FontWeight="SemiBold"
+                                    <TextBlock Text="Quick Settings Button" FontSize="12" FontWeight="SemiBold"
                                                Foreground="#CCCCCC" Margin="0,0,0,6"/>
                                     <TextBlock Text="When the virtual controller is active, ClawTweaks jumps to a specific widget."
-                                               Foreground="#808080" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                               Foreground="#C8C8C8" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Text="ClawTweaks widget position" Foreground="#AAAAAA" FontSize="12" VerticalAlignment="Center"/>
+                                        <TextBlock Text="Define widget position to autojump to ClawTweaks"
+                                                   Foreground="#C8C8C8" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap"/>
                                         <TextBlock x:Name="ClawTweaksWidgetPositionValue" Grid.Column="1" Text="1"
                                                    Foreground="{StaticResource SystemAccentBrush}" FontSize="12" VerticalAlignment="Center"/>
                                     </Grid>

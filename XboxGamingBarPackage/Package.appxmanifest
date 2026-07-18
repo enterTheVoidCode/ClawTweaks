@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10" xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3" IgnorableNamespaces="uap uap3 mp rescap">
-  <Identity Name="MSIClaw.ClawTweaks" Publisher="CN=ClawTweaks Dev, O=MSIClaw" Version="0.1.8.66" />
+  <Identity Name="MSIClaw.ClawTweaks" Publisher="CN=ClawTweaks Dev, O=MSIClaw" Version="0.1.8.98" />
   <mp:PhoneIdentity PhoneProductId="c2dd2cd0-7156-428e-b305-d3dd3505b10d" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>ClawTweaks</DisplayName>
@@ -31,10 +31,16 @@
                 <SettingsSupported AppExtensionId="GamingWidgetSettings" />
                 <ActivateAfterInstall>true</ActivateAfterInstall>
                 <FavoriteAfterInstall>true</FavoriteAfterInstall>
+                <!-- OEM/device-widget flag. This is how MSI Quick Settings gets its prominent
+                     home-menu placement (RE_MSI_GamebarWidget.md) - it lives only here in the
+                     extension properties, there is no registry equivalent. -->
+                <IsDeviceWidget>true</IsDeviceWidget>
                 <Window>
                   <Size>
                     <Height>1080</Height>
-                    <Width>464</Width>
+                    <!-- Declared default width. Widgets that omit this get the shell's narrow
+                         default; MSI declares 610. Moderately wider than our old 464 for now. -->
+                    <Width>520</Width>
                     <MinHeight>520</MinHeight>
                     <MinWidth>400</MinWidth>
                     <MaxHeight>1080</MaxHeight>

@@ -108,7 +108,9 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         // ── Claw 8 EX AI+ CG3EM (Panther Lake) ───────────────────────────────────
         // Shares the A2VM controller / HID (FFA0) / EEPROM / profile.rec surface 1:1 (confirmed
         // on-device). DIFFERENCES vs A2VM:
-        //   • Fan  — custom fan curve is OFF for now: MSI itself still has custom-curve issues on the EX.
+        //   • Fan  — ON. Same MSI ACPI-WMI fan path as the A2VM; the temp axis + the "MSI Default" duty
+        //            curve are read LIVE from the EC (GetFirmwareTempAxis / GetFirmwareDutyAxis), so the
+        //            EX's own factory curve is used with no hardcoded per-model values.
         //   • TDP  — Panther-Lake path unverified; stays on the Intel path until probed on-device.
         private static readonly MSIClawModelSpec Ex = new MSIClawModelSpec
         {
@@ -121,7 +123,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             SupportsRgbLighting = true,             // LED fw 0x0414 → [02,4A]; verify on-device
             SupportsGyro = true,
             SupportsFirmwareKeyboardRemap = true,   // EEPROM confirmed 1:1 with A2VM
-            SupportsFanControl = false,             // ← OFF until MSI's custom-curve issues are resolved
+            SupportsFanControl = true,              // MSI ACPI-WMI fan path; axis + default duty read live from EC
             SupportsDriverManagement = true,        // manifest v2 has an EX-scoped block (BIOS E1T91IMS.105, Center M 3.0, Intel Arc; no controller FW); ModelCode gate keeps it EX-only
             HasTouchpad = false,
             HasScrollWheel = false,
@@ -129,7 +131,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             MaxPL1 = 35,
             MaxPL2 = 45,
             Pl2MinOffset = 2,                       // PL2 must be at least PL1 + 2W (Panther Lake)
-            Notes = "Controller/paddles/front buttons port 1:1. Fan off; drivers on (manifest v2, EX-scoped); TDP device-gated.",
+            Notes = "Controller/paddles/front buttons port 1:1. Fan on (live EC axis + default duty); drivers on (manifest v2, EX-scoped); TDP device-gated.",
         };
 
         // ── Claw A8 (AMD Z2 Extreme) — FUTURE, not wired up yet ───────────────────

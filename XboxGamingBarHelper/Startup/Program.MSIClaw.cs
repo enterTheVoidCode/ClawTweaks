@@ -400,7 +400,7 @@ namespace XboxGamingBarHelper
                     else
                     {
                         Logger.Warn("ApplyMsiFan: custom selected but no valid saved curve — falling back to MSI Default");
-                        MsiClawFanController.ApplyMsiCurve(baseAxis, MsiClawFanController.MsiDuty_Default);
+                        MsiClawFanController.ApplyMsiCurve(baseAxis, GetMsiModelDefaultDuty());
                     }
                     return;
                 }
@@ -414,8 +414,8 @@ namespace XboxGamingBarHelper
                         temps = new int[baseAxis.Length]; duties = MsiClawFanController.MsiDuty_Cooling;
                         for (int i = 0; i < baseAxis.Length; i++) temps[i] = System.Math.Max(0, baseAxis[i] - 10);
                         break;
-                    default: // 0 = MSI Default (firmware axis + MSI default duty)
-                        temps = baseAxis; duties = MsiClawFanController.MsiDuty_Default; break;
+                    default: // 0 = MSI Default (firmware axis + per-model MSI default duty; EX reads it live)
+                        temps = baseAxis; duties = GetMsiModelDefaultDuty(); break;
                 }
                 MsiClawFanController.ApplyMsiCurve(temps, duties);
             }
@@ -423,6 +423,70 @@ namespace XboxGamingBarHelper
             {
                 Logger.Warn($"ApplyMsiFan({value}) failed: {ex.Message}");
             }
+        }
+
+        // Persisted, like MSI Center M's "Default_Fan" registry cache: the EX's factory duty curve
+        // captured ONCE before we ever overwrite the EC, so the "MSI Default" preset stays the true
+        // factory curve even after the user has applied custom curves.
+        private const string MsiExFactoryDutyKey = "MsiFan_ExFactoryDuty";
+
+        /// <summary>True on the Claw 8 EX (Panther Lake). DetectDevice() is cached, so this is cheap.</summary>
+        private static bool IsClaw8Ex()
+        {
+            try
+            {
+                var di = Devices.DeviceDetector.DetectDevice();
+                return di != null
+                    && Devices.MSIClaw.MSIClawModelCatalog.Resolve(di) == Devices.MSIClaw.MSIClawModel.Ex;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>Capture the EX's factory duty curve once (before any of our writes) and persist it,
+        /// mirroring how MSI caches Default_Fan. No-op on non-EX or once already captured.</summary>
+        internal static void CaptureMsiExFactoryDutyOnce()
+        {
+            try
+            {
+                if (!IsClaw8Ex()) return;
+                if (Settings.LocalSettingsHelper.TryGetValue<string>(MsiExFactoryDutyKey, out string s)
+                    && !string.IsNullOrEmpty(s)) return;
+                int[] duty = MsiClawFanController.GetFirmwareDutyAxis();
+                if (duty != null && duty.Length == 5)
+                {
+                    Settings.LocalSettingsHelper.SetValue(MsiExFactoryDutyKey, string.Join(",", duty));
+                    Logger.Info($"CaptureMsiExFactoryDutyOnce: stored EX factory duty [{string.Join(",", duty)}]");
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"CaptureMsiExFactoryDutyOnce: {ex.Message}"); }
+        }
+
+        /// <summary>The "MSI Default" duty for the current model: A2VM = verified constant; EX = its factory
+        /// duty (persisted capture → live EC read → decompiled fallback). This is what MSI Center M would
+        /// leave as the stock curve on the given device.</summary>
+        internal static int[] GetMsiModelDefaultDuty()
+        {
+            if (!IsClaw8Ex()) return MsiClawFanController.MsiDuty_Default;
+
+            try
+            {
+                if (Settings.LocalSettingsHelper.TryGetValue<string>(MsiExFactoryDutyKey, out string s)
+                    && !string.IsNullOrEmpty(s))
+                {
+                    var parts = s.Split(',');
+                    if (parts.Length == 5)
+                    {
+                        var d = new int[5]; bool ok = true;
+                        for (int i = 0; i < 5; i++)
+                            if (!int.TryParse(parts[i], System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture, out d[i])) ok = false;
+                        if (ok) return d;
+                    }
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"GetMsiModelDefaultDuty: {ex.Message}"); }
+
+            return MsiClawFanController.GetFirmwareDutyAxis() ?? MsiClawFanController.MsiDuty_ExDefault;
         }
 
         /// <summary>
@@ -437,8 +501,12 @@ namespace XboxGamingBarHelper
             {
                 bool ok = MsiClawFanController.ReadStatus(out byte[] table, out bool controlOn);
                 bool fullSpeed = MsiClawFanController.ReadFullSpeedBit();
+                // RPM: on the Claw the Legion WMI returns 0, so fall back to the EC tach (Get_Fan[0] →
+                // 478000/word) — the SAME source the working RTSS OSD uses (OSDItemFan). Without this the
+                // fan card showed a permanent "0 RPM".
                 int rpm = -1;
-                try { rpm = legionManager?.GetCpuFanSpeed() ?? -1; } catch { }
+                try { rpm = legionManager?.GetCpuFanSpeed() ?? 0; } catch { rpm = 0; }
+                if (rpm <= 0) { try { rpm = MsiClawFanController.GetCpuFanRpmCached(); } catch { } }
 
                 // Temperature axis (Set_Thermal) read-back so the widget can verify the X-axis too.
                 string thermalCsv = "";
@@ -499,7 +567,8 @@ namespace XboxGamingBarHelper
                 MsiClawFanController.WriteDataBlock((byte)block, (byte)value);
                 int readback = MsiClawFanController.ReadDataBlock((byte)block);
                 int rpm = -1;
-                try { rpm = legionManager?.GetCpuFanSpeed() ?? -1; } catch { }
+                try { rpm = legionManager?.GetCpuFanSpeed() ?? 0; } catch { rpm = 0; }
+                if (rpm <= 0) { try { rpm = MsiClawFanController.GetCpuFanRpmCached(); } catch { } }
 
                 Logger.Info($"ProbeFanRegister: block={block} wrote={value} readback={readback} rpm={rpm}");
                 if (pipeServer != null && pipeServer.IsConnected)
@@ -620,7 +689,9 @@ namespace XboxGamingBarHelper
         /// Push the persisted MSI fan state (preset value + custom curve) to the widget on
         /// connect, so its UI reflects what the helper actually restored at boot. The helper is
         /// the single source of truth; the widget must NOT push its own state on open.
-        /// Format: "MsiFanState":"&lt;value&gt;|&lt;curveCsvOrEmpty&gt;".
+        /// Format: "MsiFanState":"&lt;value&gt;|&lt;curveCsvOrEmpty&gt;|&lt;axisCsv&gt;|&lt;defaultDutyCsv&gt;".
+        /// The axis + default duty let the widget render the "MSI Default"/preset curves from the device's
+        /// real firmware values (correct on the EX, whose factory curve differs from the A2VM constants).
         /// </summary>
         internal static void PushMsiFanStateToWidget()
         {
@@ -629,9 +700,14 @@ namespace XboxGamingBarHelper
                 if (pipeServer == null || !pipeServer.IsConnected) return;
                 int value = Settings.LocalSettingsHelper.TryGetValue<int>(MsiFanValueKey, out int v) ? v : -1;
                 string curve = (value == 3 && Settings.LocalSettingsHelper.TryGetValue<string>(MsiFanCurveKey, out string c)) ? c : "";
-                string json = $"{{\"MsiFanState\":\"{value}|{curve}\"}}";
+
+                string axisCsv = "", defaultDutyCsv = "";
+                try { axisCsv = string.Join(",", MsiClawFanController.GetFirmwareTempAxis()); } catch { }
+                try { defaultDutyCsv = string.Join(",", GetMsiModelDefaultDuty()); } catch { }
+
+                string json = $"{{\"MsiFanState\":\"{value}|{curve}|{axisCsv}|{defaultDutyCsv}\"}}";
                 pipeServer.SendMessage(json);
-                Logger.Info($"PushMsiFanStateToWidget: sent value={value} curve='{curve}'");
+                Logger.Info($"PushMsiFanStateToWidget: sent value={value} curve='{curve}' axis='{axisCsv}' defaultDuty='{defaultDutyCsv}'");
             }
             catch (Exception ex)
             {
@@ -662,7 +738,9 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>Parses a custom MSI fan curve "t1,..,t5;d1,..,d5" into 5 temps (°C) + 5 duties (%).
-        /// Temps clamped 0–120 and forced strictly increasing; duties clamped 0–100.</summary>
+        /// Temps clamped 0–120 and forced strictly increasing; duties clamped 0–150 (the real EC duty
+        /// range — the widget's Extended Range unlocks >100, so the old 0–100 cap here silently
+        /// truncated any point in the beyond-MSI band before it reached BuildFanTable).</summary>
         private static bool TryParseCurve(string csv, out int[] temps, out int[] duties)
         {
             temps = null; duties = null;
@@ -682,7 +760,7 @@ namespace XboxGamingBarHelper
                 if (!int.TryParse(dp[i], System.Globalization.NumberStyles.Any,
                         System.Globalization.CultureInfo.InvariantCulture, out int dv)) return false;
                 t[i] = Math.Max(0, Math.Min(120, tv));
-                d[i] = Math.Max(0, Math.Min(100, dv));
+                d[i] = Math.Max(0, Math.Min(150, dv));
             }
             // Force strictly increasing temps so the EC axis is monotonic.
             for (int i = 1; i < 5; i++)
@@ -923,6 +1001,9 @@ namespace XboxGamingBarHelper
                 // the EC fan on fan-capable models — otherwise leave the fan entirely to the firmware.
                 if (deviceInfo.SupportsFanControl)
                 {
+                    // Capture the EX's factory duty curve ONCE before we touch the EC, so the "MSI Default"
+                    // preset stays the true factory curve even after custom curves are applied later.
+                    CaptureMsiExFactoryDutyOnce();
                     // Re-apply any saved custom fan curve (EC resets across reboots).
                     RestoreMsiFanOnStartup();
                     // (Removed 2026-07-17: the reactive auto-Sport latch guard. We now drive TDP + fan
