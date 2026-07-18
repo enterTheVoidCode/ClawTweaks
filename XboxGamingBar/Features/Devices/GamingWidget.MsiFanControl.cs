@@ -84,6 +84,17 @@ namespace XboxGamingBar
         private int _msiFanDragIndex = -1;
         private bool _msiFanDragIsTemp;  // mouse drag target is a temp label (horizontal), not a duty bar
 
+        // Device firmware defaults pushed by the helper (OnMsiFanState): the live temperature axis and the
+        // per-model "MSI Default" duty curve. Used so presets reflect the REAL device (correct on the EX,
+        // whose factory curve differs from the A2VM constants). Null until the helper pushes them.
+        private int[] _msiModelTemps;
+        private int[] _msiModelDuty;
+
+        // Pending manual edits: a curve/temp edit no longer writes the EC on release. Instead it sets this
+        // flag and lights the Apply button; the EC is written only when the user clicks Apply. Protects the
+        // fan/EC from a write on every drag tick. Preset changes + the enable toggle still apply immediately.
+        private bool _msiFanDirty;
+
         /// <summary>Clamp a temp to [MsiTempMin, MsiTempMax] and keep it strictly between its neighbours
         /// so the axis stays monotonic. No per-point anchor limit — the whole scale is usable.</summary>
         private int ClampMsiTemp(int idx, int value)
@@ -147,6 +158,7 @@ namespace XboxGamingBar
             }
 
             RenderMsiFanCurve();
+            ClearFanDirty();
             // NOTE: deliberately NO SendMsiFanStateToHelper() here. The helper owns the fan state:
             // it restores MsiFan_Value at boot and pushes it to us via OnMsiFanState on connect.
             // Pushing on open previously overrode the helper's value (e.g. snapping back to Default).
@@ -164,6 +176,9 @@ namespace XboxGamingBar
             var parts = payload.Split('|');
             if (!int.TryParse(parts[0], out int value)) return;
             string curve = parts.Length > 1 ? parts[1] : "";
+            // parts[2] = live firmware temp axis, parts[3] = per-model "MSI Default" duty (both 5 CSV ints).
+            if (parts.Length > 2) _msiModelTemps = ParseFiveInts(parts[2], 0, 120) ?? _msiModelTemps;
+            if (parts.Length > 3) _msiModelDuty  = ParseFiveInts(parts[3], 0, 150) ?? _msiModelDuty;
 
             bool enabled = value >= 0;
             int preset = (value >= 0 && value <= 4) ? value : 0;
@@ -187,6 +202,7 @@ namespace XboxGamingBar
                 _msiFanInitializing = false;
             }
             RenderMsiFanCurve();
+            ClearFanDirty(); // helper-pushed state is authoritative → no pending edits
             Logger.Info($"OnMsiFanState applied: value={value} enabled={enabled} preset={preset}");
         }
 
@@ -331,14 +347,27 @@ namespace XboxGamingBar
             return fig;
         }
 
+        // The device's real firmware axis / "MSI Default" duty (helper-pushed) if available, else the
+        // A2VM constants. Keeps the widget graph + verify in sync with what the helper actually writes.
+        private int[] ModelTemps() => _msiModelTemps ?? MsiTempsDefault;
+        private int[] ModelDefaultDuty() => _msiModelDuty ?? MsiDutyDefault;
+        // Cooling axis = the model axis shifted −10 °C (earlier ramp).
+        private int[] ModelCoolingTemps()
+        {
+            var baseT = ModelTemps();
+            var c = new int[MsiFanPoints];
+            for (int i = 0; i < MsiFanPoints; i++) c[i] = Math.Max(0, baseT[i] - 10);
+            return c;
+        }
+
         /// <summary>Load the 5-point (temp,duty) curve for a preset into the model arrays.</summary>
         private void LoadCurveForPreset(int preset)
         {
             int[] temps, duties;
             switch (preset)
             {
-                case 1: temps = MsiTempsDefault; duties = MsiDutyQuietIdle; break;
-                case 2: temps = MsiTempsCooling; duties = MsiDutyCooling;   break;
+                case 1: temps = ModelTemps();        duties = MsiDutyQuietIdle;     break;
+                case 2: temps = ModelCoolingTemps(); duties = MsiDutyCooling;       break;
                 case 3:
                     if (LoadCustomCurveFromStorage(out int[] ct, out int[] cd))
                     {
@@ -346,9 +375,9 @@ namespace XboxGamingBar
                         Array.Copy(cd, _msiFanDuties, MsiFanPoints);
                         return;
                     }
-                    temps = MsiTempsDefault; duties = MsiDutyDefault; break;
-                case 4: temps = MsiTempsDefault; duties = MsiDutyEcSport; break; // debug: EC Sport default (display)
-                default: temps = MsiTempsDefault; duties = MsiDutyDefault; break; // 0 = MSI Default
+                    temps = ModelTemps(); duties = ModelDefaultDuty(); break;
+                case 4: temps = ModelTemps(); duties = MsiDutyEcSport; break; // debug: EC Sport default (display)
+                default: temps = ModelTemps(); duties = ModelDefaultDuty(); break; // 0 = MSI Default
             }
             Array.Copy(temps, _msiFanTemps, MsiFanPoints);
             Array.Copy(duties, _msiFanDuties, MsiFanPoints);
@@ -390,6 +419,104 @@ namespace XboxGamingBar
         private string CurveToCsv()
             => string.Join(",", _msiFanTemps.Select(v => v.ToString(CultureInfo.InvariantCulture)))
                + ";" + string.Join(",", _msiFanDuties.Select(v => v.ToString(CultureInfo.InvariantCulture)));
+
+        /// <summary>Parse exactly 5 comma-separated ints, each clamped to [lo,hi]. Returns null if the
+        /// string isn't 5 valid ints (so the caller keeps its previous value / constant fallback).</summary>
+        private static int[] ParseFiveInts(string csv, int lo, int hi)
+        {
+            if (string.IsNullOrWhiteSpace(csv)) return null;
+            var p = csv.Split(',');
+            if (p.Length != MsiFanPoints) return null;
+            var r = new int[MsiFanPoints];
+            for (int i = 0; i < MsiFanPoints; i++)
+                if (!int.TryParse(p[i], NumberStyles.Any, CultureInfo.InvariantCulture, out int v)) return null;
+                else r[i] = Math.Max(lo, Math.Min(hi, v));
+            return r;
+        }
+
+        /// <summary>Keep the duty curve a monotonic "staircase" after a point at <paramref name="changed"/>
+        /// was edited: every higher point must sit at least 1 % above its left neighbour, every lower point
+        /// at least 1 % below its right neighbour. When the user raises a point, the ones to its right are
+        /// pulled UP to follow; when they lower it, the ones to its left are pulled DOWN. Clamped to the
+        /// current duty range (a run into the ceiling/floor flattens rather than inverting).</summary>
+        private void EnforceDutyStaircase(int changed)
+        {
+            int max = MsiDutyMax();
+            for (int i = changed + 1; i < MsiFanPoints; i++)
+                if (_msiFanDuties[i] < _msiFanDuties[i - 1] + 1)
+                    _msiFanDuties[i] = Math.Min(max, _msiFanDuties[i - 1] + 1);
+            for (int i = changed - 1; i >= 0; i--)
+                if (_msiFanDuties[i] > _msiFanDuties[i + 1] - 1)
+                    _msiFanDuties[i] = Math.Max(0, _msiFanDuties[i + 1] - 1);
+        }
+
+        // ── Pending-change (Apply button) state ─────────────────────────────────────
+        // A manual curve/temp edit marks the state dirty and lights the Apply button instead of writing
+        // the EC immediately. Preset changes + the enable toggle apply at once and clear the flag.
+        private void MarkFanDirty()
+        {
+            _msiFanDirty = true;
+            UpdateApplyButtonState();
+        }
+
+        private void ClearFanDirty()
+        {
+            _msiFanDirty = false;
+            UpdateApplyButtonState();
+        }
+
+        /// <summary>Enable + highlight the Apply button only when there are pending edits. When clean it is
+        /// disabled AND removed from the tab order (IsTabStop=false) so the D-Pad focus chain skips it — a
+        /// disabled-but-focusable button is a notorious controller focus trap.</summary>
+        private void UpdateApplyButtonState()
+        {
+            if (MsiFanApplyButton == null) return;
+            bool on = _msiFanDirty;
+            MsiFanApplyButton.IsEnabled = on;
+            MsiFanApplyButton.IsTabStop = on;
+
+            // Pulse while pending so the button — which only lights up on a change — is easy to spot.
+            // Stop first, then set Opacity: a running storyboard holds the animated value otherwise.
+            try
+            {
+                MsiFanApplyBlink?.Stop();
+                MsiFanApplyButton.Opacity = on ? 1.0 : 0.45;
+                if (on) MsiFanApplyBlink?.Begin();
+            }
+            catch { MsiFanApplyButton.Opacity = on ? 1.0 : 0.45; }
+        }
+
+        private void MsiFanApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_msiFanDirty) return;
+            SendMsiFanCurveToHelper();
+            ClearFanDirty();
+            // Focus back onto the curve so the controller flow continues naturally.
+            MsiFanCurveFocus?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+        }
+
+        private void MsiFanApplyButton_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
+            {
+                MsiFanCurveFocus?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+            else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
+            {
+                MsiFanCheckButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                e.Handled = true;
+            }
+        }
+
+        /// <summary>Live CPU-fan RPM below the curve, fed by the 1 Hz Quick Metrics push (fanRpm, from the
+        /// EC tach — the same source the RTSS OSD uses). Shows "0 RPM" when the fan is idle/off.</summary>
+        internal void UpdateMsiFanRpm(double rpm)
+        {
+            if (MsiFanRpmLabel == null) return;
+            int r = rpm > 0 ? (int)Math.Round(rpm) : 0;
+            MsiFanRpmLabel.Text = $"{r} RPM";
+        }
 
         // Plot padding: room above the bars for the % labels, below for the temp labels, left for the
         // Y-axis % labels.
@@ -610,6 +737,7 @@ namespace XboxGamingBar
                 double plotH = plotBottom - plotTop;
                 double duty = plotH > 0 ? (1.0 - (point.Y - plotTop) / plotH) * MsiAxisMax() : 0;
                 _msiFanDuties[_msiFanDragIndex] = (int)Math.Max(0, Math.Min(MsiDutyMax(), Math.Round(duty)));
+                EnforceDutyStaircase(_msiFanDragIndex);
             }
             RenderMsiFanCurve();
         }
@@ -629,8 +757,10 @@ namespace XboxGamingBar
                 ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 3;
                 ApplicationData.Current.LocalSettings.Values[MsiFanCurveKey] = CurveToCsv();
 
+                // Manual edit: don't write the EC now — light the Apply button (protects the fan/EC from a
+                // write on every drag). The curve is applied when the user clicks Apply.
                 if (MsiFanEnableToggle?.IsOn == true)
-                    SendMsiFanCurveToHelper();
+                    MarkFanDirty();
             }
             e.Handled = true;
         }
@@ -651,6 +781,7 @@ namespace XboxGamingBar
                 RenderMsiFanCurve();
             }
             SendMsiFanStateToHelper();
+            ClearFanDirty();
         }
 
         /// <summary>Toggle the ">75" "beyond MSI" range. Off caps duty at 75 (clamping any higher
@@ -670,13 +801,14 @@ namespace XboxGamingBar
             }
             RenderMsiFanCurve();
 
-            // If clamping changed the active custom curve, persist + push it.
+            // If clamping changed the active custom curve, persist it and light Apply (a curve edit — not an
+            // immediate EC write, consistent with manual point edits).
             if (changed)
             {
                 if ((MsiFanPresetComboBox?.SelectedIndex ?? 0) == 3)
                     ApplicationData.Current.LocalSettings.Values[MsiFanCurveKey] = CurveToCsv();
                 if (MsiFanEnableToggle?.IsOn == true)
-                    SendMsiFanCurveToHelper();
+                    MarkFanDirty();
             }
         }
 
@@ -689,7 +821,9 @@ namespace XboxGamingBar
 
             LoadCurveForPreset(idx);
             RenderMsiFanCurve();
+            // Preset selection is a single, deliberate change → apply immediately and drop any pending edits.
             SendMsiFanStateToHelper();
+            ClearFanDirty();
         }
 
         /// <summary>
@@ -825,6 +959,7 @@ namespace XboxGamingBar
                     if (up || down)
                     {
                         _msiFanDuties[idx] = Math.Max(0, Math.Min(MsiDutyMax(), _msiFanDuties[idx] + (up ? 5 : -5)));
+                        EnforceDutyStaircase(idx);
                         RenderMsiFanCurve(); HighlightMsiFanPoints(); e.Handled = true;
                     }
                     else if (isA || isB) { _msiFanGrabbed = false; CommitMsiFanCustomEdit(); HighlightMsiFanPoints(); e.Handled = true; }
@@ -845,7 +980,9 @@ namespace XboxGamingBar
             else if (down)
             {
                 if (!_msiFanSelectingTemp) { _msiFanSelectingTemp = true; HighlightMsiFanPoints(); }  // duty → temp handle
-                else if (MsiFanCheckButton != null) MsiFanCheckButton.Focus(Windows.UI.Xaml.FocusState.Keyboard); // leave down to Check
+                // Leave down: to Apply when there are pending edits (it's in the tab order only then), else Check.
+                else if (_msiFanDirty && MsiFanApplyButton != null) MsiFanApplyButton.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                else if (MsiFanCheckButton != null) MsiFanCheckButton.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 else (PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle)?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
@@ -858,7 +995,9 @@ namespace XboxGamingBar
         {
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                MsiFanCurveFocus?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                // Up: to Apply when pending (it sits between the graph and Check), else back to the graph.
+                if (_msiFanDirty && MsiFanApplyButton != null) MsiFanApplyButton.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                else MsiFanCurveFocus?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
@@ -1269,8 +1408,9 @@ namespace XboxGamingBar
 
             ApplicationData.Current.LocalSettings.Values[MsiFanPresetKey] = 3;
             ApplicationData.Current.LocalSettings.Values[MsiFanCurveKey] = CurveToCsv();
+            // Manual edit → light Apply instead of writing the EC now (see PointerReleased).
             if (MsiFanEnableToggle?.IsOn == true)
-                SendMsiFanCurveToHelper();
+                MarkFanDirty();
         }
 
         /// <summary>Scroll the Fan tab so the entire fan graph + temp label are visible.</summary>
