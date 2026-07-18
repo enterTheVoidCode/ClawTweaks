@@ -36,6 +36,12 @@ namespace XboxGamingBarHelper.Intel
         private readonly IntelDisplayGammaProperty intelDisplayGamma;
         public  IntelDisplayGammaProperty          IntelDisplayGamma => intelDisplayGamma;
 
+        private readonly IntelLowLatencyProperty intelLowLatency;
+        public  IntelLowLatencyProperty          IntelLowLatency => intelLowLatency;
+
+        private readonly IntelFrameSyncProperty intelFrameSync;
+        public  IntelFrameSyncProperty          IntelFrameSync => intelFrameSync;
+
         /// <summary>Index of the selected Intel adapter (populated after Initialize()).</summary>
         private int _deviceIdx = -1;
 
@@ -55,6 +61,8 @@ namespace XboxGamingBarHelper.Intel
             intelDisplayContrast   = new IntelDisplayContrastProperty(this);
             intelDisplayBrightness = new IntelDisplayBrightnessProperty(this);
             intelDisplayGamma      = new IntelDisplayGammaProperty(this);
+            intelLowLatency        = new IntelLowLatencyProperty(this);
+            intelFrameSync         = new IntelFrameSyncProperty(this);
 
             Initialize();
         }
@@ -115,6 +123,64 @@ namespace XboxGamingBarHelper.Intel
 
             bool ok = IGCLBackend.SetEnduranceGaming(_deviceIdx, control, mode);
             Logger.Info($"[IntelGpuManager] SetEnduranceGaming tier={tier} control={control} mode={mode} ok={ok}");
+        }
+
+        /// <summary>True when the IGCL gaming exports (arbitrary FPS limit / low latency / frame sync) are usable.</summary>
+        public bool IsGamingAvailable => IsAvailable && IGCLBackend.IsGamingReady;
+
+        /// <summary>
+        /// Back-compat: the old Intel FPS "tier" (1=Perf/60, 2=Balanced/40, 3=Efficiency/30) is
+        /// migrated to a real FPS. Real fps values are always ≥ 20 (slider minimum), so 1/2/3 are
+        /// unambiguously legacy tiers. Anything else (0 or ≥ 20) passes through unchanged.
+        /// </summary>
+        public static int MigrateTierToFps(int v)
+        {
+            switch (v)
+            {
+                case 1: return 60;
+                case 2: return 40;
+                case 3: return 30;
+                default: return v;
+            }
+        }
+
+        /// <summary>
+        /// Apply an arbitrary Intel FPS cap via IGCL FRAME_LIMIT (any value, AC+DC).
+        /// fps &lt;= 0 disables. This is the stepless replacement for the 3-tier Endurance Gaming path.
+        /// </summary>
+        public void ApplyFrameLimit(int fps)
+        {
+            if (!IsGamingAvailable)
+            {
+                Logger.Debug("[IntelGpuManager] ApplyFrameLimit skipped — IGCL gaming features not available.");
+                return;
+            }
+            bool ok = IGCLBackend.SetFramesPerSecondLimit(_deviceIdx, fps);
+            Logger.Info($"[IntelGpuManager] SetFramesPerSecondLimit fps={fps} ok={ok}");
+        }
+
+        /// <summary>Apply Intel low latency / anti-lag: 0=off, 1=on, 2=on+boost.</summary>
+        public void ApplyLowLatency(int mode)
+        {
+            if (!IsGamingAvailable)
+            {
+                Logger.Debug("[IntelGpuManager] ApplyLowLatency skipped — IGCL gaming features not available.");
+                return;
+            }
+            bool ok = IGCLBackend.SetLowLatency(_deviceIdx, mode);
+            Logger.Info($"[IntelGpuManager] SetLowLatency mode={mode} ok={ok}");
+        }
+
+        /// <summary>Apply Intel frame sync / flip mode: 0=App default,1=VSync off,2=VSync on,3=Smooth,4=Speed.</summary>
+        public void ApplyFrameSync(int mode)
+        {
+            if (!IsGamingAvailable)
+            {
+                Logger.Debug("[IntelGpuManager] ApplyFrameSync skipped — IGCL gaming features not available.");
+                return;
+            }
+            bool ok = IGCLBackend.SetFrameSync(_deviceIdx, mode);
+            Logger.Info($"[IntelGpuManager] SetFrameSync mode={mode} ok={ok}");
         }
 
         /// <summary>Apply adaptive sharpness (0 = off, 1..100 intensity) on the internal panel.</summary>

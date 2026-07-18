@@ -45,4 +45,19 @@ namespace XboxGamingBarHelper.Intel
         public IntelAdaptiveSharpnessProperty(IntelGpuManager m) : base(0, null, Function.IntelAdaptiveSharpness, m) { }
         protected override void NotifyPropertyChanged(string p = "") { base.NotifyPropertyChanged(p); Manager.ApplyAdaptiveSharpness(Value); }
     }
+
+    // Intel gaming 3D features (IGCL FRAME_LIMIT / LOW_LATENCY / GAMING_FLIP_MODES), per-game.
+    // Low latency: 0=off, 1=on, 2=on+boost. Frame sync: 0=App default,1=VSync off,2=VSync on,3=Smooth,4=Speed.
+
+    internal class IntelLowLatencyProperty : HelperProperty<int, IntelGpuManager>
+    {
+        public IntelLowLatencyProperty(IntelGpuManager m) : base(0, null, Function.IntelLowLatency, m) { }
+        protected override void NotifyPropertyChanged(string p = "") { base.NotifyPropertyChanged(p); Manager.ApplyLowLatency(Value); }
+    }
+
+    internal class IntelFrameSyncProperty : HelperProperty<int, IntelGpuManager>
+    {
+        public IntelFrameSyncProperty(IntelGpuManager m) : base(0, null, Function.IntelFrameSync, m) { }
+        protected override void NotifyPropertyChanged(string p = "") { base.NotifyPropertyChanged(p); Manager.ApplyFrameSync(Value); }
+    }
 }

@@ -21,6 +21,9 @@ namespace XboxGamingBar
         private WidgetSliderProperty intelBrightness;
         private WidgetSliderProperty intelGamma;       // ×100
         private WidgetSliderProperty intelSharpness;
+        // Intel gaming 3D features (IGCL) — combobox int properties (helper-authoritative, like CPU advanced).
+        private XboxGamingBar.Data.CpuIntComboProperty intelLowLatency; // 0=Off,1=On,2=On+Boost
+        private XboxGamingBar.Data.CpuIntComboProperty intelFrameSync;  // 0=App default,1=VSync off,2=VSync on,3=Smooth,4=Speed
 
         // Reference-image carousel (gallery logic ported from TnC ColorRemasterMainPage):
         // an array of packaged images + an index; tapping advances and wraps. Currently one

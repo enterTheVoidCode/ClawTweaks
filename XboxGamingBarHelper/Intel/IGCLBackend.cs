@@ -108,6 +108,39 @@ namespace XboxGamingBarHelper.Intel
             public float Intensity;
         }
 
+        // ── Gaming 3D features: arbitrary FPS limit, low latency, frame sync ──────
+        // These map to IGCL CTL_3D_FEATURE_FRAME_LIMIT / _LOW_LATENCY / _GAMING_FLIP_MODES
+        // via the wrapper's high-level exports. Signatures verified against the ToothNClaw
+        // C# backend that binds the same IGCL_Wrapper.dll (see reverse_engineered/RE_Intel_IGCL_Features.md).
+
+        /// <summary>FPS-limit read-back: matches the wrapper's ctl_fps_limiter_t (Sequential, plain bool).</summary>
+        [StructLayout(LayoutKind.Sequential)]
+        public struct ctl_fps_limiter_t
+        {
+            public bool isLimiterEnabled;
+            public int  fpsLimitValue;
+        }
+
+        public enum ctl_3d_low_latency_types_t : uint
+        {
+            TURN_OFF            = 0,
+            TURN_ON             = 1,
+            TURN_ON_BOOST_ON    = 2,
+            MAX
+        }
+
+        [System.Flags]
+        public enum ctl_gaming_flip_mode_flag_t : uint
+        {
+            APPLICATION_DEFAULT = 1u << 0,
+            VSYNC_OFF           = 1u << 1,
+            VSYNC_ON            = 1u << 2,
+            SMOOTH_SYNC         = 1u << 3,
+            SPEED_FRAME         = 1u << 4,
+            CAPPED_FPS          = 1u << 5,
+            MAX                 = 0x80000000
+        }
+
         // ── Kernel32 imports ─────────────────────────────────────────────────
 
         [DllImport("kernel32")]
@@ -129,6 +162,13 @@ namespace XboxGamingBarHelper.Intel
         private delegate ctl_result_t SetSharpnessSettingsDelegate(ctl_device_adapter_handle_t hDev, uint displayIdx, ctl_sharpness_settings_t s);
         private delegate ctl_result_t SetHueSaturationValuesDelegate(ctl_device_adapter_handle_t hDev, double hue, double saturation);
         private delegate ctl_result_t SetBrightnessContrastGammaValuesDelegate(ctl_device_adapter_handle_t hDev, double contrast, double panelGamma, double brightness);
+        // Gaming features (separate set so a missing export never disables the FPS-tier / display paths).
+        private delegate ctl_result_t SetFramesPerSecondLimitDelegate(ctl_device_adapter_handle_t hDev, bool isEnabled, int fpsLimit);
+        private delegate ctl_result_t GetFramesPerSecondLimitDelegate(ctl_device_adapter_handle_t hDev, ref ctl_fps_limiter_t fpsLimiter);
+        private delegate ctl_result_t SetLowLatencySettingDelegate(ctl_device_adapter_handle_t hDev, ctl_3d_low_latency_types_t setting);
+        private delegate ctl_result_t GetLowLatencySettingDelegate(ctl_device_adapter_handle_t hDev, ref ctl_3d_low_latency_types_t setting);
+        private delegate ctl_result_t SetFrameSyncSettingDelegate(ctl_device_adapter_handle_t hDev, ctl_gaming_flip_mode_flag_t setting);
+        private delegate ctl_result_t GetFrameSyncSettingDelegate(ctl_device_adapter_handle_t hDev, ref ctl_gaming_flip_mode_flag_t setting);
 
         // ── Loaded delegates ─────────────────────────────────────────────────
 
@@ -142,6 +182,12 @@ namespace XboxGamingBarHelper.Intel
         private static SetSharpnessSettingsDelegate       _SetSharpnessSettings;
         private static SetHueSaturationValuesDelegate     _SetHueSaturationValues;
         private static SetBrightnessContrastGammaValuesDelegate _SetBrightnessContrastGammaValues;
+        private static SetFramesPerSecondLimitDelegate     _SetFramesPerSecondLimit;
+        private static GetFramesPerSecondLimitDelegate     _GetFramesPerSecondLimit;
+        private static SetLowLatencySettingDelegate        _SetLowLatencySetting;
+        private static GetLowLatencySettingDelegate        _GetLowLatencySetting;
+        private static SetFrameSyncSettingDelegate         _SetFrameSyncSetting;
+        private static GetFrameSyncSettingDelegate         _GetFrameSyncSetting;
 
         // ── State ─────────────────────────────────────────────────────────────
 
@@ -150,9 +196,13 @@ namespace XboxGamingBarHelper.Intel
         private static IntPtr  _hDll = IntPtr.Zero;
         private static bool    _ready = false;
         private static bool    _displayReady = false;
+        private static bool    _gamingReady = false;
 
         /// <summary>True when the adaptive-sharpness / saturation exports bound successfully.</summary>
         public static bool IsDisplayReady => _displayReady;
+
+        /// <summary>True when the gaming exports (FPS limit / low latency / frame sync) bound successfully.</summary>
+        public static bool IsGamingReady => _gamingReady;
 
         // Relative path: IGCL_Wrapper.dll sits next to the helper .exe
         private const string DllName = "IGCL_Wrapper.dll";
@@ -213,6 +263,25 @@ namespace XboxGamingBarHelper.Intel
             {
                 _displayReady = false;
                 Console.WriteLine($"[IGCL] Display features unavailable: {ex.Message}");
+            }
+
+            // Bind the gaming-feature exports separately (FPS limit / low latency / frame sync):
+            // if any is missing we only lose those, never the (already-working) FPS tier / display.
+            try
+            {
+                _SetFramesPerSecondLimit = GetDelegate<SetFramesPerSecondLimitDelegate>("SetFramesPerSecondLimit");
+                _GetFramesPerSecondLimit = GetDelegate<GetFramesPerSecondLimitDelegate>("GetFramesPerSecondLimit");
+                _SetLowLatencySetting    = GetDelegate<SetLowLatencySettingDelegate>("SetLowLatencySetting");
+                _GetLowLatencySetting    = GetDelegate<GetLowLatencySettingDelegate>("GetLowLatencySetting");
+                _SetFrameSyncSetting     = GetDelegate<SetFrameSyncSettingDelegate>("SetFrameSyncSetting");
+                _GetFrameSyncSetting     = GetDelegate<GetFrameSyncSettingDelegate>("GetFrameSyncSetting");
+                _gamingReady = true;
+                Console.WriteLine("[IGCL] Gaming features (fps limit / low latency / frame sync) bound.");
+            }
+            catch (Exception ex)
+            {
+                _gamingReady = false;
+                Console.WriteLine($"[IGCL] Gaming features unavailable: {ex.Message}");
             }
 
             return true;
@@ -392,6 +461,84 @@ namespace XboxGamingBarHelper.Intel
                 return false;
             }
             Console.WriteLine($"[IGCL] Brightness/Contrast/Gamma applied: contrast={contrast}, gamma={gamma:0.00}, brightness={brightness}.");
+            return true;
+        }
+
+        // ── Gaming features: arbitrary FPS limit / low latency / frame sync ──────
+
+        /// <summary>
+        /// Arbitrary FPS cap via IGCL FRAME_LIMIT (independent of AC/DC power state, unlike
+        /// Endurance Gaming which is DC-only). fps &lt;= 0 disables. Returns true on success.
+        /// </summary>
+        public static bool SetFramesPerSecondLimit(int deviceIdx, int fps)
+        {
+            if (!_gamingReady || deviceIdx < 0 || deviceIdx >= Devices.Length) return false;
+            var hDev = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
+            bool enable = fps > 0;
+            var res = _SetFramesPerSecondLimit!(hDev, enable, enable ? fps : 0);
+            if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+            {
+                Console.WriteLine($"[IGCL] SetFramesPerSecondLimit(enable={enable}, fps={fps}) failed: 0x{(uint)res:X8}");
+                return false;
+            }
+            Console.WriteLine($"[IGCL] Frame limit set: enable={enable}, fps={fps}.");
+            return true;
+        }
+
+        /// <summary>Read the current IGCL frame limit; returns 0 when disabled/unavailable.</summary>
+        public static int GetFramesPerSecondLimit(int deviceIdx)
+        {
+            if (!_gamingReady || deviceIdx < 0 || deviceIdx >= Devices.Length) return 0;
+            var hDev = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
+            var f = new ctl_fps_limiter_t();
+            var res = _GetFramesPerSecondLimit!(hDev, ref f);
+            if (res != ctl_result_t.CTL_RESULT_SUCCESS) return 0;
+            return f.isLimiterEnabled ? f.fpsLimitValue : 0;
+        }
+
+        /// <summary>Low latency / anti-lag: 0 = off, 1 = on, 2 = on + boost. Returns true on success.</summary>
+        public static bool SetLowLatency(int deviceIdx, int mode)
+        {
+            if (!_gamingReady || deviceIdx < 0 || deviceIdx >= Devices.Length) return false;
+            var hDev = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
+            ctl_3d_low_latency_types_t setting = mode <= 0
+                ? ctl_3d_low_latency_types_t.TURN_OFF
+                : (mode == 1 ? ctl_3d_low_latency_types_t.TURN_ON
+                             : ctl_3d_low_latency_types_t.TURN_ON_BOOST_ON);
+            var res = _SetLowLatencySetting!(hDev, setting);
+            if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+            {
+                Console.WriteLine($"[IGCL] SetLowLatencySetting({setting}) failed: 0x{(uint)res:X8}");
+                return false;
+            }
+            Console.WriteLine($"[IGCL] Low latency set: {setting}.");
+            return true;
+        }
+
+        /// <summary>
+        /// Frame sync / gaming flip mode: 0 = App default, 1 = VSync off, 2 = VSync on,
+        /// 3 = Smooth Sync, 4 = Speed Sync. Returns true on success.
+        /// </summary>
+        public static bool SetFrameSync(int deviceIdx, int mode)
+        {
+            if (!_gamingReady || deviceIdx < 0 || deviceIdx >= Devices.Length) return false;
+            var hDev = new ctl_device_adapter_handle_t { handle = Devices[deviceIdx] };
+            ctl_gaming_flip_mode_flag_t setting;
+            switch (mode)
+            {
+                case 1:  setting = ctl_gaming_flip_mode_flag_t.VSYNC_OFF;    break;
+                case 2:  setting = ctl_gaming_flip_mode_flag_t.VSYNC_ON;     break;
+                case 3:  setting = ctl_gaming_flip_mode_flag_t.SMOOTH_SYNC;  break;
+                case 4:  setting = ctl_gaming_flip_mode_flag_t.SPEED_FRAME;  break;
+                default: setting = ctl_gaming_flip_mode_flag_t.APPLICATION_DEFAULT; break;
+            }
+            var res = _SetFrameSyncSetting!(hDev, setting);
+            if (res != ctl_result_t.CTL_RESULT_SUCCESS)
+            {
+                Console.WriteLine($"[IGCL] SetFrameSyncSetting({setting}) failed: 0x{(uint)res:X8}");
+                return false;
+            }
+            Console.WriteLine($"[IGCL] Frame sync set: {setting}.");
             return true;
         }
 

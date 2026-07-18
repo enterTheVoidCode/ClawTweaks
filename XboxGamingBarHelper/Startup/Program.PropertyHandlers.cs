@@ -242,6 +242,29 @@ namespace XboxGamingBarHelper
                 });
         }
 
+        // ===== Intel gaming 3D features (IGCL): low latency + frame sync =====
+        // Same persistence idiom as IntelDisplay_PropertyChanged (reuses its save flag/gate).
+        private static void IntelGaming_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (isApplyingProfile) { Logger.Debug("Skipping IntelGaming_PropertyChanged - applying profile"); return; }
+            if (IsInProfileSwitchCooldown()) { Logger.Debug("Skipping IntelGaming_PropertyChanged - cooldown"); return; }
+
+            bool gameRunning = systemManager?.RunningGame?.Value.IsValid() == true;
+            bool saveToProfile = ProfileSaveFlagsState.IntelDisplay && gameRunning;
+
+            RouteProfileSave(saveToProfile, "IntelGaming",
+                cur =>
+                {
+                    cur.IntelLowLatency = intelGpuManager.IntelLowLatency;
+                    cur.IntelFrameSync  = intelGpuManager.IntelFrameSync;
+                },
+                (ref Shared.Data.GameProfile glo) =>
+                {
+                    glo.IntelLowLatency = intelGpuManager.IntelLowLatency;
+                    glo.IntelFrameSync  = intelGpuManager.IntelFrameSync;
+                });
+        }
+
         private static void AutoHibernateEnabled_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (settingsManager?.AutoHibernateEnabled == null) return;

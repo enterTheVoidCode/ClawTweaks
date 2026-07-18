@@ -259,6 +259,9 @@ namespace XboxGamingBar
             if (DisplayBrightnessSlider != null) profile.IntelDisplayBrightness = (int)DisplayBrightnessSlider.Value;
             if (DisplayGammaSlider != null) profile.IntelDisplayGammaX100 = (int)DisplayGammaSlider.Value;
             if (DisplaySharpnessSlider != null) profile.IntelAdaptiveSharpness = (int)DisplaySharpnessSlider.Value;
+            // Intel gaming (IGCL) combos — captured into the profile copy for storage/summary parity.
+            if (IntelLowLatencyComboBox != null) profile.IntelLowLatency = GetSelectedTagInt(IntelLowLatencyComboBox, 0);
+            if (IntelFrameSyncComboBox != null) profile.IntelFrameSync = GetSelectedTagInt(IntelFrameSyncComboBox, 0);
             if (SaveCPUEPP && CPUEPPSlider != null)
             {
                 profile.CPUEPP = CPUEPPSlider.Value;
@@ -576,20 +579,13 @@ namespace XboxGamingBar
                     if (fpsCapMode != null && fpsCapMode.Value != profile.FpsCapMode)
                         fpsCapMode.SetValue(profile.FpsCapMode);
 
+                    // intelFpsTier now carries a real FPS (legacy 1/2/3 tiers migrated to 60/40/30).
+                    int intelFps = MigrateIntelFps(profile.IntelFpsTier);
                     if (intelMode)
                     {
-                        // Intel mode active: set tier, silence RTSS (0)
-                        intelFpsTier?.SetValue(profile.IntelFpsTier);
+                        // Intel mode active: set fps cap, silence RTSS (0)
+                        intelFpsTier?.SetValue(intelFps);
                         fpsLimit?.SetValue(0);
-                        // Update the UI combo without triggering save
-                        if (IntelFpsTierComboBox != null)
-                        {
-                            isApplyingHelperUpdate = true;
-                            // Clamp: setting SelectedIndex >= Items.Count throws ArgumentException
-                            // ("Value does not fall within the expected range") which fail-fasts the widget.
-                            try { IntelFpsTierComboBox.SelectedIndex = ClampComboIndex(IntelFpsTierComboBox, profile.IntelFpsTier); }
-                            finally { isApplyingHelperUpdate = false; }
-                        }
                     }
                     else
                     {
@@ -601,21 +597,17 @@ namespace XboxGamingBar
 
                     // Sync toggle + slider UI state — inside isApplyingHelperUpdate so
                     // FPSLimitToggle_Toggled doesn't fire and overwrite the loaded values.
-                    // Slider now uses discrete indices, not raw FPS values.
+                    // Slider carries a real FPS value now (not an index).
                     isApplyingHelperUpdate = true;
                     try
                     {
+                        int max = FpsSliderMax();
+                        FPSLimitSlider.Minimum = FpsSliderMin;
+                        FPSLimitSlider.Maximum = max;
                         FPSLimitToggle.IsOn = profile.FPSLimitEnabled || intelMode;
-                        if (intelMode)
-                        {
-                            FPSLimitSlider.Maximum = FpsIntelValues.Length - 1;
-                            FPSLimitSlider.Value   = FpsIntelTierToIndex(profile.IntelFpsTier);
-                        }
-                        else
-                        {
-                            FPSLimitSlider.Maximum = FpsRtssValues.Length - 1;
-                            FPSLimitSlider.Value   = FpsValueToRtssIndex(profile.FPSLimitValue);
-                        }
+                        int shown = intelMode ? intelFps : (profile.FPSLimitEnabled ? profile.FPSLimitValue : 60);
+                        if (shown <= 0) shown = 60;
+                        FPSLimitSlider.Value = Math.Max(FpsSliderMin, Math.Min(max, shown));
                     }
                     finally { isApplyingHelperUpdate = false; }
                     // Refresh the whole FPS section so mode radio + panels match

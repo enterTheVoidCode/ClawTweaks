@@ -154,6 +154,12 @@ namespace XboxGamingBarHelper
             // sharpening sliders' ForceSetValue). The grouped colour properties above stay on SetValue:
             // a group re-apply already heals their cache/GPU divergence.
             intelGpuManager.IntelAdaptiveSharpness.ForceSetValue(p.IntelAdaptiveSharpness ?? 0);
+
+            // Intel gaming 3D features (low latency / frame sync). null = not configured → neutral
+            // default (off / app-default). Force so the GPU is always synced to the active profile
+            // (same single-property-group dedup rationale as sharpness above).
+            intelGpuManager.IntelLowLatency.ForceSetValue(p.IntelLowLatency ?? 0);
+            intelGpuManager.IntelFrameSync.ForceSetValue(p.IntelFrameSync ?? 0);
         }
 
         private static void AutoTDPSetting_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -531,10 +537,12 @@ namespace XboxGamingBarHelper
             {
                 if (profile.FpsCapMode == 1 && profile.IntelFpsTier > 0)
                 {
-                    // Intel mode was active
-                    Logger.Info($"Restoring Intel FPS tier={profile.IntelFpsTier} from profile");
+                    // Intel mode was active. IntelFpsTier now carries a real FPS (legacy 1/2/3 tiers
+                    // are migrated to 60/40/30). Apply the migrated value so old profiles keep working.
+                    int intelFps = XboxGamingBarHelper.Intel.IntelGpuManager.MigrateTierToFps(profile.IntelFpsTier);
+                    Logger.Info($"Restoring Intel FPS cap={intelFps} from profile (stored={profile.IntelFpsTier})");
                     rtssManager.FPSLimit.SetValue(0);
-                    intelGpuManager.IntelFpsTier.SetValue(profile.IntelFpsTier);
+                    intelGpuManager.IntelFpsTier.SetValue(intelFps);
                     intelGpuManager.FpsCapMode.SetValue(1);
                 }
                 else
@@ -567,9 +575,7 @@ namespace XboxGamingBarHelper
             // otherwise show no cap until the user changes the limiter.
             if (profile.FpsCapMode == 1 && profile.IntelFpsTier > 0)
             {
-                int intelFps = profile.IntelFpsTier == 1 ? 60
-                             : profile.IntelFpsTier == 2 ? 40
-                             : profile.IntelFpsTier == 3 ? 30 : 0;
+                int intelFps = XboxGamingBarHelper.Intel.IntelGpuManager.MigrateTierToFps(profile.IntelFpsTier);
                 rtssManager?.SetFpsCapDisplay(intelFps, true);
             }
             else
@@ -1060,8 +1066,9 @@ namespace XboxGamingBarHelper
                     (ref Shared.Data.GameProfile glo) => { glo.IntelFpsTier = newTier; glo.FpsCapMode = capMode; });
             }
 
-            // Update OSD cap-hint on FPS display (Intel mode; convert tier to fps)
-            int intelFps = newTier == 1 ? 60 : newTier == 2 ? 40 : newTier == 3 ? 30 : 0;
+            // Update OSD cap-hint on FPS display. IntelFpsTier now carries a real fps (legacy 1/2/3
+            // migrated to 60/40/30); use it directly so any stepless value shows in the overlay.
+            int intelFps = XboxGamingBarHelper.Intel.IntelGpuManager.MigrateTierToFps(newTier);
             rtssManager?.SetFpsCapDisplay(intelFps, newTier > 0);
         }
 

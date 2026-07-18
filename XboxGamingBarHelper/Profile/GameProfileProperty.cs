@@ -126,6 +126,19 @@ namespace XboxGamingBarHelper.Profile
             set { if (this.value.IntelDisplayGamma != value) this.value.IntelDisplayGamma = value; }
         }
 
+        // Intel gaming 3D features (IGCL) — nullable (null = not configured)
+        public int? IntelLowLatency
+        {
+            get { return value.IntelLowLatency; }
+            set { if (this.value.IntelLowLatency != value) this.value.IntelLowLatency = value; }
+        }
+
+        public int? IntelFrameSync
+        {
+            get { return value.IntelFrameSync; }
+            set { if (this.value.IntelFrameSync != value) this.value.IntelFrameSync = value; }
+        }
+
         public bool TDPBoostEnabled
         {
             get { return value.TDPBoostEnabled; }

@@ -594,5 +594,9 @@
         // Device capability: PL2 (boost) TDP power-limit ceiling in watts. Per-model on the
         // MSI Claw (A2VM = 37W, Claw 8 EX = 45W). Drives the TDP Boost slider maximum. Read-only.
         DeviceMaxPL2,               // int - PL2/Boost slider maximum in watts
+
+        // Intel gaming 3D features (IGCL, per-game). Appended to preserve prior enum ordinals.
+        IntelLowLatency,            // int - 0=Off, 1=On, 2=On+Boost (CTL_3D_FEATURE_LOW_LATENCY)
+        IntelFrameSync,             // int - 0=App default, 1=VSync off, 2=VSync on, 3=Smooth Sync, 4=Speed Sync (gaming flip mode)
     }
 }

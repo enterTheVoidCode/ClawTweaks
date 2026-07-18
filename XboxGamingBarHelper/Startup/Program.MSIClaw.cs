@@ -776,11 +776,14 @@ namespace XboxGamingBarHelper
                 {
                     var tier = intelGpuManager?.IntelFpsTier;
                     if (tier == null) return;
-                    int next = (tier.Value + 1) % 4;            // 0=Off,1=60,2=40,3=30
+                    // IntelFpsTier now carries a real fps — cycle the same ascending set as RTSS.
+                    int[] vals = { 0, 30, 40, 60, 90, 120 };
+                    int cur = XboxGamingBarHelper.Intel.IntelGpuManager.MigrateTierToFps(tier.Value), idx = 0;
+                    for (int i = 0; i < vals.Length; i++) if (vals[i] == cur) { idx = i; break; }
+                    int next = vals[(idx + 1) % vals.Length];
                     tier.SetValue(next);
-                    string[] labels = { "Off", "60 FPS", "40 FPS", "30 FPS" };
-                    Logger.Info($"FpsLimiter hotkey (Intel) → tier {next}");
-                    rtssManager?.ShowNotification($"FPS Limit: {labels[next]}", 4000);
+                    Logger.Info($"FpsLimiter hotkey (Intel) → {next}");
+                    rtssManager?.ShowNotification($"FPS Limit: {(next > 0 ? next + " FPS" : "Off")}", 4000);
                 }
                 else
                 {
