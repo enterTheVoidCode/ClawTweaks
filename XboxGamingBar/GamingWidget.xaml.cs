@@ -108,6 +108,9 @@ namespace XboxGamingBar
         public int IntelDisplayContrast { get; set; } = 50;     // 0..100, 50 = neutral
         public int IntelDisplayBrightness { get; set; } = 50;   // 0..100, 50 = neutral
         public int IntelDisplayGammaX100 { get; set; } = 100;   // ×100, 100 = 1.0 neutral
+        // Intel gaming 3D features (IGCL). Neutral defaults (off / app-default).
+        public int IntelLowLatency { get; set; } = 0;           // 0=Off, 1=On, 2=On+Boost
+        public int IntelFrameSync { get; set; } = 0;            // 0=App default,1=VSync off,2=VSync on,3=Smooth,4=Speed
 
         public PerformanceProfile Clone()
         {
@@ -159,7 +162,9 @@ namespace XboxGamingBar
                 IntelColorHue = this.IntelColorHue,
                 IntelDisplayContrast = this.IntelDisplayContrast,
                 IntelDisplayBrightness = this.IntelDisplayBrightness,
-                IntelDisplayGammaX100 = this.IntelDisplayGammaX100
+                IntelDisplayGammaX100 = this.IntelDisplayGammaX100,
+                IntelLowLatency = this.IntelLowLatency,
+                IntelFrameSync = this.IntelFrameSync
             };
         }
     }
@@ -2032,6 +2037,9 @@ namespace XboxGamingBar
             intelBrightness = new WidgetSliderProperty(50, Shared.Enums.Function.IntelDisplayBrightness, DisplayBrightnessSlider, this);
             intelGamma      = new WidgetSliderProperty(100, Shared.Enums.Function.IntelDisplayGamma, DisplayGammaSlider, this);
             intelSharpness  = new WidgetSliderProperty(0, Shared.Enums.Function.IntelAdaptiveSharpness, DisplaySharpnessSlider, this);
+            // Intel gaming 3D features (IGCL) — helper-authoritative combos (pushed on open).
+            intelLowLatency = new XboxGamingBar.Data.CpuIntComboProperty(0, Shared.Enums.Function.IntelLowLatency, IntelLowLatencyComboBox, this);
+            intelFrameSync  = new XboxGamingBar.Data.CpuIntComboProperty(0, Shared.Enums.Function.IntelFrameSync, IntelFrameSyncComboBox, this);
             InitializeDisplayTab();
             maxCPUState = new MaxCPUStateProperty();
             minCPUState = new MinCPUStateProperty();
@@ -2441,6 +2449,10 @@ namespace XboxGamingBar
             intelFpsTier = new IntelFpsTierProperty();
             fpsCapMode   = new FpsCapModeProperty();
 
+            // D-pad value control for the FPS slider needs handledEventsToo (the Slider consumes
+            // Left/Right itself), so wire it in code rather than via XAML KeyDown.
+            WireFpsSliderKeyHandler();
+
             // MSI Claw — OEM software toggle
             msiCenterActive = new MsiCenterActiveProperty();
             // MSI Claw — Controller / Mouse mode Quick Settings tile
@@ -2525,6 +2537,8 @@ namespace XboxGamingBar
                 intelBrightness,
                 intelGamma,
                 intelSharpness,
+                intelLowLatency,
+                intelFrameSync,
                 maxCPUState,
                 minCPUState,
                 // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
@@ -3791,10 +3805,9 @@ namespace XboxGamingBar
                             {
                                 if (gameIntel)
                                 {
-                                    string[] intelLabels = { "Off", "60 FPS", "40 FPS", "30 FPS" };
-                                    string tierLabel = (gameProf.IntelFpsTier >= 0 && gameProf.IntelFpsTier < intelLabels.Length)
-                                        ? intelLabels[gameProf.IntelFpsTier] : "?";
-                                    diffs.Add($"Intel {tierLabel}");
+                                    // IntelFpsTier now carries a real fps (legacy 1/2/3 migrated to 60/40/30).
+                                    int intelFps = MigrateIntelFps(gameProf.IntelFpsTier);
+                                    diffs.Add(intelFps > 0 ? $"Intel {intelFps} FPS" : "Intel Off");
                                 }
                                 else
                                 {

@@ -1422,6 +1422,7 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
                                 <!-- Row 0: labels -->
@@ -1450,15 +1451,13 @@
                                 <StackPanel Grid.Row="1" Grid.Column="0" VerticalAlignment="Center">
                                     <Slider x:Name="FPSLimitSlider"
                                             Style="{StaticResource ModernSliderStyle}"
-                                            Minimum="0" Maximum="6"
-                                            StepFrequency="1" TickFrequency="1"
-                                            TickPlacement="Outside" SnapsTo="StepValues"
+                                            Minimum="20" Maximum="120"
+                                            StepFrequency="1"
                                             IsEnabled="False"
                                             IsThumbToolTipEnabled="False"
                                             XYFocusUp="{x:Bind FPSModeToggle}"
-                                            XYFocusDown="{x:Bind FPSModeToggle}"
-                                            XYFocusRight="{x:Bind FPSModeToggle}"
-                                            KeyDown="FPSLimitSlider_KeyDown"/>
+                                            XYFocusDown="{x:Bind FpsSteplessCheckBox}"
+                                            XYFocusRight="{x:Bind FPSModeToggle}"/>
                                     <Grid x:Name="FPSLimitScaleLabels" Margin="0,2,0,0"/>
                                 </StackPanel>
 
@@ -1503,6 +1502,16 @@
                                               XYFocusLeft="{x:Bind FPSModeToggle}"
                                               Toggled="FPSStateCycleButton_Toggled"
                                               KeyDown="FPSStateCycleButton_KeyDown"/>
+
+                                <!-- Row 2: stepless option — when off the slider snaps to 24/30/40/45/60/…;
+                                     when on it moves in 1-FPS steps. Global (widget-local) preference. -->
+                                <CheckBox x:Name="FpsSteplessCheckBox" Grid.Row="2" Grid.Column="0"
+                                          Content="Stepless (1 FPS steps)"
+                                          FontSize="12" Margin="0,8,0,0"
+                                          Checked="FpsSteplessCheckBox_Toggled"
+                                          Unchecked="FpsSteplessCheckBox_Toggled"
+                                          XYFocusUp="{x:Bind FPSLimitSlider}"
+                                          XYFocusRight="{x:Bind FPSStateCycleButton}"/>
                             </Grid>
                         </Border>
 
@@ -5755,6 +5764,57 @@
 
                         <TextBlock Text="Note: these affect the whole screen (desktop-wide), like Intel Graphics Software. They reset to your global profile when no game is running."
                                    Style="{StaticResource CardCaptionStyle}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+                        <!-- GAMING (Intel IGCL) — Low Latency + Frame Sync. Per-game (helper-authoritative,
+                             pushed to these combos on open). Safe no-op when the driver lacks the feature. -->
+                        <TextBlock Text="GAMING (Intel)" Style="{StaticResource SectionHeaderStyle}" Margin="0,8,0,0"/>
+
+                        <!-- Low Latency Card -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Low Latency" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Reduces input lag (Intel Anti-Lag)" Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ComboBox x:Name="IntelLowLatencyComboBox" Grid.Column="1" Width="150"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusLeft="{x:Bind DisplayNavItem}"
+                                          XYFocusUp="{x:Bind DisplayResetButton}"
+                                          XYFocusDown="{x:Bind IntelFrameSyncComboBox}">
+                                    <ComboBoxItem Content="Off"        Tag="0"/>
+                                    <ComboBoxItem Content="On"         Tag="1"/>
+                                    <ComboBoxItem Content="On + Boost" Tag="2"/>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
+                        <!-- Frame Sync Card (Adaptive Sync / V-Sync flip mode) -->
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="Frame Sync" Style="{StaticResource CardTitleStyle}"/>
+                                    <TextBlock Text="Adaptive sync / V-Sync behaviour" Style="{StaticResource CardCaptionStyle}"/>
+                                </StackPanel>
+                                <ComboBox x:Name="IntelFrameSyncComboBox" Grid.Column="1" Width="150"
+                                          Style="{StaticResource ModernComboBoxStyle}"
+                                          XYFocusLeft="{x:Bind DisplayNavItem}"
+                                          XYFocusUp="{x:Bind IntelLowLatencyComboBox}">
+                                    <ComboBoxItem Content="App Default" Tag="0"/>
+                                    <ComboBoxItem Content="V-Sync Off"  Tag="1"/>
+                                    <ComboBoxItem Content="V-Sync On"   Tag="2"/>
+                                    <ComboBoxItem Content="Smooth Sync" Tag="3"/>
+                                    <ComboBoxItem Content="Speed Sync"  Tag="4"/>
+                                </ComboBox>
+                            </Grid>
+                        </Border>
 
                         <!-- DISPLAY — Resolution and Refresh Rate (moved from System tab) -->
                         <TextBlock Text="DISPLAY" Style="{StaticResource SectionHeaderStyle}" Margin="0,8,0,0"/>

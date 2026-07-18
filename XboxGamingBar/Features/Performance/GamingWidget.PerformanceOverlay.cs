@@ -129,16 +129,46 @@ namespace XboxGamingBar
             }
         }
 
+        // Registered with handledEventsToo=true (see WireFpsSliderKeyHandler) so it runs even after the
+        // Slider consumed Left/Right for its built-in ±1. Up/Down navigate away; Left/Right change value.
+        // Snap mode: jump to the previous/next step (overriding the built-in ±1 which ValueChanged would
+        // just re-snap to the same step → the slider appeared stuck on D-pad). Stepless: leave the Slider's
+        // built-in ±1 alone (don't double-apply).
         private void FPSLimitSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // Slider (far left). Up/Down/Right → back to Mode toggle. Left changes value (slider default).
-            if (e.Key == Windows.System.VirtualKey.Up    || e.Key == Windows.System.VirtualKey.GamepadDPadUp   ||
-                e.Key == Windows.System.VirtualKey.Down  || e.Key == Windows.System.VirtualKey.GamepadDPadDown ||
-                e.Key == Windows.System.VirtualKey.Right || e.Key == Windows.System.VirtualKey.GamepadDPadRight)
+            switch (e.Key)
             {
-                FPSModeToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                e.Handled = true;
+                case Windows.System.VirtualKey.Up:
+                case Windows.System.VirtualKey.GamepadDPadUp:
+                    FPSModeToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.Down:
+                case Windows.System.VirtualKey.GamepadDPadDown:
+                    FpsSteplessCheckBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.Left:
+                case Windows.System.VirtualKey.GamepadDPadLeft:
+                    if (FPSLimitSlider?.IsEnabled == true && !FpsSteplessEnabled) { AdjustFpsSlider(-1); e.Handled = true; }
+                    break;
+                case Windows.System.VirtualKey.Right:
+                case Windows.System.VirtualKey.GamepadDPadRight:
+                    if (FPSLimitSlider?.IsEnabled == true && !FpsSteplessEnabled) { AdjustFpsSlider(+1); e.Handled = true; }
+                    break;
             }
+        }
+
+        /// <summary>
+        /// Wire FPSLimitSlider_KeyDown with handledEventsToo=true so it fires even after the Slider's
+        /// own OnKeyDown consumed Left/Right (otherwise the snap-mode override never runs). Call once
+        /// after the control tree is loaded.
+        /// </summary>
+        private void WireFpsSliderKeyHandler()
+        {
+            if (FPSLimitSlider == null) return;
+            FPSLimitSlider.AddHandler(Windows.UI.Xaml.UIElement.KeyDownEvent,
+                new Windows.UI.Xaml.Input.KeyEventHandler(FPSLimitSlider_KeyDown), handledEventsToo: true);
         }
 
         private void TDPBoostToggle_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)

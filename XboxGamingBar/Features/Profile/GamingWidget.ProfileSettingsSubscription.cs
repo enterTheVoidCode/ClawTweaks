@@ -68,6 +68,11 @@ namespace XboxGamingBar
             if (DisplayGammaSlider != null) DisplayGammaSlider.ValueChanged += SettingChanged;
             if (DisplaySharpnessSlider != null) DisplaySharpnessSlider.ValueChanged += SettingChanged;
 
+            // Intel gaming (IGCL) combos — persist into the widget profile copy (helper is authoritative
+            // for apply; the CpuIntComboProperty ignores this until the first helper sync).
+            if (IntelLowLatencyComboBox != null) IntelLowLatencyComboBox.SelectionChanged += SettingChanged;
+            if (IntelFrameSyncComboBox != null) IntelFrameSyncComboBox.SelectionChanged += SettingChanged;
+
             // AMD settings
             AMDFluidMotionFrameToggle.Toggled += SettingChanged;
             AMDRadeonSuperResolutionToggle.Toggled += AMDRadeonSuperResolutionToggle_Toggled;

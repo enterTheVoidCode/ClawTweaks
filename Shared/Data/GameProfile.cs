@@ -235,6 +235,25 @@ namespace Shared.Data
             set { if (intelDisplayGamma != value) { intelDisplayGamma = value; Save(); } }
         }
 
+        // Intel gaming 3D features (IGCL). null = not configured (don't override on load).
+        /// <summary>Intel low latency / anti-lag: 0=off, 1=on, 2=on+boost.</summary>
+        [XmlElement("IntelLowLatency")]
+        private int? intelLowLatency;
+        public int? IntelLowLatency
+        {
+            get { return intelLowLatency; }
+            set { if (intelLowLatency != value) { intelLowLatency = value; Save(); } }
+        }
+
+        /// <summary>Intel frame sync / flip mode: 0=App default,1=VSync off,2=VSync on,3=Smooth,4=Speed.</summary>
+        [XmlElement("IntelFrameSync")]
+        private int? intelFrameSync;
+        public int? IntelFrameSync
+        {
+            get { return intelFrameSync; }
+            set { if (intelFrameSync != value) { intelFrameSync = value; Save(); } }
+        }
+
         [XmlElement("TDPBoostEnabled")]
         private bool tdpBoostEnabled;
         public bool TDPBoostEnabled
@@ -1359,6 +1378,9 @@ namespace Shared.Data
             intelDisplayContrast = null;
             intelDisplayBrightness = null;
             intelDisplayGamma = null;
+            // Intel gaming 3D features: null = not configured.
+            intelLowLatency = null;
+            intelFrameSync = null;
             // DC overrides (null = use AC value)
             tdpDC = null;
             cpuBoostDC = null;

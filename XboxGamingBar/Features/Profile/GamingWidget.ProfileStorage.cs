@@ -106,6 +106,8 @@ namespace XboxGamingBar
             container.Values["IntelDisplayContrast"] = profile.IntelDisplayContrast;
             container.Values["IntelDisplayBrightness"] = profile.IntelDisplayBrightness;
             container.Values["IntelDisplayGammaX100"] = profile.IntelDisplayGammaX100;
+            container.Values["IntelLowLatency"] = profile.IntelLowLatency;
+            container.Values["IntelFrameSync"] = profile.IntelFrameSync;
             // Last-saved timestamp drives the "modified Nm/h/d ago" line on the profile
             // card and the "Last Modified" sort option in the Profiles tab. Stored as
             // UTC ticks so it survives timezone changes.
@@ -177,6 +179,8 @@ namespace XboxGamingBar
                 profile.IntelDisplayContrast = container.Values.ContainsKey("IntelDisplayContrast") ? (int)container.Values["IntelDisplayContrast"] : 50;
                 profile.IntelDisplayBrightness = container.Values.ContainsKey("IntelDisplayBrightness") ? (int)container.Values["IntelDisplayBrightness"] : 50;
                 profile.IntelDisplayGammaX100 = container.Values.ContainsKey("IntelDisplayGammaX100") ? (int)container.Values["IntelDisplayGammaX100"] : 100;
+                profile.IntelLowLatency = container.Values.ContainsKey("IntelLowLatency") ? (int)container.Values["IntelLowLatency"] : 0;
+                profile.IntelFrameSync = container.Values.ContainsKey("IntelFrameSync") ? (int)container.Values["IntelFrameSync"] : 0;
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }

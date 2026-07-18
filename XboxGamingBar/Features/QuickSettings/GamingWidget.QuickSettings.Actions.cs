@@ -527,11 +527,11 @@ namespace XboxGamingBar
             {
                 Logger.Info("[FPS-Mode] Tile: switching to Intel, disabling RTSS, setting Intel to 60fps");
                 fpsLimit?.SetValue(0);
-                intelFpsTier?.SetValue(1); // Performance = 60fps
+                intelFpsTier?.SetValue(60); // real fps (was tier 1)
                 isApplyingHelperUpdate = true;
                 try
                 {
-                    if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 1;
+                    if (FPSLimitSlider != null) FPSLimitSlider.Value = 60;
                     if (FPSLimitToggle != null) FPSLimitToggle.IsOn = true;
                 }
                 finally { isApplyingHelperUpdate = false; }
@@ -1432,13 +1432,15 @@ namespace XboxGamingBar
         {
             if (intelFpsTier == null) return;
 
-            // Tiers: 0=Off, 1=Performance(60fps), 2=Balanced(40fps), 3=Efficiency(30fps)
-            int currentTier = intelFpsTier.Value;
-            int nextTier = (currentTier + 1) % 4;
-            intelFpsTier.SetValue(nextTier);
+            // intelFpsTier now carries a real FPS (0 = off). Cycle the same ascending set as RTSS.
+            int[] fpsValues = { 0, 30, 40, 60, 90, 120 };
+            int currentFps = MigrateIntelFps(intelFpsTier.Value);
+            int currentIndex = 0;
+            for (int i = 0; i < fpsValues.Length; i++) { if (fpsValues[i] == currentFps) { currentIndex = i; break; } }
+            int nextFps = fpsValues[(currentIndex + 1) % fpsValues.Length];
+            intelFpsTier.SetValue(nextFps);
 
-            string[] tierLabels = { "Off", "Perf 60", "Bal 40", "Eff 30" };
-            Logger.Info($"Intel FPS tier cycled from {currentTier} ({tierLabels[currentTier]}) to {nextTier} ({tierLabels[nextTier]})");
+            Logger.Info($"Intel FPS cap cycled from {currentFps} to {nextFps}");
 
             // Persist to the widget profile so a Game Bar reopen re-pushes THIS value.
             // Mirror of CycleFPSLimit (RTSS): without this the Intel tier set from the tile is
@@ -1454,52 +1456,81 @@ namespace XboxGamingBar
         // Underlying hidden elements (FPSLimitToggle, FPSModeRTSSRadio, IntelFpsTierComboBox)
         // are still driven programmatically so existing save/load/profile code continues to work.
 
-        /// <summary>RTSS discrete step values shown on the slider (index 0..6).</summary>
-        private static readonly int[] FpsRtssValues = { 24, 30, 40, 60, 90, 100, 120 };
+        // ── Unified real-FPS model ─────────────────────────────────────────────────
+        // The slider carries an ACTUAL FPS value (not an index) for BOTH RTSS and Intel.
+        // Snap mode (default) rounds to FpsSnapSteps; the "stepless" option (FpsSteplessEnabled,
+        // widget-local) allows any integer FPS. Intel uses an arbitrary IGCL frame limit —
+        // intelFpsTier now carries an fps (0 = off), not a 0..3 tier (see MigrateIntelFps).
 
-        /// <summary>Intel IGCL discrete step values shown on the slider (index 0..2).</summary>
-        private static readonly int[] FpsIntelValues = { 30, 40, 60 };
+        /// <summary>Default snap positions (also the scale labels under the slider).</summary>
+        private static readonly int[] FpsSnapSteps = { 24, 30, 40, 45, 60, 72, 90, 100, 120 };
+        private const int FpsSliderMin = 20;
 
-        /// <summary>Map an actual FPS value to the nearest RTSS slider index.</summary>
-        private static int FpsValueToRtssIndex(int fps)
+        /// <summary>Global "stepless FPS slider" preference (widget-local; pure UI behaviour).</summary>
+        private bool FpsSteplessEnabled
         {
-            int best = 0;
-            for (int i = 1; i < FpsRtssValues.Length; i++)
-                if (Math.Abs(FpsRtssValues[i] - fps) < Math.Abs(FpsRtssValues[best] - fps))
-                    best = i;
+            get { var v = Windows.Storage.ApplicationData.Current.LocalSettings.Values["FpsSteplessSlider"]; return v is bool b && b; }
+            set { Windows.Storage.ApplicationData.Current.LocalSettings.Values["FpsSteplessSlider"] = value; }
+        }
+
+        /// <summary>Upper bound of the FPS slider — the panel's max refresh (at least 120).</summary>
+        private int FpsSliderMax()
+        {
+            int maxRefresh = 120;
+            try { if (refreshRates?.Value != null && refreshRates.Value.Count > 0) maxRefresh = Math.Max(120, refreshRates.Value.Max()); }
+            catch { }
+            return maxRefresh;
+        }
+
+        /// <summary>Snap a raw slider FPS to the nearest step (snap mode) or just clamp it (stepless mode).</summary>
+        private int SnapFps(int raw)
+        {
+            int max = FpsSliderMax();
+            raw = Math.Max(FpsSliderMin, Math.Min(max, raw));
+            if (FpsSteplessEnabled) return raw;
+            int best = FpsSnapSteps[0];
+            foreach (int s in FpsSnapSteps)
+                if (s <= max && Math.Abs(s - raw) < Math.Abs(best - raw)) best = s;
             return best;
         }
 
-        /// <summary>Map an actual FPS value to the nearest Intel slider index.</summary>
-        private static int FpsValueToIntelIndex(int fps)
+        /// <summary>Legacy Intel tier (1/2/3) → fps (60/40/30); a real fps (0 or ≥ 20) passes through.</summary>
+        private static int MigrateIntelFps(int v) => v == 1 ? 60 : v == 2 ? 40 : v == 3 ? 30 : v;
+
+        /// <summary>FPS currently carried by the active limiter property (0 = off).</summary>
+        private int CurrentFpsValue()
         {
-            int best = 0;
-            for (int i = 1; i < FpsIntelValues.Length; i++)
-                if (Math.Abs(FpsIntelValues[i] - fps) < Math.Abs(FpsIntelValues[best] - fps))
-                    best = i;
-            return best;
+            if (fpsCapMode?.Value == 1) return MigrateIntelFps(intelFpsTier?.Value ?? 0);
+            return fpsLimit?.Value ?? 0;
         }
 
-        /// <summary>Convert Intel slider index (0=30fps,1=40fps,2=60fps) → IntelFpsTier (3/2/1).</summary>
-        private static int FpsIntelIndexToTier(int idx)
+        /// <summary>
+        /// D-pad value change for the FPS slider. Snap mode steps to the previous/next FpsSnapStep;
+        /// stepless mode moves ±1. Setting the slider Value fires FPSLimitSlider_ValueChanged, which
+        /// commits the value to the active limiter (RTSS or Intel).
+        /// </summary>
+        private void AdjustFpsSlider(int dir)
         {
-            switch (idx)
+            if (FPSLimitSlider == null) return;
+            int max = FpsSliderMax();
+            int cur = (int)Math.Round(FPSLimitSlider.Value);
+            int next;
+            if (FpsSteplessEnabled)
             {
-                case 0: return 3; // Efficiency 30fps
-                case 1: return 2; // Balanced   40fps
-                default: return 1; // Performance 60fps
+                next = Math.Max(FpsSliderMin, Math.Min(max, cur + dir));
             }
-        }
-
-        /// <summary>Convert IntelFpsTier (1=60fps, 2=40fps, 3=30fps) → slider index.</summary>
-        private static int FpsIntelTierToIndex(int tier)
-        {
-            switch (tier)
+            else
             {
-                case 3: return 0; // 30fps
-                case 2: return 1; // 40fps
-                default: return 2; // 60fps
+                var steps = new System.Collections.Generic.List<int>();
+                foreach (int s in FpsSnapSteps) if (s <= max) steps.Add(s);
+                if (steps.Count == 0) return;
+                int idx = 0;
+                for (int i = 1; i < steps.Count; i++)
+                    if (Math.Abs(steps[i] - cur) < Math.Abs(steps[idx] - cur)) idx = i;
+                idx = Math.Max(0, Math.Min(steps.Count - 1, idx + dir));
+                next = steps[idx];
             }
+            if (next != cur) FPSLimitSlider.Value = next; // fires ValueChanged → snap + apply
         }
 
         /// <summary>
@@ -1554,37 +1585,30 @@ namespace XboxGamingBar
 
             if (FPSLimitSlider == null) return;
 
+            int max = FpsSliderMax();
+            FPSLimitSlider.Minimum = FpsSliderMin;
+            FPSLimitSlider.Maximum = max;
+            int curFps = CurrentFpsValue();
+
             if (!isOn)
             {
-                FPSLimitSlider.Maximum   = FpsRtssValues.Length - 1;
                 FPSLimitSlider.IsEnabled = false;
-                // Show highest RTSS value (120 fps) when Off
                 isApplyingHelperUpdate = true;
-                try { FPSLimitSlider.Value = FpsRtssValues.Length - 1; }
+                try { FPSLimitSlider.Value = Math.Max(FpsSliderMin, Math.Min(max, curFps > 0 ? curFps : 60)); }
                 finally { isApplyingHelperUpdate = false; }
                 if (FPSLimitValue != null) FPSLimitValue.Text = "";
-            }
-            else if (!isIntel)
-            {
-                FPSLimitSlider.Maximum   = FpsRtssValues.Length - 1;
-                FPSLimitSlider.IsEnabled = true;
-                int idx = Math.Max(0, Math.Min(FpsRtssValues.Length - 1, (int)FPSLimitSlider.Value));
-                if (FPSLimitValue != null) FPSLimitValue.Text = $"{FpsRtssValues[idx]} FPS";
+                BuildFpsScaleLabels(-1);
             }
             else
             {
-                FPSLimitSlider.Maximum   = FpsIntelValues.Length - 1;
                 FPSLimitSlider.IsEnabled = true;
-                int idx = Math.Max(0, Math.Min(FpsIntelValues.Length - 1, (int)FPSLimitSlider.Value));
-                if (FPSLimitValue != null) FPSLimitValue.Text = $"{FpsIntelValues[idx]} FPS";
+                int fps = curFps > 0 ? curFps : 60;
+                isApplyingHelperUpdate = true;
+                try { FPSLimitSlider.Value = Math.Max(FpsSliderMin, Math.Min(max, fps)); }
+                finally { isApplyingHelperUpdate = false; }
+                if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
+                BuildFpsScaleLabels(fps);
             }
-
-            // Build the per-step FPS scale labels for the active mode (RTSS vs Intel differ).
-            int[] scaleVals = isIntel ? FpsIntelValues : FpsRtssValues;
-            int activeIdx = isOn
-                ? Math.Max(0, Math.Min(scaleVals.Length - 1, (int)FPSLimitSlider.Value))
-                : -1;
-            BuildFpsScaleLabels(scaleVals, activeIdx);
         }
 
         /// <summary>
@@ -1593,17 +1617,32 @@ namespace XboxGamingBar
         /// regenerated whenever the mode or on/off state changes. The active step is
         /// highlighted green; inactive steps are dimmed.
         /// </summary>
-        private void BuildFpsScaleLabels(int[] values, int activeIndex)
+        private void BuildFpsScaleLabels(int activeFps)
         {
-            if (FPSLimitScaleLabels == null || values == null) return;
+            if (FPSLimitScaleLabels == null) return;
 
             FPSLimitScaleLabels.Children.Clear();
             FPSLimitScaleLabels.ColumnDefinitions.Clear();
 
+            int max = FpsSliderMax();
+            var values = new System.Collections.Generic.List<int>();
+            foreach (int s in FpsSnapSteps) if (s <= max) values.Add(s);
+            if (values.Count == 0) return;
+
+            // Highlight the step nearest the active FPS (none when the cap is off).
+            int activeIndex = -1;
+            if (activeFps > 0)
+            {
+                int best = 0;
+                for (int i = 1; i < values.Count; i++)
+                    if (Math.Abs(values[i] - activeFps) < Math.Abs(values[best] - activeFps)) best = i;
+                activeIndex = best;
+            }
+
             var green = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x4C, 0xAF, 0x50));
             var dim   = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x88, 0x88, 0x88));
 
-            for (int i = 0; i < values.Length; i++)
+            for (int i = 0; i < values.Count; i++)
             {
                 FPSLimitScaleLabels.ColumnDefinitions.Add(new Windows.UI.Xaml.Controls.ColumnDefinition
                 {
@@ -1616,7 +1655,7 @@ namespace XboxGamingBar
                     FontSize = 10,
                     HorizontalAlignment = (i == 0)
                         ? Windows.UI.Xaml.HorizontalAlignment.Left
-                        : (i == values.Length - 1)
+                        : (i == values.Count - 1)
                             ? Windows.UI.Xaml.HorizontalAlignment.Right
                             : Windows.UI.Xaml.HorizontalAlignment.Center,
                     Foreground = (i == activeIndex) ? green : dim,
@@ -1630,92 +1669,79 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Apply a new FPS state (0=Off, 1=RTSS, 2=Intel).
-        /// isUserTransition=true sets the default slider value for the new mode
-        /// (Off→RTSS = 120fps, *→Intel = 60fps); false preserves the current slider index.
+        /// Apply a new FPS state (0=Off, 1=RTSS, 2=Intel). Unified real-FPS model: the active limiter
+        /// carries an actual FPS. Enabling restores the last shown slider value (MSI-like — the value is
+        /// retained while off), falling back to the saved limiter value, else 60. (isUserTransition is
+        /// kept for signature compatibility; the value is now always taken from the retained slider.)
         /// </summary>
         private void ApplyFpsState(int state, bool isUserTransition = false)
         {
             if (FPSLimitToggle == null) return;
 
+            int max = FpsSliderMax();
             isApplyingHelperUpdate = true;
             try
             {
+                if (FPSLimitSlider != null)
+                {
+                    FPSLimitSlider.Minimum = FpsSliderMin;
+                    FPSLimitSlider.Maximum = max;
+                }
+
                 switch (state)
                 {
                     case 0: // Off
                         FPSLimitToggle.IsOn = false;
                         fpsLimit?.SetValue(0);
                         intelFpsTier?.SetValue(0);
-                        if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 0;
-                        // Slider: disabled, showing 120 fps
-                        if (FPSLimitSlider != null)
-                        {
-                            FPSLimitSlider.Maximum   = FpsRtssValues.Length - 1;
-                            FPSLimitSlider.Value     = FpsRtssValues.Length - 1;
-                            FPSLimitSlider.IsEnabled = false;
-                        }
+                        if (FPSLimitSlider != null) FPSLimitSlider.IsEnabled = false;
                         // Mode label keeps showing the last-selected mode; only the On/Off toggle goes off.
                         if (FPSStateCycleText   != null) FPSStateCycleText.Text = (fpsCapMode?.Value == 1) ? "Intel" : "RTSS";
                         if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = false;
                         if (FPSLimitValue       != null) FPSLimitValue.Text = "";
                         fpsCapMode?.SetValue(fpsCapMode?.Value ?? 0); // preserve mode for next activation
+                        BuildFpsScaleLabels(-1);
                         break;
 
                     case 1: // RTSS
+                    {
                         fpsCapMode?.SetValue(0);
                         FPSLimitToggle.IsOn = true;
-                        if (FPSModeRTSSRadio  != null) FPSModeRTSSRadio.IsChecked  = true;
-                        if (FPSModeIntelRadio != null) FPSModeIntelRadio.IsChecked = false;
                         intelFpsTier?.SetValue(0);
-                        if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 0;
-                        if (FPSLimitSlider != null)
-                        {
-                            FPSLimitSlider.Maximum   = FpsRtssValues.Length - 1;
-                            FPSLimitSlider.IsEnabled = true;
-                            if (isUserTransition)
-                                FPSLimitSlider.Value = FpsRtssValues.Length - 1; // default 120fps
-                        }
-                        {
-                            int idx = FPSLimitSlider != null
-                                ? Math.Max(0, Math.Min(FpsRtssValues.Length - 1, (int)FPSLimitSlider.Value))
-                                : FpsRtssValues.Length - 1;
-                            int fps = FpsRtssValues[idx];
-                            fpsLimit?.SetValue(fps);
-                            if (FPSStateCycleText    != null) FPSStateCycleText.Text = "RTSS";
-                            if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = true;
-                            if (FPSModeToggle       != null) FPSModeToggle.IsOn = false; // RTSS
-                            if (FPSLimitValue       != null) FPSLimitValue.Text = $"{fps} FPS";
-                        }
+                        // MSI-like: re-enabling restores the last shown slider value (retained while off),
+                        // falling back to the saved limiter value, else 60.
+                        int fps = FPSLimitSlider != null ? (int)Math.Round(FPSLimitSlider.Value) : 0;
+                        if (fps < FpsSliderMin) fps = fpsLimit?.Value > 0 ? fpsLimit.Value : 60;
+                        fps = Math.Max(FpsSliderMin, Math.Min(max, fps));
+                        if (FPSLimitSlider != null) { FPSLimitSlider.IsEnabled = true; FPSLimitSlider.Value = fps; }
+                        fpsLimit?.SetValue(fps);
+                        if (FPSStateCycleText   != null) FPSStateCycleText.Text = "RTSS";
+                        if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = true;
+                        if (FPSModeToggle       != null) FPSModeToggle.IsOn = false; // RTSS
+                        if (FPSLimitValue       != null) FPSLimitValue.Text = $"{fps} FPS";
+                        BuildFpsScaleLabels(fps);
                         break;
+                    }
 
                     case 2: // Intel
+                    {
                         fpsCapMode?.SetValue(1);
                         FPSLimitToggle.IsOn = true;
-                        if (FPSModeRTSSRadio  != null) FPSModeRTSSRadio.IsChecked  = false;
-                        if (FPSModeIntelRadio != null) FPSModeIntelRadio.IsChecked = true;
                         fpsLimit?.SetValue(0);
-                        if (FPSLimitSlider != null)
-                        {
-                            FPSLimitSlider.Maximum   = FpsIntelValues.Length - 1;
-                            FPSLimitSlider.IsEnabled = true;
-                            if (isUserTransition)
-                                FPSLimitSlider.Value = FpsIntelValues.Length - 1; // default 60fps
-                        }
-                        {
-                            int idx  = FPSLimitSlider != null
-                                ? Math.Max(0, Math.Min(FpsIntelValues.Length - 1, (int)FPSLimitSlider.Value))
-                                : FpsIntelValues.Length - 1;
-                            int tier = FpsIntelIndexToTier(idx);
-                            intelFpsTier?.SetValue(tier);
-                            if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = tier;
-                            string fpsTxt = FpsIntelValues[idx] + " FPS";
-                            if (FPSStateCycleText    != null) FPSStateCycleText.Text = "Intel";
-                            if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = true;
-                            if (FPSModeToggle       != null) FPSModeToggle.IsOn = true; // Intel
-                            if (FPSLimitValue       != null) FPSLimitValue.Text = fpsTxt;
-                        }
+                        int cur = MigrateIntelFps(intelFpsTier?.Value ?? 0);
+                        // MSI-like: re-enabling restores the last shown slider value (retained while off).
+                        int fps = FPSLimitSlider != null ? (int)Math.Round(FPSLimitSlider.Value) : 0;
+                        if (fps < FpsSliderMin) fps = cur > 0 ? cur : 60;
+                        fps = Math.Max(FpsSliderMin, Math.Min(max, fps));
+                        if (FPSLimitSlider != null) { FPSLimitSlider.IsEnabled = true; FPSLimitSlider.Value = fps; }
+                        intelFpsTier?.SetValue(fps);
+                        if (FPSStateCycleText   != null) FPSStateCycleText.Text = "Intel";
+                        if (FPSStateCycleButton != null) FPSStateCycleButton.IsOn = true;
+                        if (FPSModeToggle       != null) FPSModeToggle.IsOn = true; // Intel
+                        if (FPSLimitValue       != null) FPSLimitValue.Text = $"{fps} FPS";
+                        BuildFpsScaleLabels(fps);
                         break;
+                    }
                 }
             }
             finally { isApplyingHelperUpdate = false; }
@@ -1785,54 +1811,23 @@ namespace XboxGamingBar
 
             if (FPSLimitToggle.IsOn)
             {
-                if (isIntelMode)
-                {
-                    // Intel mode: enable at current tier, default to Performance (60fps) if off
-                    int tier = intelFpsTier?.Value ?? 0;
-                    if (tier == 0) tier = 1; // default to Performance (60fps)
-                    intelFpsTier?.SetValue(tier);
-                    isApplyingHelperUpdate = true;
-                    try
-                    {
-                        if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = tier;
-                    }
-                    finally { isApplyingHelperUpdate = false; }
-                    if (FPSLimitValue != null) FPSLimitValue.Text = tier == 1 ? "60 FPS" : tier == 2 ? "40 FPS" : "30 FPS";
-                    Logger.Info($"FPS Limit enabled (Intel mode): tier {tier}");
-                }
-                else
-                {
-                    // RTSS mode: enable at slider value, default to 60fps if unset
-                    int maxRefresh = 60;
-                    if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
-                        maxRefresh = refreshRates.Value.Max();
-                    FPSLimitSlider.Maximum = maxRefresh;
-                    int limit = (int)FPSLimitSlider.Value;
-                    if (limit <= 15) { limit = 60; FPSLimitSlider.Value = limit; }
-                    fpsLimit?.SetValue(limit);
-                    if (FPSLimitValue != null) FPSLimitValue.Text = $"{limit} FPS";
-                    Logger.Info($"FPS Limit enabled (RTSS mode): {limit}fps");
-                }
+                // Unified: enable at the slider's real FPS (snapped), default 60 if unset. The active
+                // backend (RTSS fpsLimit vs Intel intelFpsTier — now an fps) is chosen by fpsCapMode.
+                int max = FpsSliderMax();
+                FPSLimitSlider.Maximum = max;
+                int fps = SnapFps((int)Math.Round(FPSLimitSlider.Value));
+                if (fps < FpsSliderMin) { fps = 60; }
+                isApplyingHelperUpdate = true;
+                try { FPSLimitSlider.Value = Math.Min(max, fps); } finally { isApplyingHelperUpdate = false; }
+                if (isIntelMode) intelFpsTier?.SetValue(fps); else fpsLimit?.SetValue(fps);
+                if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
+                Logger.Info($"FPS Limit enabled ({(isIntelMode ? "Intel" : "RTSS")} mode): {fps}fps");
             }
             else
             {
                 // Toggle OFF — disable only the currently active limiter, leave fpsCapMode unchanged
-                if (isIntelMode)
-                {
-                    intelFpsTier?.SetValue(0);
-                    isApplyingHelperUpdate = true;
-                    try
-                    {
-                        if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 0;
-                    }
-                    finally { isApplyingHelperUpdate = false; }
-                    Logger.Info("FPS Limit disabled (Intel mode): cleared Intel tier");
-                }
-                else
-                {
-                    fpsLimit?.SetValue(0);
-                    Logger.Info("FPS Limit disabled (RTSS mode): cleared RTSS limit");
-                }
+                if (isIntelMode) { intelFpsTier?.SetValue(0); Logger.Info("FPS Limit disabled (Intel mode)"); }
+                else             { fpsLimit?.SetValue(0);     Logger.Info("FPS Limit disabled (RTSS mode)"); }
             }
 
             // Update the FPS limiter panels (show/hide RTSS or Intel section)
@@ -1966,29 +1961,15 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Updates the green FPS value display (FPSLimitValue) above the toggle.
-        /// In RTSS mode: shows the slider value (already kept up-to-date by FPSLimitSlider_ValueChanged).
-        /// In Intel mode: shows the tier's fixed FPS (60 / 40 / 30) instead of the stale RTSS value.
+        /// Updates the green FPS value display (FPSLimitValue) above the toggle. Unified model:
+        /// the slider carries the real FPS in both RTSS and Intel modes.
         /// </summary>
         private void UpdateFPSCapDisplayText()
         {
             if (FPSLimitValue == null || FPSLimitToggle?.IsOn != true) return;
-
-            bool isIntel = fpsCapMode?.Value == 1;
-            if (isIntel && IntelFpsTierComboBox != null)
-            {
-                int tier = IntelFpsTierComboBox.SelectedIndex;
-                FPSLimitValue.Text = tier == 1 ? "60 FPS"
-                                   : tier == 2 ? "40 FPS"
-                                   : tier == 3 ? "30 FPS"
-                                   : "Intel"; // tier 0 = Off
-            }
-            else if (!isIntel && FPSLimitSlider != null)
-            {
-                // Slider now uses indices — map to actual fps
-                int idx = Math.Max(0, Math.Min(FpsRtssValues.Length - 1, (int)FPSLimitSlider.Value));
-                FPSLimitValue.Text = $"{FpsRtssValues[idx]} FPS";
-            }
+            int fps = FPSLimitSlider != null ? (int)Math.Round(FPSLimitSlider.Value) : 0;
+            if (fps <= 0) fps = CurrentFpsValue();
+            FPSLimitValue.Text = fps > 0 ? $"{fps} FPS" : "";
         }
 
         /// <summary>
@@ -2089,46 +2070,67 @@ namespace XboxGamingBar
             if (isApplyingHelperUpdate) return;
 
             int state = GetCurrentFpsState();
+            if (state == 0) return; // Off — slider disabled
 
-            if (state == 1) // RTSS
+            int fps = SnapFps((int)Math.Round(e.NewValue));
+            // In snap mode, re-align the thumb to the snapped value (guarded so we don't recurse).
+            if (!FpsSteplessEnabled && (int)Math.Round(e.NewValue) != fps)
             {
-                int idx     = Math.Max(0, Math.Min(FpsRtssValues.Length - 1, (int)e.NewValue));
-                int fps     = FpsRtssValues[idx];
-                if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
-                BuildFpsScaleLabels(FpsRtssValues, idx);
-
-                if (fpsLimit != null && FPSLimitToggle?.IsOn == true)
-                {
-                    fpsLimitPendingValue = fps;
-                    if (fpsLimitDebounceTimer == null)
-                    {
-                        fpsLimitDebounceTimer          = new DispatcherTimer();
-                        fpsLimitDebounceTimer.Interval = TimeSpan.FromMilliseconds(FPS_LIMIT_DEBOUNCE_MS);
-                        fpsLimitDebounceTimer.Tick    += FPSLimitDebounceTimer_Tick;
-                    }
-                    fpsLimitDebounceTimer.Stop();
-                    fpsLimitDebounceTimer.Start();
-                }
+                isApplyingHelperUpdate = true;
+                try { FPSLimitSlider.Value = fps; } finally { isApplyingHelperUpdate = false; }
             }
-            else if (state == 2) // Intel
+            if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
+            BuildFpsScaleLabels(fps);
+
+            if (FPSLimitToggle?.IsOn != true) return;
+
+            if (state == 2) // Intel — cheap IGCL call, apply immediately
             {
-                int idx     = Math.Max(0, Math.Min(FpsIntelValues.Length - 1, (int)e.NewValue));
-                int fps     = FpsIntelValues[idx];
-                if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
-                BuildFpsScaleLabels(FpsIntelValues, idx);
-
-                if (intelFpsTier != null && FPSLimitToggle?.IsOn == true)
-                {
-                    int tier = FpsIntelIndexToTier(idx);
-                    intelFpsTier.SetValue(tier);
-                    isApplyingHelperUpdate = true;
-                    try { if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = tier; }
-                    finally { isApplyingHelperUpdate = false; }
-                    if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                        SaveCurrentSettingsToProfile(currentProfileName);
-                }
+                intelFpsTier?.SetValue(fps);
+                if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+                    SaveCurrentSettingsToProfile(currentProfileName);
             }
-            // state == 0 (Off): slider is disabled, no action
+            else // RTSS — debounce (avoids hammering RTSS on drag)
+            {
+                fpsLimitPendingValue = fps;
+                if (fpsLimitDebounceTimer == null)
+                {
+                    fpsLimitDebounceTimer          = new DispatcherTimer();
+                    fpsLimitDebounceTimer.Interval = TimeSpan.FromMilliseconds(FPS_LIMIT_DEBOUNCE_MS);
+                    fpsLimitDebounceTimer.Tick    += FPSLimitDebounceTimer_Tick;
+                }
+                fpsLimitDebounceTimer.Stop();
+                fpsLimitDebounceTimer.Start();
+            }
+        }
+
+        /// <summary>
+        /// "Stepless" checkbox toggled. Persists the global preference and re-snaps the current
+        /// slider value under the new mode (snap → nearest step, stepless → keep raw).
+        /// </summary>
+        private void FpsSteplessCheckBox_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isApplyingHelperUpdate) return;
+            bool on = FpsSteplessCheckBox?.IsChecked == true;
+            FpsSteplessEnabled = on;
+            Logger.Info($"FPS slider stepless mode: {on}");
+
+            int state = GetCurrentFpsState();
+            if (state == 0 || FPSLimitSlider == null) return;
+
+            int fps = SnapFps((int)Math.Round(FPSLimitSlider.Value));
+            isApplyingHelperUpdate = true;
+            try { FPSLimitSlider.Value = fps; }
+            finally { isApplyingHelperUpdate = false; }
+            if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
+            BuildFpsScaleLabels(fps);
+
+            if (FPSLimitToggle?.IsOn == true)
+            {
+                if (state == 2) intelFpsTier?.SetValue(fps); else fpsLimit?.SetValue(fps);
+                if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+                    SaveCurrentSettingsToProfile(currentProfileName);
+            }
         }
 
         /// <summary>
@@ -2180,49 +2182,37 @@ namespace XboxGamingBar
                     FPSLimitToggle.IsEnabled = rtssAvailable || intelIgclAvailable;
                     if (FPSStateCycleButton != null) FPSStateCycleButton.IsEnabled = true;
 
-                    // Sync toggle/slider with helper state (slider now uses discrete indices).
+                    // Sync toggle/slider with helper state (slider carries a real FPS value).
                     if (fpsLimit != null)
                     {
                         isApplyingHelperUpdate = true;
                         try
                         {
+                            int max = FpsSliderMax();
+                            FPSLimitSlider.Minimum = FpsSliderMin;
+                            FPSLimitSlider.Maximum = max;
+
                             int limit      = fpsLimit.Value;
-                            bool intelActive = fpsCapMode?.Value == 1 && intelFpsTier?.Value > 0;
+                            bool intelActive = fpsCapMode?.Value == 1 && (intelFpsTier?.Value ?? 0) > 0;
 
                             if (limit > 0)
                             {
-                                // RTSS active
-                                FPSLimitToggle.IsOn      = true;
-                                FPSLimitSlider.Maximum   = FpsRtssValues.Length - 1;
-                                FPSLimitSlider.Value     = FpsValueToRtssIndex(limit);
+                                FPSLimitToggle.IsOn  = true;
+                                FPSLimitSlider.Value = Math.Max(FpsSliderMin, Math.Min(max, limit));
                             }
                             else if (intelActive)
                             {
-                                // Intel active — set slider to matching Intel index
-                                FPSLimitToggle.IsOn      = true;
-                                int tier                 = Math.Max(0, Math.Min(3, intelFpsTier?.Value ?? 1));
-                                FPSLimitSlider.Maximum   = FpsIntelValues.Length - 1;
-                                FPSLimitSlider.Value     = FpsIntelTierToIndex(tier);
+                                FPSLimitToggle.IsOn  = true;
+                                int fps = MigrateIntelFps(intelFpsTier?.Value ?? 60);
+                                FPSLimitSlider.Value = Math.Max(FpsSliderMin, Math.Min(max, fps));
                             }
                             else
                             {
-                                // Off
-                                FPSLimitToggle.IsOn      = false;
-                                FPSLimitSlider.Maximum   = FpsRtssValues.Length - 1;
-                                FPSLimitSlider.Value     = FpsRtssValues.Length - 1; // show 120
+                                FPSLimitToggle.IsOn  = false;
+                                FPSLimitSlider.Value = Math.Min(max, 60);
                             }
-                        }
-                        finally { isApplyingHelperUpdate = false; }
-                    }
-
-                    // Sync Intel FPS tier ComboBox (0=Off, 1=Performance, 2=Balanced, 3=Efficiency)
-                    if (intelFpsTier != null && IntelFpsTierComboBox != null)
-                    {
-                        isApplyingHelperUpdate = true;
-                        try
-                        {
-                            int tier = Math.Max(0, Math.Min(3, intelFpsTier.Value));
-                            IntelFpsTierComboBox.SelectedIndex = tier;
+                            // Reflect the persisted stepless preference (guarded — handler no-ops).
+                            if (FpsSteplessCheckBox != null) FpsSteplessCheckBox.IsChecked = FpsSteplessEnabled;
                         }
                         finally { isApplyingHelperUpdate = false; }
                     }
