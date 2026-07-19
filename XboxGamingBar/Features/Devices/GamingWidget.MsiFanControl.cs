@@ -1054,18 +1054,23 @@ namespace XboxGamingBar
         /// <summary>Maps the current 5-point graph duty to the 8-byte EC table — byte-for-byte the same
         /// mapping the helper uses when writing (MsiClawFanController.BuildFanTable): duty is the RAW EC
         /// byte (no ×1.5). Layout: [backup=d1, 0, d1, d2, d3, d4, d5, d5(dup)].</summary>
+        /// <summary>
+        /// The 8-byte Set_Fan duty table we expect to see in the EC. Must mirror
+        /// MsiClawFanController.BuildFanTable byte for byte, or the check lies.
+        /// Only indices 1..6 are ours — see MsiWrittenDutyFirst/Last.
+        /// </summary>
         private byte[] MsiExpectedTable()
         {
             byte D(int i) => (byte)Math.Max(0, Math.Min(150, _msiFanDuties[i]));
-            return new byte[8] { D(0), 0, D(0), D(1), D(2), D(3), D(4), D(4) };
+            return new byte[8] { 0, 0, D(0), D(1), D(2), D(3), D(4), D(4) };
         }
 
-        /// <summary>The expected 7-byte thermal (temperature-axis) table: [0, t1..t5, t5(dup)].</summary>
-        private byte[] MsiExpectedThermal()
-        {
-            byte T(int i) => (byte)Math.Max(0, Math.Min(120, _msiFanTemps[i]));
-            return new byte[7] { 0, T(0), T(1), T(2), T(3), T(4), T(4) };
-        }
+        // The slots the helper actually writes. SetFanTable patches payload index 1..6 only and leaves
+        // the surrounding bytes as it read them, exactly like MSI's Adv_Fan — index 0 and index 7 are
+        // EC state, not curve points, and comparing them produces a false "Mismatch" on hardware whose
+        // boundary bytes happen to be non-zero (the Claw 8 EX ships index 7 = 94).
+        private const int MsiWrittenDutyFirst = 1;
+        private const int MsiWrittenDutyLast = 6;
 
         private async void VerifyMsiFan()
         {
@@ -1131,18 +1136,16 @@ namespace XboxGamingBar
                 }
 
                 byte[] expected = MsiExpectedTable();
-                byte[] expectedTh = MsiExpectedThermal();
-                // Compare duty bytes 1..7 only. Byte 0 is the EC-managed idle "backup" sample the MSI
-                // firmware nudges on its own, which produced spurious mismatches; it has no meaningful
-                // effect at idle, so we don't flag it.
+                // Compare ONLY the slots the helper writes (1..6). Bytes 0 and 7 are the EC's own
+                // boundary state which SetFanTable deliberately preserves, so they will differ from any
+                // model we build and must never count as a mismatch.
                 bool match = true;
-                for (int i = 1; i < 8; i++) if (ec[i] != expected[i]) { match = false; break; }
-                bool thMatch = th == null; // no axis in payload → don't fail on it
-                if (th != null)
-                {
-                    thMatch = true;
-                    for (int i = 1; i < 7; i++) if (th[i] != expectedTh[i]) { thMatch = false; break; }
-                }
+                for (int i = MsiWrittenDutyFirst; i <= MsiWrittenDutyLast; i++)
+                    if (ec[i] != expected[i]) { match = false; break; }
+
+                // The temperature axis is NOT compared: we stopped writing it entirely (it is the
+                // firmware's own, and writing it is what zeroed the EX's thermal ceiling). It is still
+                // read and displayed below, as information — never as a pass/fail criterion.
 
                 bool enabled = MsiFanEnableToggle?.IsOn ?? false;
                 int preset = MsiFanPresetComboBox?.SelectedIndex ?? -1;
@@ -1165,7 +1168,7 @@ namespace XboxGamingBar
                     MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 200, 200, 200));
                     MsiFanCheckStatus.Text = $"Custom fan curve is OFF (firmware control). EC table: [{string.Join(",", ec)}], control bit: {(controlOn ? "on" : "off")}.";
                 }
-                else if (match && thMatch && controlOn)
+                else if (match && controlOn)
                 {
                     MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 120, 210, 120));
                     MsiFanCheckStatus.Text = $"✓ Applied correctly — EC matches the graph and control is active.\nEC: [{string.Join(",", ec)}]{axisLine}";
@@ -1173,8 +1176,14 @@ namespace XboxGamingBar
                 else
                 {
                     MsiFanCheckStatus.Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, 240, 180, 80));
-                    string why = !controlOn ? "control bit is OFF" : !match ? "duty values differ from the graph" : "temp axis differs from the graph";
-                    MsiFanCheckStatus.Text = $"⚠ Mismatch ({why}).\nEC: [{string.Join(",", ec)}]{axisLine}\nExpected: [{string.Join(",", expected)}] axis [{string.Join(",", expectedTh)}]";
+                    string why = !controlOn ? "control bit is OFF" : "duty values differ from the graph";
+                    // Report only the slots we own, so the numbers shown are the ones actually compared.
+                    string wrote = string.Join(",", new ArraySegment<byte>(expected, MsiWrittenDutyFirst,
+                                                       MsiWrittenDutyLast - MsiWrittenDutyFirst + 1));
+                    string got = string.Join(",", new ArraySegment<byte>(ec, MsiWrittenDutyFirst,
+                                                     MsiWrittenDutyLast - MsiWrittenDutyFirst + 1));
+                    MsiFanCheckStatus.Text = $"⚠ Mismatch ({why}).\nEC: [{string.Join(",", ec)}]{axisLine}"
+                                           + $"\nDuty slots [1..6] — expected [{wrote}], got [{got}]";
                 }
 
                 // Always show the live measurement so the EC check doubles as an RPM read-out.
