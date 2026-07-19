@@ -858,7 +858,38 @@
                                 BorderBrush="#50555C"
                                 BorderThickness="1"
                                 Visibility="Collapsed">
-                            <Grid x:Name="QuickMetricsGrid"/>
+                            <!-- Metrics keep the whole row; the Center launcher sits to their right
+                                 as an Auto-width column so it never squeezes the readouts. -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid x:Name="QuickMetricsGrid" Grid.Column="0"/>
+                                <!-- Always shown: the widget is a sandboxed UWP process and cannot read
+                                     HKLM, so it cannot tell whether Center is installed. The helper
+                                     resolves the path and logs a warning if it is missing - same
+                                     behaviour as the other launcher tiles pointing at absent apps. -->
+                                <Button x:Name="OpenCenterButton"
+                                        Grid.Column="1"
+                                        Margin="10,0,0,0"
+                                        Padding="8,4"
+                                        MinWidth="0"
+                                        Background="Transparent"
+                                        BorderBrush="#50555C"
+                                        BorderThickness="1"
+                                        CornerRadius="8"
+                                        VerticalAlignment="Center"
+                                        ToolTipService.ToolTip="Open ClawTweaks Center"
+                                        Click="OpenCenterButton_Click">
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <FontIcon Glyph="&#xE7EE;" FontSize="14" Foreground="#FFFFFF"
+                                                  HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Center" FontSize="10" Foreground="#C8C8C8"
+                                                   HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
                         </Border>
 
                         <!-- Dynamic Tiles Container - tiles generated in code-behind -->

@@ -2917,6 +2917,17 @@ namespace XboxGamingBar
             catch (Exception ex) { Logger.Error($"LaunchProgramViaHelper({target}): {ex.Message}"); }
         }
 
+        /// <summary>
+        /// Opens ClawTweaks Center (the desktop app) from the button next to the Quick Metrics row.
+        /// The "@ClawTweaksCenter" token is resolved helper-side (registry, then Program Files) rather
+        /// than hardcoding a path here - see ResolveClawTweaksCenterExe in Program.HotkeyHandlers.cs.
+        /// Game Bar is closed first so Center actually comes to the foreground.
+        /// </summary>
+        private async void OpenCenterButton_Click(object sender, RoutedEventArgs e)
+        {
+            await LaunchProgramViaHelper("@ClawTweaksCenter", closeGameBar: true);
+        }
+
         /// <summary>Ask the helper to open a URL in the default browser.</summary>
         private async Task LaunchUrlViaHelper(string url, bool closeGameBar)
         {

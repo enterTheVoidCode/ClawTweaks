@@ -411,7 +411,10 @@ namespace XboxGamingBar.QuickSettings
             yield return TileActionType.SteamBigPicture;
             yield return TileActionType.Playnite;
             yield return TileActionType.XboxApp;
-            yield return TileActionType.OpenClawTweaksWindow;
+            // OpenClawTweaksWindow (43) is deliberately NOT offered any more: the standalone widget
+            // window is superseded by ClawTweaks Center, reachable from the button next to the Quick
+            // Metrics row. The enum value, its label/glyph and the helper-side handlers stay so tiles
+            // and hotkeys users already bound to 43 keep working - only the picker no longer offers it.
             // Steam Buttons group — placed above Program Actions. BPM library shortcuts use the
             // keybd_event path (Big Picture ignores SendInput); the in-game overlay (Shift+Tab) uses
             // the SendInput InputInjector; the context-sensitive variant picks BPM vs in-game by state.

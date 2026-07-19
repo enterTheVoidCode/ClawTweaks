@@ -414,6 +414,17 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                if (string.Equals(target, "@ClawTweaksCenter", StringComparison.OrdinalIgnoreCase))
+                {
+                    string centerExe = ResolveClawTweaksCenterExe();
+                    if (centerExe == null)
+                    {
+                        Logger.Warn("LaunchProgramTarget: ClawTweaks Center is not installed — nothing to launch.");
+                        return;
+                    }
+                    target = centerExe;   // fall through to the normal exe path below
+                }
+
                 string ext = "";
                 try { ext = System.IO.Path.GetExtension(target).ToLowerInvariant(); } catch { }
 
@@ -454,6 +465,51 @@ namespace XboxGamingBarHelper
             {
                 Logger.Error($"LaunchProgramTarget({target}): {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Resolves the installed ClawTweaks Center executable, or null when Center is not installed.
+        /// Prefers the Add/Remove-Programs registry entry that Center's own SelfInstaller writes
+        /// (Doku/PLAN_Center_Helper_Integration.md 3b) - that is the same mechanism Windows uses, so it
+        /// survives a non-default install location. The fixed Program Files path is only the fallback.
+        /// The registry read lives here, in the full-trust helper: the widget is a sandboxed UWP process
+        /// and cannot read HKLM at all.
+        /// </summary>
+        internal static string ResolveClawTweaksCenterExe()
+        {
+            const string ExeName = "CTW_Center.exe";
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                           @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ClawTweaksCenter"))
+                {
+                    if (key != null)
+                    {
+                        // DisplayIcon is the full exe path; InstallLocation is the folder.
+                        if (key.GetValue("DisplayIcon") is string icon &&
+                            !string.IsNullOrWhiteSpace(icon) && System.IO.File.Exists(icon))
+                            return icon;
+
+                        if (key.GetValue("InstallLocation") is string dir && !string.IsNullOrWhiteSpace(dir))
+                        {
+                            string fromDir = System.IO.Path.Combine(dir, ExeName);
+                            if (System.IO.File.Exists(fromDir)) return fromDir;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { Logger.Debug($"ResolveClawTweaksCenterExe: registry lookup failed: {ex.Message}"); }
+
+            try
+            {
+                string fallback = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    "ClawTweaks Center", ExeName);
+                if (System.IO.File.Exists(fallback)) return fallback;
+            }
+            catch (Exception ex) { Logger.Debug($"ResolveClawTweaksCenterExe: fallback probe failed: {ex.Message}"); }
+
+            return null;
         }
 
         /// <summary>Opens a URL in the default browser. Works whether the Game Bar is open or not.</summary>
