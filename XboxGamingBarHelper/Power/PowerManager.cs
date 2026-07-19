@@ -79,6 +79,17 @@ namespace XboxGamingBarHelper.Power
 
         public PowerManager() : base()
         {
+            // Device gate for the advanced CPU controls, resolved before any property is constructed so
+            // nothing can be applied on a device that does not support them (e.g. the Claw 8 EX).
+            try
+            {
+                var di = Devices.DeviceDetector.DetectDevice();
+                CpuAdvancedApply.DeviceSupported = di?.SupportsCpuAdvanced ?? true;
+                if (!CpuAdvancedApply.DeviceSupported)
+                    Logger.Info("CPU advanced (scheduling policy / P/E max freq) disabled — not supported on this device.");
+            }
+            catch { /* leave the default (enabled) if detection is unavailable */ }
+
             Logger.Info($"Check CPU Boost Mode and EPP.");
             cpuBoost = new CPUBoostProperty(GetCpuBoostMode(false), this);
             cpuEPP = new CPUEPPProperty((int)GetEppValue(false), this);

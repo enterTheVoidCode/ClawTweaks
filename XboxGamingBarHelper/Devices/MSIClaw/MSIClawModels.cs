@@ -39,6 +39,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         public bool SupportsFirmwareKeyboardRemap;
         public bool SupportsFanControl;
         public bool SupportsDriverManagement;   // the Drivers tab (Intel GPU driver updates etc.)
+        public bool SupportsCpuAdvanced;        // scheduling policy + P/E core max frequency
         public bool HasTouchpad;
         public bool HasScrollWheel;
         public bool HasDetachableControllers;
@@ -96,6 +97,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             SupportsFirmwareKeyboardRemap = true,
             SupportsFanControl = true,
             SupportsDriverManagement = true,        // Intel GPU driver updates work on Lunar Lake
+            SupportsCpuAdvanced = true,             // scheduling policy + P/E max freq (Lunar Lake)
             HasTouchpad = false,
             HasScrollWheel = false,
             HasDetachableControllers = false,
@@ -125,6 +127,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             SupportsFirmwareKeyboardRemap = true,   // EEPROM confirmed 1:1 with A2VM
             SupportsFanControl = true,              // MSI ACPI-WMI fan path; axis + default duty read live from EC
             SupportsDriverManagement = true,        // manifest v2 has an EX-scoped block (BIOS E1T91IMS.105, Center M 3.0, Intel Arc; no controller FW); ModelCode gate keeps it EX-only
+            SupportsCpuAdvanced = false,            // OFF on Panther Lake: scheduling policy + P/E max freq are not reliably persistent and gain little even on Lunar Lake — EX gets the Boost toggle only
             HasTouchpad = false,
             HasScrollWheel = false,
             HasDetachableControllers = false,
@@ -152,6 +155,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             SupportsFirmwareKeyboardRemap = false,  // EEPROM keyboard-remap layout not verified on AMD yet
             SupportsFanControl = false,             // MSI fan WMI likely portable — verify before enabling
             SupportsDriverManagement = false,       // AMD GPU drivers ≠ Intel DSA flow; needs its own path
+            SupportsCpuAdvanced = false,            // AMD scheduling/freq path unverified
             HasTouchpad = false,
             HasScrollWheel = false,
             HasDetachableControllers = false,
@@ -175,6 +179,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
             SupportsFirmwareKeyboardRemap = false,
             SupportsFanControl = false,
             SupportsDriverManagement = false,
+            SupportsCpuAdvanced = false,
             HasTouchpad = false,
             HasScrollWheel = false,
             HasDetachableControllers = false,

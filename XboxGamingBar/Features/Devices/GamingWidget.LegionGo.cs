@@ -403,7 +403,8 @@ namespace XboxGamingBar
                 }
                 if (string.IsNullOrEmpty(url))
                 {
-                    url = "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM";
+                    // Last resort (helper unreachable): derive from the model shown in the card.
+                    url = MsiSupportPageFor(DriverUpdatesModel?.Text);
                 }
                 bool ok = await OpenExternalUrlAsync(url);
                 if (!ok && DriverUpdatesStatusText != null)
@@ -443,6 +444,19 @@ namespace XboxGamingBar
         }
 
         private string _lastDriverPageUrl;
+
+        /// <summary>Fallback MSI support page, used only when the helper did not supply a driverPageUrl.
+        /// The helper is the source of truth (it keys off the board's ModelCode); this just avoids
+        /// sending a Claw 8 EX owner to the A2VM page, whose drivers do not apply to Panther Lake.</summary>
+        private static string MsiSupportPageFor(string modelText)
+        {
+            bool isEx = !string.IsNullOrEmpty(modelText)
+                && (modelText.IndexOf("CG3EM", StringComparison.OrdinalIgnoreCase) >= 0
+                 || modelText.IndexOf("Claw 8 EX", StringComparison.OrdinalIgnoreCase) >= 0);
+            return isEx
+                ? "https://www.msi.com/Handheld/Claw-8-EX-AI-Plus-CG3EMX/support?sub_product=Claw-8-EX-AIplussign-CG3EM"
+                : "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM";
+        }
 
         /// <summary>
         /// Parses the helper's DriverUpdateResult JSON (shipped over the pipe as a
@@ -491,7 +505,7 @@ namespace XboxGamingBar
                 string error = GetStr("errorMessage");
 
                 string defaultPage = isMsiClaw
-                    ? "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM"
+                    ? MsiSupportPageFor(model + " " + modelVersion)
                     : "https://pcsupport.lenovo.com/";
                 _lastDriverPageUrl = string.IsNullOrEmpty(pageUrl) ? defaultPage : pageUrl;
                 if (DriverUpdatesModel != null)

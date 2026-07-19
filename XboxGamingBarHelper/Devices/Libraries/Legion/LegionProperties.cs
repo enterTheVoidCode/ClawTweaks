@@ -1630,6 +1630,20 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         }
     }
 
+    // Device Supports advanced CPU controls (read-only; off on the Claw 8 EX / Panther Lake)
+    internal class DeviceSupportsCpuAdvancedProperty : HelperProperty<bool, LegionManager>
+    {
+        public DeviceSupportsCpuAdvancedProperty(bool initialValue, LegionManager inManager) : base(initialValue, null, Function.DeviceSupportsCpuAdvanced, inManager)
+        {
+        }
+
+        public void SetValueAndSync(bool value)
+        {
+            SetValue((object)value);
+            SyncToRemote();
+        }
+    }
+
     // Device Supports Driver Management / Drivers tab (read-only; per-model on the MSI Claw)
     internal class DeviceSupportsDriverManagementProperty : HelperProperty<bool, LegionManager>
     {

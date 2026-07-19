@@ -286,6 +286,65 @@ namespace XboxGamingBarHelper.Labs
             catch { return false; }
         }
 
+        /// <summary>Which gyro source to mount. 0 = Auto (per-device default), 1 = Windows sensor,
+        /// 2 = controller vendor HID. Settable from the Debug tab so the HID path can be exercised on
+        /// the A2VM — where the proven Windows-sensor path is available side by side for comparison —
+        /// without a rebuild. MSI's motion code is model-agnostic, so what works here works on the EX.</summary>
+        public const int GyroSourceAuto = 0;
+        public const int GyroSourceWindowsSensor = 1;
+        public const int GyroSourceControllerHid = 2;
+
+        private static int _gyroSourceMode = GyroSourceAuto;
+
+        /// <summary>Store the requested source. Returns true when it actually changed, so the caller
+        /// can remount the running monitor (Program owns the instance).</summary>
+        public static bool SetGyroSourceMode(int mode)
+        {
+            if (mode < GyroSourceAuto || mode > GyroSourceControllerHid) mode = GyroSourceAuto;
+            if (_gyroSourceMode == mode) return false;
+            _gyroSourceMode = mode;
+            Logger.Info($"ClawButtonMonitor: gyro source mode -> {DescribeGyroSource(mode)}");
+            return true;
+        }
+
+        public static int GetGyroSourceMode() => _gyroSourceMode;
+
+        private static string DescribeGyroSource(int mode)
+        {
+            switch (mode)
+            {
+                case GyroSourceWindowsSensor: return "Windows sensor";
+                case GyroSourceControllerHid: return "Controller HID";
+                default: return "Auto";
+            }
+        }
+
+        /// <summary>Resolve the effective source: Auto follows the device (EX has no usable Windows
+        /// gyrometer, so it takes the HID path; everything else keeps the proven sensor path).</summary>
+        private static bool UseControllerHidGyro()
+        {
+            switch (_gyroSourceMode)
+            {
+                case GyroSourceWindowsSensor: return false;
+                case GyroSourceControllerHid: return true;
+                default: return IsClaw8ExDevice();
+            }
+        }
+
+        /// <summary>Stop and restart the gyro adapter so a source change applies right away.</summary>
+        internal void RemountGyroAdapter()
+        {
+            try
+            {
+                StopGyroAdapter();
+                UpdateGyroAdapter();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"ClawButtonMonitor: gyro remount failed: {ex.Message}");
+            }
+        }
+
         // Activation gate — accessed only from monitor thread (ProcessDirectInputState).
         private bool  _gyroToggleActive;
         private bool  _prevGyroButtonPressed;
@@ -2750,7 +2809,7 @@ namespace XboxGamingBarHelper.Labs
             // path. The Claw 8 EX does not expose the IMU as a Windows sensor, so it reads the
             // controller's own vendor-HID motion stream instead — which is what MSI Center M does on
             // both devices (RE_MSI_Gyro_and_RPM_sources.md).
-            IGyroSourceAdapter adapter = IsClaw8ExDevice()
+            IGyroSourceAdapter adapter = UseControllerHidGyro()
                 ? (IGyroSourceAdapter)new ClawHidGyroSourceAdapter()
                 : new ClawGyroSourceAdapter();
 

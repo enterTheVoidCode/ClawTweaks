@@ -49,6 +49,9 @@ namespace XboxGamingBarHelper.Devices
         // Drivers tab (GPU driver updates etc.). Default true preserves the existing behaviour on
         // non-MSI devices; the MSI Claw sets it per-model (e.g. off on the EX / AMD A8 for now).
         public virtual bool SupportsDriverManagement => true;
+        // Advanced CPU controls (scheduling policy, P/E max freq). Default true; the MSI Claw turns this
+        // off on the EX (Panther Lake), where they are not dependable.
+        public virtual bool SupportsCpuAdvanced => true;
 
         // TDP power-limit ceilings (PL1 = sustained, PL2 = boost) and the minimum PL2-over-PL1
         // headroom the platform enforces. Defaults match the original MSI Claw A2VM values (the
@@ -74,6 +77,7 @@ namespace XboxGamingBarHelper.Devices
             deviceInfo.HasDetachableControllers = HasDetachableControllers;
             deviceInfo.SupportsFanControl = SupportsFanControl;
             deviceInfo.SupportsDriverManagement = SupportsDriverManagement;
+            deviceInfo.SupportsCpuAdvanced = SupportsCpuAdvanced;
             deviceInfo.MaxPL1 = MaxPL1;
             deviceInfo.MaxPL2 = MaxPL2;
             deviceInfo.Pl2MinOffset = Pl2MinOffset;

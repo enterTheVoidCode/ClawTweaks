@@ -57,9 +57,21 @@ namespace XboxGamingBarHelper.Services
         private const string IntelDsaUrl =
             "https://www.intel.com/content/www/us/en/support/detect.html";
 
-        // MSI Claw 8 AI+ support landing page (layer-1 fallback).
+        // MSI Claw 8 AI+ (A2VM) support landing page (layer-1 fallback).
         private const string MsiSupportUrlDefault =
             "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM";
+
+        // Claw 8 EX AI+ (CG3EM / board 1T91) has its own MSI support page — the A2VM page lists
+        // drivers that do not apply to Panther Lake.
+        private const string MsiSupportUrlEx =
+            "https://www.msi.com/Handheld/Claw-8-EX-AI-Plus-CG3EMX/support?sub_product=Claw-8-EX-AIplussign-CG3EM";
+
+        /// <summary>Support page for the detected board. Keyed off ModelCode (the same signal the
+        /// manifest's models[] filter uses), so it follows detection instead of a second guess.</summary>
+        private static string SupportUrlFor(string modelCode)
+            => string.Equals(modelCode, "1T91", StringComparison.OrdinalIgnoreCase)
+                ? MsiSupportUrlEx
+                : MsiSupportUrlDefault;
 
         private static MsiDriverUpdateResult _lastResult;
         public static MsiDriverUpdateResult LastResult => _lastResult;
@@ -196,7 +208,7 @@ namespace XboxGamingBarHelper.Services
             try
             {
                 PopulateMachineInfo(result);
-                result.MsiSupportUrl = MsiSupportUrlDefault;
+                result.MsiSupportUrl = SupportUrlFor(result.ModelCode);
                 result.IntelDsaUrl = IntelDsaUrl;
 
                 if (!result.IsMsiClaw)

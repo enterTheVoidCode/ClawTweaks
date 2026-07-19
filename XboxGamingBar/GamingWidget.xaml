@@ -2758,7 +2758,8 @@
                                             <TextBlock Text="CPU" Style="{StaticResource CardTitleStyle}" VerticalAlignment="Center"/>
                                             <TextBlock x:Name="CpuBoostStatusText" Text="Boost" Foreground="#4CAF50" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                         </StackPanel>
-                                        <TextBlock Text="Toggle enables/disables CPU Boost. Expand for scheduling policy and P/E core max frequency."
+                                        <TextBlock x:Name="CpuCardCaptionText"
+                                                   Text="Toggle enables/disables CPU Boost. Expand for scheduling policy and P/E core max frequency."
                                                    Style="{StaticResource CardCaptionStyle}"
                                                    TextWrapping="Wrap"
                                                    Margin="0,0,12,0"/>
@@ -4960,6 +4961,20 @@
                                                        FontFamily="Consolas, Courier New" FontSize="11"
                                                        Foreground="#DDDDDD" TextWrapping="Wrap"/>
 
+                                            <TextBlock Text="Gyro source" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="#4AB3F4" Margin="0,12,0,0"/>
+                                            <TextBlock Text="Auto follows the device: Windows sensor on the Claw 8 AI+, controller HID on the Claw 8 EX (which has no usable Windows gyrometer). Force the HID path here to test it on a device where the sensor path also works. Applies immediately."
+                                                       FontSize="11" Foreground="#C8C8C8"
+                                                       TextWrapping="Wrap" Margin="0,2,0,6"/>
+                                            <ComboBox x:Name="ClawGyroSourceComboBox"
+                                                      Width="220" HorizontalAlignment="Left"
+                                                      Style="{StaticResource ModernComboBoxStyle}"
+                                                      SelectionChanged="ClawGyroSourceComboBox_SelectionChanged">
+                                                <ComboBoxItem Content="Auto (per device)" Tag="0" IsSelected="True"/>
+                                                <ComboBoxItem Content="Windows sensor" Tag="1"/>
+                                                <ComboBoxItem Content="Controller HID" Tag="2"/>
+                                            </ComboBox>
+
                                             <TextBlock Text="Native MSI fan" FontSize="13" FontWeight="SemiBold"
                                                        Foreground="#4AB3F4" Margin="0,12,0,0"/>
                                             <TextBlock Text="Read the current fan config from the EC (reflects MSI Center M too). Set a mode in MSI Center M, then detect to learn its signature."
@@ -6040,7 +6055,7 @@
                                         </Grid>
                                         <TextBlock Margin="0,8,0,0"
                                                    FontSize="11" Foreground="#A0A0A0" TextWrapping="Wrap"
-                                                   Text="Custom curve: drag a bar up/down for its fan %; drag the temperature label under a bar left/right to change that breakpoint. With a controller: D-Pad left/right to pick a bar, up/down to switch between the fan-% bar and its temperature, A to grab, D-Pad to adjust, A/B to release. The curve is written to the EC (both fans). Turn this off to return to MSI's firmware control."/>
+                                                   Text="Custom curve: drag a bar up/down for its fan %. With a controller: D-Pad left/right to pick a bar, A to grab, D-Pad up/down to adjust, A/B to release. The temperatures under the bars are the firmware's own breakpoints and are shown for reference — like MSI Center M, only the fan % is adjustable. The curve is written to the EC (both fans). Turn this off to return to MSI's firmware control."/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

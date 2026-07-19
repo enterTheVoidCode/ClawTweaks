@@ -14,7 +14,16 @@ namespace XboxGamingBarHelper.Power
     // Performance tab with an "experimental" badge.
     internal static class CpuAdvancedApply
     {
-        public const bool Enabled = true;
+        /// <summary>Compile-time master switch. Kept so the whole subsystem can be disabled at once.</summary>
+        public const bool Compiled = true;
+
+        /// <summary>Per-device gate, set once from the detected device's SupportsCpuAdvanced capability.
+        /// False on the Claw 8 EX (Panther Lake): the scheduling policy and P/E max-frequency settings are
+        /// not reliably persistent there. Gating here — at the single point every apply already checks —
+        /// means a stored profile value cannot be applied behind the disabled UI either.</summary>
+        public static bool DeviceSupported = true;
+
+        public static bool Enabled => Compiled && DeviceSupported;
     }
 
     /// <summary>Processor scheduling policy 0-4 (Auto, Prefer P, Prefer E, Only P, Only E).</summary>

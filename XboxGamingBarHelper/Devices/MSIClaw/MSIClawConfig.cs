@@ -90,6 +90,7 @@ namespace XboxGamingBarHelper.Devices.MSIClaw
         public override bool SupportsFirmwareKeyboardRemap => Spec.SupportsFirmwareKeyboardRemap;
         public override bool SupportsFanControl         => Spec.SupportsFanControl;
         public override bool SupportsDriverManagement   => Spec.SupportsDriverManagement;
+        public override bool SupportsCpuAdvanced        => Spec.SupportsCpuAdvanced;
         public override bool HasTouchpad                => Spec.HasTouchpad;
         public override bool HasScrollWheel             => Spec.HasScrollWheel;
         public override bool HasDetachableControllers   => Spec.HasDetachableControllers;

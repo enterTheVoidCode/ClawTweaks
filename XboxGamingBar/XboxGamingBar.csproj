@@ -262,6 +262,7 @@
     <Compile Include="Data\Device\DeviceSupportsGyroProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsFirmwareKeyboardRemapProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsFanControlProperty.cs" />
+    <Compile Include="Data\Device\DeviceSupportsCpuAdvancedProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsDriverManagementProperty.cs" />
     <Compile Include="Data\Device\DeviceMaxPL1Property.cs" />
     <Compile Include="Data\Device\DeviceMaxPL2Property.cs" />

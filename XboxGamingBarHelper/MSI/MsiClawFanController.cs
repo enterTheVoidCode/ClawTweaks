@@ -110,15 +110,19 @@ namespace XboxGamingBarHelper.MSI
             }
 
             byte[] fan = BuildFanTable(duties5);
-            byte[] thermal = BuildThermalTable(temps5);
 
-            SetThermalTable(thermal); // temperature breakpoints (X-axis) — MSI's fixed axis, now editable
+            // The temperature axis is deliberately NOT written. MSI Center M never writes it either: the
+            // decompile contains no Set_Thermal at all, and reads Get_Temperature purely to cache the
+            // factory defaults — skipping payload indices 1 and 2, which hold thermal ceilings (Tmax/Tcrit)
+            // rather than curve points. Writing that block is what zeroed the Claw 8 EX's 90 °C ceiling and
+            // left the CPU clock-limited until a reboot. The axis is now read-only: the EC's own
+            // breakpoints are displayed, and only the fan duties are ours to set.
             SetFanTable(fan);         // duty per breakpoint (Y-axis)
-            SetFanControl(true);      // software mode → EC follows our tables
+            SetFanControl(true);      // software mode → EC follows our table
             // Critical: clear the "full speed" override (block 152 bit7). If MSI Center or a prior state
             // left it set, the fan runs 100% regardless of our table — the EC ignores the curve entirely.
             SetFanFullSpeed(false);
-            Logger.Info($"MsiClawFanController: applied MSI fan curve fan=[{string.Join(",", fan)}] thermal=[{string.Join(",", thermal)}] (full-speed cleared)");
+            Logger.Info($"MsiClawFanController: applied MSI fan curve fan=[{string.Join(",", fan)}] (temp axis untouched, full-speed cleared)");
             return true;
         }
 
@@ -135,12 +139,8 @@ namespace XboxGamingBarHelper.MSI
             return new byte[8] { 0, 0, D(0), D(1), D(2), D(3), D(4), D(4) };
         }
 
-        /// <summary>Builds the 7-byte Set_Thermal breakpoint table from 5 temps °C: [0, t1..t5, t5(dup)].</summary>
-        public static byte[] BuildThermalTable(int[] temps5)
-        {
-            byte T(int i) => (byte)Math.Max(0, Math.Min(120, temps5[i]));
-            return new byte[7] { 0, T(0), T(1), T(2), T(3), T(4), T(4) };
-        }
+        // BuildThermalTable / SetThermalTable intentionally removed: the temperature axis is EC-owned and
+        // MSI Center M never writes it. See the note in ApplyMsiCurve.
 
         /// <summary>
         /// MSI-clean firmware hand-back — replicates exactly what MSI Center M leaves behind in its
@@ -363,60 +363,61 @@ namespace XboxGamingBarHelper.MSI
 
         // ── Low-level WMI operations (ported 1:1 from ClawA1M) ─────────────────────
 
-        /// <summary>Writes the 8-byte fan table to both CPU (block 1) and GPU (block 2), then
-        /// reads it back and logs the comparison so the actually-applied values are verifiable.</summary>
+        /// <summary>Writes the fan duty table to both CPU (block 1) and GPU (block 2), then reads it back
+        /// and logs the comparison so the actually-applied values are verifiable.
+        ///
+        /// MSI-exact read-modify-write (Adv_Fan in the Center M decompile): read the current table and
+        /// overwrite ONLY the six duty slots, leaving the leading and trailing bytes exactly as the EC had
+        /// them. Those boundary bytes are firmware state, not curve points — on the Claw 8 EX the EC ships
+        /// non-zero values there, and blanket-writing the whole table clobbered them (observed: the CPU
+        /// thermal ceiling went to 0 and the CPU stayed clock-limited until a reboot restored it). On the
+        /// A2VM they happen to be 0, which is why the old full-table write looked correct there.</summary>
         private static void SetFanTable(byte[] fanTable)
         {
             for (byte iDataBlockIndex = 1; iDataBlockIndex <= 2; iDataBlockIndex++)
             {
                 string blk = iDataBlockIndex == 1 ? "CPU" : "GPU";
 
-                // Read current (keeps firmware happy) then write the full 32-byte package.
+                // Read current: this is the base we modify, not just a firmware courtesy read.
                 byte[] before = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Fan", iDataBlockIndex, 32, out bool readBefore);
                 Logger.Info($"MsiClawFan[{blk}]: before write (read ok={readBefore}) table=[{Hex(before, 8)}]");
 
+                if (!readBefore || before == null || before.Length < 8)
+                {
+                    // Without a base we cannot preserve the EC's boundary bytes, and guessing them is what
+                    // caused the EX regression. Skip rather than write a table we know may be wrong.
+                    Logger.Warn($"MsiClawFan[{blk}]: skipping write — Get_Fan failed, refusing to write a table without the EC's current boundary bytes");
+                    continue;
+                }
+
                 byte[] fullPackage = new byte[32];
                 fullPackage[0] = iDataBlockIndex;
-                Array.Copy(fanTable, 0, fullPackage, 1, fanTable.Length);
-                Logger.Info($"MsiClawFan[{blk}]: writing table=[{string.Join(",", fanTable)}]");
+                // Start from the EC's current table, then patch only the duty slots (payload index 1..6,
+                // i.e. package index 2..7) exactly like MSI's Adv_Fan.
+                Array.Copy(before, 0, fullPackage, 1, Math.Min(before.Length, 31));
+                for (int i = 1; i <= 6; i++)
+                    fullPackage[1 + i] = fanTable[i];
+                Logger.Info($"MsiClawFan[{blk}]: writing duty slots [1..6]=[{string.Join(",", new ArraySegment<byte>(fanTable, 1, 6))}] (boundary bytes preserved)");
 
                 var setResult = MsiClawWmi.Set(MsiClawWmi.Scope, MsiClawWmi.Path, "Set_Fan", fullPackage);
                 if (setResult == null)
                     Logger.Warn($"MsiClawFan[{blk}]: Set_Fan returned null (WMI call may have failed)");
 
                 // Verify: read the table back and compare to what we asked for.
+                // Verify only the slots we actually wrote — the boundary bytes are the EC's, not ours.
                 byte[] after = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Fan", iDataBlockIndex, 32, out bool readAfter);
-                bool matches = readAfter && after.Length >= 8 && TableMatches(fanTable, after);
-                Logger.Info($"MsiClawFan[{blk}]: read-back (ok={readAfter}) table=[{Hex(after, 8)}] -> {(matches ? "MATCH" : "MISMATCH")}");
+                bool matches = readAfter && after != null && after.Length >= 8;
+                if (matches)
+                {
+                    for (int i = 1; i <= 6 && matches; i++)
+                        matches = after[i] == fanTable[i];
+                }
+                Logger.Info($"MsiClawFan[{blk}]: read-back (ok={readAfter}) table=[{Hex(after, 8)}] -> duty slots {(matches ? "MATCH" : "MISMATCH")}");
             }
         }
 
-        /// <summary>Writes the 7-byte temperature-breakpoint table (Set_Thermal) to both fan blocks and
-        /// reads it back, so the temperature axis (X) is verifiable. Mirrors <see cref="SetFanTable"/>.
-        /// This is the differentiator over MSI Center M, which keeps the temp axis fixed.</summary>
-        private static void SetThermalTable(byte[] thermalTable)
-        {
-            for (byte iDataBlockIndex = 1; iDataBlockIndex <= 2; iDataBlockIndex++)
-            {
-                string blk = iDataBlockIndex == 1 ? "CPU" : "GPU";
-
-                byte[] before = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Thermal", iDataBlockIndex, 32, out bool readBefore);
-                Logger.Info($"MsiClawThermal[{blk}]: before write (read ok={readBefore}) axis=[{Hex(before, 7)}]");
-
-                byte[] fullPackage = new byte[32];
-                fullPackage[0] = iDataBlockIndex;
-                Array.Copy(thermalTable, 0, fullPackage, 1, thermalTable.Length);
-                Logger.Info($"MsiClawThermal[{blk}]: writing axis=[{string.Join(",", thermalTable)}]");
-
-                var setResult = MsiClawWmi.Set(MsiClawWmi.Scope, MsiClawWmi.Path, "Set_Thermal", fullPackage);
-                if (setResult == null)
-                    Logger.Warn($"MsiClawThermal[{blk}]: Set_Thermal returned null (WMI call may have failed)");
-
-                byte[] after = MsiClawWmi.Get(MsiClawWmi.Scope, MsiClawWmi.Path, "Get_Thermal", iDataBlockIndex, 32, out bool readAfter);
-                bool matches = readAfter && after.Length >= 7 && ArrayPrefixMatches(thermalTable, after, 7);
-                Logger.Info($"MsiClawThermal[{blk}]: read-back (ok={readAfter}) axis=[{Hex(after, 7)}] -> {(matches ? "MATCH" : "MISMATCH")}");
-            }
-        }
+        // SetThermalTable removed on purpose — see the note in ApplyMsiCurve. The temperature breakpoints
+        // are read via GetFirmwareTempAxis for display only; nothing writes Set_Thermal any more.
 
         private static bool ArrayPrefixMatches(byte[] wanted, byte[] readBack, int count)
         {

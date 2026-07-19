@@ -1,51 +1,49 @@
 using System;
+using System.Linq;
 using System.Threading;
 using HidSharp;
+using HidSharp.Reports;
+using HidSharp.Reports.Input;
 using NLog;
-using XboxGamingBarHelper.Devices.MSIClaw;
 
 namespace XboxGamingBarHelper.ControllerEmulation
 {
     /// <summary>
     /// Gyro source adapter that reads the controller's own vendor-HID motion stream instead of a
-    /// Windows sensor. This mirrors what MSI Center M does (see
-    /// reverse_engineered/RE_MSI_Gyro_and_RPM_sources.md): MSI never touches a Windows sensor — it
-    /// enables motion uploading over the controller's vendor HID and consumes the resulting frames.
+    /// Windows sensor. Ported from the MSI Center M decompile (API_ControlMode.dll — see
+    /// reverse_engineered/RE_MSI_Gyro_and_RPM_sources.md §5), which is where the exact protocol and,
+    /// importantly, the exact HidSharp usage came from. MSI's motion path is entirely model-agnostic:
+    /// the same code runs on the A2VM and the Claw 8 EX (all eight 1T91 branches in that assembly are
+    /// about M1/M2 key names, none touch motion), so this adapter is correct for both.
     ///
     ///   Enable : CommandType.SetMotionStatus = 47 (0x2F), payload byte 1 = start, 0 = stop.
-    ///   Frame  : CommandType.MotionDataAck   = 48 (0x30).
-    ///            Little-endian uint16 per axis, each carrying a +32768 bias:
-    ///            Gx @5, Gy @7, Gz @9, Ax @11, Ay @13, Az @15.
-    ///
-    /// Used on the Claw 8 EX (Panther Lake), which does not expose the IMU as a Windows sensor the
-    /// way the A2VM does — the Windows-sensor path yields no samples there. The A2VM keeps using
-    /// <see cref="ClawGyroSourceAdapter"/> (Windows sensor), so the proven dev-device path is
-    /// untouched.
-    ///
-    /// The output is put through the SAME ClawA1M axis remap the Windows-sensor path applies, so
-    /// everything downstream (gyro-to-stick, gyro-mouse, calibration) sees identical conventions on
-    /// both devices.
+    ///   Frame  : DeviceMessage builds { 15, 0, 0, 60, commandId } + payload
+    ///            -> SetMotionStatus(true) is literally 0F 00 00 3C 2F 01.
+    ///            The leading 15 is the HID REPORT ID, not a magic constant.
+    ///   Data   : CommandType.MotionDataAck = 48 at byte[4]; six signed little-endian int16 axes at
+    ///            byte 5,7,9 (gyro) and 11,13,15 (accel). MSI adds 32768 for its own display model —
+    ///            the physical signed reading is the raw ToInt16, with no bias arithmetic.
     /// </summary>
     internal sealed class ClawHidGyroSourceAdapter : IGyroSourceAdapter
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
-        // Vendor command frame layout, identical to MSIClawHidController's SwitchMode frames:
-        // { 0x0F, 0x00, 0x00, 0x3C, <CommandType>, <payload...> }
+        private const int VendorId = 0x0DB0;   // MSI (Center M's IncludeVidPid: VID 3504)
         private const byte CmdSetMotionStatus = 0x2F;   // 47
         private const byte CmdMotionDataAck   = 0x30;   // 48
-        private const int  AxisBias           = 32768;
+        private const byte CommandReportId    = 15;     // vendor command interface report ID
 
-        // Raw-LSB -> physical-unit scales. The decompile documents the frame LAYOUT but not the
+        // Raw-LSB -> physical-unit scales. The decompile documents the frame layout but not the
         // sensor's full-scale range, so these are the defaults for the ICM-4xxxx-class IMU this
-        // controller family uses (gyro +/-2000 dps, accel +/-8 g). They only affect MAGNITUDE, not
-        // direction — if the EX gyro moves the right way but feels too fast/slow, this is the knob.
+        // controller family uses (gyro +/-2000 dps, accel +/-8 g). They affect MAGNITUDE only, not
+        // direction. On the A2VM the Windows-sensor path can be used side by side to calibrate them.
         private const float GyroDegPerSecondPerLsb = 1f / 16.4f;
         private const float AccelGPerLsb           = 1f / 4096f;
 
         private readonly object sync = new object();
 
         private HidStream stream;
+        private HidDeviceInputReceiver receiver;
         private Thread readerThread;
         private volatile bool running;
         private GyroSample latest;
@@ -63,17 +61,25 @@ namespace XboxGamingBarHelper.ControllerEmulation
 
                 try
                 {
-                    HidDevice device = MSIClawHidController.FindClawHidDeviceInternal();
-                    if (device == null)
+                    if (!TryOpenCommandInterface(out HidDevice device, out ReportDescriptor descriptor))
                     {
-                        Logger.Warn("[ClawHidGyro] Controller vendor HID not found - cannot start motion stream");
+                        Logger.Warn("[ClawHidGyro] No vendor command interface found (no output report ID 15) - cannot start motion stream");
                         return false;
                     }
 
-                    stream = device.Open();
-                    // No write timeout concerns; reads must time out so the thread can observe `running`.
+                    if (!device.TryOpen(out stream))
+                    {
+                        Logger.Warn("[ClawHidGyro] TryOpen failed on the vendor command interface");
+                        return false;
+                    }
+
+                    // MSI runs the receiver with an infinite read timeout and drives its own 1 s wait
+                    // loop; a short stream timeout is the wrong model for this interface.
+                    stream.ReadTimeout = -1;
                     stream.WriteTimeout = 300;
-                    stream.ReadTimeout  = 500;
+
+                    receiver = descriptor.CreateHidDeviceInputReceiver();
+                    receiver.Start(stream);
 
                     if (!SendMotionStatus(true))
                     {
@@ -82,14 +88,14 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     }
 
                     running = true;
-                    readerThread = new Thread(ReadLoop)
+                    readerThread = new Thread(() => ReadLoop(device.GetMaxInputReportLength()))
                     {
                         IsBackground = true,
                         Name = "ClawHidGyroReader",
                     };
                     readerThread.Start();
 
-                    Logger.Info("[ClawHidGyro] Motion stream started (SetMotionStatus=1)");
+                    Logger.Info($"[ClawHidGyro] Motion stream started (SetMotionStatus=1) on {device.DevicePath}");
                     return true;
                 }
                 catch (Exception ex)
@@ -99,6 +105,39 @@ namespace XboxGamingBarHelper.ControllerEmulation
                     return false;
                 }
             }
+        }
+
+        /// <summary>
+        /// Find the vendor command interface the way MSI does: not by usage page, but by the report
+        /// descriptor carrying an OUTPUT report with ID 15. (MSI's own check is
+        /// <c>descriptor.OutputReports.Any(x =&gt; x.ReportID == 15)</c>; a gamepad interface is the one
+        /// with output report ID 5.) Matching on usage page 0xFFA0 happens to hit the same interface on
+        /// the A2VM but is not what the vendor stack keys on.
+        /// </summary>
+        private static bool TryOpenCommandInterface(out HidDevice device, out ReportDescriptor descriptor)
+        {
+            device = null;
+            descriptor = null;
+
+            foreach (var candidate in DeviceList.Local.GetHidDevices().Where(d => d.VendorID == VendorId))
+            {
+                ReportDescriptor rd;
+                try { rd = candidate.GetReportDescriptor(); }
+                catch (Exception ex)
+                {
+                    Logger.Debug($"[ClawHidGyro] GetReportDescriptor failed for {candidate.DevicePath}: {ex.Message}");
+                    continue;
+                }
+                if (rd == null) continue;
+
+                if (rd.OutputReports.Any(r => r.ReportID == CommandReportId))
+                {
+                    device = candidate;
+                    descriptor = rd;
+                    return true;
+                }
+            }
+            return false;
         }
 
         public void Stop()
@@ -121,7 +160,7 @@ namespace XboxGamingBarHelper.ControllerEmulation
             // Joined outside the lock: the reader takes `sync` when publishing samples.
             if (toJoin != null && toJoin.IsAlive)
             {
-                try { toJoin.Join(1000); } catch { }
+                try { toJoin.Join(1500); } catch { }
             }
 
             Logger.Info("[ClawHidGyro] Motion stream stopped (SetMotionStatus=0)");
@@ -142,12 +181,8 @@ namespace XboxGamingBarHelper.ControllerEmulation
             if (s == null) return false;
             try
             {
-                byte[] msg = new byte[64];
-                msg[0] = 0x0F;
-                msg[3] = 0x3C;
-                msg[4] = CmdSetMotionStatus;
-                msg[5] = (byte)(enable ? 1 : 0);
-                s.Write(msg);
+                // Exactly MSI's DeviceMessage: { 15, 0, 0, 60, commandId, payload }.
+                s.Write(new byte[] { CommandReportId, 0, 0, 60, CmdSetMotionStatus, (byte)(enable ? 1 : 0) });
                 return true;
             }
             catch (Exception ex)
@@ -157,64 +192,95 @@ namespace XboxGamingBarHelper.ControllerEmulation
             }
         }
 
-        private void ReadLoop()
+        private void ReadLoop(int maxInputReportLength)
         {
-            byte[] buf = new byte[64];
-            int consecutiveErrors = 0;
+            byte[] buf = new byte[Math.Max(maxInputReportLength, 64)];
+
+            // Diagnostics: this protocol has never been observed on our hardware, so the first runs
+            // must be able to answer "does anything arrive, and what is it?". Self-limiting: the first
+            // few frames verbatim, then one summary line every 5 s.
+            int framesSeen = 0, framesMatched = 0, framesLogged = 0;
+            var lastSummary = DateTime.UtcNow;
 
             while (running)
             {
-                int n;
                 try
                 {
-                    n = stream.Read(buf);
-                    consecutiveErrors = 0;
-                }
-                catch (TimeoutException)
-                {
-                    continue;   // no frame in this window; the controller only sends while moving
+                    if (!receiver.WaitHandle.WaitOne(1000))
+                    {
+                        LogSummaryIfDue(ref lastSummary, ref framesSeen, ref framesMatched);
+                        continue;
+                    }
+                    if (!receiver.IsRunning)
+                    {
+                        Logger.Warn("[ClawHidGyro] Input receiver stopped (device removed or mode switched)");
+                        break;
+                    }
+
+                    while (receiver.TryRead(buf, 0, out Report report))
+                    {
+                        int n = report.Length;
+                        if (n <= 0) continue;
+                        framesSeen++;
+
+                        if (framesLogged < 8)
+                        {
+                            framesLogged++;
+                            var sb = new System.Text.StringBuilder();
+                            for (int i = 0; i < Math.Min(n, 20); i++) sb.Append(buf[i].ToString("X2")).Append(' ');
+                            Logger.Info($"[ClawHidGyro] rx[{framesLogged}] id={report.ReportID} len={n}: {sb.ToString().TrimEnd()}");
+                        }
+
+                        // Need bytes 5..16 for the six axes.
+                        if (n < 17 || buf[4] != CmdMotionDataAck) continue;
+                        framesMatched++;
+
+                        GyroSample sample = Parse(buf);
+                        lock (sync)
+                        {
+                            latest = sample;
+                            hasLatest = true;
+                        }
+                        SampleReady?.Invoke(sample);
+                    }
+
+                    LogSummaryIfDue(ref lastSummary, ref framesSeen, ref framesMatched);
                 }
                 catch (Exception ex)
                 {
-                    // The device can drop out on a mode switch (XInput <-> DInput) or on sleep/resume.
                     if (!running) break;
-                    if (++consecutiveErrors >= 5)
-                    {
-                        Logger.Warn($"[ClawHidGyro] Read loop giving up after repeated errors: {ex.Message}");
-                        break;
-                    }
-                    Thread.Sleep(50);
-                    continue;
+                    Logger.Warn($"[ClawHidGyro] Read loop error: {ex.Message}");
+                    break;
                 }
-
-                // Need bytes 5..16 for the six axes.
-                if (n < 17 || buf[4] != CmdMotionDataAck) continue;
-
-                GyroSample sample = Parse(buf);
-
-                lock (sync)
-                {
-                    latest = sample;
-                    hasLatest = true;
-                }
-
-                SampleReady?.Invoke(sample);
             }
         }
 
+        private static void LogSummaryIfDue(ref DateTime lastSummary, ref int framesSeen, ref int framesMatched)
+        {
+            if ((DateTime.UtcNow - lastSummary).TotalSeconds < 5) return;
+            lastSummary = DateTime.UtcNow;
+            Logger.Info($"[ClawHidGyro] rx summary: frames={framesSeen}, motionFrames={framesMatched}");
+            if (framesSeen == 0)
+                Logger.Warn("[ClawHidGyro] no HID reports at all on the command interface - the controller is not sending motion (SetMotionStatus not accepted, or the sensor module is disabled in the device profile).");
+            else if (framesMatched == 0)
+                Logger.Warn("[ClawHidGyro] reports arrive but none carry the MotionDataAck command byte - see the rx dumps above for the actual layout.");
+            framesSeen = framesMatched = 0;
+        }
+
         /// <summary>
-        /// Decode a MotionDataAck frame. Each axis is a little-endian uint16 biased by +32768, so the
-        /// signed reading is (raw - 32768); scaled to deg/s and g, then put through the ClawA1M axis
-        /// remap so this matches the Windows-sensor path exactly.
+        /// Decode a MotionDataAck frame. Each axis is a SIGNED little-endian int16 — MSI's
+        /// <c>BitConverter.ToInt16(data, N) + 32768</c> adds a bias purely for its own display model,
+        /// so the physical reading is the plain signed value. Scaled to deg/s and g, then put through
+        /// the ClawA1M axis remap so this matches the Windows-sensor path exactly.
         /// </summary>
         private static GyroSample Parse(byte[] d)
         {
-            float gx = Axis(d, 5)  * GyroDegPerSecondPerLsb;
-            float gy = Axis(d, 7)  * GyroDegPerSecondPerLsb;
-            float gz = Axis(d, 9)  * GyroDegPerSecondPerLsb;
-            float ax = Axis(d, 11) * AccelGPerLsb;
-            float ay = Axis(d, 13) * AccelGPerLsb;
-            float az = Axis(d, 15) * AccelGPerLsb;
+            float gx = BitConverter.ToInt16(d, 5)  * GyroDegPerSecondPerLsb;
+            float gy = BitConverter.ToInt16(d, 7)  * GyroDegPerSecondPerLsb;
+            float gz = BitConverter.ToInt16(d, 9)  * GyroDegPerSecondPerLsb;
+            float ax = BitConverter.ToInt16(d, 11) * AccelGPerLsb;
+            float ay = BitConverter.ToInt16(d, 13) * AccelGPerLsb;
+            float az = BitConverter.ToInt16(d, 15) * AccelGPerLsb;
 
             // Same remap as ClawGyroSourceAdapter (HC ClawA1M.cs): Y<->Z swapped, gyro Z negated,
             // accel X and Y negated.
@@ -228,11 +294,9 @@ namespace XboxGamingBarHelper.ControllerEmulation
                 timestampTicksUtc:  DateTime.UtcNow.Ticks);
         }
 
-        private static int Axis(byte[] d, int offset)
-            => (d[offset] | (d[offset + 1] << 8)) - AxisBias;
-
         private void CloseStream()
         {
+            try { receiver = null; } catch { }
             HidStream s = stream;
             stream = null;
             if (s == null) return;

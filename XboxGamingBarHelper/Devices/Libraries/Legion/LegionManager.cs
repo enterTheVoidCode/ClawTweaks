@@ -283,6 +283,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
         public readonly DeviceSupportsFirmwareKeyboardRemapProperty DeviceSupportsFirmwareKeyboardRemap;
         public readonly DeviceSupportsFanControlProperty DeviceSupportsFanControl;
         public readonly DeviceSupportsDriverManagementProperty DeviceSupportsDriverManagement;
+        public readonly DeviceSupportsCpuAdvancedProperty DeviceSupportsCpuAdvanced;
         public readonly DeviceMaxPL1Property DeviceMaxPL1;
         public readonly DeviceMaxPL2Property DeviceMaxPL2;
         public readonly DeviceHasScrollWheelProperty DeviceHasScrollWheel;
@@ -570,6 +571,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             bool supportsFwKeyboardRemap = deviceInfo?.SupportsFirmwareKeyboardRemap ?? false;
             bool supportsFanControl = deviceInfo?.SupportsFanControl ?? false;
             bool supportsDriverManagement = deviceInfo?.SupportsDriverManagement ?? true;
+            bool supportsCpuAdvanced = deviceInfo?.SupportsCpuAdvanced ?? true;
             int maxPL1 = deviceInfo?.MaxPL1 ?? 30;
             int maxPL2 = deviceInfo?.MaxPL2 ?? 37;
             bool hasScrollWheel = deviceInfo?.HasScrollWheel ?? true;
@@ -583,6 +585,7 @@ namespace XboxGamingBarHelper.Devices.Libraries.Legion
             DeviceSupportsFirmwareKeyboardRemap = new DeviceSupportsFirmwareKeyboardRemapProperty(supportsFwKeyboardRemap, this);
             DeviceSupportsFanControl = new DeviceSupportsFanControlProperty(supportsFanControl, this);
             DeviceSupportsDriverManagement = new DeviceSupportsDriverManagementProperty(supportsDriverManagement, this);
+            DeviceSupportsCpuAdvanced = new DeviceSupportsCpuAdvancedProperty(supportsCpuAdvanced, this);
             DeviceMaxPL1 = new DeviceMaxPL1Property(maxPL1, this);
             DeviceMaxPL2 = new DeviceMaxPL2Property(maxPL2, this);
             DeviceHasScrollWheel = new DeviceHasScrollWheelProperty(hasScrollWheel, this);

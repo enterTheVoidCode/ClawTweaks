@@ -310,7 +310,12 @@ namespace XboxGamingBar
                     Stroke = new SolidColorBrush(Windows.UI.Colors.White),
                     StrokeThickness = 1.0,
                     IsHitTestVisible = false,
-                    Tag = i
+                    Tag = i,
+                    // Hidden while the temp axis is read-only: the arrows advertise "drag me sideways",
+                    // which is no longer true. Kept in the tree so the layout/highlight code is unchanged.
+                    Visibility = MsiFanTempAxisEditable
+                        ? Windows.UI.Xaml.Visibility.Visible
+                        : Windows.UI.Xaml.Visibility.Collapsed
                 };
                 Canvas.SetZIndex(arrow, 11);
                 _msiFanTempHandles[i] = arrow;
@@ -694,8 +699,9 @@ namespace XboxGamingBar
 
             double plotBottom = height - MsiPlotBottomPad;
             int col = MsiFanColumnAtX(point.X, width);
-            // Bottom strip (under the bars) = temperature edit; the bar area = fan-% edit.
-            bool isTemp = point.Y >= plotBottom - 2;
+            // Bottom strip (under the bars) used to be the temperature edit; the bar area = fan-% edit.
+            // The temp axis is read-only now, so a press anywhere always edits the duty bar.
+            bool isTemp = MsiFanTempAxisEditable && point.Y >= plotBottom - 2;
 
             _msiFanDragIndex = col;
             _msiFanDragIsTemp = isTemp;
@@ -914,6 +920,12 @@ namespace XboxGamingBar
         private bool _msiFanGrabbed;
         private bool _msiFanSelectingTemp;   // false = duty circle, true = temp handle
 
+        /// <summary>The temperature axis is EC-owned and is no longer written (MSI Center M never writes
+        /// it either — see MsiClawFanController.ApplyMsiCurve). The breakpoints stay on screen as labels so
+        /// the curve is readable, but they are not editable: an editable control that cannot reach the
+        /// hardware is worse than none. Only the fan duties are ours to set.</summary>
+        private const bool MsiFanTempAxisEditable = false;
+
         private void MsiFanCurveCanvas_GotFocus(object sender, RoutedEventArgs e)
         {
             if (_msiFanSelectedPoint < 0) _msiFanSelectedPoint = 0;
@@ -979,7 +991,9 @@ namespace XboxGamingBar
             }
             else if (down)
             {
-                if (!_msiFanSelectingTemp) { _msiFanSelectingTemp = true; HighlightMsiFanPoints(); }  // duty → temp handle
+                // With the temp axis read-only there is no second handle row to step into, so down always
+                // leaves the graph.
+                if (MsiFanTempAxisEditable && !_msiFanSelectingTemp) { _msiFanSelectingTemp = true; HighlightMsiFanPoints(); }  // duty → temp handle
                 // Leave down: to Apply when there are pending edits (it's in the tab order only then), else Check.
                 else if (_msiFanDirty && MsiFanApplyButton != null) MsiFanApplyButton.Focus(Windows.UI.Xaml.FocusState.Keyboard);
                 else if (MsiFanCheckButton != null) MsiFanCheckButton.Focus(Windows.UI.Xaml.FocusState.Keyboard);
@@ -1318,6 +1332,46 @@ namespace XboxGamingBar
                 Logger.Info($"ClawHidProbe: '{hex}' read={read}");
             }
             catch (Exception ex) { Logger.Error($"ClawHidProbeSend: {ex.Message}"); }
+        }
+
+        // ── Gyro source selector (Debug) ──────────────────────────────────────────
+        // 0 = Auto (per-device default), 1 = Windows sensor, 2 = controller vendor HID.
+        private const string ClawGyroSourceKey = "ClawGyroSource";
+        private bool _clawGyroSourceLoading;
+
+        /// <summary>Restore the stored choice and push it to the helper, which keeps no persistence of
+        /// its own for this (it is a Debug-only override, so the widget owns the value).</summary>
+        private async void RestoreClawGyroSource()
+        {
+            try
+            {
+                int mode = 0;
+                var stored = Windows.Storage.ApplicationData.Current.LocalSettings.Values[ClawGyroSourceKey];
+                if (stored is int i) mode = i;
+
+                _clawGyroSourceLoading = true;
+                if (ClawGyroSourceComboBox != null) ClawGyroSourceComboBox.SelectedIndex = ClampComboIndex(ClawGyroSourceComboBox, mode);
+                _clawGyroSourceLoading = false;
+
+                if (App.IsConnected)
+                    await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "ClawGyroSource", mode } });
+            }
+            catch (Exception ex) { _clawGyroSourceLoading = false; Logger.Error($"RestoreClawGyroSource: {ex.Message}"); }
+        }
+
+        private async void ClawGyroSourceComboBox_SelectionChanged(object sender, Windows.UI.Xaml.Controls.SelectionChangedEventArgs e)
+        {
+            if (_clawGyroSourceLoading) return;
+            try
+            {
+                int mode = ClawGyroSourceComboBox?.SelectedIndex ?? 0;
+                if (mode < 0) mode = 0;
+                Windows.Storage.ApplicationData.Current.LocalSettings.Values[ClawGyroSourceKey] = mode;
+                if (!App.IsConnected) return;
+                await App.SendMessageAsync(new Windows.Foundation.Collections.ValueSet { { "ClawGyroSource", mode } });
+                Logger.Info($"ClawGyroSource -> {mode}");
+            }
+            catch (Exception ex) { Logger.Error($"ClawGyroSourceChanged: {ex.Message}"); }
         }
 
         private void ClawHidProbeReadMode_Click(object sender, RoutedEventArgs e)

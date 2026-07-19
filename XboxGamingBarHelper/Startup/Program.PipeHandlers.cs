@@ -238,6 +238,25 @@ namespace XboxGamingBarHelper
                     return;
                 }
 
+                // Gyro source selector (Debug tab): 0 = Auto (per-device default), 1 = Windows sensor,
+                // 2 = controller vendor HID. Lets the HID path be exercised on the A2VM next to the
+                // proven Windows-sensor path without a rebuild.
+                if (pipeMsg.Extra.TryGetValue("ClawGyroSource", out object gyroSrcObj))
+                {
+                    try
+                    {
+                        int mode = Convert.ToInt32(gyroSrcObj);
+                        if (Labs.ClawButtonMonitor.SetGyroSourceMode(mode))
+                            clawButtonMonitor?.RemountGyroAdapter();
+                        SendPipeAck(pipeMsg.RequestId);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warn($"Pipe: ClawGyroSource failed: {ex.Message}");
+                    }
+                    return;
+                }
+
                 // EXPERIMENTAL controller-HID probe. Content = "<hex frame>|<read 0/1>", e.g. "0F 00 00 3C 26|1".
                 if (pipeMsg.Extra.TryGetValue("ClawHidProbe", out object hidProbeObj) && hidProbeObj is string hidProbeCmd)
                 {
