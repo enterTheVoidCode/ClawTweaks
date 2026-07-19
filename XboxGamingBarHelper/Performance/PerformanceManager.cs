@@ -566,17 +566,21 @@ namespace XboxGamingBarHelper.Performance
             // Initialize hardware sensors immediately (they'll work once hardware is detected)
             Logger.Info("Initializing hardware sensors...");
             CPUClock = new CPUClockSensor();
-            // Register up to 8 P-cores and 8 E-cores; unused slots simply never match a sensor.
+            // Register up to 8 P-cores and 16 E-cores; unused slots simply never match a sensor.
+            // The E-core count is 16, not 8, because LHM does NOT separate Low-Power E-cores: on the
+            // Claw 8 EX (Panther Lake, 2P + 8E + 4 LPE) all twelve appear as "E-Core #1".."E-Core #12"
+            // in one flat series. With only 8 slots the last four LPE cores were silently dropped from
+            // the OSD. Lunar Lake (A2VM, 4P + 4E) is unaffected either way.
             PCoreClocks = new CPUCoreClockSensor[8];
-            ECoreClocks = new CPUCoreClockSensor[8];
-            // Flat per-core LOAD slots "CPU Core #1".."CPU Core #16" (covers up to 16 physical cores).
+            ECoreClocks = new CPUCoreClockSensor[16];
+            // Flat per-core LOAD slots "CPU Core #1".."CPU Core #24" — must cover P + E together,
+            // since the OSD indexes this series by physical core position across both clusters.
             // LHM uses this flat naming for Load (unlike the hybrid clock names) — see CoreLoads doc.
-            CoreLoads = new CPUCoreLoadSensor[16];
-            for (int i = 0; i < 8; i++)
-            {
+            CoreLoads = new CPUCoreLoadSensor[24];
+            for (int i = 0; i < PCoreClocks.Length; i++)
                 PCoreClocks[i] = new CPUCoreClockSensor($"P-Core #{i + 1}");
+            for (int i = 0; i < ECoreClocks.Length; i++)
                 ECoreClocks[i] = new CPUCoreClockSensor($"E-Core #{i + 1}");
-            }
             for (int i = 0; i < CoreLoads.Length; i++)
                 CoreLoads[i] = new CPUCoreLoadSensor($"CPU Core #{i + 1}");
             CPUUsage = new CPUUsageSensor();
