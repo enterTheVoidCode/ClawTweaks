@@ -416,13 +416,8 @@ namespace XboxGamingBarHelper
 
                 if (string.Equals(target, "@ClawTweaksCenter", StringComparison.OrdinalIgnoreCase))
                 {
-                    string centerExe = ResolveClawTweaksCenterExe();
-                    if (centerExe == null)
-                    {
-                        Logger.Warn("LaunchProgramTarget: ClawTweaks Center is not installed — nothing to launch.");
-                        return;
-                    }
-                    target = centerExe;   // fall through to the normal exe path below
+                    LaunchClawTweaksCenter();
+                    return;
                 }
 
                 string ext = "";
@@ -464,6 +459,88 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Error($"LaunchProgramTarget({target}): {ex.Message}");
+            }
+        }
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        private static extern bool AllowSetForegroundWindow(int dwProcessId);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
+
+        private const int SW_SHOW = 5;
+        private const int SW_RESTORE = 9;
+
+        /// <summary>
+        /// Starts ClawTweaks Center and makes sure it comes up in FRONT rather than behind the
+        /// Game Bar / the game.
+        ///
+        /// Windows does not let an arbitrary process steal focus: SetForegroundWindow from the newly
+        /// started app alone is ignored and only flashes its taskbar button. The launching process has
+        /// to hand the right over first, which is what AllowSetForegroundWindow does. Center then
+        /// claims it on its own window (App.OnStartup -> ShowForeground). BOTH halves are required -
+        /// either one on its own is silently ineffective, which is exactly the "opens in the
+        /// background" symptom.
+        ///
+        /// If Center is already running we do not start a second copy (it is a single-window app):
+        /// the existing window is restored and raised instead.
+        /// </summary>
+        internal static void LaunchClawTweaksCenter()
+        {
+            string exe = ResolveClawTweaksCenterExe();
+            if (exe == null)
+            {
+                Logger.Warn("LaunchClawTweaksCenter: ClawTweaks Center is not installed - nothing to launch.");
+                return;
+            }
+
+            try
+            {
+                string procName = System.IO.Path.GetFileNameWithoutExtension(exe);
+                var running = System.Diagnostics.Process.GetProcessesByName(procName);
+                foreach (var p in running)
+                {
+                    IntPtr hWnd = p.MainWindowHandle;
+                    if (hWnd == IntPtr.Zero) continue;
+                    AllowSetForegroundWindow(p.Id);
+                    ShowWindow(hWnd, IsIconic(hWnd) ? SW_RESTORE : SW_SHOW);
+                    SetForegroundWindow(hWnd);
+                    Logger.Info("LaunchClawTweaksCenter: raised the already-running Center window.");
+                    return;
+                }
+
+                var started = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exe,
+                    UseShellExecute = true,     // required so the requireAdministrator manifest triggers UAC
+                    WorkingDirectory = SafeDir(exe)
+                });
+
+                if (started != null)
+                {
+                    // Grant the foreground right to the new process. Must happen while we still may -
+                    // hence immediately, not after waiting for its window.
+                    AllowSetForegroundWindow(started.Id);
+                    Logger.Info($"LaunchClawTweaksCenter: started {exe} (pid {started.Id}), foreground granted.");
+                }
+                else
+                {
+                    // Shell-handled start (e.g. routed through the UAC consent flow) gives us no Process
+                    // object and therefore no pid. Fall back to granting it to whoever asks next.
+                    const int ASFW_ANY = -1;
+                    AllowSetForegroundWindow(ASFW_ANY);
+                    Logger.Info($"LaunchClawTweaksCenter: started {exe} (no pid from shell), foreground granted to ANY.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"LaunchClawTweaksCenter({exe}): {ex.Message}");
             }
         }
 

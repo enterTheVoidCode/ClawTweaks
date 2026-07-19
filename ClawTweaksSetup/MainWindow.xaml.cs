@@ -194,8 +194,18 @@ namespace ClawTweaksSetup
         {
             if (!_phases[_index].CanContinue) return;      // hard gate: cannot skip an unfinished step
             _completed.Add(_index);                        // mark this phase done (checkmark in stepper)
-            if (_index < _phases.Count - 1) GoTo(_index + 1);
-            else Close();
+            if (_index < _phases.Count - 1) { GoTo(_index + 1); return; }
+
+            // Wizard finished. If InstallPhase completed a real install/update this run (helper
+            // confirmed elevated and running), hand off to ClawTweaks Center's home page — that's
+            // where onboarding (Center M off, virtual controller on, Game Bar auto-jump) lives now,
+            // see Doku/PLAN_Center_Helper_Integration.md §3 Phase 3.
+            var installPhase = _phases.OfType<Phases.InstallPhase>().FirstOrDefault();
+            if (installPhase != null && installPhase.ReadyForOnboarding)
+            {
+                new CenterMenuWindow(startOnboarding: true).Show();
+            }
+            Close();
         }
 
         private void OnPhaseChanged()

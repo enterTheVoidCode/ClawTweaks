@@ -63,6 +63,18 @@ namespace XboxGamingBarHelper
                 // Convert to ValueSet for compatibility with existing handlers
                 var valueSet = pipeMsg.ToValueSet();
 
+                // ClawTweaks Center asks for a fresh status snapshot (e.g. opening the onboarding
+                // view) — replies ONLY on the pipe the request came from (sender), never on the
+                // widget pipe. Deliberately its own block instead of routing through the generic
+                // RequestId-echo path a few hundred lines down, which always replies via the widget's
+                // `pipeServer` field — fine for the widget's own requests, wrong for Center's.
+                if (pipeMsg.Extra.ContainsKey("CenterRequestStatus"))
+                {
+                    if (sender is IPC.NamedPipeServer requester)
+                        PushCenterStatusSnapshot(requester);
+                    return;
+                }
+
                 // Handle power plan change request
                 if (pipeMsg.Extra.TryGetValue("PowerPlan", out object powerPlanValue) && powerPlanValue is string guidStr)
                 {
@@ -2855,21 +2867,61 @@ namespace XboxGamingBarHelper
         }
 
         /// <summary>
-        /// Returns true if the Named Pipe to the widget is connected.
+        /// Returns true if the Named Pipe to the widget OR to ClawTweaks Center is connected.
         /// </summary>
-        public static bool IsPipeConnected => pipeServer != null && pipeServer.IsConnected;
+        public static bool IsPipeConnected =>
+            (pipeServer != null && pipeServer.IsConnected) ||
+            (centerPipeServer != null && centerPipeServer.IsConnected);
 
         /// <summary>
-        /// Sends a message to the widget via Named Pipe
+        /// Broadcasts a message to every connected pipe client (widget and/or Center). This is how a
+        /// HelperProperty's value-change gets announced — property SETS coming IN from either pipe are
+        /// applied once (see PipeServer_MessageReceived → properties.HandlePipeMessage) and the
+        /// resulting new value goes back OUT to both, so Center and the widget always agree on state
+        /// without needing their own sync logic.
         /// </summary>
         public static bool SendPipeMessage(Shared.IPC.PipeMessage message)
         {
-            if (pipeServer == null || !pipeServer.IsConnected)
+            bool sentAny = false;
+            string json = null;
+
+            if (pipeServer != null && pipeServer.IsConnected)
             {
-                Logger.Debug("Cannot send pipe message - not connected");
-                return false;
+                json = message.ToJson();
+                if (pipeServer.SendMessage(json)) sentAny = true;
             }
-            return pipeServer.SendMessage(message.ToJson());
+
+            if (centerPipeServer != null && centerPipeServer.IsConnected)
+            {
+                json ??= message.ToJson();
+                if (centerPipeServer.SendMessage(json)) sentAny = true;
+            }
+
+            if (!sentAny)
+                Logger.Debug("Cannot send pipe message - not connected");
+            return sentAny;
+        }
+
+        /// <summary>
+        /// Pushes the current values of the properties ClawTweaks Center's onboarding sequence cares
+        /// about — read directly from the live property objects (Manager.Property.Value), not a pipe
+        /// round-trip. Sent ONLY to <paramref name="target"/> (defaults to the Center pipe) so this
+        /// never doubles up on the widget pipe, which already knows its own state.
+        /// </summary>
+        private static void PushCenterStatusSnapshot(IPC.NamedPipeServer target = null)
+        {
+            target = target ?? centerPipeServer;
+            if (target == null || !target.IsConnected) return;
+
+            void PushBool(Function function, bool? value)
+            {
+                if (value == null) return;
+                var msg = new Shared.IPC.PipeMessage { Command = Shared.Enums.Command.Response, Function = function, Content = value.Value ? "True" : "False" };
+                target.SendMessage(msg.ToJson());
+            }
+
+            PushBool(Function.MsiCenterActive, msiCenterManager?.MsiCenterActive?.Value);
+            PushBool(Function.ControllerEmulationEnabled, controllerEmulationManager?.ControllerEmulationEnabled?.Value);
         }
 
         /// <summary>

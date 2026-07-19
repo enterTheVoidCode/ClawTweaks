@@ -233,6 +233,17 @@ namespace XboxGamingBarHelper
         private static IPC.NamedPipeServer pipeServer;
 
         /// <summary>
+        /// Second, separate Named Pipe server for IPC with ClawTweaks Center (the standalone
+        /// installer/settings window). Deliberately its own pipe/instance — the widget pipe above
+        /// only supports one connected client and its Connected handler runs a lot of widget-specific
+        /// sync logic (per-game profile suppression window, TDP/fan/LED re-push) that must not fire
+        /// for Center. Both pipes feed the SAME PipeServer_MessageReceived handler and property
+        /// broadcast system (see IsPipeConnected/SendPipeMessage below), so Center speaks the exact
+        /// same wire protocol/property set as the widget — just over its own connection.
+        /// </summary>
+        private static IPC.NamedPipeServer centerPipeServer;
+
+        /// <summary>
         /// Flag indicating whether all managers are initialized and ready to handle requests.
         /// When false, BatchGet requests will return a "NotReady" response.
         /// </summary>
@@ -871,6 +882,33 @@ namespace XboxGamingBarHelper
             catch (Exception ex)
             {
                 Logger.Error($"Failed to start Named Pipe server: {ex.Message}");
+            }
+
+            // Second pipe for ClawTweaks Center — deliberately minimal Connected/Disconnected
+            // handlers (no widget-specific sync logic, see the field's doc comment). Property
+            // updates/requests from Center flow through the exact same PipeServer_MessageReceived
+            // handler as the widget.
+            try
+            {
+                centerPipeServer = new IPC.NamedPipeServer("ClawTweaksCenter");
+                centerPipeServer.MessageReceived += PipeServer_MessageReceived;
+                centerPipeServer.Connected += (s, e) =>
+                {
+                    Logger.Info("ClawTweaks Center connected via Named Pipe");
+                    // Center needs to know the CURRENT state to grey out steps that are already done
+                    // (e.g. Center M already off) instead of blindly offering to redo them — push a
+                    // snapshot immediately rather than waiting for Center to guess or for some other
+                    // change to trigger a broadcast.
+                    try { PushCenterStatusSnapshot(); }
+                    catch (Exception ex) { Logger.Warn($"Failed to push Center status snapshot on connect: {ex.Message}"); }
+                };
+                centerPipeServer.Disconnected += (s, e) => Logger.Info("ClawTweaks Center disconnected from Named Pipe");
+                centerPipeServer.Start();
+                Logger.Info("Named Pipe server started: \\\\.\\pipe\\ClawTweaksCenter");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Failed to start Center Named Pipe server: {ex.Message}");
             }
         }
 

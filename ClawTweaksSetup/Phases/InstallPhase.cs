@@ -22,6 +22,11 @@ namespace ClawTweaksSetup.Phases
         private bool _busy;
         private bool _canInstall;
 
+        /// <summary>True once InstallAsync has completed a full successful run this session (cert
+        /// trusted, package installed, helper confirmed up) — the trigger MainWindow uses to hand off
+        /// to the onboarding sequence on ClawTweaks Center's home page.</summary>
+        public bool ReadyForOnboarding { get; private set; }
+
         private readonly ProgressBar _progress = new ProgressBar
         {
             Height = 14, Minimum = 0, Maximum = 100, Value = 0,
@@ -174,7 +179,7 @@ namespace ClawTweaksSetup.Phases
 
             Dispatcher.Invoke(() => _progress.Visibility = Visibility.Collapsed);
 
-            if (ok) { State = PhaseState.Ok; _busy = false; RaiseActionsChanged(); }
+            if (ok) { ReadyForOnboarding = true; State = PhaseState.Ok; _busy = false; RaiseActionsChanged(); }
             else { _busy = false; await RefreshAsync(); }
         }
     }

@@ -30,6 +30,19 @@ namespace XboxGamingBarHelper.IPC
         /// </summary>
         public static readonly string FullPipePath = $"\\\\.\\pipe\\{PipeName}";
 
+        // Instance pipe name — defaults to the widget's well-known name so existing call sites
+        // (`new NamedPipeServer()`) are unaffected. A second instance (e.g. for ClawTweaks Center)
+        // passes its own name so both servers can run side by side without colliding.
+        private readonly string _pipeName;
+
+        /// <summary>This instance's pipe name (may differ from <see cref="PipeName"/>).</summary>
+        public string InstancePipeName => _pipeName;
+
+        public NamedPipeServer(string pipeName = PipeName)
+        {
+            _pipeName = pipeName;
+        }
+
         private NamedPipeServerStream _pipeServer;
         private StreamReader _reader;
         private StreamWriter _writer;
@@ -72,7 +85,7 @@ namespace XboxGamingBarHelper.IPC
 
             _cancellationTokenSource = new CancellationTokenSource();
             _listenerTask = Task.Run(() => ListenLoop(_cancellationTokenSource.Token));
-            Logger.Info($"Named pipe server started: {FullPipePath}");
+            Logger.Info($"Named pipe server started: \\\\.\\pipe\\{_pipeName}");
         }
 
         /// <summary>
@@ -222,7 +235,7 @@ namespace XboxGamingBarHelper.IPC
 
             // Use the NamedPipeServerStream constructor with PipeSecurity (available in .NET Framework)
             _pipeServer = new NamedPipeServerStream(
-                PipeName,
+                _pipeName,
                 PipeDirection.InOut,
                 1, // maxNumberOfServerInstances
                 PipeTransmissionMode.Byte,

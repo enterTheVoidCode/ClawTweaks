@@ -9,12 +9,18 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <AssemblyName>CTW_Center</AssemblyName>
     <RootNamespace>ClawTweaksSetup</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyTitle>ClawTweaks Center</AssemblyTitle>
     <Product>ClawTweaks</Product>
-    <Version>0.1.0.1</Version>
+    <Version>0.1.0.2</Version>
+    <!-- Distributed filename carries the version + "Setup" suffix (e.g. CTW_Center_0.1.0.2_Setup.exe)
+         so a user can tell builds apart in their Downloads folder. This is ONLY the distributed
+         filename — the INSTALLED copy in Program Files always keeps the fixed name
+         Core/SelfInstaller.cs's ExeName defines ("CTW_Center.exe"), independent of this, so Start
+         Menu shortcuts / the Add-Remove-Programs entry never need to change across updates. Must
+         come after <Version> above — $(Version) has to already be defined to be substituted here. -->
+    <AssemblyName>CTW_Center_$(Version)_Setup</AssemblyName>
     <ApplicationIcon>Assets\branding\app-icon.ico</ApplicationIcon>
     <!-- Distribution build:  dotnet publish -c Release -r win-x64 -p:SelfContained=true
          -p:PublishSingleFile=true  (bundles the runtime so users need nothing preinstalled). -->
