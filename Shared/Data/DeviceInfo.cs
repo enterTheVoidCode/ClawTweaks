@@ -90,6 +90,13 @@ namespace Shared.Data
         public bool SupportsDriverManagement { get; set; } = true;
 
         /// <summary>
+        /// Whether the advanced CPU controls (scheduling policy, P/E core max frequency) are offered.
+        /// Default true. Off on Panther Lake (Claw 8 EX): they are not reliably persistent there and buy
+        /// little even on Lunar Lake, so the EX exposes the Boost toggle only.
+        /// </summary>
+        public bool SupportsCpuAdvanced { get; set; } = true;
+
+        /// <summary>
         /// TDP power-limit ceiling for PL1 (sustained power). Also the base TDP slider maximum.
         /// </summary>
         public int MaxPL1 { get; set; } = 30;

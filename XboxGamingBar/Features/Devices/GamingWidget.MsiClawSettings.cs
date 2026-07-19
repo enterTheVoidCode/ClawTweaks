@@ -79,6 +79,7 @@ namespace XboxGamingBar
             RestoreMsiLedEffectFromSettings();
             RestoreMsiChargeLimitFromSettings();
             RestoreGameBarWidgetPositionFromSettings();
+            RestoreClawGyroSource();
 
             Logger.Debug("[MsiClawSettings] Cards visible, settings restored");
         }
@@ -387,8 +388,40 @@ namespace XboxGamingBar
 
         // CPU card (Performance tab) — collapsed by default.
         private bool _cpuCardExpanded;
+        private bool _cpuAdvancedSupported = true;
+
+        /// <summary>Device capability gate for the advanced CPU section (scheduling policy, P/E max
+        /// frequency). On the Claw 8 EX those are not dependable, so the chevron stays VISIBLE but
+        /// disabled — the user can see the section exists and does not apply here, rather than it
+        /// silently vanishing. The Boost toggle above is unaffected and keeps working.</summary>
+        private void SetCpuAdvancedAvailability(bool supported)
+        {
+            _cpuAdvancedSupported = supported;
+            if (CpuCardExpandButton != null)
+            {
+                CpuCardExpandButton.IsEnabled = supported;
+                // Disabled-but-focusable is a controller focus trap: drop it from the D-Pad chain too.
+                CpuCardExpandButton.IsTabStop = supported;
+                CpuCardExpandButton.Opacity = supported ? 1.0 : 0.4;
+            }
+            if (!supported)
+            {
+                // Collapse anything already open (the capability can arrive after the card was expanded).
+                _cpuCardExpanded = false;
+                if (CpuSectionContent != null) CpuSectionContent.Visibility = Visibility.Collapsed;
+                if (CpuCardCaptionText != null)
+                    CpuCardCaptionText.Text = "Toggle enables/disables CPU Boost. Scheduling policy and P/E core max frequency are not available on this device.";
+            }
+        }
+
         internal void CpuCardExpandButton_Click(object sender, RoutedEventArgs e)
         {
+            if (!_cpuAdvancedSupported)
+            {
+                // Keep the chevron's checked state in sync with the section that never opened.
+                if (CpuCardExpandButton != null) CpuCardExpandButton.IsChecked = false;
+                return;
+            }
             _cpuCardExpanded = !_cpuCardExpanded;
             if (CpuSectionContent != null)
                 CpuSectionContent.Visibility = _cpuCardExpanded ? Visibility.Visible : Visibility.Collapsed;

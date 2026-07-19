@@ -1648,6 +1648,7 @@ namespace XboxGamingBar
         private readonly DeviceSupportsFanControlProperty deviceSupportsFanControl;
         // Per-model Drivers-tab capability (default on; off on the Claw 8 EX / AMD A8 for now)
         private readonly DeviceSupportsDriverManagementProperty deviceSupportsDriverManagement;
+        private readonly DeviceSupportsCpuAdvancedProperty deviceSupportsCpuAdvanced;
         // Per-model TDP power-limit ceilings (A2VM: 30W/37W; Claw 8 EX: 35W/45W) — drive slider maxima
         private readonly DeviceMaxPL1Property deviceMaxPL1;
         private readonly DeviceMaxPL2Property deviceMaxPL2;
@@ -2463,6 +2464,7 @@ namespace XboxGamingBar
             deviceSupportsFirmwareKeyboardRemap = new DeviceSupportsFirmwareKeyboardRemapProperty(this);
             deviceSupportsFanControl = new DeviceSupportsFanControlProperty(this);
             deviceSupportsDriverManagement = new DeviceSupportsDriverManagementProperty(this);
+            deviceSupportsCpuAdvanced = new DeviceSupportsCpuAdvancedProperty(this);
             deviceMaxPL1 = new DeviceMaxPL1Property(this);
             deviceMaxPL2 = new DeviceMaxPL2Property(this);
             // MSI Claw — External Gamepad Mode Quick Settings tile (hide all handheld controllers)
@@ -2497,6 +2499,8 @@ namespace XboxGamingBar
             deviceSupportsFanControl.SetVisibilityCallback(_ => InitializeMsiFanCard());
             // Drivers tab is per-model on the Claw — show/hide its nav item on the capability.
             deviceSupportsDriverManagement.SetVisibilityCallback(SetDriverTabVisibility);
+            // Advanced CPU controls are per-model — the EX keeps the Boost toggle but cannot expand.
+            deviceSupportsCpuAdvanced.SetVisibilityCallback(SetCpuAdvancedAvailability);
             // TDP slider maxima are per-model on the Claw — re-run bounds whenever either arrives.
             deviceMaxPL1.SetValueCallback(_ => UpdateTDPSliderBounds());
             deviceMaxPL2.SetValueCallback(_ => UpdateTDPSliderBounds());
@@ -2731,6 +2735,7 @@ namespace XboxGamingBar
                 deviceSupportsFirmwareKeyboardRemap,
                 deviceSupportsFanControl,
                 deviceSupportsDriverManagement,
+                deviceSupportsCpuAdvanced,
                 deviceMaxPL1,
                 deviceMaxPL2,
                 externalGamepadMode,

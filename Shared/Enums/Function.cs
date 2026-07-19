@@ -587,6 +587,10 @@
         // Default true; per-model on the MSI Claw — e.g. off on the Claw 8 EX / AMD A8. Read-only.
         DeviceSupportsDriverManagement, // bool - true = show the Drivers tab
 
+        // Device capability: advanced CPU controls (scheduling policy + P/E max frequency).
+        // Default true; off on the Claw 8 EX (Panther Lake) where they are not dependable. Read-only.
+        DeviceSupportsCpuAdvanced,  // bool - true = allow expanding the CPU card's advanced section
+
         // Device capability: PL1 (sustained) TDP power-limit ceiling in watts. Per-model on the
         // MSI Claw (A2VM = 30W, Claw 8 EX = 35W). Drives the TDP slider maximum. Read-only.
         DeviceMaxPL1,               // int - PL1 slider maximum in watts
