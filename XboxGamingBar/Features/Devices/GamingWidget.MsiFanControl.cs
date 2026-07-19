@@ -420,6 +420,36 @@ namespace XboxGamingBar
             return false;
         }
 
+        /// <summary>
+        /// Copies the fan editor's current state (preset + exact curve) into a performance profile.
+        /// CAPTURE ONLY — nothing here reaches the hardware, and there is deliberately no counterpart
+        /// that loads a profile's fan settings back into the editor or applies them on profile switch.
+        /// The fan write path is still being validated against the global profile; per-game apply is a
+        /// separate, explicit step. Storing both the preset and the raw duties (not just the preset)
+        /// is what lets the editor later offer a profile's exact values instead of re-deriving them
+        /// from a preset name — Custom (3) has no meaning at all without its curve.
+        /// No-op on non-Claw devices, where the fan card does not exist.
+        /// </summary>
+        private void CaptureMsiFanIntoProfile(PerformanceProfile profile)
+        {
+            if (profile == null) return;
+            try
+            {
+                if (MsiFanPresetComboBox == null) return;   // fan card absent (non-Claw / not built yet)
+
+                int preset = MsiFanPresetComboBox.SelectedIndex;
+                if (preset < 0) return;                     // nothing selected yet — leave the profile untouched
+
+                profile.MsiFanPreset = preset;
+                profile.MsiFanCurve = CurveToCsv();
+            }
+            catch (Exception ex)
+            {
+                // Never let fan capture break a profile save — the rest of the profile matters more.
+                Logger.Debug($"CaptureMsiFanIntoProfile skipped: {ex.Message}");
+            }
+        }
+
         /// <summary>Serialize the model as "t1,..,t5;d1,..,d5" — the wire + storage format.</summary>
         private string CurveToCsv()
             => string.Join(",", _msiFanTemps.Select(v => v.ToString(CultureInfo.InvariantCulture)))

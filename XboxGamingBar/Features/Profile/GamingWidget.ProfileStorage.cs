@@ -108,6 +108,9 @@ namespace XboxGamingBar
             container.Values["IntelDisplayGammaX100"] = profile.IntelDisplayGammaX100;
             container.Values["IntelLowLatency"] = profile.IntelLowLatency;
             container.Values["IntelFrameSync"] = profile.IntelFrameSync;
+            // MSI Claw fan — captured per profile, not applied yet (see SaveCurrentSettingsToProfile).
+            container.Values["MsiFanPreset"] = profile.MsiFanPreset;
+            container.Values["MsiFanCurve"] = profile.MsiFanCurve ?? "";
             // Last-saved timestamp drives the "modified Nm/h/d ago" line on the profile
             // card and the "Last Modified" sort option in the Profiles tab. Stored as
             // UTC ticks so it survives timezone changes.
@@ -181,6 +184,9 @@ namespace XboxGamingBar
                 profile.IntelDisplayGammaX100 = container.Values.ContainsKey("IntelDisplayGammaX100") ? (int)container.Values["IntelDisplayGammaX100"] : 100;
                 profile.IntelLowLatency = container.Values.ContainsKey("IntelLowLatency") ? (int)container.Values["IntelLowLatency"] : 0;
                 profile.IntelFrameSync = container.Values.ContainsKey("IntelFrameSync") ? (int)container.Values["IntelFrameSync"] : 0;
+                // -1 / "" means this profile predates per-game fan capture, or never had the fan touched.
+                profile.MsiFanPreset = container.Values.ContainsKey("MsiFanPreset") ? (int)container.Values["MsiFanPreset"] : -1;
+                profile.MsiFanCurve = container.Values.ContainsKey("MsiFanCurve") ? (container.Values["MsiFanCurve"] as string ?? "") : "";
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }

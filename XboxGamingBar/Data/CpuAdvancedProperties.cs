@@ -27,11 +27,51 @@ namespace XboxGamingBar.Data
 
         public override bool SetValue(object newValue, long updatedTime = 0)
         {
+            bool isFirstHelperSync = false;
             if (SuppressRemoteSync)
             {
+                isFirstHelperSync = !HasReceivedHelperSync;
                 HasReceivedHelperSync = true;
             }
-            return base.SetValue(newValue, updatedTime);
+
+            bool result = base.SetValue(newValue, updatedTime);
+
+            // The ComboBox only ever gets a SelectedIndex from NotifyPropertyChanged, and
+            // GenericProperty.SetValue skips that notification when the incoming value equals the
+            // cached one. A property whose default is 0 therefore never paints itself when the helper
+            // syncs 0 back: SelectedIndex stays -1 and the control renders as an EMPTY box, even
+            // though the value is correct. That is the "Intel Low Latency / Frame Sync are blank
+            // after every restart" report - the setting was stored and applied fine, it just was
+            // never displayed. Same for any other combo here that sits at its default.
+            // So on the first helper sync, paint the selection explicitly. This touches the UI only:
+            // no value change and no push back to the helper, so it cannot echo.
+            if (isFirstHelperSync) SyncUiSelection();
+
+            return result;
+        }
+
+        /// <summary>Selects the item whose Tag matches the current value. UI-only, no remote push.</summary>
+        private void SyncUiSelection()
+        {
+            if (UI == null || Owner == null) return;
+
+            _ = Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                for (int i = 0; i < UI.Items.Count; i++)
+                {
+                    if (UI.Items[i] is ComboBoxItem item && item.Tag is string tag
+                        && int.TryParse(tag, out int v) && v == Value)
+                    {
+                        if (UI.SelectedIndex != i)
+                        {
+                            isUpdatingUI = true;
+                            try { UI.SelectedIndex = i; }
+                            finally { isUpdatingUI = false; }
+                        }
+                        break;
+                    }
+                }
+            });
         }
 
         private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -54,30 +94,11 @@ namespace XboxGamingBar.Data
             }
         }
 
-        protected override async void NotifyPropertyChanged(string propertyName = "")
+        protected override void NotifyPropertyChanged(string propertyName = "")
         {
             base.NotifyPropertyChanged(propertyName);
 
-            if (UI != null && Owner != null)
-            {
-                await Owner.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-                {
-                    for (int i = 0; i < UI.Items.Count; i++)
-                    {
-                        if (UI.Items[i] is ComboBoxItem item && item.Tag is string tag
-                            && int.TryParse(tag, out int v) && v == Value)
-                        {
-                            if (UI.SelectedIndex != i)
-                            {
-                                isUpdatingUI = true;
-                                try { UI.SelectedIndex = i; }
-                                finally { isUpdatingUI = false; }
-                            }
-                            break;
-                        }
-                    }
-                });
-            }
+            SyncUiSelection();
         }
     }
 }

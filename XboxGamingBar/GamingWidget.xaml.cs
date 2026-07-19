@@ -112,6 +112,15 @@ namespace XboxGamingBar
         public int IntelLowLatency { get; set; } = 0;           // 0=Off, 1=On, 2=On+Boost
         public int IntelFrameSync { get; set; } = 0;            // 0=App default,1=VSync off,2=VSync on,3=Smooth,4=Speed
 
+        // ===== MSI Claw fan (captured per profile; NOT applied yet) =====
+        // Both the preset AND the raw duty values are stored, not just the preset: preset 3 (Custom)
+        // has no meaning without its curve, and even for a named preset we want the exact values the
+        // user saw, so the editor can offer them back verbatim instead of re-deriving them.
+        // -1 = this profile has no fan settings captured (never leave it at a real preset by default,
+        // or every profile would claim to own a curve it never configured).
+        public int MsiFanPreset { get; set; } = -1;             // -1=not captured, 0=Default 1=Quiet Idle 2=Cooling 3=Custom
+        public string MsiFanCurve { get; set; } = "";           // "t1,..,t5;d1,..,d5" — empty when not captured
+
         public PerformanceProfile Clone()
         {
             return new PerformanceProfile
@@ -164,7 +173,9 @@ namespace XboxGamingBar
                 IntelDisplayBrightness = this.IntelDisplayBrightness,
                 IntelDisplayGammaX100 = this.IntelDisplayGammaX100,
                 IntelLowLatency = this.IntelLowLatency,
-                IntelFrameSync = this.IntelFrameSync
+                IntelFrameSync = this.IntelFrameSync,
+                MsiFanPreset = this.MsiFanPreset,
+                MsiFanCurve = this.MsiFanCurve
             };
         }
     }
