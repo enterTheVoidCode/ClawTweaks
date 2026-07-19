@@ -388,7 +388,16 @@ namespace XboxGamingBar
         /// <summary>
         /// Handles Named Pipe disconnection from the helper.
         /// </summary>
-        private async void PipeClient_Disconnected(object sender, EventArgs e)
+        /// <remarks>
+        /// This handler is the second half of the post-hibernate blank-widget bug: it used to be an
+        /// async void with unguarded Dispatcher.RunAsync calls, so when a wedged instance saw the pipe
+        /// drop (e.g. the user restarting the helper from the tray to "fix" the blank widget) the
+        /// separated-RCW exception went UNHANDLED and took the process down. The Game Bar then re-hosted
+        /// a fresh widget - which is exactly why a helper restart appeared to cure the blank widget.
+        /// The dispatch is now guarded so that crash path is gone; the blank state itself still needs
+        /// the recovery step.
+        /// </remarks>
+        private void PipeClient_Disconnected(object sender, EventArgs e)
         {
             Logger.Info("Named pipe disconnected from helper");
 
@@ -412,20 +421,25 @@ namespace XboxGamingBar
             bool activeUnlockWasOn = legionUnlockFanCurve != null && legionUnlockFanCurve.Value;
 
             // Show reconnecting state and trigger guarded reconnect flow.
-            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            if (!TryRunOnDispatcher(() =>
             {
                 ShowConnectionBanner(BannerState.Reconnecting);
                 if (activeUnlockWasOn && FanCurveHelperDisconnectedWarning != null)
                 {
                     FanCurveHelperDisconnectedWarning.Visibility = Windows.UI.Xaml.Visibility.Visible;
                 }
-            });
+            }, "PipeDisconnected/banner"))
+            {
+                // Dead dispatcher: no UI to update and the reconnect below would fail the same way.
+                // Already logged by TryRunOnDispatcher - just stop instead of crashing.
+                return;
+            }
 
             Logger.Info("Pipe disconnected - starting automatic helper reconnection");
-            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+            TryRunOnDispatcher(() =>
             {
                 _ = LaunchHelperWithGuardsAsync("Pipe disconnected");
-            });
+            }, "PipeDisconnected/relaunch");
         }
 
     }

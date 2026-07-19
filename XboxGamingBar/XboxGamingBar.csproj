@@ -325,6 +325,9 @@
     <Compile Include="Features\Lifecycle\GamingWidget.Lifecycle.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Lifecycle\GamingWidget.DispatcherHealth.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\LosslessScaling\GamingWidget.ChillFPS.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>

@@ -121,8 +121,12 @@ namespace XboxGamingBar
                     }
                 }
 
-                // Update UI elements on dispatcher thread
-                _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                // Update UI elements on dispatcher thread.
+                // This is the 1 Hz canary for the post-hibernate blank-widget bug: if the CoreDispatcher
+                // was torn down under this instance, the RunAsync call itself throws synchronously.
+                // Routed through TryRunOnDispatcher so it is reported as what it is instead of being
+                // swallowed by the JSON catch below as an "Error parsing Quick Metrics JSON".
+                TryRunOnDispatcher(() =>
                 {
                     try
                     {
@@ -138,7 +142,7 @@ namespace XboxGamingBar
                     {
                         Logger.Error($"Error updating Quick Metrics UI: {ex.Message}");
                     }
-                });
+                }, "QuickMetrics");
             }
             catch (Exception ex)
             {
