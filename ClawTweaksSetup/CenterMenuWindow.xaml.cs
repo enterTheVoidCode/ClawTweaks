@@ -40,7 +40,7 @@ namespace ClawTweaksSetup
 
         /// <summary>Which idle screen ContentHost shows — Confirm/Install are transient overlays
         /// triggered from Browse and don't need their own value here.</summary>
-        private enum View { Home, Browse }
+        private enum View { Home, Browse, Onboarding }
         private View _view = View.Home;
 
         private DeviceDetect.Model _deviceModel = DeviceDetect.Model.Unknown;
@@ -56,9 +56,18 @@ namespace ClawTweaksSetup
         private BuildSource _pendingBuild;
         private XInputNavigator _nav;
 
-        public CenterMenuWindow()
+        private readonly OnboardingRunner _onboarding = new OnboardingRunner();
+        private readonly bool _startOnboardingOnLoad;
+
+        public CenterMenuWindow(bool startOnboarding = false)
         {
+            _startOnboardingOnLoad = startOnboarding;
             InitializeComponent();
+
+            _onboarding.StepsChanged += () => Dispatcher.Invoke(() =>
+            {
+                if (_view == View.Onboarding && !_confirming && !_busy) RenderOnboarding();
+            });
 
             // Fill the screen without covering the taskbar. WindowStyle="None" + WindowState="Maximized"
             // is the common trap here — without window chrome, WPF maximizes to the full monitor bounds
@@ -103,6 +112,11 @@ namespace ClawTweaksSetup
                 _setupVersionCheck = await setupVersionTask;
                 _windowsChannel = await windowsChannelTask;
                 RenderCurrentView(); // picks up the outdated-Setup / Insider-channel warnings once known
+
+                // Reached via MainWindow after a successful install/update (release-folder wizard
+                // path) — the helper is already confirmed running there, so open onboarding right
+                // away instead of waiting for the user to find the tile.
+                if (_startOnboardingOnLoad) OpenOnboarding();
             };
             Closed += (_, __) => _nav?.Dispose();
 
@@ -245,7 +259,12 @@ namespace ClawTweaksSetup
         private void RenderCurrentView()
         {
             if (_confirming) return;
-            if (_view == View.Home) RenderHome(); else RenderBrowse();
+            switch (_view)
+            {
+                case View.Home: RenderHome(); break;
+                case View.Onboarding: RenderOnboarding(); break;
+                default: RenderBrowse(); break;
+            }
         }
 
         private void RebuildFlat()
@@ -338,9 +357,25 @@ namespace ClawTweaksSetup
                 });
             ContentHost.Children.Add(versionStack);
 
-            ContentHost.Children.Add(BuildHomeTile(
+            var mainRow = new Grid();
+            mainRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            mainRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var releaseTile = BuildHomeTile(
                 "Update & Release", "Browse GitHub releases, test builds, and Drive nightlies to install.",
-                clickable: true, onClick: OpenBrowse));
+                clickable: true, onClick: OpenBrowse);
+            Grid.SetColumn(releaseTile, 0);
+            releaseTile.Margin = new Thickness(0, 0, 7, 10);
+            mainRow.Children.Add(releaseTile);
+
+            var onboardingTile = BuildHomeTile(
+                "Onboarding", "Center M, virtual controller, Game Bar auto-jump.",
+                clickable: true, onClick: OpenOnboarding);
+            Grid.SetColumn(onboardingTile, 1);
+            onboardingTile.Margin = new Thickness(7, 0, 0, 10);
+            mainRow.Children.Add(onboardingTile);
+
+            ContentHost.Children.Add(mainRow);
 
             var placeholders = new UniformGrid { Columns = 3, Margin = new Thickness(0, 14, 0, 0) };
             placeholders.Children.Add(BuildHomeTile("FAQ", "Common questions and troubleshooting.", clickable: false));
@@ -362,6 +397,117 @@ namespace ClawTweaksSetup
                 if (bestVer == null || v > bestVer) { bestVer = v; best = b; }
             }
             return best;
+        }
+
+        /// <summary>Switches to the dedicated Onboarding view and asks the helper for a fresh status
+        /// snapshot (queries — never just assumes a step still needs doing). Safe to call repeatedly.</summary>
+        private void OpenOnboarding()
+        {
+            _view = View.Onboarding;
+            RenderOnboarding();
+            RefreshActionBar();
+            _ = _onboarding.RefreshStatusAsync(msg => Dispatcher.Invoke(RenderOnboarding));
+        }
+
+        private static Brush BrushForStep(OnboardingStepState s)
+        {
+            switch (s)
+            {
+                case OnboardingStepState.Ok: return UiHelpers.Ok;
+                case OnboardingStepState.Error: return UiHelpers.Error;
+                default: return UiHelpers.Subtle;
+            }
+        }
+
+        private static string GlyphForStep(OnboardingStepState s)
+        {
+            switch (s)
+            {
+                case OnboardingStepState.Ok: return "✓";
+                case OnboardingStepState.Error: return "✕";
+                default: return "○";
+            }
+        }
+
+        /// <summary>The dedicated Onboarding view — each step is queried from the helper and triggered
+        /// individually by the user. A step whose target the helper reports as already satisfied (e.g.
+        /// Center M already off, from some other change entirely) shows done with its run button
+        /// greyed out, instead of blindly offering to redo something that's already correct.</summary>
+        private void RenderOnboarding()
+        {
+            ContentHost.Children.Clear();
+            ContentHost.Children.Add(UiHelpers.Title("Onboarding"));
+            ContentHost.Children.Add(UiHelpers.Body(
+                "Each step is checked against the helper's real state — a step already done shows " +
+                "as done and can't be re-run by accident."));
+
+            if (_onboarding.IsConnecting)
+            {
+                var connectingRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 10) };
+                connectingRow.Children.Add(new ContentControl
+                {
+                    Width = 22, Height = 22, Focusable = false, VerticalAlignment = VerticalAlignment.Center,
+                    Content = UiHelpers.Badge(StatusKind.Working, 22),
+                });
+                connectingRow.Children.Add(new TextBlock
+                {
+                    Text = "Connecting to the helper…", FontSize = 15, Foreground = UiHelpers.Subtle,
+                    VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0),
+                });
+                ContentHost.Children.Add(connectingRow);
+            }
+
+            for (int i = 0; i < _onboarding.Steps.Count; i++)
+            {
+                int index = i; // capture
+                var step = _onboarding.Steps[i];
+                bool working = step.State == OnboardingStepState.Working;
+
+                var row = new Grid { Margin = new Thickness(0, 6, 0, 6) };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                FrameworkElement statusEl = working
+                    ? UiHelpers.Badge(StatusKind.Working, 20)
+                    : new TextBlock
+                    {
+                        Text = GlyphForStep(step.State), FontSize = 18, FontWeight = FontWeights.Bold,
+                        Foreground = BrushForStep(step.State),
+                    };
+                statusEl.Width = 26;
+                statusEl.VerticalAlignment = VerticalAlignment.Center;
+                Grid.SetColumn(statusEl, 0);
+                row.Children.Add(statusEl);
+
+                var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 10, 0) };
+                textStack.Children.Add(new TextBlock { Text = step.Title, FontSize = 16, Foreground = UiHelpers.Text });
+                if (!string.IsNullOrEmpty(step.Detail))
+                    textStack.Children.Add(new TextBlock { Text = step.Detail, FontSize = 13, Foreground = UiHelpers.Subtle });
+                Grid.SetColumn(textStack, 1);
+                row.Children.Add(textStack);
+
+                bool enabled = step.Actionable && !working && !_onboarding.IsConnecting;
+                var runBtn = new Button
+                {
+                    Content = working ? "Working…" : "Run",
+                    Style = (Style)Application.Current.Resources["SetupButton"],
+                    IsEnabled = enabled,
+                    Opacity = enabled ? 1.0 : 0.4,
+                    MinWidth = 90,
+                };
+                runBtn.Click += (_, __) => _ = _onboarding.RunStepAsync(index, msg => Dispatcher.Invoke(RenderOnboarding));
+                Grid.SetColumn(runBtn, 2);
+                row.Children.Add(runBtn);
+
+                var card = new Border
+                {
+                    Background = UiHelpers.Card, CornerRadius = new CornerRadius(10),
+                    Padding = new Thickness(16, 12, 16, 12), Margin = new Thickness(0, 0, 0, 8),
+                    Child = row,
+                };
+                ContentHost.Children.Add(card);
+            }
         }
 
         private Border BuildHomeTile(string title, string detail, bool clickable, Action onClick = null)
@@ -616,6 +762,13 @@ namespace ClawTweaksSetup
             {
                 AddAction(PadButton.A, "Open Update & Release", true, OpenBrowse);
                 AddAction(PadButton.B, "Exit", true, () => Application.Current.Shutdown());
+                return;
+            }
+
+            if (_view == View.Onboarding)
+            {
+                AddAction(PadButton.Y, "Refresh status", !_onboarding.IsConnecting, () => _ = _onboarding.RefreshStatusAsync(msg => Dispatcher.Invoke(RenderOnboarding)));
+                AddAction(PadButton.B, "Back", true, GoHome);
                 return;
             }
 
@@ -969,6 +1122,12 @@ namespace ClawTweaksSetup
                 _busy = false;
                 _installFinished = true;
                 RefreshActionBar();
+
+                // Fresh install or update, helper confirmed elevated and running — this is exactly the
+                // trigger from the plan (Doku/PLAN_Center_Helper_Integration.md §3 Phase 3). Let the
+                // install screen finish settling first (log/badge/action bar above) rather than yanking
+                // the view away mid-render.
+                if (ok) OpenOnboarding();
             }
             catch (Exception ex)
             {

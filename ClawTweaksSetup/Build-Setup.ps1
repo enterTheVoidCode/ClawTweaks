@@ -38,8 +38,11 @@ Write-Host ">> Publishing self-contained single-file exe..." -ForegroundColor Gr
     -p:EnableCompressionInSingleFile=true `
     -o $publishDir | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed." }
-$exe = Join-Path $publishDir 'CTW_Center.exe'
-if (-not (Test-Path $exe)) { throw "CTW_Center.exe not found after publish." }
+# AssemblyName carries the version + "Setup" suffix (see ClawTweaksSetup.csproj), so the exe name
+# isn't a fixed literal any more — pick up whatever single exe actually landed in $publishDir.
+$exeItem = Get-ChildItem -Path $publishDir -Filter 'CTW_Center_*_Setup.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $exeItem) { throw "No CTW_Center_*_Setup.exe found after publish." }
+$exe = $exeItem.FullName
 Write-Host "   [OK] $exe" -ForegroundColor Green
 
 # 2. Locate the built package + cert.
@@ -87,4 +90,4 @@ Write-Host "=============================================" -ForegroundColor Cyan
 Write-Host "  Folder: $outDir"
 Write-Host "  ZIP:    $zip  ($zipMb MB)"
 Write-Host ""
-Write-Host "  Copy the folder (or extracted ZIP) to the Claw and run CTW_Center.exe." -ForegroundColor Gray
+Write-Host "  Copy the folder (or extracted ZIP) to the Claw and run $($exeItem.Name)." -ForegroundColor Gray
