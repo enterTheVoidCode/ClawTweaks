@@ -262,6 +262,13 @@ namespace XboxGamingBar
             // Intel gaming (IGCL) combos — captured into the profile copy for storage/summary parity.
             if (IntelLowLatencyComboBox != null) profile.IntelLowLatency = GetSelectedTagInt(IntelLowLatencyComboBox, 0);
             if (IntelFrameSyncComboBox != null) profile.IntelFrameSync = GetSelectedTagInt(IntelFrameSyncComboBox, 0);
+            // MSI Claw fan: CAPTURE ONLY. Both the preset and the exact curve are stored so the editor
+            // can offer the profile's own values back verbatim (preset 3/Custom is meaningless without
+            // its curve). Deliberately NOT applied on profile load yet — the fan path is still being
+            // validated against the global profile, and applying a per-game curve before that is
+            // settled would make it impossible to tell which curve caused a given result.
+            // See LoadProfileSettings: there is intentionally no counterpart to this block.
+            CaptureMsiFanIntoProfile(profile);
             if (SaveCPUEPP && CPUEPPSlider != null)
             {
                 profile.CPUEPP = CPUEPPSlider.Value;
