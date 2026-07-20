@@ -6,7 +6,8 @@ using Windows.UI.Xaml.Controls;
 namespace XboxGamingBar.Data
 {
     /// <summary>
-    /// Property for Legion Gyro Mapping Type (0=Instant, 1=Continuous)
+    /// Property for Claw gyro engine / Legion mapping type
+    /// (0=Adaptive, 1=Direct, 2=Normalized Circular).
     /// </summary>
     internal class LegionGyroMappingTypeProperty : WidgetControlProperty<int, ComboBox>
     {

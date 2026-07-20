@@ -266,7 +266,8 @@ namespace XboxGamingBarHelper.Labs
         private volatile bool _gyroInvertX;
         private volatile bool _gyroInvertY;
         // Gyro engine (stick path): 0 = Adaptive (ClawTweaks — One-Euro speed-adaptive smoothing),
-        // 1 = Direct (HandheldCompanion 1:1 — no software low-pass, raw linear + anti-deadzone).
+        // 1 = Direct (HandheldCompanion 1:1 — no software low-pass, raw linear + anti-deadzone),
+        // 2 = Normalized Circular — LowPass + /maxGyro + unit-circle clamp (no HC anti-deadzone).
         // Repurposes the (Claw-irrelevant) LegionGyroMappingType channel; see SetGyroEngineMode.
         private volatile int  _gyroEngineMode;
 
@@ -360,6 +361,10 @@ namespace XboxGamingBarHelper.Labs
         private bool  _gyroFilterInit;
         private float _gyroFiltH, _gyroFiltV, _gyroDerivH, _gyroDerivV;
         private long  _gyroLastSampleTicks;
+
+        // Normalized Circular engine (mode 2) LowPass state — same callback thread as One-Euro.
+        private bool   _normFiltInit;
+        private double _normFiltX, _normFiltY;
 
         // Sub-pixel carry for mouse mode — gyro sensor callback thread only (see above).
         private float _gyroCarryX, _gyroCarryY;
@@ -1086,13 +1091,20 @@ namespace XboxGamingBarHelper.Labs
         /// <summary>
         /// Gyro engine for the stick path. 0 = Adaptive (ClawTweaks — One-Euro speed-adaptive
         /// smoothing, tames rest jitter), 1 = Direct (HandheldCompanion 1:1 — no software low-pass,
-        /// raw linear mapping + anti-deadzone, maximally responsive). Fed from the repurposed
-        /// LegionGyroMappingType setting (Claw firmware ignores it, so the channel is free).
+        /// raw linear mapping + anti-deadzone, maximally responsive), 2 = Normalized Circular
+        /// (LowPass + /maxGyro + unit-circle clamp). Fed from the repurposed LegionGyroMappingType
+        /// setting (Claw firmware ignores it, so the channel is free).
         /// </summary>
         public void SetGyroEngineMode(int mode)
         {
             _gyroEngineMode = mode;
-            Logger.Info($"ClawButtonMonitor: GyroEngineMode → {(mode == 1 ? "Direct (HC 1:1)" : "Adaptive (ClawTweaks)")}");
+            // Re-seed filters cleanly when switching engines.
+            _gyroFilterInit = false;
+            _normFiltInit = false;
+            string name = mode == 2 ? "Normalized (Circular)"
+                        : mode == 1 ? "Direct (HC 1:1)"
+                        : "Adaptive (ClawTweaks)";
+            Logger.Info($"ClawButtonMonitor: GyroEngineMode → {name}");
         }
 
         /// <summary>
@@ -2837,6 +2849,7 @@ namespace XboxGamingBarHelper.Labs
             _prevGyroButtonPressed = false;
             _gyroCarryX = _gyroCarryY = 0;
             _gyroFilterInit = false;
+            _normFiltInit = false;
             _gyroLastSampleTicks = 0;
             _gyroActiveCached = false;
             _lastGyroDeltaX = 0;
@@ -2996,6 +3009,12 @@ namespace XboxGamingBarHelper.Labs
         /// </summary>
         private void ApplyGyroToStick(GyroSample sample, out short outputX, out short outputY)
         {
+            if (_gyroEngineMode == 2)
+            {
+                ApplyGyroToStickNormalizedCircular(sample, out outputX, out outputY);
+                return;
+            }
+
             // HC LocalSpace: horizontal = gyro.Z, vertical = gyro.X
             // After ClawGyroSourceAdapter: gyroZ = -physical AngularVelocityY = HC gyro.Z
             float h = sample.GyroZDegPerSecond;
@@ -3065,6 +3084,73 @@ namespace XboxGamingBarHelper.Labs
 
             outputX = GyroClampToInt16(fx);
             outputY = GyroClampToInt16(fy);
+        }
+
+        // Normalized Circular engine constants (mode 2).
+        private const float  NormMaxGyroDegPerSec = 100f; // °/s → full stick at sensitivity 100
+        private const int    NormSmoothness       = 50;   // hardcoded; alpha ≈ 0.125
+        private const double NormAlphaMax         = 0.20; // least smooth (smoothness → 0+)
+        private const double NormAlphaMin         = 0.05; // most smooth (smoothness = 100)
+
+        /// <summary>
+        /// Gyro engine mode 2: deadzone → LowPass → /maxGyro → sens/100 → circular clamp →
+        /// invert → ThumbX←Y, ThumbY←X. No One-Euro / HC anti-deadzone.
+        /// </summary>
+        private void ApplyGyroToStickNormalizedCircular(GyroSample sample, out short outputX, out short outputY)
+        {
+            float gx = sample.GyroXDegPerSecond;
+            float gy = sample.GyroZDegPerSecond;
+
+            float dz = Math.Max(0.0f, _gyroDeadzone);
+            gx = GyroApplyDeadzone(gx, dz);
+            gy = GyroApplyDeadzone(gy, dz);
+
+            if (!_normFiltInit)
+            {
+                _normFiltX = gx;
+                _normFiltY = gy;
+                _normFiltInit = true;
+            }
+            else
+            {
+                gx = (float)NormalizedLowPass(gx, ref _normFiltX, NormSmoothness);
+                gy = (float)NormalizedLowPass(gy, ref _normFiltY, NormSmoothness);
+            }
+
+            double nx = gx / NormMaxGyroDegPerSec;
+            double ny = gy / NormMaxGyroDegPerSec;
+            nx *= _gyroSensitivityX / 100.0;
+            ny *= _gyroSensitivityY / 100.0;
+
+            double mag = Math.Sqrt(nx * nx + ny * ny);
+            if (mag > 1.0)
+            {
+                nx /= mag;
+                ny /= mag;
+            }
+
+            int invX = _gyroInvertX ? -1 : 1;
+            int invY = _gyroInvertY ? -1 : 1;
+
+            // Stick write as in source algo: ThumbX ← Y, ThumbY ← X
+            outputX = GyroClampToInt16((float)(ny * short.MaxValue * invX));
+            outputY = GyroClampToInt16((float)(nx * short.MaxValue * invY));
+        }
+
+        /// <summary>
+        /// Exponential low-pass. Smoothness 0 = passthrough; 1..100 maps alpha from
+        /// <see cref="NormAlphaMax"/> down to <see cref="NormAlphaMin"/>.
+        /// </summary>
+        private static double NormalizedLowPass(double raw, ref double prev, int smoothness)
+        {
+            if (smoothness <= 0)
+            {
+                prev = raw;
+                return raw;
+            }
+            double alpha = NormAlphaMax - (smoothness / 100.0) * (NormAlphaMax - NormAlphaMin);
+            prev = prev + alpha * (raw - prev);
+            return prev;
         }
 
         // HC GyroActions.DefaultAxisAntiDeadZone = 15. Hardcoded (not a slider) so every install —
