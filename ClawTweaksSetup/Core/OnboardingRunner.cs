@@ -94,7 +94,11 @@ namespace ClawTweaksSetup.Core
             {
                 if (!PipeClient.IsConnected)
                 {
-                    bool connected = await PipeClient.ConnectAsync(TimeSpan.FromSeconds(15), log).ConfigureAwait(false);
+                    // Generous window: right after an in-app update the pipe-serving helper is being
+                    // swapped (old keeper killed, new one launched once the single-instance mutex frees).
+                    // The verified/auto-reconnecting client rides that out instead of failing on a
+                    // one-shot bind to the dying instance.
+                    bool connected = await PipeClient.ConnectAsync(TimeSpan.FromSeconds(45), log).ConfigureAwait(false);
                     if (!connected)
                     {
                         foreach (var s in Steps) { s.State = OnboardingStepState.Error; s.Detail = "Could not connect to the helper."; s.Actionable = false; }

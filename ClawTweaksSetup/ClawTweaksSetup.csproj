@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyTitle>ClawTweaks Center</AssemblyTitle>
     <Product>ClawTweaks</Product>
-    <Version>0.1.0.2</Version>
+    <Version>0.1.0.4</Version>
     <!-- Distributed filename carries the version + "Setup" suffix (e.g. CTW_Center_0.1.0.2_Setup.exe)
          so a user can tell builds apart in their Downloads folder. This is ONLY the distributed
          filename — the INSTALLED copy in Program Files always keeps the fixed name
@@ -24,6 +24,11 @@
     <ApplicationIcon>Assets\branding\app-icon.ico</ApplicationIcon>
     <!-- Distribution build:  dotnet publish -c Release -r win-x64 -p:SelfContained=true
          -p:PublishSingleFile=true  (bundles the runtime so users need nothing preinstalled). -->
+    <!-- WPF ships native DLLs (wpfgfx_cor3, PresentationNative_cor3, PenImc_cor3, D3DCompiler_47_cor3,
+         vcruntime140_cor3). Without this they stay LOOSE next to the single-file exe, so copying just
+         the .exe elsewhere crashes at startup with DllNotFoundException in WindowsBase
+         (SetWindowLongPtrWndProc). Bundling + self-extracting them makes the exe truly portable. -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <!-- Size: no culture-aware sorting/formatting needed (English-only UI) — drops the ICU
          globalization database and non-English WPF resource satellites from the publish output. -->
     <InvariantGlobalization>true</InvariantGlobalization>

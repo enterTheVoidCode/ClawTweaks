@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -37,41 +38,117 @@ namespace ClawTweaksSetup.Core
         private readonly object _valuesLock = new object();
         private readonly Dictionary<Function, string> _lastKnownValues = new Dictionary<Function, string>();
 
+        // Reconnect/verification state. Right after an in-app update the pipe-serving helper is being
+        // SWAPPED (the old keeper still holds the Global single-instance mutex, so the freshly
+        // task-launched keeper exits immediately until the old one is killed and the new one reaches
+        // its early InitializeConnection). A one-shot connect can therefore bind to a helper that is
+        // about to exit — or miss the gap entirely — and then sit "connected" to nothing. So: verify
+        // every bind with a real status push (proof the server is alive), and auto-reconnect on drop.
+        private volatile bool _disposed;
+        private volatile bool _keepConnected;
+        private Action<string> _log;
+        private TaskCompletionSource<bool> _firstPushTcs;
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool GetNamedPipeServerProcessId(IntPtr Pipe, out uint ServerProcessId);
+
+        // Diagnostics land in a file the user can retrieve after a test run — the onboarding UI's log
+        // callback discards the message text, so this is the only durable trace of the connect path.
+        private static readonly string DiagLogPath = BuildDiagLogPath();
+        private static string BuildDiagLogPath()
+        {
+            try
+            {
+                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ClawTweaks");
+                Directory.CreateDirectory(dir);
+                return Path.Combine(dir, "center_onboarding.log");
+            }
+            catch { return null; }
+        }
+        private void Diag(string msg, Action<string> extern_ = null)
+        {
+            extern_?.Invoke(msg);
+            _log?.Invoke(msg);
+            try { if (DiagLogPath != null) File.AppendAllText(DiagLogPath, $"{DateTime.Now:HH:mm:ss.fff}  {msg}{Environment.NewLine}"); } catch { }
+        }
+
         public bool IsConnected => _pipe?.IsConnected == true;
 
         /// <summary>Raised whenever the helper pushes a property value (our own writes echo back too).</summary>
         public event Action<Function, string> PropertyUpdated;
 
-        /// <summary>Connects with retries — the helper may still be starting up. Returns false on timeout.</summary>
+        /// <summary>Connects with retries and VERIFIES the server is live (answers with a status push)
+        /// before returning true — a bare pipe bind to a dying/mutex-losing instance no longer counts.
+        /// Enables auto-reconnect for the life of this client so an update-time helper swap self-heals.
+        /// Returns false only if no live helper answered within <paramref name="timeout"/>.</summary>
         public async Task<bool> ConnectAsync(TimeSpan timeout, Action<string> log = null)
         {
+            _log = log;
+            _keepConnected = true;
             var deadline = DateTime.UtcNow + timeout;
-            while (DateTime.UtcNow < deadline)
+            int attempt = 0;
+            Diag($"Connect requested (timeout {timeout.TotalSeconds:0}s).");
+            while (!_disposed && DateTime.UtcNow < deadline)
             {
-                try
+                attempt++;
+                if (await TryConnectVerifiedAsync(attempt).ConfigureAwait(false)) return true;
+                await Task.Delay(500).ConfigureAwait(false);
+            }
+            Diag("Timed out waiting for a LIVE helper on the ClawTweaksCenter pipe.");
+            return false;
+        }
+
+        /// <summary>One bind + liveness check: bind the pipe, log which server PID actually owns it
+        /// (directly reveals an update-time PID swap), then require at least one status push within a
+        /// few seconds as proof of a live keeper. A silent bind is torn down so the caller retries.</summary>
+        private async Task<bool> TryConnectVerifiedAsync(int attempt)
+        {
+            NamedPipeClientStream pipe = null;
+            try
+            {
+                pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                await pipe.ConnectAsync(1500).ConfigureAwait(false);
+
+                uint serverPid = 0;
+                try { GetNamedPipeServerProcessId(pipe.SafePipeHandle.DangerousGetHandle(), out serverPid); } catch { }
+
+                _pipe = pipe;
+                _reader = new StreamReader(_pipe, Encoding.UTF8);
+                _writer = new StreamWriter(_pipe, Encoding.UTF8) { AutoFlush = false };
+                _cts = new CancellationTokenSource();
+                var firstPush = new TaskCompletionSource<bool>();
+                _firstPushTcs = firstPush;
+                _readLoop = Task.Run(() => ReadLoop(_cts.Token));
+
+                Diag($"Pipe bound (attempt {attempt}, server PID {serverPid}). Verifying live helper…");
+
+                RequestStatusRefresh(); // live keeper answers via PushCenterStatusSnapshot
+                var done = await Task.WhenAny(firstPush.Task, Task.Delay(4000)).ConfigureAwait(false);
+                if (done == firstPush.Task)
                 {
-                    _pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
-                    await _pipe.ConnectAsync(1500).ConfigureAwait(false);
-
-                    _reader = new StreamReader(_pipe, Encoding.UTF8);
-                    _writer = new StreamWriter(_pipe, Encoding.UTF8) { AutoFlush = false };
-
-                    _cts = new CancellationTokenSource();
-                    _readLoop = Task.Run(() => ReadLoop(_cts.Token));
-
-                    log?.Invoke("Connected to helper.");
+                    Diag($"Connected to LIVE helper (server PID {serverPid}).");
                     return true;
                 }
-                catch (Exception)
-                {
-                    try { _pipe?.Dispose(); } catch { }
-                    _pipe = null;
-                    await Task.Delay(500).ConfigureAwait(false);
-                }
-            }
 
-            log?.Invoke("Timed out waiting for the helper's pipe.");
-            return false;
+                Diag($"Bound but server PID {serverPid} sent no status in 4s — treating as not-live (dying/swapped instance), retrying.");
+                TeardownPipe();
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Diag($"Connect attempt {attempt} failed: {ex.GetType().Name} ({ex.Message}).");
+                TeardownPipe();
+                return false;
+            }
+        }
+
+        private void TeardownPipe()
+        {
+            try { _cts?.Cancel(); } catch { }
+            try { _reader?.Dispose(); } catch { }
+            try { _writer?.Dispose(); } catch { }
+            try { _pipe?.Dispose(); } catch { }
+            _pipe = null;
         }
 
         private void ReadLoop(CancellationToken ct)
@@ -87,12 +164,40 @@ namespace ClawTweaksSetup.Core
                     if (TryParseFunctionContent(line, out var function, out var content))
                     {
                         lock (_valuesLock) { _lastKnownValues[function] = content; }
+                        _firstPushTcs?.TrySetResult(true); // liveness proof for TryConnectVerifiedAsync
                         PropertyUpdated?.Invoke(function, content);
                     }
                 }
             }
             catch (IOException) { /* normal on disconnect */ }
             catch (ObjectDisposedException) { /* normal on dispose */ }
+            finally
+            {
+                // A genuine drop (helper exited/was swapped) — NOT our own intentional teardown
+                // (which cancels ct) — kicks off a background reconnect so an update-time swap heals.
+                if (_keepConnected && !_disposed && !ct.IsCancellationRequested)
+                {
+                    Diag("Helper pipe dropped — reconnecting (helper may have been swapped by an update).");
+                    _ = Task.Run(ReconnectLoopAsync);
+                }
+            }
+        }
+
+        private async Task ReconnectLoopAsync()
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+            int attempt = 0;
+            while (_keepConnected && !_disposed && DateTime.UtcNow < deadline)
+            {
+                attempt++;
+                if (await TryConnectVerifiedAsync(attempt).ConfigureAwait(false))
+                {
+                    Diag("Reconnected to helper after drop.");
+                    return;
+                }
+                await Task.Delay(500).ConfigureAwait(false);
+            }
+            Diag("Reconnect window elapsed without a live helper.");
         }
 
         /// <summary>Same hand-rolled extraction the widget's own PipeClient.cs uses — no JSON library.</summary>
@@ -200,6 +305,8 @@ namespace ClawTweaksSetup.Core
 
         public void Dispose()
         {
+            _disposed = true;
+            _keepConnected = false;
             try { _cts?.Cancel(); } catch { }
             try { _reader?.Dispose(); } catch { }
             try { _writer?.Dispose(); } catch { }

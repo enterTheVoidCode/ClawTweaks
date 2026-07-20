@@ -409,26 +409,6 @@ namespace ClawTweaksSetup
             _ = _onboarding.RefreshStatusAsync(msg => Dispatcher.Invoke(RenderOnboarding));
         }
 
-        private static Brush BrushForStep(OnboardingStepState s)
-        {
-            switch (s)
-            {
-                case OnboardingStepState.Ok: return UiHelpers.Ok;
-                case OnboardingStepState.Error: return UiHelpers.Error;
-                default: return UiHelpers.Subtle;
-            }
-        }
-
-        private static string GlyphForStep(OnboardingStepState s)
-        {
-            switch (s)
-            {
-                case OnboardingStepState.Ok: return "✓";
-                case OnboardingStepState.Error: return "✕";
-                default: return "○";
-            }
-        }
-
         /// <summary>The dedicated Onboarding view — each step is queried from the helper and triggered
         /// individually by the user. A step whose target the helper reports as already satisfied (e.g.
         /// Center M already off, from some other change entirely) shows done with its run button
@@ -438,8 +418,7 @@ namespace ClawTweaksSetup
             ContentHost.Children.Clear();
             ContentHost.Children.Add(UiHelpers.Title("Onboarding"));
             ContentHost.Children.Add(UiHelpers.Body(
-                "Each step is checked against the helper's real state — a step already done shows " +
-                "as done and can't be re-run by accident."));
+                "Helps set the most important ClawTweaks settings (preview not yet complete)."));
 
             if (_onboarding.IsConnecting)
             {
@@ -463,6 +442,16 @@ namespace ClawTweaksSetup
                 var step = _onboarding.Steps[i];
                 bool working = step.State == OnboardingStepState.Working;
 
+                // A step that isn't actionable (its target is already satisfied) reads as done — show the
+                // green check on the left too, not just for the ones we explicitly ran this session.
+                // Gated on being connected & not mid-connect so nothing is marked done before we have data.
+                bool doneNoAction = !working && !_onboarding.IsConnecting
+                    && step.State != OnboardingStepState.Error
+                    && (step.State == OnboardingStepState.Ok || !step.Actionable);
+                string glyph = step.State == OnboardingStepState.Error ? "✕" : (doneNoAction ? "✓" : "○");
+                Brush glyphBrush = step.State == OnboardingStepState.Error ? UiHelpers.Error
+                    : (doneNoAction ? UiHelpers.Ok : UiHelpers.Subtle);
+
                 var row = new Grid { Margin = new Thickness(0, 6, 0, 6) };
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -472,8 +461,8 @@ namespace ClawTweaksSetup
                     ? UiHelpers.Badge(StatusKind.Working, 20)
                     : new TextBlock
                     {
-                        Text = GlyphForStep(step.State), FontSize = 18, FontWeight = FontWeights.Bold,
-                        Foreground = BrushForStep(step.State),
+                        Text = glyph, FontSize = 18, FontWeight = FontWeights.Bold,
+                        Foreground = glyphBrush,
                     };
                 statusEl.Width = 26;
                 statusEl.VerticalAlignment = VerticalAlignment.Center;
