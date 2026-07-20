@@ -62,6 +62,56 @@ namespace XboxGamingBar
         // → {0,25,50,75,100} at 0–100 or {0,38,75,113,150} at 0–150 (75 stays a gridline in both).
         private int MsiGridPctAt(int g) => (int)Math.Round(MsiAxisMax() * g / 4.0);
 
+        // ── Per-model duty floor ─────────────────────────────────────────────────────────
+        // The lowest duty the editor allows. Below this the model's firmware overrides the curve at
+        // idle anyway, so a lower curve point would only invert the loudness (idle louder than light
+        // load). On-device: the A2VM rests its idle duty at 40 (= its own default-curve bottom, and its
+        // physical fan minimum ~2450 RPM); the Claw 8 EX rests at ~58 (~3570 RPM) regardless of the
+        // curve. So the floor = each model's idle floor. Verified from EC-tach logs 2026-07-20.
+        private bool IsClaw8ExWidget()
+        {
+            var n = deviceDisplayName?.Value;
+            if (string.IsNullOrEmpty(n)) return false;
+            return n.IndexOf("CG3EM", StringComparison.OrdinalIgnoreCase) >= 0
+                || n.IndexOf("1T91",  StringComparison.OrdinalIgnoreCase) >= 0
+                || n.IndexOf("8 EX",  StringComparison.OrdinalIgnoreCase) >= 0
+                || n.IndexOf("8EX",   StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+        private int MsiDutyFloor() => IsClaw8ExWidget() ? 58 : 40;
+
+        // ── Duty→RPM model (from on-device EC-tach logs, 2026-07-20) ──────────────────────
+        // Piecewise-linear anchors; linearly extrapolated above the top anchor (no tach data past
+        // ~duty 94, so the very top of the axis is a hard extrapolation, not a measurement). The EX
+        // spins ~200 RPM faster than the A2VM below ~duty 50; from ~58 up both agree within ~2%.
+        // Used only for the Y-axis "(rpm)" labels — never for the EC write.
+        private static readonly int[] MsiRpmDutyA2VM = { 0,   20,   40,   45,   49,   58,   67,   75 };
+        private static readonly int[] MsiRpmValA2VM  = { 0, 2445, 2465, 2862, 2994, 3549, 4064, 4580 };
+        private static readonly int[] MsiRpmDutyEx   = { 0,   20,   39,   45,   51,   58,   62,   70,   75,   80,   84,   94 };
+        private static readonly int[] MsiRpmValEx    = { 0, 2633, 2673, 3112, 3175, 3571, 3839, 4466, 4684, 4938, 5220, 5413 };
+
+        /// <summary>Estimated fan RPM for a duty value on the current model, rounded to the nearest 10.</summary>
+        private int MsiDutyToRpm(double duty)
+        {
+            bool ex = IsClaw8ExWidget();
+            int[] dx = ex ? MsiRpmDutyEx : MsiRpmDutyA2VM;
+            int[] ry = ex ? MsiRpmValEx  : MsiRpmValA2VM;
+            int n = dx.Length;
+            double rpm;
+            if (duty <= dx[0]) rpm = ry[0];
+            else
+            {
+                rpm = ry[n - 1] + (ry[n - 1] - ry[n - 2]) / (double)(dx[n - 1] - dx[n - 2]) * (duty - dx[n - 1]);
+                for (int i = 1; i < n; i++)
+                    if (duty <= dx[i])
+                    {
+                        double f = (duty - dx[i - 1]) / (double)(dx[i] - dx[i - 1]);
+                        rpm = ry[i - 1] + f * (ry[i] - ry[i - 1]);
+                        break;
+                    }
+            }
+            return (int)(Math.Round(rpm / 10.0) * 10);
+        }
+
         private readonly int[] _msiFanTemps = (int[])MsiTempsDefault.Clone();
         private readonly int[] _msiFanDuties = (int[])MsiDutyDefault.Clone();
         // MSI-style fixed evenly-spaced BARS (not a positional temperature axis). Bar height = fan %
@@ -226,11 +276,13 @@ namespace XboxGamingBar
                 uint c = MsiGridColor[g];
                 var glab = new TextBlock
                 {
-                    FontSize = 13,
+                    FontSize = 11,
+                    LineHeight = 12,
+                    LineStackingStrategy = LineStackingStrategy.BlockLineHeight,
                     FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                     Foreground = new SolidColorBrush(Windows.UI.ColorHelper.FromArgb(255, (byte)(c >> 16), (byte)(c >> 8), (byte)c)),
                     IsHitTestVisible = false
-                    // Text is set per-render (RenderMsiFanCurve) so it tracks the 0–100 / 0–150 axis switch.
+                    // Text is set per-render (RenderMsiFanCurve): "%\n(rpm)", tracking the 0–100 / 0–150 axis.
                 };
                 _msiFanGridLabels[g] = glab;
                 MsiFanCurveCanvas.Children.Add(glab);
@@ -378,6 +430,7 @@ namespace XboxGamingBar
                     {
                         Array.Copy(ct, _msiFanTemps, MsiFanPoints);
                         Array.Copy(cd, _msiFanDuties, MsiFanPoints);
+                        EnforceDutyFloor();
                         return;
                     }
                     temps = ModelTemps(); duties = ModelDefaultDuty(); break;
@@ -386,6 +439,7 @@ namespace XboxGamingBar
             }
             Array.Copy(temps, _msiFanTemps, MsiFanPoints);
             Array.Copy(duties, _msiFanDuties, MsiFanPoints);
+            EnforceDutyFloor();
         }
 
         private bool LoadCustomCurveFromStorage(out int[] temps, out int[] duties)
@@ -477,12 +531,28 @@ namespace XboxGamingBar
         private void EnforceDutyStaircase(int changed)
         {
             int max = MsiDutyMax();
+            int floor = MsiDutyFloor();
             for (int i = changed + 1; i < MsiFanPoints; i++)
                 if (_msiFanDuties[i] < _msiFanDuties[i - 1] + 1)
                     _msiFanDuties[i] = Math.Min(max, _msiFanDuties[i - 1] + 1);
             for (int i = changed - 1; i >= 0; i--)
                 if (_msiFanDuties[i] > _msiFanDuties[i + 1] - 1)
-                    _msiFanDuties[i] = Math.Max(0, _msiFanDuties[i + 1] - 1);
+                    _msiFanDuties[i] = Math.Max(floor, _msiFanDuties[i + 1] - 1);
+        }
+
+        /// <summary>Raise any curve point below the per-model duty floor up to it, then re-stair so the
+        /// curve stays strictly increasing. Called whenever a preset/stored curve is (re)loaded so a
+        /// sub-floor curve can never reach the EC (prevents the "idle louder than light load" inversion).</summary>
+        private void EnforceDutyFloor()
+        {
+            int floor = MsiDutyFloor();
+            int max = MsiDutyMax();
+            for (int i = 0; i < MsiFanPoints; i++)
+                if (_msiFanDuties[i] < floor) _msiFanDuties[i] = floor;
+            // Keep strictly increasing after clamping (a flat run at the floor becomes floor, floor+1, …).
+            for (int i = 1; i < MsiFanPoints; i++)
+                if (_msiFanDuties[i] <= _msiFanDuties[i - 1])
+                    _msiFanDuties[i] = Math.Min(max, _msiFanDuties[i - 1] + 1);
         }
 
         // ── Pending-change (Apply button) state ─────────────────────────────────────
@@ -557,7 +627,7 @@ namespace XboxGamingBar
         // Y-axis % labels.
         private const double MsiPlotTop = 26;
         private const double MsiPlotBottomPad = 48;   // room for the temp label + diamond focus marker
-        private const double MsiPlotLeft = 40;
+        private const double MsiPlotLeft = 54;   // widened to fit the "% (rpm)" Y-axis labels
 
         private double MsiDutyToY(double duty, double plotTop, double plotBottom)
             => plotBottom - (duty / MsiAxisMax()) * (plotBottom - plotTop);
@@ -590,9 +660,11 @@ namespace XboxGamingBar
                 }
                 if (_msiFanGridLabels[g] != null)
                 {
-                    _msiFanGridLabels[g].Text = $"{pct}%";
+                    // "% (rpm)" like MSI Center M — the estimated RPM for this duty on the current model,
+                    // on a second line. 0% shows no RPM (would collide with the temp labels underneath).
+                    _msiFanGridLabels[g].Text = pct <= 0 ? "0%" : $"{pct}%\n({MsiDutyToRpm(pct)})";
                     Canvas.SetLeft(_msiFanGridLabels[g], 2);
-                    Canvas.SetTop(_msiFanGridLabels[g], gy - 9);
+                    Canvas.SetTop(_msiFanGridLabels[g], gy - (pct <= 0 ? 9 : 16));
                 }
             }
 
@@ -772,7 +844,7 @@ namespace XboxGamingBar
             {
                 double plotH = plotBottom - plotTop;
                 double duty = plotH > 0 ? (1.0 - (point.Y - plotTop) / plotH) * MsiAxisMax() : 0;
-                _msiFanDuties[_msiFanDragIndex] = (int)Math.Max(0, Math.Min(MsiDutyMax(), Math.Round(duty)));
+                _msiFanDuties[_msiFanDragIndex] = (int)Math.Max(MsiDutyFloor(), Math.Min(MsiDutyMax(), Math.Round(duty)));
                 EnforceDutyStaircase(_msiFanDragIndex);
             }
             RenderMsiFanCurve();
@@ -997,10 +1069,11 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Duty circle: vertical only (capped by the extended-range toggle).
+                    // Duty circle: vertical only, finest 1-step (capped by the extended-range toggle and
+                    // floored at the per-model duty floor).
                     if (up || down)
                     {
-                        _msiFanDuties[idx] = Math.Max(0, Math.Min(MsiDutyMax(), _msiFanDuties[idx] + (up ? 5 : -5)));
+                        _msiFanDuties[idx] = Math.Max(MsiDutyFloor(), Math.Min(MsiDutyMax(), _msiFanDuties[idx] + (up ? 1 : -1)));
                         EnforceDutyStaircase(idx);
                         RenderMsiFanCurve(); HighlightMsiFanPoints(); e.Handled = true;
                     }
