@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 
 namespace ClawTweaksSetup.Core
 {
@@ -67,7 +68,18 @@ namespace ClawTweaksSetup.Core
             // (0x8A15005E), most often caused by the device's system clock being wrong. Trusting the
             // exit code alone is exactly what silently dropped RTSS from the install here. Re-check
             // the real, on-disk state instead.
+            //
+            // A short bounded retry sits in front of the final verdict: right after winget's process
+            // exits, a just-installed driver's device object (PawnIO's \\.\PawnIO check in particular)
+            // can take a moment to register — observed live as a false "still not installed" on a
+            // driver that was actually running fine a moment later. Retrying here, instead of only in
+            // whatever called this, means every caller benefits without needing its own retry logic.
             bool installed = isInstalled();
+            for (int attempt = 0; ran && !installed && attempt < 3; attempt++)
+            {
+                Thread.Sleep(1000);
+                installed = isInstalled();
+            }
             if (ran && !installed)
                 log?.Invoke($"{display}: winget reported success but it's still not installed — this is " +
                     "usually a winget download/certificate failure (0x8A15005E), often caused by an " +

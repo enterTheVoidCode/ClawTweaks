@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -48,8 +49,14 @@ namespace ClawTweaksSetup.Phases
         public override string Title => "Tools";
         public override IReadOnlyList<PhaseAction> Actions => _actions;
 
-        public ToolsPhase()
+        /// <summary>One-shot: set from the constructor when MainWindow is landing back on this phase
+        /// after an elevated relaunch it triggered (ResumeSilentArg). Consumed on the first OnEnter so
+        /// re-visiting this phase later in the same run behaves normally.</summary>
+        private bool _autoResumeSilent;
+
+        public ToolsPhase(bool autoResumeSilent = false)
         {
+            _autoResumeSilent = autoResumeSilent;
             Content = _root;
             _actions = new List<PhaseAction>
             {
@@ -58,7 +65,12 @@ namespace ClawTweaksSetup.Phases
             };
         }
 
-        public override void OnEnter() => _ = RefreshAsync();
+        public override void OnEnter()
+        {
+            bool autoResume = _autoResumeSilent;
+            _autoResumeSilent = false;
+            _ = autoResume ? InstallAsync(skipUsbip: true) : RefreshAsync();
+        }
 
         private async Task RefreshAsync()
         {
@@ -104,9 +116,33 @@ namespace ClawTweaksSetup.Phases
             if (_log.Text.Length > 0) _root.Children.Add(_log);
         }
 
-        private async Task InstallAsync()
+        /// <summary>Command-line marker that survives an elevated relaunch triggered from here: tells
+        /// MainWindow to land back on this phase and resume automatically — but only the SILENT part
+        /// (HidHide/RTSS/PawnIO). usbip is deliberately excluded from auto-resume: its installer opens
+        /// a visible, non-silent third-party window, and popping that unprompted right after the UAC
+        /// dialog closes would be surprising. The user gets one more explicit click for that step
+        /// (already elevated by then, so no second UAC).</summary>
+        public const string ResumeSilentArg = "--resume-tools-silent";
+
+        private async Task InstallAsync(bool skipUsbip = false)
         {
             if (_busy) return;
+
+            // Installing drivers (HidHide/usbip/PawnIO) needs admin; Center runs unelevated by default.
+            // Relaunches elevated if needed (one UAC prompt covers this and every later privileged step
+            // in the same run) or returns false if the user declined. ResumeSilentArg is appended so the
+            // relaunch knows to auto-continue the silent tools without a second click.
+            var realArgs = Environment.GetCommandLineArgs().Skip(1)
+                .Where(a => a != ResumeSilentArg)
+                .Append(ResumeSilentArg)
+                .ToArray();
+            if (!ElevationGate.EnsureElevatedOrRelaunch(realArgs))
+            {
+                _log.Text = "Administrator rights are required to install these tools.";
+                Render(ToolDetect.HidHide(), ToolDetect.Usbip(), ToolDetect.Rtss(), ToolDetect.PawnIO());
+                return;
+            }
+
             _busy = true;
             State = PhaseState.Working;
             _log.Text = "";
@@ -132,7 +168,15 @@ namespace ClawTweaksSetup.Phases
             await RefreshSilentAsync();
 
             // 2) usbip last — it can't be silent (its installer window opens; confirm the driver prompt).
-            if (!await Task.Run(() => ToolDetect.Usbip().Installed))
+            // Skipped on an auto-resume (skipUsbip): don't pop a third-party installer window unprompted
+            // right after the UAC dialog closes. The phase just re-renders with usbip still missing, so
+            // "Install missing" is still available — one more explicit, already-elevated click, no UAC.
+            if (skipUsbip)
+            {
+                if (!await Task.Run(() => ToolDetect.Usbip().Installed))
+                    Log("usbip still needs to be installed — press Install missing again to continue.");
+            }
+            else if (!await Task.Run(() => ToolDetect.Usbip().Installed))
             {
                 Log("usbip cannot be installed silently — an installer window will open now.");
                 Log("Confirm the driver-install prompt. A REBOOT is required afterwards.");

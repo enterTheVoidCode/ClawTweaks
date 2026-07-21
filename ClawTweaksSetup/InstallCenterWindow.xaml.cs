@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using ClawTweaksSetup.Core;
 using ClawTweaksSetup.Navigation;
@@ -27,7 +28,14 @@ namespace ClawTweaksSetup
         private bool _installing;
         private readonly InstallCenterMode _mode;
 
-        public InstallCenterWindow(InstallCenterMode mode, Version installedVersion = null, Version runningVersion = null)
+        /// <summary>Command-line marker that survives the elevated relaunch (see StartInstall): tells
+        /// this window to fire the install immediately once it's shown again, instead of making the
+        /// user click Install/Update a second time after already having granted the UAC prompt once.
+        /// The OS-level UAC consent is the actual trust checkpoint here — a redundant in-app click on
+        /// top of it adds no real signal, so there is no reason to make the user do it.</summary>
+        public const string ResumeArg = "--resume-install";
+
+        public InstallCenterWindow(InstallCenterMode mode, Version installedVersion = null, Version runningVersion = null, bool autoStart = false)
         {
             _mode = mode;
             InitializeComponent();
@@ -55,6 +63,11 @@ namespace ClawTweaksSetup
                 });
                 _nav.Start();
                 RenderActionBar();
+
+                // Elevated relaunch already happened and the user already granted the UAC prompt once —
+                // proceed straight into the install instead of landing back on this same screen waiting
+                // for a second click.
+                if (autoStart && _mode != InstallCenterMode.AlreadyInstalled) StartInstall();
             };
             Closed += (_, __) => _nav?.Dispose();
 
@@ -91,6 +104,28 @@ namespace ClawTweaksSetup
 
             StatusText.Visibility = Visibility.Visible;
             StatusText.Text = _mode == InstallCenterMode.Update ? "Updating..." : "Installing...";
+
+            // Center runs unelevated by default; installing/updating writes to Program Files and the
+            // registry, so it needs admin. If we're not already elevated this relaunches Center with
+            // the UAC prompt and shuts this instance down — or, if the user declines, returns false so
+            // the failure branch below can tell them why instead of silently doing nothing.
+            // Skip index 0: GetCommandLineArgs()[0] is the exe path itself, not a real argument —
+            // ElevationGate.EnsureElevatedOrRelaunch expects only the actual CLI args (it supplies the
+            // exe path separately as the relaunched process's FileName). Append ResumeArg so the
+            // elevated relaunch knows to auto-fire the install instead of waiting for a second click.
+            var realArgs = Environment.GetCommandLineArgs().Skip(1)
+                .Where(a => a != ResumeArg)
+                .Append(ResumeArg)
+                .ToArray();
+            if (!ElevationGate.EnsureElevatedOrRelaunch(realArgs))
+            {
+                _installing = false;
+                StatusText.Foreground = UiHelpers.Error;
+                StatusText.Text = "Administrator rights are required to " +
+                                   (_mode == InstallCenterMode.Update ? "update" : "install") + ".";
+                RenderActionBar();
+                return;
+            }
 
             bool ok = SelfInstaller.InstallAndRelaunch(msg => Dispatcher.Invoke(() => StatusText.Text = msg));
             if (ok)

@@ -920,9 +920,20 @@ namespace ClawTweaksSetup
                 Margin = new Thickness(0, 8, 0, 8),
                 IsIndeterminate = true,
             };
+            // Bounded, self-scrolling box for the step log: without this the log grows the whole page
+            // taller as steps stream in, and following it (scrolling the outer ContentScroller down)
+            // pushes the right column's Status card / Reboot-required warning out of view — exactly the
+            // essential info the user needs to see. Capping the height here and auto-scrolling only
+            // this inner box keeps the page height stable and the status card always in view.
             var logPanel = new StackPanel { Margin = new Thickness(2, 4, 0, 0) };
+            var logScroller = new ScrollViewer
+            {
+                MaxHeight = 320,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                Content = logPanel,
+            };
             left.Children.Add(progressBar);
-            left.Children.Add(logPanel);
+            left.Children.Add(logScroller);
 
             var statusPanel = new ContentControl
             {
@@ -991,6 +1002,7 @@ namespace ClawTweaksSetup
             {
                 FinishLogRow(currentLogBadge, true);
                 logPanel.Children.Add(BuildLogRow(s, out currentLogBadge, out currentLogDetail));
+                logScroller.ScrollToBottom();
             });
 
             // Appends a sub-line under the CURRENT row instead of starting a new checkmarked row —
@@ -1003,6 +1015,7 @@ namespace ClawTweaksSetup
                     Text = s, FontSize = 13, Foreground = UiHelpers.Subtle,
                     TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 1, 0, 1),
                 });
+                logScroller.ScrollToBottom();
             });
             var progress = new Progress<int>(p =>
             {
@@ -1022,6 +1035,13 @@ namespace ClawTweaksSetup
                 // ToolsPhase.InstallAsync + InstallPhase.InstallAsync (required tools → cert trust →
                 // Add-AppxPackage → Game Bar → wait for helper); the release-folder path still gets the
                 // full guided wizard via MainWindow, unchanged.
+                //
+                // DELIBERATE EXCEPTION (confirmed with the user 2026-07-21): unlike ToolsPhase/
+                // InstallPhase, this flow does NOT call ElevationGate up front for one shared elevation.
+                // Each tool install (HidHide/RTSS/PawnIO/usbip via winget or their own installers) ends
+                // up requesting UAC independently, so this dev/fast-iteration path shows several UAC
+                // prompts in a row instead of one. The user explicitly asked to keep it this way here —
+                // do not "fix" this to match the single-elevation model without asking again first.
                 progressBar.IsIndeterminate = true;
                 bool ok = true;
 
@@ -1031,14 +1051,38 @@ namespace ClawTweaksSetup
                 var pawnio = await Task.Run(() => ToolDetect.PawnIO());
                 if (!hidhide.Installed || !rtss.Installed || !usbip.Installed || !pawnio.Installed)
                 {
-                    if (!hidhide.Installed) await Task.Run(() => ToolInstaller.InstallHidHide(Log));
-                    if (!rtss.Installed) await Task.Run(() => ToolInstaller.InstallRtss(Log));
+                    // Each result is ANDed into ok — previously discarded, so a genuine failure (e.g. a
+                    // wrong system clock breaking the winget/certificate download, the exact case the
+                    // detailed log message below already explains) silently continued as if everything
+                    // had succeeded instead of stopping before cert/package install.
+                    //
+                    // Each row is also explicitly finalized with ITS OWN result right here — not left
+                    // for the generic "Log() marks the previous row green when the next one starts"
+                    // convenience, and not left for the single end-of-method FinishLogRow(ok) either.
+                    // Both of those attribute whatever the CUMULATIVE outcome ends up being to whichever
+                    // row happens to be current/last at that point, which can be a completely unrelated
+                    // later step (observed: a PawnIO failure here got silently shown as green, while the
+                    // red X landed on "Certificate already trusted." several steps later).
+                    if (!hidhide.Installed)
+                    {
+                        bool r = await Task.Run(() => ToolInstaller.InstallHidHide(Log));
+                        FinishLogRow(currentLogBadge, r);
+                        ok &= r;
+                    }
+                    if (!rtss.Installed)
+                    {
+                        bool r = await Task.Run(() => ToolInstaller.InstallRtss(Log));
+                        FinishLogRow(currentLogBadge, r);
+                        ok &= r;
+                    }
                     if (!pawnio.Installed)
                     {
                         // Silent like HidHide/RTSS (no interactive window), but its own multi-step
                         // download+verify+install flow is grouped the same way usbip's is below.
                         Log("Installing PawnIO (driver)…");
-                        await Task.Run(() => PawnIoSetup.Run(LogDetail));
+                        bool r = await Task.Run(() => PawnIoSetup.Run(LogDetail)) == PawnIoSetup.Result.Success;
+                        FinishLogRow(currentLogBadge, r);
+                        ok &= r;
                     }
                     if (!await Task.Run(() => ToolDetect.Usbip().Installed))
                     {
@@ -1060,6 +1104,23 @@ namespace ClawTweaksSetup
                 }
                 else Log("Required tools (HidHide, RTSS, usbip, PawnIO) already installed.");
 
+                // Stop here, clearly, if a required tool failed — rather than continuing on to the
+                // certificate/package/Game-Bar steps and quietly falling through to nothing with no
+                // explanation (the "it looks frozen" symptom this was fixed from: tools failed, cert
+                // and package steps ran anyway, then the flow just stopped after "Certificate already
+                // trusted." with only an easy-to-miss red X several rows back as the only clue).
+                if (!ok)
+                {
+                    statusPanel.Content = BuildBigStatusCard(StatusKind.Error, "Installation stopped",
+                        "One or more required tools failed to install — see the log above for details. " +
+                        "Fix the issue (e.g. check the system clock for the winget/certificate error) and try again.");
+                    FinishLogRow(currentLogBadge, false);
+                    _busy = false;
+                    _installFinished = true;
+                    RefreshActionBar();
+                    return;
+                }
+
                 string cer = CertInstaller.FindSiblingCer();
                 if (cer != null)
                 {
@@ -1067,7 +1128,9 @@ namespace ClawTweaksSetup
                     if (!CertInstaller.IsTrusted(thumb))
                     {
                         Log("Trusting signing certificate…");
-                        ok &= await Task.Run(() => CertInstaller.Install(cer));
+                        bool r = await Task.Run(() => CertInstaller.Install(cer));
+                        FinishLogRow(currentLogBadge, r);
+                        ok &= r;
                     }
                     else Log("Certificate already trusted.");
                 }
@@ -1140,7 +1203,9 @@ namespace ClawTweaksSetup
 
         /// <summary>
         /// Everything that happens after Add-AppxPackage succeeds: open the Game Bar (auto-closes
-        /// itself after ~1s so the user sees this panel, not just the overlay), wait for the FRESH
+        /// itself after a few seconds so the user sees this panel, not just the overlay — long enough
+        /// for the widget to actually finish loading and kick off the helper; 1s wasn't, observed live:
+        /// the Game Bar closed before the widget had a chance to start it), wait for the FRESH
         /// helper (surfacing the UAC prompt prominently if the helper's own first-run --setup needs
         /// one), check for and remove any stale helper left over from before the update, then run the
         /// controller diagnostic (HW vs. virtual mode). Settles for a fixed ~20s total before
@@ -1158,7 +1223,7 @@ namespace ClawTweaksSetup
             var totalSw = System.Diagnostics.Stopwatch.StartNew();
 
             HelperControl.OpenGameBar();
-            await Task.Delay(1000);
+            await Task.Delay(5000);
             HelperControl.CloseGameBarBestEffort(); // best-effort — the big UAC card below is the fallback if this doesn't land
 
             // 1) Wait for the FRESH helper, running ELEVATED — surfacing the UAC prompt prominently

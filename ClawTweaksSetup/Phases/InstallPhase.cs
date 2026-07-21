@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -45,8 +46,14 @@ namespace ClawTweaksSetup.Phases
         public override string Title => "Install";
         public override IReadOnlyList<PhaseAction> Actions => _actions;
 
-        public InstallPhase()
+        /// <summary>One-shot: set from the constructor when MainWindow is landing back on this phase
+        /// after an elevated relaunch it triggered (ResumeArg). Consumed on the first OnEnter so
+        /// re-visiting this phase later in the same run behaves normally.</summary>
+        private bool _autoResume;
+
+        public InstallPhase(bool autoResume = false)
         {
+            _autoResume = autoResume;
             Content = _root;
             _actions = new List<PhaseAction>
             {
@@ -55,7 +62,12 @@ namespace ClawTweaksSetup.Phases
             };
         }
 
-        public override void OnEnter() => _ = RefreshAsync();
+        public override void OnEnter()
+        {
+            bool auto = _autoResume;
+            _autoResume = false;
+            _ = auto ? InstallAsync() : RefreshAsync();
+        }
 
         private async Task RefreshAsync()
         {
@@ -125,9 +137,31 @@ namespace ClawTweaksSetup.Phases
             RaiseActionsChanged();
         }
 
+        /// <summary>Command-line marker that survives an elevated relaunch triggered from here: tells
+        /// MainWindow to land back on this phase and resume automatically. Safe to auto-resume in full
+        /// (unlike ToolsPhase's usbip step) — trusting the cert and installing the MSIX are our own
+        /// signed, silent operations, not a third-party installer window popping up unprompted.</summary>
+        public const string ResumeArg = "--resume-install-widget";
+
         private async Task InstallAsync()
         {
             if (_busy) return;
+
+            // Trusting the certificate and installing the MSIX need admin; Center runs unelevated by
+            // default. Relaunches elevated if needed (covers this and every later privileged step in
+            // the same run) or returns false if the user declined. ResumeArg is appended so the
+            // relaunch knows to auto-continue instead of waiting for a second click.
+            var realArgs = Environment.GetCommandLineArgs().Skip(1)
+                .Where(a => a != ResumeArg)
+                .Append(ResumeArg)
+                .ToArray();
+            if (!ElevationGate.EnsureElevatedOrRelaunch(realArgs))
+            {
+                _log.Text = "Administrator rights are required to install ClawTweaks.";
+                await RefreshAsync();
+                return;
+            }
+
             _busy = true;
             State = PhaseState.Working;
             _log.Text = "";

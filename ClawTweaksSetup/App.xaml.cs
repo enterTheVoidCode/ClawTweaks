@@ -13,10 +13,15 @@ namespace ClawTweaksSetup
             base.OnStartup(e);
 
             // Uninstall callback (registered as the Add/Remove Programs UninstallString) — clean up
-            // and exit immediately, never reaching any window.
+            // and exit immediately, never reaching any window. Removing from Program Files and the
+            // registry needs admin; Center is asInvoker now, so unlike before this is not automatic —
+            // relaunch elevated with the same --uninstall arg if needed (same gate as the install path).
             if (Array.Exists(e.Args, a => a.Equals("--uninstall", StringComparison.OrdinalIgnoreCase)))
             {
-                SelfInstaller.Uninstall();
+                if (ElevationGate.EnsureElevatedOrRelaunch(e.Args))
+                {
+                    SelfInstaller.Uninstall();
+                }
                 Shutdown();
                 return;
             }
@@ -47,11 +52,17 @@ namespace ClawTweaksSetup
                 else if (installedVersion < runningVersion) mode = InstallCenterMode.Update;
                 else mode = InstallCenterMode.AlreadyInstalled;
 
-                // All three modes show a window and require an explicit user action — running a
-                // Setup file must never silently do something other than what was double-clicked
-                // (AlreadyInstalled points the user at the Start Menu / Game Bar widget instead of
-                // launching a different already-installed copy out from under them).
-                ShowForeground(new InstallCenterWindow(mode, installedVersion, runningVersion));
+                // All three modes show a window and require an explicit user action before anything
+                // happens — running a Setup file must never silently do something other than what was
+                // double-clicked (AlreadyInstalled points the user at the Start Menu / Game Bar widget
+                // instead of launching a different already-installed copy out from under them).
+                //
+                // autoStart: set only when this launch IS the elevated relaunch triggered by that
+                // explicit click (see InstallCenterWindow.ResumeArg / ElevationGate) — the user already
+                // acted once and already granted the UAC prompt, so this proceeds straight into the
+                // install instead of making them click Install/Update a second time for no extra signal.
+                bool autoStart = Array.Exists(e.Args, a => a == InstallCenterWindow.ResumeArg);
+                ShowForeground(new InstallCenterWindow(mode, installedVersion, runningVersion, autoStart));
                 return;
             }
 
@@ -60,7 +71,7 @@ namespace ClawTweaksSetup
             // menu lets the user pick and download a build first; it repoints SetupContext.AssetRoot
             // and opens MainWindow itself once staged.
             bool standalone = PackageInstaller.FindPackage() == null && CertInstaller.FindSiblingCer() == null;
-            Window window = standalone ? new CenterMenuWindow() : new MainWindow();
+            Window window = standalone ? new CenterMenuWindow() : new MainWindow(e.Args);
             ShowForeground(window);
         }
 

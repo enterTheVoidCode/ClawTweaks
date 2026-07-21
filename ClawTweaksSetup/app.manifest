@@ -2,13 +2,18 @@
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
   <assemblyIdentity version="1.0.0.0" name="ClawTweaks.Setup" />
 
-  <!-- The whole setup runs elevated: it trusts the signing cert, installs kernel drivers
-       (HidHide / usbip), and installs the MSIX. Requesting admin up front means a single UAC
-       prompt at launch instead of one per action. -->
+  <!-- Runs unelevated by default. Reading status, browsing the wizard, and talking to the already-
+       elevated Helper over its named pipe (TDP/RGB/fan/etc.) all work without admin — the same way the
+       sandboxed Game Bar widget already does, since UAC only gates creating a NEW elevated process, not
+       sending a pipe message to one that's already running elevated. Admin is requested on demand, at
+       the moment of an actual privileged action (self-install to Program Files, cert/MSIX/driver
+       install, uninstall), via ElevationGate.EnsureElevatedOrRelaunch — see ClawTweaksSetup/Core/
+       ElevationGate.cs. One relaunch covers the rest of that run: IsInRole(Administrator) is checked
+       fresh each call, so once elevated, later privileged actions in the same process don't re-prompt. -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
     <security>
       <requestedPrivileges>
-        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
       </requestedPrivileges>
     </security>
   </trustInfo>
