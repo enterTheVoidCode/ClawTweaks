@@ -18,11 +18,11 @@ A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [
 > ### Supported Devices
 > | Device | Status |
 > |--------|--------|
+> | MSI Claw A1M (Meteor Lake) | ⏳ in development |
 > | **MSI Claw 8 AI+ A2VM** (Lunar Lake, MS-1T52) | ✅ Supported |
 > | **MSI Claw 7 AI+ A2VM / A2VMX** (Lunar Lake, MS-1T42) | ✅ Supported |
-> | MSI Claw A1M (Meteor Lake) | Not supported — different processor, EC and HW controller |
-> | MSI Claw 8 EX (Panther Lake) | Possible future support — shares Intel architecture |
-> | Other MSI Claw models | Not tested / not supported |
+> | MSI Claw A8 EX (AMD Z2E) | ⏳ in development |
+> | MSI Claw 8 EX (Panther Lake) | ✅ Supported |
 >
 > **The installer will abort with an error message if run on an unsupported device.**
 > **Before installing CTW - MSI Center M must be installed and running on your device**
