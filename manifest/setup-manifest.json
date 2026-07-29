@@ -11,7 +11,7 @@
   "minimumSetupVersion": "0.1.0",
   "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub.",
 
-  "latestSetupVersion": "0.1.8.6",
-  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.1.8/CTW_Center_0.1.8.6_Setup.exe",
-  "latestSetupSha256": "0298dc57abcb2d51298f5609d1b5fcc3aea327030197de4c79ca7f4d35199a70"
+  "latestSetupVersion": "0.1.8.7",
+  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.1.8/CTW_Center_0.1.8.7_Setup.exe",
+  "latestSetupSha256": "23ac97bb1386ad4c4a2758fb14f1b2a47a561dbccfd499d5b09ab4d392c5e7ac"
 }
