@@ -1,0 +1,18 @@
+{
+  "_readme": "Curated manifest for ClawTweaksSetup.exe ('ClawTweaks Center'). Fetched from the master branch via raw.githubusercontent on every Center launch (Core/SetupVersionCheck.cs). Offline-safe: if unreachable, Center runs normally and offers no update. NOTE: this file is only live once pushed to the PUBLIC repo's master branch - pushing it to the private dev remote changes nothing.",
+
+  "_readme_floor": "minimumSetupVersion is a FLOOR, not the latest version. Center shows an 'outdated build' warning when its own <Version> (ClawTweaksSetup.csproj - NOT the same number as the ClawTweaks app version) is below it. Only bump it when an older Center build is known broken, e.g. a fixed install-routine bug, so already-downloaded builds get flagged. Do NOT bump it on every release.",
+
+  "_readme_update": "The latestSetup* fields drive the self-update offer on Center's Home screen (Core/CenterUpdater.cs). ALL of latestSetupVersion, latestSetupUrl and latestSetupSha256 must be present and valid or no update is offered at all - a half-filled entry must never produce an Update button that then can't verify what it downloaded. Release procedure: (1) bump <Version> in ClawTweaksSetup.csproj, (2) dotnet publish -c Release, (3) upload ClawTweaksSetup\\PortableExe\\CTW_Center_<version>_Setup.exe as a GitHub release asset, (4) Get-FileHash -Algorithm SHA256 on that exact uploaded file, (5) fill the three fields below and push to public master. The URL must be https on github.com / objects.githubusercontent.com / release-assets.githubusercontent.com and end in .exe - SetupVersionCheck.SanitizeUrl rejects anything else, because this is an untrusted string we are about to download an executable from.",
+
+  "schemaVersion": 2,
+  "updatedUtc": "2026-07-29",
+
+  "minimumSetupVersion": "0.1.0",
+  "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub.",
+
+  "latestSetupVersion": "0.1.8.4",
+  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.1.8/CTW_Center_0.1.8.4_Setup.exe",
+  "latestSetupSha256": "4276b1c78e2dda585807f732333044985602aeafab6c8b7b8fd665f0e1d477d6",
+  "latestSetupNotes": "Center can now update itself: it downloads the new build, verifies its checksum, and starts it for you."
+}
