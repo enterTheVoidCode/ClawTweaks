@@ -18,7 +18,7 @@
   "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub.",
 
   "minimumClawTweaksVersion": "0.1.8.51",
-  "clawTweaksVersionMessage": "Superseded installer — install 0.1.8.51 or newer",
+  "clawTweaksVersionMessage": "Outdated version — install 0.1.8.51 or newer",
 
   "latestSetupVersion": "0.1.8.7",
   "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaks/releases",
