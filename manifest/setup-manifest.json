@@ -3,15 +3,25 @@
 
   "_readme_floor": "minimumSetupVersion is a FLOOR, not the latest version. Center shows an 'outdated build' warning when its own <Version> (ClawTweaksSetup.csproj - NOT the same number as the ClawTweaks app version) is below it. Only bump it when an older Center build is known broken, e.g. a fixed install-routine bug, so already-downloaded builds get flagged. Do NOT bump it on every release.",
 
-  "_readme_update": "The latestSetup* fields drive the self-update offer on Center's Home screen (Core/CenterUpdater.cs). ALL of latestSetupVersion, latestSetupUrl and latestSetupSha256 must be present and valid or no update is offered at all - a half-filled entry must never produce an Update button that then can't verify what it downloaded. Release procedure: (1) bump <Version> in ClawTweaksSetup.csproj, (2) dotnet publish -c Release, (3) upload ClawTweaksSetup\\PortableExe\\CTW_Center_<version>_Setup.exe as a GitHub release asset, (4) Get-FileHash -Algorithm SHA256 on that exact uploaded file, (5) fill the three fields below and push to public master. The URL must be https on github.com / objects.githubusercontent.com / release-assets.githubusercontent.com and end in .exe - SetupVersionCheck.SanitizeUrl rejects anything else, because this is an untrusted string we are about to download an executable from.",
+  "_readme_update": "TWO DIFFERENT AUDIENCES READ THE latestSetup* FIELDS, AND THEY NEED DIFFERENT THINGS. Center 0.1.9.0+ only shows a notice and opens a page: it reads latestSetupVersion and prefers latestSetupPage, falling back to latestSetupUrl. It never downloads anything and IGNORES latestSetupSha256. Center 0.1.8.x and older self-updated, and their SetupVersionCheck offers an update ONLY when latestSetupVersion AND latestSetupUrl AND latestSetupSha256 are all present and valid, with the URL ending in .exe. So dropping the url/sha fields would silence every old Center in the field - those users would never learn a new version exists, on the exact release that is supposed to migrate them off the machine-wide install. KEEP ALL FOUR FIELDS until old Centers are gone.",
 
-  "schemaVersion": 2,
-  "updatedUtc": "2026-07-29",
+  "_readme_app_floor": "minimumClawTweaksVersion is a SECOND, UNRELATED floor: it applies to the ClawTweaks APP builds Center offers for download (GitHub releases, test builds, Drive nightlies), NOT to Center itself. Anything below it is listed but greyed out and cannot be installed. This is the global kill switch for builds whose INSTALL ROUTINE is obsolete - a user installing one would land on the old machine-wide layout and have to be migrated all over again. It is deliberately curated by hand: raise it when a release makes older installers unwanted, and it takes effect on every Center out there at the next launch, with no rebuild. Center fails OPEN - offline, or on a manifest without this field, every build stays installable, because locking people out of installing anything at all is worse than letting an old build through.",
 
-  "minimumSetupVersion": "0.1.0",
+  "_readme_release":"Release procedure: (1) bump <Version> in ClawTweaksSetup.csproj, (2) dotnet publish -c Release, (3) upload ClawTweaksSetup\\PortableExe\\CTW_Center_<version>_Setup.exe as a GitHub release asset, (4) Get-FileHash -Algorithm SHA256 on THAT EXACT UPLOADED FILE, (5) fill the fields below and push to public master. The hash is the trap: every rebuild changes it, including a comment-only edit, so take it after the final build and from the uploaded artifact. latestSetupUrl must be https on github.com / objects.githubusercontent.com / release-assets.githubusercontent.com and end in .exe - old Centers' SanitizeUrl rejects anything else, and it is a string they download an executable from.",
+
+  "_note_pending": "DELIBERATELY INCONSISTENT RIGHT NOW, do not 'fix' half of it. minimumSetupVersion is 0.1.9.6 while latestSetup* still advertises 0.1.8.7, because 0.1.9.6 has not been uploaded as a release asset yet. Every Center in the field is therefore told it is outdated with nothing newer to fetch - accepted on purpose, to gate the old install routine immediately. Do NOT point latestSetupUrl at a release that does not exist: old Centers DOWNLOAD from that URL, and the 0.1.9 tag it named earlier 404s. The moment CTW_Center_0.1.9.6_Setup.exe is uploaded, set latestSetupVersion, latestSetupUrl and latestSetupSha256 together, in one edit, and delete this note.",
+
+  "schemaVersion": 3,
+  "updatedUtc": "2026-07-30",
+
+  "minimumSetupVersion": "0.1.9.6",
   "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub.",
 
+  "minimumClawTweaksVersion": "0.1.8.51",
+  "clawTweaksVersionMessage": "Superseded installer — install 0.1.8.51 or newer",
+
   "latestSetupVersion": "0.1.8.7",
+  "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaks/releases",
   "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.1.8/CTW_Center_0.1.8.7_Setup.exe",
   "latestSetupSha256": "23ac97bb1386ad4c4a2758fb14f1b2a47a561dbccfd499d5b09ab4d392c5e7ac"
 }
