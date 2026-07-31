@@ -63,26 +63,12 @@ namespace ClawTweaksSetup
         {
             _startOnboardingOnLoad = startOnboarding;
             InitializeComponent();
+            ModernWindow.Apply(this);
 
             _onboarding.StepsChanged += () => Dispatcher.Invoke(() =>
             {
                 if (_view == View.Onboarding && !_confirming && !_busy) RenderOnboarding();
             });
-
-            // Fill the screen without covering the taskbar. WindowStyle="None" + WindowState="Maximized"
-            // is the common trap here — without window chrome, WPF maximizes to the full monitor bounds
-            // instead of the work area, which hides the taskbar entirely. Sizing manually to the work
-            // area gets the borderless look while leaving the taskbar visible. Read the work area in
-            // SourceInitialized, not the constructor — SystemParameters.WorkArea can still report the
-            // full monitor bounds before the window has an actual display/HWND association, only
-            // settling to the real (taskbar-excluded) value once one exists.
-            SourceInitialized += (_, __) =>
-            {
-                Left = SystemParameters.WorkArea.Left;
-                Top = SystemParameters.WorkArea.Top;
-                Width = SystemParameters.WorkArea.Width;
-                Height = SystemParameters.WorkArea.Height;
-            };
 
             SetupVersionLabel.Text = "CTW Center v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "?");
             RenderDeviceBanner(null);

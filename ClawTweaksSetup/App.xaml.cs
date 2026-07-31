@@ -38,6 +38,21 @@ namespace ClawTweaksSetup
                 ex.Handled = true;
             };
 
+#if DEBUG
+            // Visual-QA entry points for the two installed-location shells. Kept out of Release so
+            // distributed setup binaries can never bypass the self-install gate.
+            if (Array.Exists(e.Args, a => a.Equals("--preview-center", StringComparison.OrdinalIgnoreCase)))
+            {
+                ShowForeground(new CenterMenuWindow());
+                return;
+            }
+            if (Array.Exists(e.Args, a => a.Equals("--preview-wizard", StringComparison.OrdinalIgnoreCase)))
+            {
+                ShowForeground(new MainWindow(e.Args));
+                return;
+            }
+#endif
+
             // Gate #0: Center must be running from its installed location (Program Files) before
             // anything else — including the widget MSIX — can be installed. A naked/portable run
             // shows the install-self prompt and relaunches from there; this window never opens the

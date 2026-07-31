@@ -39,6 +39,7 @@ namespace ClawTweaksSetup
         {
             _mode = mode;
             InitializeComponent();
+            ModernWindow.Apply(this);
 
             switch (mode)
             {
@@ -102,7 +103,7 @@ namespace ClawTweaksSetup
             _installing = true;
             RenderActionBar();
 
-            StatusText.Visibility = Visibility.Visible;
+            StatusPanel.Visibility = Visibility.Visible;
             StatusText.Text = _mode == InstallCenterMode.Update ? "Updating..." : "Installing...";
 
             // Center runs unelevated by default; installing/updating writes to Program Files and the
