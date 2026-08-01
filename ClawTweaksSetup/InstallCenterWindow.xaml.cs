@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using ClawTweaksSetup.Core;
 using ClawTweaksSetup.Navigation;
 using ClawTweaksSetup.Ui;
@@ -9,37 +10,32 @@ namespace ClawTweaksSetup
 {
     public enum InstallCenterMode { Install, Update, AlreadyInstalled }
 
-    /// <summary>
-    /// Gate shown before anything else when the running exe is not yet installed to
-    /// <see cref="SelfInstaller.InstallDir"/> — see App.xaml.cs, which picks the mode:
-    ///   Install           — never installed before.
-    ///   Update            — this exe is a genuinely newer build than what's installed.
-    ///   AlreadyInstalled  — this exe is the same version or OLDER than what's installed; nothing to
-    ///                       do here except point the user at the real installed copy (Start Menu /
-    ///                       Game Bar widget) instead of silently launching something else out from
-    ///                       under a double-click on a Setup exe they downloaded.
-    /// Installs/updates Center as a regular Windows app, then relaunches from there — the normal
-    /// CenterMenuWindow/MainWindow flow only ever runs from the installed location, so the widget
-    /// MSIX can never be installed before Center itself is.
-    /// </summary>
+    /// <summary>Installs or updates Center before the main setup flow can run.</summary>
     public partial class InstallCenterWindow : Window
     {
         private XInputNavigator _nav;
         private bool _installing;
+        private bool _installSucceeded;
         private readonly InstallCenterMode _mode;
 
-        /// <summary>Command-line marker that survives the elevated relaunch (see StartInstall): tells
-        /// this window to fire the install immediately once it's shown again, instead of making the
-        /// user click Install/Update a second time after already having granted the UAC prompt once.
-        /// The OS-level UAC consent is the actual trust checkpoint here — a redundant in-app click on
-        /// top of it adds no real signal, so there is no reason to make the user do it.</summary>
+        /// <summary>Resumes installation after the elevated relaunch.</summary>
         public const string ResumeArg = "--resume-install";
+        public const string DesktopShortcutArg = "--desktop-shortcut";
+        public const string StartMenuShortcutArg = "--start-menu-shortcut";
 
         public InstallCenterWindow(InstallCenterMode mode, Version installedVersion = null, Version runningVersion = null, bool autoStart = false)
         {
             _mode = mode;
             InitializeComponent();
             ModernWindow.Apply(this);
+
+            var args = Environment.GetCommandLineArgs();
+            DesktopShortcutCheckBox.IsChecked = autoStart
+                ? args.Contains(DesktopShortcutArg)
+                : SelfInstaller.HasDesktopShortcut();
+            StartMenuShortcutCheckBox.IsChecked = autoStart
+                ? args.Contains(StartMenuShortcutArg)
+                : (mode == InstallCenterMode.Install || SelfInstaller.HasStartMenuShortcut());
 
             switch (mode)
             {
@@ -51,6 +47,7 @@ namespace ClawTweaksSetup
                     TitleText.Text = "ClawTweaks Center is already installed";
                     DescriptionText.Text = $"Version {installedVersion} is already installed. Open it from the Start Menu " +
                                             "or the ClawTweaks Game Bar widget instead of running this Setup file again.";
+                    ShortcutOptions.Visibility = Visibility.Collapsed;
                     break;
             }
 
@@ -59,20 +56,20 @@ namespace ClawTweaksSetup
                 _nav = new XInputNavigator(this);
                 _nav.ButtonPressed += b => Dispatcher.Invoke(() =>
                 {
-                    if (b == PadButton.A && _mode != InstallCenterMode.AlreadyInstalled) StartInstall();
+                    if (b == PadButton.A && _mode != InstallCenterMode.AlreadyInstalled) RunPrimaryAction();
+                    else if (b == PadButton.X) ToggleShortcut(DesktopShortcutCheckBox);
+                    else if (b == PadButton.Y) ToggleShortcut(StartMenuShortcutCheckBox);
                     else if (b == PadButton.B) Application.Current.Shutdown();
                 });
                 _nav.Start();
                 RenderActionBar();
 
-                // Elevated relaunch already happened and the user already granted the UAC prompt once —
-                // proceed straight into the install instead of landing back on this same screen waiting
-                // for a second click.
+                // Continue the action already approved through UAC.
                 if (autoStart && _mode != InstallCenterMode.AlreadyInstalled) StartInstall();
             };
             Closed += (_, __) => _nav?.Dispose();
 
-            // Keyboard fallback for desk testing, same convention as the other windows.
+            // Keyboard fallback for desktop testing.
             KeyDown += (_, e) =>
             {
                 if (e.Key == System.Windows.Input.Key.Escape) { Application.Current.Shutdown(); e.Handled = true; }
@@ -82,19 +79,32 @@ namespace ClawTweaksSetup
         private void RenderActionBar()
         {
             ActionBar.Children.Clear();
+            DesktopShortcutCheckBox.IsEnabled = !_installing && !_installSucceeded;
+            StartMenuShortcutCheckBox.IsEnabled = !_installing && !_installSucceeded;
 
-            // AlreadyInstalled deliberately offers NO shortcut to launch the app from here — the
-            // point is to teach the user that Center is a real installed Windows app now, opened via
-            // the Start Menu or the Game Bar widget, not by re-running a downloaded Setup file.
+            // Do not turn a downloaded Setup file into an implicit app launcher.
             if (_mode != InstallCenterMode.AlreadyInstalled)
             {
-                string label = _mode == InstallCenterMode.Update ? "Update" : "Install";
-                ActionBar.Children.Add(ActionBarBuilder.BuildChip(PadButton.A, label, !_installing, StartInstall));
+                string label = _installSucceeded
+                    ? "Open CTW"
+                    : (_mode == InstallCenterMode.Update ? "Update" : "Install");
+                ActionBar.Children.Add(ActionBarBuilder.BuildChip(PadButton.A, label, !_installing, RunPrimaryAction));
             }
 
-            // Always available, even mid-install-attempt — the user must never be stuck on this
-            // screen with no way out.
+            // Keep Exit available during installation.
             ActionBar.Children.Add(ActionBarBuilder.BuildChip(PadButton.B, "Exit", true, () => Application.Current.Shutdown()));
+        }
+
+        private void RunPrimaryAction()
+        {
+            if (_installSucceeded) OpenInstalledCenter();
+            else StartInstall();
+        }
+
+        private void ToggleShortcut(CheckBox option)
+        {
+            if (_installing || _installSucceeded || _mode == InstallCenterMode.AlreadyInstalled) return;
+            option.IsChecked = option.IsChecked != true;
         }
 
         private void StartInstall()
@@ -106,18 +116,16 @@ namespace ClawTweaksSetup
             StatusPanel.Visibility = Visibility.Visible;
             StatusText.Text = _mode == InstallCenterMode.Update ? "Updating..." : "Installing...";
 
-            // Center runs unelevated by default; installing/updating writes to Program Files and the
-            // registry, so it needs admin. If we're not already elevated this relaunches Center with
-            // the UAC prompt and shuts this instance down — or, if the user declines, returns false so
-            // the failure branch below can tell them why instead of silently doing nothing.
-            // Skip index 0: GetCommandLineArgs()[0] is the exe path itself, not a real argument —
-            // ElevationGate.EnsureElevatedOrRelaunch expects only the actual CLI args (it supplies the
-            // exe path separately as the relaunched process's FileName). Append ResumeArg so the
-            // elevated relaunch knows to auto-fire the install instead of waiting for a second click.
+            // Program Files and registry writes require an elevated relaunch.
+            // Exclude argv[0]; the elevation gate supplies the executable path.
             var realArgs = Environment.GetCommandLineArgs().Skip(1)
-                .Where(a => a != ResumeArg)
+                .Where(a => a != ResumeArg && a != DesktopShortcutArg && a != StartMenuShortcutArg)
                 .Append(ResumeArg)
                 .ToArray();
+            if (DesktopShortcutCheckBox.IsChecked == true)
+                realArgs = realArgs.Append(DesktopShortcutArg).ToArray();
+            if (StartMenuShortcutCheckBox.IsChecked == true)
+                realArgs = realArgs.Append(StartMenuShortcutArg).ToArray();
             if (!ElevationGate.EnsureElevatedOrRelaunch(realArgs))
             {
                 _installing = false;
@@ -128,11 +136,24 @@ namespace ClawTweaksSetup
                 return;
             }
 
-            bool ok = SelfInstaller.InstallAndRelaunch(msg => Dispatcher.Invoke(() => StatusText.Text = msg));
+            bool ok = SelfInstaller.Install(
+                DesktopShortcutCheckBox.IsChecked == true,
+                StartMenuShortcutCheckBox.IsChecked == true,
+                msg => Dispatcher.Invoke(() => StatusText.Text = msg));
             if (ok)
             {
-                // A new process is already starting from the installed location; this one is done.
-                Application.Current.Shutdown();
+                _installing = false;
+                _installSucceeded = true;
+                TitleText.Text = _mode == InstallCenterMode.Update
+                    ? "ClawTweaks Center updated"
+                    : "ClawTweaks Center installed";
+                DescriptionText.Text = "Setup completed successfully. Open CTW when you're ready.";
+                StatusText.Foreground = UiHelpers.Ok;
+                StatusText.Text = _mode == InstallCenterMode.Update
+                    ? "Update successful."
+                    : "Installation successful.";
+                ShortcutOptions.Visibility = Visibility.Collapsed;
+                RenderActionBar();
             }
             else
             {
@@ -141,6 +162,19 @@ namespace ClawTweaksSetup
                 StatusText.Text = (_mode == InstallCenterMode.Update ? "Update" : "Install") + " failed — see the log for details. Try again, or run as Administrator.";
                 RenderActionBar();
             }
+        }
+
+        private void OpenInstalledCenter()
+        {
+            bool launched = SelfInstaller.LaunchInstalled(msg => Dispatcher.Invoke(() => StatusText.Text = msg));
+            if (launched)
+            {
+                Application.Current.Shutdown();
+                return;
+            }
+
+            StatusText.Foreground = UiHelpers.Error;
+            RenderActionBar();
         }
     }
 }

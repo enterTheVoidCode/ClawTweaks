@@ -7,19 +7,18 @@ using ClawTweaksSetup.Navigation;
 
 namespace ClawTweaksSetup.Ui
 {
-    /// <summary>
-    /// Builds a footer action tile (boxed glyph + label, pad- and mouse-clickable) — shared between
-    /// <see cref="MainWindow"/>'s per-phase actions and <see cref="CenterMenuWindow"/>'s fixed
-    /// X/A/Y/B actions, so both windows render the same "which button does what" tiles identically.
-    /// </summary>
+    /// <summary>Builds shared controller and pointer footer actions.</summary>
     public static class ActionBarBuilder
     {
+        private const double GlyphSize = 24;
+        private const double LabelFontSize = 14;
+
         public static UIElement BuildChip(PadButton button, string label, bool enabled, System.Action onClick)
         {
             var glyph = new Image
             {
                 Source = Glyphs.For(button),
-                Width = 24, Height = 24,
+                Width = GlyphSize, Height = GlyphSize,
                 Stretch = Stretch.Uniform,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -31,7 +30,7 @@ namespace ClawTweaksSetup.Ui
             var text = new TextBlock
             {
                 Text = label,
-                FontSize = 14,
+                FontSize = LabelFontSize,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = (Brush)Application.Current.Resources["TextBrush"],
@@ -47,7 +46,7 @@ namespace ClawTweaksSetup.Ui
             content.Children.Add(glyph);
             content.Children.Add(text);
 
-            // The whole tile is clickable too (mouse/touch), with the same action as the pad press.
+            // Pointer input invokes the same action as the controller.
             var btn = new Button
             {
                 Content = content,
@@ -57,6 +56,48 @@ namespace ClawTweaksSetup.Ui
             };
             btn.Click += (_, __) => onClick();
             return btn;
+        }
+
+        /// <summary>Builds a noninteractive hint aligned with action tiles.</summary>
+        public static UIElement BuildHint(ImageSource glyphSource, string label)
+        {
+            var glyph = new Image
+            {
+                Source = glyphSource,
+                Width = GlyphSize, Height = GlyphSize,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(2, 0, 0, 0),
+                SnapsToDevicePixels = true,
+            };
+            RenderOptions.SetBitmapScalingMode(glyph, BitmapScalingMode.HighQuality);
+
+            var text = new TextBlock
+            {
+                Text = label,
+                FontSize = LabelFontSize,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = (Brush)Application.Current.Resources["SubtleTextBrush"],
+                Margin = new Thickness(10, 0, 0, 0),
+            };
+
+            var content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            content.Children.Add(glyph);
+            content.Children.Add(text);
+
+            return new Border
+            {
+                Padding = new Thickness(8, 5, 12, 5),
+                Margin = new Thickness(3),
+                MinHeight = 40,
+                Child = content,
+            };
         }
     }
 }

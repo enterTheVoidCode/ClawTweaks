@@ -5,16 +5,7 @@ using Microsoft.Win32;
 
 namespace ClawTweaksSetup.Core
 {
-    /// <summary>
-    /// Installs CTW_Center.exe itself as a regular Windows app (Program Files + Start Menu shortcut +
-    /// Add/Remove Programs entry) instead of running as a portable exe from wherever it was extracted.
-    /// This is the gate the rest of the app (widget MSIX install, onboarding) sits behind: nothing else
-    /// runs until Center is running from its installed location.
-    ///
-    /// No new build dependency (no Inno/WiX) — copy-self-and-relaunch, same elevation the app.manifest
-    /// already requests. Uninstall is registered as a real Add/Remove Programs entry that calls back
-    /// into the installed exe with --uninstall.
-    /// </summary>
+    /// <summary>Installs and registers Center before widget setup or onboarding.</summary>
     public static class SelfInstaller
     {
         private const string AppDisplayName = "ClawTweaks Center";
@@ -25,6 +16,9 @@ namespace ClawTweaksSetup.Core
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), AppDisplayName);
 
         private static string InstalledExePath => Path.Combine(InstallDir, ExeName);
+
+        public static bool HasDesktopShortcut() => File.Exists(DesktopShortcutPath());
+        public static bool HasStartMenuShortcut() => File.Exists(StartMenuShortcutPath());
 
         private static string UninstallRegistryKey =>
             $@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{UninstallKeyName}";
@@ -39,12 +33,10 @@ namespace ClawTweaksSetup.Core
                 StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>True when a previous run already installed Center to <see cref="InstallDir"/>,
-        /// regardless of what version.</summary>
+        /// <summary>Returns whether Center exists in <see cref="InstallDir"/>.</summary>
         public static bool IsInstalled() => File.Exists(InstalledExePath);
 
-        /// <summary>Version of the currently INSTALLED exe (read straight off the file, not the
-        /// registry — can't drift out of sync with what's actually there), or null if not installed.</summary>
+        /// <summary>Reads the installed executable version, or returns null.</summary>
         public static Version GetInstalledVersion()
         {
             try
@@ -56,27 +48,23 @@ namespace ClawTweaksSetup.Core
             catch { return null; }
         }
 
-        /// <summary>Launches the already-installed copy as-is (no copy/relaunch dance) — used when the
-        /// running exe is the same version or older than what's already installed, so there's nothing
-        /// to install or update. Caller should shut down right after calling this.</summary>
-        public static void LaunchInstalledAndExit(Action<string> log = null)
+        /// <summary>Launches the installed copy and reports failures through <paramref name="log"/>.</summary>
+        public static bool LaunchInstalled(Action<string> log = null)
         {
             try
             {
                 Process.Start(new ProcessStartInfo(InstalledExePath) { UseShellExecute = true });
+                return true;
             }
             catch (Exception ex)
             {
                 log?.Invoke($"Could not launch the installed copy: {ex.Message}");
+                return false;
             }
         }
 
-        /// <summary>
-        /// Copies the running exe to <see cref="InstallDir"/>, creates a Start Menu shortcut, registers
-        /// an Add/Remove Programs entry, then launches the installed copy and exits this process.
-        /// Caller should not do anything after this returns true — the app is about to shut down.
-        /// </summary>
-        public static bool InstallAndRelaunch(Action<string> log = null)
+        /// <summary>Copies Center and its assets, applies shortcuts, and registers uninstall.</summary>
+        public static bool Install(bool createDesktopShortcut, bool createStartMenuShortcut, Action<string> log = null)
         {
             try
             {
@@ -87,22 +75,18 @@ namespace ClawTweaksSetup.Core
                 Directory.CreateDirectory(InstallDir);
                 File.Copy(sourceExe, InstalledExePath, overwrite: true);
 
-                // Release-folder run (msix + cer + Dependencies sit next to the exe, as Build-Setup.ps1
-                // assembles it) — bring those along too, so PackageInstaller/CertInstaller still find
-                // them via AssetRoot (= the exe's own directory) after relaunching from Program Files.
-                // A standalone/portable run has none of these next to it — nothing to copy, the normal
-                // CenterMenuWindow browse-and-download path (staging into %TEMP%) takes over instead.
+                // Preserve sibling release assets; standalone runs have none and use staging.
                 CopySiblingIfPresent(sourceDir, "*.msix");
                 CopySiblingIfPresent(sourceDir, "*.msixbundle");
                 CopySiblingIfPresent(sourceDir, "*.cer");
                 CopySiblingIfPresent(sourceDir, "Setup-Tools.ps1");
                 CopySiblingDirIfPresent(sourceDir, "Dependencies");
 
-                CreateStartMenuShortcut();
+                ApplyShortcutChoice(DesktopShortcutPath(), createDesktopShortcut);
+                ApplyShortcutChoice(StartMenuShortcutPath(), createStartMenuShortcut);
                 RegisterUninstallEntry();
 
-                log?.Invoke("Relaunching from install location...");
-                Process.Start(new ProcessStartInfo(InstalledExePath) { UseShellExecute = true });
+                log?.Invoke("ClawTweaks Center installed successfully.");
                 return true;
             }
             catch (Exception ex)
@@ -112,13 +96,16 @@ namespace ClawTweaksSetup.Core
             }
         }
 
-        /// <summary>
-        /// Removes the Start Menu shortcut and Add/Remove Programs entry immediately, then spawns a
-        /// short-lived cmd.exe that waits for this process to exit and deletes the install folder — a
-        /// running exe cannot delete its own file, so the actual folder cleanup happens after exit.
-        /// </summary>
+        /// <summary>Removes registration and shortcuts, then deletes the install after exit.</summary>
         public static void Uninstall()
         {
+            try
+            {
+                string shortcut = DesktopShortcutPath();
+                if (File.Exists(shortcut)) File.Delete(shortcut);
+            }
+            catch { }
+
             try
             {
                 string shortcut = StartMenuShortcutPath();
@@ -134,11 +121,7 @@ namespace ClawTweaksSetup.Core
 
             try
             {
-                // A running exe can't delete its own file, and this process exits right after
-                // spawning this (via Application.Current.Shutdown() in the caller) — a fixed short
-                // delay is plenty and, unlike a tasklist-polling loop, doesn't depend on `goto`
-                // jumping to a label defined inside a parenthesized block, which cmd.exe handles
-                // unreliably (that's what silently left the folder behind on the first test).
+                // Delay deletion because the running executable cannot remove itself.
                 var psi = new ProcessStartInfo
                 {
                     FileName = "cmd.exe",
@@ -180,17 +163,32 @@ namespace ClawTweaksSetup.Core
             return Path.Combine(startMenu, "Programs", $"{AppDisplayName}.lnk");
         }
 
-        /// <summary>
-        /// Creates a .lnk via the WScript.Shell COM object (no extra NuGet package — ships with
-        /// Windows). Machine-wide (CommonStartMenu) since the app already runs elevated.
-        /// </summary>
-        private static void CreateStartMenuShortcut()
+        private static string DesktopShortcutPath()
+        {
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            return Path.Combine(desktop, $"{AppDisplayName}.lnk");
+        }
+
+        /// <summary>Creates or removes a shortcut using Windows Script Host.</summary>
+        private static void ApplyShortcutChoice(string shortcutPath, bool create)
+        {
+            if (!create)
+            {
+                if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
+                return;
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(shortcutPath));
+            CreateShortcut(shortcutPath);
+        }
+
+        private static void CreateShortcut(string shortcutPath)
         {
             Type shellType = Type.GetTypeFromProgID("WScript.Shell");
             dynamic shell = Activator.CreateInstance(shellType);
             try
             {
-                dynamic shortcut = shell.CreateShortcut(StartMenuShortcutPath());
+                dynamic shortcut = shell.CreateShortcut(shortcutPath);
                 try
                 {
                     shortcut.TargetPath = InstalledExePath;

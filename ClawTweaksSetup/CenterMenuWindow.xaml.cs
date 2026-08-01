@@ -17,18 +17,14 @@ using ClawTweaksSetup.Ui;
 namespace ClawTweaksSetup
 {
     /// <summary>
-    /// Standalone entry menu shown when the exe is run with nothing next to it (no sibling
-    /// .msix/.cer — see App.xaml.cs). Lets the user pick a build from GitHub releases, GitHub test
-    /// builds, or Google Drive nightlies, downloads/stages it, then triggers and monitors the actual
-    /// install (cert trust → Add-AppxPackage → Game Bar → helper) by repointing
-    /// <see cref="SetupContext.AssetRoot"/> — this is the fast-iteration path for an already-onboarded
-    /// dev device, not the full first-time wizard (that's still <see cref="MainWindow"/>, reached via
-    /// a real release folder, unchanged).
+    /// Selects, stages, installs, and monitors remote builds for onboarded devices.
+    /// Release folders use <see cref="MainWindow"/> for first-time setup.
     /// </summary>
     public partial class CenterMenuWindow : Window
     {
         private readonly List<BuildSource> _flat = new List<BuildSource>();
         private readonly Dictionary<BuildSource, Border> _rowElements = new Dictionary<BuildSource, Border>();
+        private readonly List<WrapPanel> _browseCardPanels = new List<WrapPanel>();
         private readonly Dictionary<PadButton, Action> _liveActions = new Dictionary<PadButton, Action>();
 
         private List<BuildSource> _releases;
@@ -38,8 +34,7 @@ namespace ClawTweaksSetup
         private string _testBuildsError;
         private string _nightliesError;
 
-        /// <summary>Which idle screen ContentHost shows — Confirm/Install are transient overlays
-        /// triggered from Browse and don't need their own value here.</summary>
+        /// <summary>Identifies the persistent view beneath transient install screens.</summary>
         private enum View { Home, Browse, Onboarding }
         private View _view = View.Home;
 
@@ -58,19 +53,24 @@ namespace ClawTweaksSetup
 
         private readonly OnboardingRunner _onboarding = new OnboardingRunner();
         private readonly bool _startOnboardingOnLoad;
+        private readonly bool _previewInstallOnLoad;
 
-        public CenterMenuWindow(bool startOnboarding = false)
+        public CenterMenuWindow(bool startOnboarding = false, bool previewInstall = false)
         {
             _startOnboardingOnLoad = startOnboarding;
+            _previewInstallOnLoad = previewInstall;
             InitializeComponent();
-            ModernWindow.Apply(this);
+            ModernWindow.Apply(this, edgeMargin: 12);
 
-            _onboarding.StepsChanged += () => Dispatcher.Invoke(() =>
-            {
-                if (_view == View.Onboarding && !_confirming && !_busy) RenderOnboarding();
-            });
+            _onboarding.StepsChanged += () => Dispatcher.Invoke(RenderOnboardingIfActive);
 
             SetupVersionLabel.Text = "CTW Center v" + (Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "?");
+            SizeChanged += (_, __) => UpdateShellLayout();
+            ContentHost.SizeChanged += (_, __) =>
+            {
+                if (_view == View.Browse) UpdateBrowseCardWidths();
+            };
+            UpdateShellLayout();
             RenderDeviceBanner(null);
             RenderHome();
             RefreshActionBar();
@@ -81,12 +81,26 @@ namespace ClawTweaksSetup
                 _nav.ButtonPressed += b => Dispatcher.Invoke(() => Invoke(b));
                 _nav.RightStickScrollRequested += d => Dispatcher.Invoke(() =>
                 {
-                    // Defensive: this fires at up to ~25Hz straight off a live gamepad reading, so any
-                    // transient WPF layout hiccup here must never take the whole app down with it.
+                    // Gamepad polling must tolerate transient layout failures.
                     try { ContentScroller.ScrollToVerticalOffset(ContentScroller.VerticalOffset + d); }
                     catch { }
                 });
                 _nav.Start();
+
+#if DEBUG
+                // Debug-only install preview without machine changes.
+                if (_previewInstallOnLoad)
+                {
+                    RenderDeviceBanner(await Task.Run(() => DeviceDetect.Detect()));
+                    await InstallSelectedAsync(new BuildSource
+                    {
+                        Origin = "Test build",
+                        Version = "0.1.8.52",
+                        Title = "0.1.9 Preview 1 — EX Gyro, KB5101684 install fix, customizable horizontal OSD",
+                    }, previewOnly: true);
+                    return;
+                }
+#endif
 
                 var deviceTask = Task.Run(() => DeviceDetect.Detect());
                 var sourcesTask = RefreshSourcesAsync();
@@ -97,16 +111,14 @@ namespace ClawTweaksSetup
 
                 _setupVersionCheck = await setupVersionTask;
                 _windowsChannel = await windowsChannelTask;
-                RenderCurrentView(); // picks up the outdated-Setup / Insider-channel warnings once known
+                RenderCurrentView(); // Refresh warnings after source discovery.
 
-                // Reached via MainWindow after a successful install/update (release-folder wizard
-                // path) — the helper is already confirmed running there, so open onboarding right
-                // away instead of waiting for the user to find the tile.
+                // The completed release-folder wizard can enter onboarding directly.
                 if (_startOnboardingOnLoad) OpenOnboarding();
             };
             Closed += (_, __) => _nav?.Dispose();
 
-            // Keyboard fallbacks for desk testing.
+            // Keyboard fallbacks for desktop testing.
             KeyDown += (_, e) =>
             {
                 if (e.Key == Key.Escape) { Invoke(PadButton.B); e.Handled = true; }
@@ -118,6 +130,42 @@ namespace ClawTweaksSetup
                 else if (e.Key == Key.Left) { Invoke(PadButton.Left); e.Handled = true; }
                 else if (e.Key == Key.Right) { Invoke(PadButton.Right); e.Handled = true; }
             };
+        }
+
+        /// <summary>Stacks header content below the compact-width breakpoint.</summary>
+        private void UpdateShellLayout()
+        {
+            if (ShellHeaderGrid == null || BrandBlock == null || DeviceBanner == null) return;
+
+            bool narrow = ActualWidth > 0 && ActualWidth < 720;
+            ShellHeaderGrid.RowDefinitions.Clear();
+            ShellHeaderGrid.ColumnDefinitions.Clear();
+
+            if (narrow)
+            {
+                ShellHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition
+                    { Width = new GridLength(1, GridUnitType.Star) });
+                ShellHeaderGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                ShellHeaderGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                Grid.SetRow(BrandBlock, 0);
+                Grid.SetColumn(BrandBlock, 0);
+                Grid.SetRow(DeviceBanner, 1);
+                Grid.SetColumn(DeviceBanner, 0);
+                DeviceBanner.Margin = new Thickness(0, 12, 0, 0);
+            }
+            else
+            {
+                ShellHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition
+                    { Width = new GridLength(1, GridUnitType.Star) });
+                ShellHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition
+                    { Width = new GridLength(1, GridUnitType.Star) });
+                ShellHeaderGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                Grid.SetRow(BrandBlock, 0);
+                Grid.SetColumn(BrandBlock, 0);
+                Grid.SetRow(DeviceBanner, 0);
+                Grid.SetColumn(DeviceBanner, 1);
+                DeviceBanner.Margin = new Thickness(16, 0, 0, 0);
+            }
         }
 
         private void Invoke(PadButton b)
@@ -132,13 +180,14 @@ namespace ClawTweaksSetup
         {
             if (device == null)
             {
-                DeviceBanner.Content = UiHelpers.StatusRow(StatusKind.Working, "Detecting device…", "");
+                DeviceBanner.Content = BuildCompactDeviceBanner(
+                    StatusKind.Working, "Detecting device…", "");
                 return;
             }
 
             var d = device.Value;
             _deviceModel = d.Model;
-            RenderCurrentView(); // the build list's per-device gating tags depend on this
+            RenderCurrentView(); // Refresh device-specific build gates.
 
             var kind = d.Supported ? StatusKind.Ok : StatusKind.Warning;
             string detail = d.Supported ? "Supported." : "Not a recognized MSI Claw — installing here is untested.";
@@ -146,31 +195,30 @@ namespace ClawTweaksSetup
             var icon = DeviceIcons.For(d.Model);
             if (icon == null)
             {
-                DeviceBanner.Content = UiHelpers.StatusRow(kind, d.DisplayName, detail);
+                DeviceBanner.Content = BuildCompactDeviceBanner(kind, d.DisplayName, detail);
                 return;
             }
 
             var image = new Image
             {
-                Source = icon, Height = 72, Stretch = Stretch.Uniform,
-                Margin = new Thickness(0, 0, 14, 0), VerticalAlignment = VerticalAlignment.Center,
+                Source = icon, Height = 48, Stretch = Stretch.Uniform,
+                Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center,
             };
             RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.HighQuality);
 
             var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
             textStack.Children.Add(new TextBlock
             {
-                Text = d.DisplayName, FontSize = 21, FontWeight = FontWeights.SemiBold, Foreground = UiHelpers.Text,
+                Text = d.DisplayName, FontSize = 16, FontWeight = FontWeights.SemiBold, Foreground = UiHelpers.Text,
                 TextWrapping = TextWrapping.Wrap,
             });
             textStack.Children.Add(new TextBlock
             {
-                Text = detail, FontSize = 15, Foreground = UiHelpers.BrushFor(kind), Margin = new Thickness(0, 2, 0, 0),
+                Text = detail, FontSize = 13, Foreground = UiHelpers.BrushFor(kind), Margin = new Thickness(0, 1, 0, 0),
                 TextWrapping = TextWrapping.Wrap,
             });
 
-            // Grid, not a horizontal StackPanel: same wrap-defeating pitfall as the log/status rows —
-            // the "not a recognized MSI Claw" detail line is long enough to need real wrapping.
+            // Grid constrains long device-status text so wrapping works.
             var content = new Grid();
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -182,8 +230,55 @@ namespace ClawTweaksSetup
             DeviceBanner.Content = new Border
             {
                 Background = UiHelpers.Card,
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(14, 10, 18, 10),
+                BorderBrush = (Brush)Application.Current.Resources["StrokeBrush"],
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 8, 14, 8),
+                Child = content,
+            };
+        }
+
+        /// <summary>Builds compact header status for detecting or unknown hardware.</summary>
+        private static Border BuildCompactDeviceBanner(StatusKind kind, string title, string detail)
+        {
+            var badge = UiHelpers.Badge(kind, 24);
+            badge.VerticalAlignment = VerticalAlignment.Center;
+            badge.Margin = new Thickness(0, 0, 10, 0);
+
+            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            text.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontSize = 16,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = UiHelpers.Text,
+                TextWrapping = TextWrapping.Wrap,
+            });
+            if (!string.IsNullOrEmpty(detail))
+                text.Children.Add(new TextBlock
+                {
+                    Text = detail,
+                    FontSize = 13,
+                    Foreground = UiHelpers.BrushFor(kind),
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 1, 0, 0),
+                });
+
+            var content = new Grid();
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            Grid.SetColumn(badge, 0);
+            Grid.SetColumn(text, 1);
+            content.Children.Add(badge);
+            content.Children.Add(text);
+
+            return new Border
+            {
+                Background = UiHelpers.Card,
+                BorderBrush = UiHelpers.BrushFor(kind),
+                BorderThickness = new Thickness(3, 0, 0, 0),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 8, 14, 8),
                 Child = content,
             };
         }
@@ -208,7 +303,7 @@ namespace ClawTweaksSetup
 
             _installedVersion = versionTask.Result;
             _installedVersionChecked = true;
-            RenderCurrentView(); // installed version is now known — Home's update banner + Browse's tags show up
+            RenderCurrentView(); // Refresh version-dependent status.
 
             _busy = false;
             RefreshActionBar();
@@ -238,10 +333,7 @@ namespace ClawTweaksSetup
             RenderCurrentView();
         }
 
-        /// <summary>Re-renders whichever idle screen is currently showing — used by the background
-        /// fetches so Home's update banner and Browse's list both stay live as data arrives. Skipped
-        /// while the Confirm screen is up so a background refresh can't clobber it (Install has its
-        /// own separate ContentHost takeover and never runs concurrently with a source refresh).</summary>
+        /// <summary>Refreshes the active idle view without replacing transient content.</summary>
         private void RenderCurrentView()
         {
             if (_confirming) return;
@@ -284,10 +376,6 @@ namespace ClawTweaksSetup
         {
             ContentHost.Children.Clear();
 
-            if (_setupVersionCheck?.Outdated == true)
-                ContentHost.Children.Add(UiHelpers.StatusRow(StatusKind.Warning, "This Setup build is outdated",
-                    $"{_setupVersionCheck.Message} (running {_setupVersionCheck.RunningVersion}, needs {_setupVersionCheck.MinimumVersion}+)"));
-
             if (_windowsChannel?.IsInsider == true)
                 ContentHost.Children.Add(UiHelpers.StatusRow(StatusKind.Warning, "Windows Insider Preview detected",
                     $"You're on the \"{_windowsChannel.ChannelName}\" channel — the install routine is currently known not to work correctly on Insider builds."));
@@ -295,10 +383,7 @@ namespace ClawTweaksSetup
             var versionStack = new StackPanel { Margin = new Thickness(0, 0, 0, 20) };
             if (!_installedVersionChecked)
             {
-                // Checking PackageInstaller.GetInstalledVersion() takes a moment (PowerShell
-                // Get-AppxPackage) — showing the "not installed" text as a placeholder during that
-                // window was actively misleading on machines that DO have ClawTweaks installed. Show
-                // a spinner instead of any default text until the real state is known.
+                // Avoid a false "not installed" state while PowerShell is still querying.
                 var checkingRow = new StackPanel { Orientation = Orientation.Horizontal };
                 checkingRow.Children.Add(new ContentControl
                 {
@@ -316,23 +401,23 @@ namespace ClawTweaksSetup
             }
             else
             {
-                versionStack.Children.Add(new Border
-                {
-                    BorderBrush = UiHelpers.Ok,
-                    BorderThickness = new Thickness(2),
-                    CornerRadius = new CornerRadius(8),
-                    Padding = new Thickness(14, 10, 14, 10),
-                    HorizontalAlignment = HorizontalAlignment.Left,
-                    Child = new TextBlock
-                    {
-                        // Called out as "ClawTweaks" specifically — this is the main app's version, not
-                        // the Setup/Center tool's own (shown separately under the header logo).
-                        Text = _installedVersion != null
-                            ? $"Currently installed: ClawTweaks {_installedVersion}"
-                            : "ClawTweaks is not installed yet.",
-                        FontSize = 18, FontWeight = FontWeights.SemiBold, Foreground = UiHelpers.Ok,
-                    },
-                });
+                bool setupOutdated = _setupVersionCheck?.Outdated == true;
+                var runningCenterVersion = _setupVersionCheck?.RunningVersion
+                    ?? Assembly.GetExecutingAssembly().GetName().Version;
+                string setupDetail = setupOutdated
+                    ? $"This Setup build is outdated. {_setupVersionCheck.Message} " +
+                      $"Running CTW Center {runningCenterVersion}; requires {_setupVersionCheck.MinimumVersion}+."
+                    : _setupVersionCheck != null
+                        ? $"CTW Center {runningCenterVersion} is up to date."
+                        : $"CTW Center {runningCenterVersion}.";
+
+                // Keep installed-app and Center-version states in one card.
+                versionStack.Children.Add(UiHelpers.StatusRow(
+                    setupOutdated ? StatusKind.Warning : (_installedVersion != null ? StatusKind.Ok : StatusKind.Info),
+                    _installedVersion != null
+                        ? $"Currently installed: ClawTweaks {_installedVersion}"
+                        : "ClawTweaks is not installed yet.",
+                    setupDetail));
             }
             var update = FindNewestGithubUpdate();
             if (update != null)
@@ -370,8 +455,7 @@ namespace ClawTweaksSetup
             ContentHost.Children.Add(placeholders);
         }
 
-        /// <summary>Highest GitHub release/test-build version above what's currently installed, or
-        /// null. Drive nightlies aren't considered — the ask was specifically "available on GitHub".</summary>
+        /// <summary>Returns the newest GitHub build newer than the installed version.</summary>
         private BuildSource FindNewestGithubUpdate()
         {
             if (_installedVersion == null) return null;
@@ -385,52 +469,98 @@ namespace ClawTweaksSetup
             return best;
         }
 
-        /// <summary>Switches to the dedicated Onboarding view and asks the helper for a fresh status
-        /// snapshot (queries — never just assumes a step still needs doing). Safe to call repeatedly.</summary>
+        /// <summary>Opens onboarding and refreshes helper-reported step state.</summary>
         private void OpenOnboarding()
         {
             _view = View.Onboarding;
             RenderOnboarding();
             RefreshActionBar();
-            _ = _onboarding.RefreshStatusAsync(msg => Dispatcher.Invoke(RenderOnboarding));
+            Dispatcher.BeginInvoke(new Action(ContentScroller.ScrollToTop));
+            _ = _onboarding.RefreshStatusAsync(msg => Dispatcher.Invoke(RenderOnboardingIfActive));
         }
 
-        /// <summary>The dedicated Onboarding view — each step is queried from the helper and triggered
-        /// individually by the user. A step whose target the helper reports as already satisfied (e.g.
-        /// Center M already off, from some other change entirely) shows done with its run button
-        /// greyed out, instead of blindly offering to redo something that's already correct.</summary>
+        /// <summary>Returns whether an onboarding response still targets the active view.</summary>
+        private void RenderOnboardingIfActive()
+        {
+            if (_view != View.Onboarding || _confirming || _busy) return;
+            RenderOnboarding();
+            RefreshActionBar();
+        }
+
+        /// <summary>Renders helper-reported onboarding steps and their actions.</summary>
         private void RenderOnboarding()
         {
             ContentHost.Children.Clear();
-            ContentHost.Children.Add(UiHelpers.Title("Onboarding"));
-            ContentHost.Children.Add(UiHelpers.Body(
-                "Helps set the most important ClawTweaks settings (preview not yet complete)."));
+            var page = new StackPanel
+            {
+                MaxWidth = 820,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            ContentHost.Children.Add(page);
+
+            var pageHeader = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+            pageHeader.ColumnDefinitions.Add(new ColumnDefinition
+                { Width = new GridLength(1, GridUnitType.Star) });
+            pageHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var heading = new StackPanel();
+            heading.Children.Add(new TextBlock
+            {
+                Text = "Onboarding",
+                FontSize = 28,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = UiHelpers.Text,
+            });
+            heading.Children.Add(new TextBlock
+            {
+                Text = "Set up the essential ClawTweaks features.",
+                FontSize = 14,
+                Foreground = UiHelpers.Subtle,
+                Margin = new Thickness(0, 3, 0, 0),
+            });
+            Grid.SetColumn(heading, 0);
+            pageHeader.Children.Add(heading);
 
             if (_onboarding.IsConnecting)
             {
-                var connectingRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 10) };
+                var connectingRow = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
                 connectingRow.Children.Add(new ContentControl
                 {
-                    Width = 22, Height = 22, Focusable = false, VerticalAlignment = VerticalAlignment.Center,
-                    Content = UiHelpers.Badge(StatusKind.Working, 22),
+                    Width = 16, Height = 16, Focusable = false, VerticalAlignment = VerticalAlignment.Center,
+                    Content = UiHelpers.Badge(StatusKind.Working, 16),
                 });
                 connectingRow.Children.Add(new TextBlock
                 {
-                    Text = "Connecting to the helper…", FontSize = 15, Foreground = UiHelpers.Subtle,
-                    VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0),
+                    Text = "Connecting…", FontSize = 12, Foreground = UiHelpers.Subtle,
+                    VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(7, 0, 0, 0),
                 });
-                ContentHost.Children.Add(connectingRow);
+                var connectingPill = new Border
+                {
+                    Background = UiHelpers.Card,
+                    BorderBrush = (Brush)Application.Current.Resources["StrokeBrush"],
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    Margin = new Thickness(16, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = connectingRow,
+                };
+                Grid.SetColumn(connectingPill, 1);
+                pageHeader.Children.Add(connectingPill);
             }
+            page.Children.Add(pageHeader);
 
             for (int i = 0; i < _onboarding.Steps.Count; i++)
             {
-                int index = i; // capture
+                int index = i; // Capture the loop value for callbacks.
                 var step = _onboarding.Steps[i];
                 bool working = step.State == OnboardingStepState.Working;
 
-                // A step that isn't actionable (its target is already satisfied) reads as done — show the
-                // green check on the left too, not just for the ones we explicitly ran this session.
-                // Gated on being connected & not mid-connect so nothing is marked done before we have data.
+                // Mark satisfied steps complete only after helper state is available.
                 bool doneNoAction = !working && !_onboarding.IsConnecting
                     && step.State != OnboardingStepState.Error
                     && (step.State == OnboardingStepState.Ok || !step.Actionable);
@@ -438,7 +568,7 @@ namespace ClawTweaksSetup
                 Brush glyphBrush = step.State == OnboardingStepState.Error ? UiHelpers.Error
                     : (doneNoAction ? UiHelpers.Ok : UiHelpers.Subtle);
 
-                var row = new Grid { Margin = new Thickness(0, 6, 0, 6) };
+                var row = new Grid();
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -450,15 +580,23 @@ namespace ClawTweaksSetup
                         Text = glyph, FontSize = 18, FontWeight = FontWeights.Bold,
                         Foreground = glyphBrush,
                     };
-                statusEl.Width = 26;
+                statusEl.Width = 24;
                 statusEl.VerticalAlignment = VerticalAlignment.Center;
                 Grid.SetColumn(statusEl, 0);
                 row.Children.Add(statusEl);
 
-                var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 10, 0) };
-                textStack.Children.Add(new TextBlock { Text = step.Title, FontSize = 16, Foreground = UiHelpers.Text });
+                var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 10, 0) };
+                textStack.Children.Add(new TextBlock
+                {
+                    Text = step.Title, FontSize = 15, FontWeight = FontWeights.SemiBold,
+                    Foreground = UiHelpers.Text, TextWrapping = TextWrapping.Wrap,
+                });
                 if (!string.IsNullOrEmpty(step.Detail))
-                    textStack.Children.Add(new TextBlock { Text = step.Detail, FontSize = 13, Foreground = UiHelpers.Subtle });
+                    textStack.Children.Add(new TextBlock
+                    {
+                        Text = step.Detail, FontSize = 12, Foreground = UiHelpers.Subtle,
+                        TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 1, 0, 0),
+                    });
                 Grid.SetColumn(textStack, 1);
                 row.Children.Add(textStack);
 
@@ -469,19 +607,26 @@ namespace ClawTweaksSetup
                     Style = (Style)Application.Current.Resources["SetupButton"],
                     IsEnabled = enabled,
                     Opacity = enabled ? 1.0 : 0.4,
-                    MinWidth = 90,
+                    MinWidth = 76,
+                    MinHeight = 32,
+                    Padding = new Thickness(12, 6, 12, 6),
                 };
-                runBtn.Click += (_, __) => _ = _onboarding.RunStepAsync(index, msg => Dispatcher.Invoke(RenderOnboarding));
+                runBtn.Click += (_, __) => _ = _onboarding.RunStepAsync(
+                    index, msg => Dispatcher.Invoke(RenderOnboardingIfActive));
                 Grid.SetColumn(runBtn, 2);
                 row.Children.Add(runBtn);
 
                 var card = new Border
                 {
-                    Background = UiHelpers.Card, CornerRadius = new CornerRadius(10),
-                    Padding = new Thickness(16, 12, 16, 12), Margin = new Thickness(0, 0, 0, 8),
+                    Background = UiHelpers.Card,
+                    BorderBrush = (Brush)Application.Current.Resources["StrokeBrush"],
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(14, 9, 14, 9),
+                    Margin = new Thickness(0, 0, 0, 6),
                     Child = row,
                 };
-                ContentHost.Children.Add(card);
+                page.Children.Add(card);
             }
         }
 
@@ -526,95 +671,293 @@ namespace ClawTweaksSetup
         {
             ContentHost.Children.Clear();
             _rowElements.Clear();
-            AddSection("Stable Releases", "✅", UiHelpers.Ok, _releases, _releasesError);
-            AddSection("Test releases", "⚠️", UiHelpers.Warn, _testBuilds, _testBuildsError);
-            AddSection("Nightly Releases (Experimental Builds)", "🥼", UiHelpers.Error, _nightlies, _nightliesError);
+            _browseCardPanels.Clear();
+
+            ContentHost.Children.Add(BuildBrowsePageHeader());
+            AddSection("Stable releases", "Recommended production builds", UiHelpers.Ok, _releases, _releasesError);
+            AddSection("Test releases", "Preview builds for validating upcoming changes", UiHelpers.Warn, _testBuilds, _testBuildsError);
+            AddSection("Nightly releases", "Experimental snapshots with the newest changes", UiHelpers.Error, _nightlies, _nightliesError);
+
+            Dispatcher.BeginInvoke(new Action(UpdateBrowseCardWidths));
         }
 
-        private void AddSection(string header, string iconEmoji, Brush titleColor, List<BuildSource> items, string error)
+        private FrameworkElement BuildBrowsePageHeader()
         {
-            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 14, 0, 8) };
-            headerRow.Children.Add(new TextBlock
+            var header = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var copy = new StackPanel();
+            copy.Children.Add(new TextBlock
             {
-                // WPF's text renderer doesn't support color-emoji font layers (unlike UWP/WinUI or a
-                // browser) — these render as plain monochrome outlines. Foreground defaults to black
-                // when unset, which is invisible against the dark theme; white reads fine instead.
-                Text = iconEmoji,
-                FontFamily = new FontFamily("Segoe UI Emoji"),
-                FontSize = 20,
+                Text = "Update & Release",
+                FontSize = 30,
+                FontWeight = FontWeights.SemiBold,
                 Foreground = UiHelpers.Text,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 10, 0),
             });
-            headerRow.Children.Add(new TextBlock
+            copy.Children.Add(new TextBlock
+            {
+                Text = "Choose a channel and install the build that fits your device.",
+                FontSize = 15,
+                Foreground = UiHelpers.Subtle,
+                Margin = new Thickness(0, 5, 0, 0),
+            });
+            Grid.SetColumn(copy, 0);
+            header.Children.Add(copy);
+
+            var installedPill = new Border
+            {
+                Background = (Brush)Application.Current.Resources["FooterBrush"],
+                BorderBrush = _installedVersion != null ? UiHelpers.Ok : UiHelpers.Subtle,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(12, 7, 12, 7),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(16, 0, 0, 0),
+                Child = new TextBlock
+                {
+                    Text = _installedVersion != null
+                        ? $"Installed  {_installedVersion}"
+                        : (_installedVersionChecked ? "Not installed" : "Checking installed version…"),
+                    FontSize = 13,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = _installedVersion != null ? UiHelpers.Ok : UiHelpers.Subtle,
+                },
+            };
+            Grid.SetColumn(installedPill, 1);
+            header.Children.Add(installedPill);
+            return header;
+        }
+
+        private void AddSection(string header, string description, Brush titleColor, List<BuildSource> items, string error)
+        {
+            var sectionContent = new StackPanel();
+
+            var headerRow = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var accent = new Border
+            {
+                Width = 4,
+                Height = 30,
+                CornerRadius = new CornerRadius(2),
+                Background = titleColor,
+                Margin = new Thickness(0, 1, 12, 0),
+                VerticalAlignment = VerticalAlignment.Top,
+            };
+            Grid.SetColumn(accent, 0);
+            headerRow.Children.Add(accent);
+
+            var labels = new StackPanel();
+            labels.Children.Add(new TextBlock
             {
                 Text = header,
-                FontSize = 20,
-                FontWeight = FontWeights.Bold,
-                Foreground = titleColor,
-                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 19,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = UiHelpers.Text,
             });
-            ContentHost.Children.Add(headerRow);
+            labels.Children.Add(new TextBlock
+            {
+                Text = description,
+                FontSize = 13,
+                Foreground = UiHelpers.Subtle,
+                Margin = new Thickness(0, 2, 0, 0),
+            });
+            Grid.SetColumn(labels, 1);
+            headerRow.Children.Add(labels);
+
+            if (items != null)
+            {
+                var countPill = new Border
+                {
+                    Background = (Brush)Application.Current.Resources["BgBrush"],
+                    CornerRadius = new CornerRadius(10),
+                    Padding = new Thickness(10, 5, 10, 5),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = new TextBlock
+                    {
+                        Text = items.Count == 1 ? "1 build" : $"{items.Count} builds",
+                        FontSize = 12,
+                        Foreground = UiHelpers.Subtle,
+                    },
+                };
+                Grid.SetColumn(countPill, 2);
+                headerRow.Children.Add(countPill);
+            }
+            sectionContent.Children.Add(headerRow);
 
             if (error != null)
             {
-                ContentHost.Children.Add(UiHelpers.StatusRow(StatusKind.Error, "Couldn't load", error));
-                return;
+                sectionContent.Children.Add(BuildBrowseSectionMessage(StatusKind.Error, "Couldn't load", error));
             }
-            if (items == null)
+            else if (items == null)
             {
-                ContentHost.Children.Add(UiHelpers.StatusRow(StatusKind.Working, "Loading…", ""));
-                return;
+                sectionContent.Children.Add(BuildBrowseSectionMessage(StatusKind.Working, "Loading builds…", ""));
             }
-            if (items.Count == 0)
+            else if (items.Count == 0)
             {
-                ContentHost.Children.Add(UiHelpers.StatusRow(StatusKind.Info, "Nothing found", ""));
-                return;
+                sectionContent.Children.Add(BuildBrowseSectionMessage(StatusKind.Info, "No builds found", ""));
+            }
+            else
+            {
+                bool haveSelection = _selectedIndex >= 0 && _selectedIndex < _flat.Count;
+                var selected = haveSelection ? _flat[_selectedIndex] : null;
+                var cards = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
+                _browseCardPanels.Add(cards);
+
+                foreach (var b in items)
+                {
+                    bool isNewest = ReferenceEquals(b, items[0]);
+                    var row = BuildRow(b, ReferenceEquals(b, selected), isNewest);
+                    _rowElements[b] = row;
+                    cards.Children.Add(row);
+                }
+                sectionContent.Children.Add(cards);
             }
 
-            bool haveSelection = _selectedIndex >= 0 && _selectedIndex < _flat.Count;
-            var selected = haveSelection ? _flat[_selectedIndex] : null;
-
-            var grid = new UniformGrid { Columns = 2, Margin = new Thickness(0, 0, 0, 4) };
-            foreach (var b in items)
+            ContentHost.Children.Add(new Border
             {
-                // items are already sorted newest-first (GitHubReleaseSource/GoogleDriveSource), so
-                // only the first card per section gets full contrast — the rest are dimmed.
-                bool isNewest = ReferenceEquals(b, items[0]);
-                var row = BuildRow(b, ReferenceEquals(b, selected), isNewest);
-                _rowElements[b] = row;
-                grid.Children.Add(row);
+                Background = (Brush)Application.Current.Resources["FooterBrush"],
+                BorderBrush = (Brush)Application.Current.Resources["StrokeBrush"],
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(16, 13, 16, 3),
+                Margin = new Thickness(0, 0, 0, 12),
+                Child = sectionContent,
+            });
+        }
+
+        private static Border BuildBrowseSectionMessage(StatusKind kind, string title, string detail)
+        {
+            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            var badge = UiHelpers.Badge(kind, 22);
+            badge.Margin = new Thickness(0, 0, 10, 0);
+            content.Children.Add(badge);
+
+            var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            copy.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontSize = 14,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = UiHelpers.Text,
+            });
+            if (!string.IsNullOrEmpty(detail))
+                copy.Children.Add(new TextBlock
+                {
+                    Text = detail,
+                    FontSize = 12,
+                    Foreground = UiHelpers.Subtle,
+                    TextWrapping = TextWrapping.Wrap,
+                });
+            content.Children.Add(copy);
+
+            return new Border
+            {
+                Background = (Brush)Application.Current.Resources["BgBrush"],
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12),
+                Margin = new Thickness(0, 0, 0, 10),
+                Child = content,
+            };
+        }
+
+        private void UpdateBrowseCardWidths()
+        {
+            if (_browseCardPanels.Count == 0) return;
+            const double gutter = 10;
+            foreach (var panel in _browseCardPanels)
+            {
+                double available = panel.ActualWidth > 0
+                    ? panel.ActualWidth
+                    : Math.Max(0, ContentHost.ActualWidth - 36); // Exclude section padding.
+                if (available <= 0) continue;
+
+                // Single builds fill the row; larger sets use at most two readable columns.
+                int maxColumns = available >= 720 ? 2 : 1;
+                int columns = Math.Min(maxColumns, Math.Max(1, panel.Children.Count));
+                double cardWidth = Math.Max(280, Math.Floor((available - (columns * gutter)) / columns));
+                foreach (FrameworkElement card in panel.Children)
+                    card.Width = cardWidth;
             }
-            ContentHost.Children.Add(grid);
         }
 
         private Border BuildRow(BuildSource b, bool selected, bool isNewest)
         {
             var stack = new StackPanel();
-            stack.Children.Add(new TextBlock
+
+            var heading = new Grid();
+            heading.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            heading.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var versionText = new TextBlock
             {
-                Text = $"{b.Version}  —  {b.Title}",
+                Text = b.Version,
                 FontSize = 17,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = UiHelpers.Text,
+                Foreground = selected ? UiHelpers.Accent : UiHelpers.Text,
                 TextWrapping = TextWrapping.Wrap,
-            });
+            };
+            Grid.SetColumn(versionText, 0);
+            heading.Children.Add(versionText);
+            if (isNewest)
+            {
+                var latest = new Border
+                {
+                    Background = UiHelpers.Accent,
+                    CornerRadius = new CornerRadius(9),
+                    Padding = new Thickness(8, 3, 8, 3),
+                    Margin = new Thickness(10, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = new TextBlock
+                    {
+                        Text = "Latest",
+                        FontSize = 11,
+                        FontWeight = FontWeights.Bold,
+                        Foreground = Brushes.Black,
+                    },
+                };
+                Grid.SetColumn(latest, 1);
+                heading.Children.Add(latest);
+            }
+            stack.Children.Add(heading);
+
+            if (!string.IsNullOrWhiteSpace(b.Title))
+                stack.Children.Add(new TextBlock
+                {
+                    Text = b.Title,
+                    FontSize = 13,
+                    Foreground = UiHelpers.Subtle,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 4, 0, 0),
+                });
 
             string detail = b.When != default ? b.When.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "";
             if (!string.IsNullOrEmpty(b.SizeLabel)) detail += (detail.Length > 0 ? "  ·  " : "") + b.SizeLabel;
             if (!string.IsNullOrEmpty(detail))
                 stack.Children.Add(new TextBlock
                 {
-                    Text = detail, FontSize = 14, Foreground = UiHelpers.Subtle,
-                    Margin = new Thickness(0, 3, 0, 0),
+                    Text = detail, FontSize = 11, Foreground = UiHelpers.Subtle,
+                    Opacity = 0.85, Margin = new Thickness(0, 6, 0, 0),
                 });
 
             string tag = VersionTag(b, out var tagBrush);
             if (tag != null)
-                stack.Children.Add(new TextBlock
+                stack.Children.Add(new Border
                 {
-                    Text = tag, FontSize = 13, FontWeight = FontWeights.SemiBold, Foreground = tagBrush,
-                    Margin = new Thickness(0, 4, 0, 0),
+                    Background = (Brush)Application.Current.Resources["FooterBrush"],
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(8, 3, 8, 3),
+                    Margin = new Thickness(0, 6, 0, 0),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Child = new TextBlock
+                    {
+                        Text = tag,
+                        FontSize = 12,
+                        FontWeight = FontWeights.SemiBold,
+                        Foreground = tagBrush,
+                    },
                 });
 
             if (IsBlockedForDevice(b, out string blockReason))
@@ -624,22 +967,37 @@ namespace ClawTweaksSetup
                     Foreground = UiHelpers.Error, Margin = new Thickness(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap,
                 });
 
-            // Only the newest card per section reads at full contrast; older ones are dimmed so the
-            // latest is the obvious pick at a glance. A selected (controller-highlighted) card always
-            // shows at full strength regardless, so the highlight itself is never hard to see.
-            double baseOpacity = (isNewest || selected) ? 1.0 : 0.55;
+            // Deemphasize older builds without implying they are disabled.
+            double baseOpacity = (isNewest || selected) ? 1.0 : 0.78;
+            Brush normalBackground = selected
+                ? UiHelpers.Card
+                : (Brush)Application.Current.Resources["BgBrush"];
 
             var border = new Border
             {
-                Background = UiHelpers.Card,
+                Background = normalBackground,
                 CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(16, 12, 16, 12),
+                Padding = new Thickness(14, 10, 14, 10),
                 Margin = new Thickness(0, 0, 10, 10),
-                BorderBrush = selected ? UiHelpers.Accent : Brushes.Transparent,
-                BorderThickness = new Thickness(selected ? 2 : 0), // full outline, matching the Home tile's focus style
+                MinHeight = 96,
+                BorderBrush = selected
+                    ? UiHelpers.Accent
+                    : (Brush)Application.Current.Resources["StrokeBrush"],
+                BorderThickness = new Thickness(selected ? 2 : 1),
                 Child = stack,
                 Cursor = Cursors.Hand,
                 Opacity = _busy ? baseOpacity * 0.5 : baseOpacity,
+            };
+            border.MouseEnter += (_, __) =>
+            {
+                if (_busy) return;
+                border.Background = UiHelpers.Card;
+                border.Opacity = 1.0;
+            };
+            border.MouseLeave += (_, __) =>
+            {
+                border.Background = normalBackground;
+                border.Opacity = _busy ? baseOpacity * 0.5 : baseOpacity;
             };
             border.MouseLeftButtonUp += (_, __) =>
             {
@@ -650,8 +1008,7 @@ namespace ClawTweaksSetup
             return border;
         }
 
-        /// <summary>Compares a listed build against the currently installed version. Null (no tag)
-        /// if nothing's installed yet or the version string doesn't parse.</summary>
+        /// <summary>Compares a parseable build version with the installed version.</summary>
         private string VersionTag(BuildSource b, out Brush tagBrush)
         {
             tagBrush = UiHelpers.Subtle;
@@ -663,9 +1020,7 @@ namespace ClawTweaksSetup
             return "● Currently installed";
         }
 
-        /// <summary>True if this build predates the detected device's minimum supported version (e.g.
-        /// the Claw 8 EX only landed proper support in 0.1.7.63) — that device may only download and
-        /// install versions at or above that floor.</summary>
+        /// <summary>Returns whether a build predates the detected device's support floor.</summary>
         private bool IsBlockedForDevice(BuildSource b, out string reason)
         {
             reason = null;
@@ -675,11 +1030,7 @@ namespace ClawTweaksSetup
             return true;
         }
 
-        /// <summary>
-        /// D-Pad grid navigation: Left/Right move by one card, Up/Down by a row (stride 2, matching
-        /// the 2-column layout above). Treated as one global 2-col grid across all three sections —
-        /// a small simplification at section boundaries, but predictable and simple.
-        /// </summary>
+        /// <summary>Moves through all build sections as one two-column controller grid.</summary>
         private void MoveSelection(PadButton dir)
         {
             if (_view != View.Browse || _busy || _confirming || _flat.Count == 0) return;
@@ -716,16 +1067,14 @@ namespace ClawTweaksSetup
                 if (_blockedForDevice) { AddAction(PadButton.B, "Back", true, CancelConfirm); AddScrollHint(); return; }
                 AddAction(PadButton.A, "Yes, install", true, ConfirmInstall);
                 AddAction(PadButton.B, "Cancel", true, CancelConfirm);
-                AddScrollHint(); // the "What's new" section can run long
+                AddScrollHint(); // Release notes can overflow.
                 return;
             }
 
-            // Nothing is actionable mid-download/install — an empty bar beats four dead-looking chips.
+            // Hide actions while download or installation is active.
             if (_busy) return;
 
-            // Once an install has run to completion (success or failure), the only thing left to do
-            // is close — re-launch the Center for another round rather than silently falling back
-            // into the same picker.
+            // Completed installs close instead of returning silently to the picker.
             if (_installFinished)
             {
                 AddAction(PadButton.B, "Exit", true, () => Application.Current.Shutdown());
@@ -742,7 +1091,8 @@ namespace ClawTweaksSetup
 
             if (_view == View.Onboarding)
             {
-                AddAction(PadButton.Y, "Refresh status", !_onboarding.IsConnecting, () => _ = _onboarding.RefreshStatusAsync(msg => Dispatcher.Invoke(RenderOnboarding)));
+                AddAction(PadButton.Y, "Refresh status", !_onboarding.IsConnecting, () =>
+                    _ = _onboarding.RefreshStatusAsync(msg => Dispatcher.Invoke(RenderOnboardingIfActive)));
                 AddAction(PadButton.B, "Back", true, GoHome);
                 return;
             }
@@ -756,30 +1106,13 @@ namespace ClawTweaksSetup
             AddScrollHint();
         }
 
-        /// <summary>Non-interactive footer hint: right stick scrolls the content — added wherever the
-        /// current screen can realistically overflow the viewport (the "What's new" section on Confirm
-        /// in particular, but Browse's list and the install history can run long too).</summary>
+        /// <summary>Adds the right-stick scroll hint to overflow-prone views.</summary>
         private void AddScrollHint()
         {
-            var glyph = new Image
-            {
-                Source = new BitmapImage(new Uri("pack://application:,,,/Assets/xbox/xbox_stick_r_vertical.png", UriKind.Absolute)),
-                Width = 44, Height = 44,
-                Stretch = Stretch.Uniform,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0),
-            };
-            RenderOptions.SetBitmapScalingMode(glyph, BitmapScalingMode.HighQuality);
-
-            var label = new TextBlock
-            {
-                Text = "Scroll", FontSize = 22, VerticalAlignment = VerticalAlignment.Center,
-                Foreground = UiHelpers.Subtle,
-            };
-            var content = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            content.Children.Add(glyph);
-            content.Children.Add(label);
-            ActionBar.Children.Add(new Border { Padding = new Thickness(10, 0, 10, 0), Child = content });
+            var glyph = new BitmapImage(new Uri(
+                "pack://application:,,,/Assets/xbox/xbox_stick_r_vertical.png",
+                UriKind.Absolute));
+            ActionBar.Children.Add(ActionBarBuilder.BuildHint(glyph, "Scroll"));
         }
 
         private void AddAction(PadButton b, string label, bool enabled, Action action)
@@ -819,7 +1152,7 @@ namespace ClawTweaksSetup
                     $"Currently installed: {_installedVersion} — this installs an OLDER version ({selVer})."));
             }
 
-            // "What's new" — only Releases/Test builds carry a GitHub release body; nightlies don't.
+            // Only GitHub builds include release notes.
             if (!string.IsNullOrWhiteSpace(build.Body))
             {
                 ContentHost.Children.Add(new TextBlock
@@ -862,81 +1195,77 @@ namespace ClawTweaksSetup
         #endregion
 
         #region Install
-        private async Task InstallSelectedAsync(BuildSource build)
+        private async Task InstallSelectedAsync(BuildSource build, bool previewOnly = false)
         {
             if (_busy) return;
             _busy = true;
             _installFinished = false;
             RefreshActionBar();
 
-            // A stale helper from a previous run can still be alive here (Add-AppxPackage's
-            // -ForceApplicationShutdown doesn't reach it — it's a plain exe, not an app-lifecycle
-            // process). Snapshot its PID(s) now so "the fresh helper came up" later means a PID
-            // outside this set, not just "some helper process exists" — and so any that are still
-            // hanging around once the new one is confirmed up can be cleaned up.
+            // Snapshot helper PIDs because package shutdown does not stop standalone helpers.
             int[] priorHelperPids = HelperControl.GetHelperPids();
-            Version previousVersion = _installedVersion; // cached from the last RefreshSourcesAsync
+            Version previousVersion = _installedVersion; // Cached by RefreshSourcesAsync.
 
-            // 2-column layout: left = progress/log, right = live status (used for the UAC-wait card
-            // below — visible next to the Game Bar overlay when it opens).
-            var layout = new Grid();
-            layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            // A bounded single column stays readable and contracts for handheld displays.
+            var layout = new Grid { MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Stretch };
+            layout.ColumnDefinitions.Add(new ColumnDefinition
+                { Width = new GridLength(1, GridUnitType.Star) });
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            var left = new StackPanel();
-            Grid.SetColumn(left, 0);
-            layout.Children.Add(left);
+            var statusSection = new StackPanel();
+            Grid.SetRow(statusSection, 0);
+            layout.Children.Add(statusSection);
 
-            var right = new StackPanel { Margin = new Thickness(20, 0, 0, 0) };
-            Grid.SetColumn(right, 1);
-            layout.Children.Add(right);
+            var progressSection = new StackPanel { Margin = new Thickness(0, 12, 0, 0) };
+            Grid.SetRow(progressSection, 1);
+            layout.Children.Add(progressSection);
 
             ContentHost.Children.Clear();
             ContentHost.Children.Add(layout);
 
-            left.Children.Add(UiHelpers.Title($"Installing {build.Version}"));
-            left.Children.Add(UiHelpers.Body($"{build.Origin} — {build.Title}"));
-
             var progressBar = new ProgressBar
             {
-                Height = 14, Minimum = 0, Maximum = 100, Value = 0,
+                Height = 4, Minimum = 0, Maximum = 100, Value = 0,
                 Foreground = UiHelpers.Accent,
-                Background = new SolidColorBrush(Color.FromRgb(0x2A, 0x2E, 0x38)),
+                Background = (Brush)Application.Current.Resources["StrokeBrush"],
                 BorderThickness = new Thickness(0),
-                Margin = new Thickness(0, 8, 0, 8),
+                Margin = new Thickness(0, 4, 0, 10),
                 IsIndeterminate = true,
             };
-            // Bounded, self-scrolling box for the step log: without this the log grows the whole page
-            // taller as steps stream in, and following it (scrolling the outer ContentScroller down)
-            // pushes the right column's Status card / Reboot-required warning out of view — exactly the
-            // essential info the user needs to see. Capping the height here and auto-scrolling only
-            // this inner box keeps the page height stable and the status card always in view.
+            // Bound and scroll the log while keeping current status visible.
             var logPanel = new StackPanel { Margin = new Thickness(2, 4, 0, 0) };
             var logScroller = new ScrollViewer
             {
-                MaxHeight = 320,
+                MaxHeight = 260,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 Content = logPanel,
             };
-            left.Children.Add(progressBar);
-            left.Children.Add(logScroller);
+            progressSection.Children.Add(progressBar);
+            progressSection.Children.Add(logScroller);
 
             var statusPanel = new ContentControl
             {
                 Focusable = false,
-                Content = BuildBigStatusCard(StatusKind.Working, "Preparing…", "Download and package install in progress."),
+                Tag = ($"Installing {build.Version}", $"{build.Origin} — {build.Title}"),
             };
-            var historyPanel = new StackPanel();
-            right.Children.Add(new TextBlock
+            var statusCard = new Border
             {
-                Text = "Status", FontSize = 15, Foreground = UiHelpers.Subtle, Margin = new Thickness(0, 0, 0, 8),
-            });
-            right.Children.Add(statusPanel);
-            right.Children.Add(historyPanel);
+                Background = UiHelpers.Card,
+                BorderBrush = UiHelpers.Accent,
+                BorderThickness = new Thickness(3, 0, 0, 0),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(14, 12, 14, 12),
+                Child = statusPanel,
+            };
+            SetInstallStatus(statusPanel, statusCard, StatusKind.Working, "",
+                "Download and package install in progress.");
+            var historyPanel = new StackPanel { Margin = new Thickness(0, 6, 0, 0) };
+            statusSection.Children.Add(statusCard);
+            progressSection.Children.Add(historyPanel);
 
-            // Each step gets its own row: a ✓ once it's done, a pulsing "…" badge while it's the
-            // current one — so the user can tell at a glance exactly what's finished vs. still running,
-            // instead of a flat scroll of text.
+            // Show each step as complete or active in its own row.
             ContentControl currentLogBadge = null;
             StackPanel currentLogDetail = null;
 
@@ -944,22 +1273,20 @@ namespace ClawTweaksSetup
             {
                 badge = new ContentControl
                 {
-                    Width = 20, Height = 20, Focusable = false,
+                    Width = 18, Height = 18, Focusable = false,
                     VerticalAlignment = VerticalAlignment.Top,
                     Margin = new Thickness(0, 2, 0, 0),
-                    Content = UiHelpers.Badge(StatusKind.Working, 20),
+                    Content = UiHelpers.Badge(StatusKind.Working, 18),
                 };
 
-                // Grid, not a horizontal StackPanel: a horizontal StackPanel measures its children with
-                // infinite available width, which silently defeats TextWrapping.Wrap and let long lines
-                // (e.g. the usbip reboot notice) run off the right edge of the window.
+                // Grid width constraints keep long status text wrapping.
                 var header = new Grid();
                 header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 Grid.SetColumn(badge, 0);
                 var textBlock = new TextBlock
                 {
-                    Text = text, FontSize = 15, Foreground = UiHelpers.Subtle,
+                    Text = text, FontSize = 14, Foreground = UiHelpers.Subtle,
                     Margin = new Thickness(8, 0, 0, 0), TextWrapping = TextWrapping.Wrap,
                     VerticalAlignment = VerticalAlignment.Center,
                 };
@@ -967,7 +1294,7 @@ namespace ClawTweaksSetup
                 header.Children.Add(badge);
                 header.Children.Add(textBlock);
 
-                detail = new StackPanel { Margin = new Thickness(28, 2, 0, 0) };
+                detail = new StackPanel { Margin = new Thickness(26, 2, 0, 0) };
 
                 var wrapper = new StackPanel { Margin = new Thickness(0, 3, 0, 3) };
                 wrapper.Children.Add(header);
@@ -978,12 +1305,10 @@ namespace ClawTweaksSetup
             void FinishLogRow(ContentControl badge, bool ok)
             {
                 if (badge == null) return;
-                badge.Content = UiHelpers.Badge(ok ? StatusKind.Ok : StatusKind.Error, 20);
+                badge.Content = UiHelpers.Badge(ok ? StatusKind.Ok : StatusKind.Error, 18);
             }
 
-            // Dispatcher.Invoke matters here: PackageInstaller.Install runs inside Task.Run further
-            // down and calls this synchronously from a thread-pool thread, not just via awaited
-            // continuations — same guard InstallPhase.Log already uses for the same reason.
+            // Package installation can report synchronously from a worker thread.
             void Log(string s) => Dispatcher.Invoke(() =>
             {
                 FinishLogRow(currentLogBadge, true);
@@ -991,14 +1316,12 @@ namespace ClawTweaksSetup
                 logScroller.ScrollToBottom();
             });
 
-            // Appends a sub-line under the CURRENT row instead of starting a new checkmarked row —
-            // used to collapse a multi-step sub-flow (the non-silent usbip installer in particular)
-            // into one group instead of one top-level tick per internal step.
+            // Group internal substeps beneath the current top-level row.
             void LogDetail(string s) => Dispatcher.Invoke(() =>
             {
                 currentLogDetail?.Children.Add(new TextBlock
                 {
-                    Text = s, FontSize = 13, Foreground = UiHelpers.Subtle,
+                    Text = s, FontSize = 12, Foreground = UiHelpers.Subtle,
                     TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 1, 0, 1),
                 });
                 logScroller.ScrollToBottom();
@@ -1009,25 +1332,20 @@ namespace ClawTweaksSetup
                 progressBar.Value = p;
             });
 
+            if (previewOnly)
+            {
+                Log($"Downloading installer ({build.Version})…");
+                return;
+            }
+
             try
             {
                 bool certTrusted = await Task.Run(() => CertInstaller.IsKnownCertAlreadyTrusted());
                 string staged = await BuildDownloader.DownloadAndStageAsync(build, certTrusted, Log, progress);
                 SetupContext.AssetRoot = staged;
 
-                // Straight into the actual install from here — no manual wizard walk-through. The
-                // Center menu exists for fast iteration on an already-onboarded dev device: pick a
-                // build, the tool triggers the install and watches it succeed. Ported 1:1 from
-                // ToolsPhase.InstallAsync + InstallPhase.InstallAsync (required tools → cert trust →
-                // Add-AppxPackage → Game Bar → wait for helper); the release-folder path still gets the
-                // full guided wizard via MainWindow, unchanged.
-                //
-                // DELIBERATE EXCEPTION (confirmed with the user 2026-07-21): unlike ToolsPhase/
-                // InstallPhase, this flow does NOT call ElevationGate up front for one shared elevation.
-                // Each tool install (HidHide/RTSS/PawnIO/usbip via winget or their own installers) ends
-                // up requesting UAC independently, so this dev/fast-iteration path shows several UAC
-                // prompts in a row instead of one. The user explicitly asked to keep it this way here —
-                // do not "fix" this to match the single-elevation model without asking again first.
+                // Fast install mirrors ToolsPhase and InstallPhase without the guided wizard.
+                // Intentional: each tool handles UAC independently; do not add shared elevation here.
                 progressBar.IsIndeterminate = true;
                 bool ok = true;
 
@@ -1037,18 +1355,8 @@ namespace ClawTweaksSetup
                 var pawnio = await Task.Run(() => ToolDetect.PawnIO());
                 if (!hidhide.Installed || !rtss.Installed || !usbip.Installed || !pawnio.Installed)
                 {
-                    // Each result is ANDed into ok — previously discarded, so a genuine failure (e.g. a
-                    // wrong system clock breaking the winget/certificate download, the exact case the
-                    // detailed log message below already explains) silently continued as if everything
-                    // had succeeded instead of stopping before cert/package install.
-                    //
-                    // Each row is also explicitly finalized with ITS OWN result right here — not left
-                    // for the generic "Log() marks the previous row green when the next one starts"
-                    // convenience, and not left for the single end-of-method FinishLogRow(ok) either.
-                    // Both of those attribute whatever the CUMULATIVE outcome ends up being to whichever
-                    // row happens to be current/last at that point, which can be a completely unrelated
-                    // later step (observed: a PawnIO failure here got silently shown as green, while the
-                    // red X landed on "Certificate already trusted." several steps later).
+                    // Accumulate each result and finalize its row before starting another step.
+                    // Deferring would assign a cumulative failure to the wrong row.
                     if (!hidhide.Installed)
                     {
                         bool r = await Task.Run(() => ToolInstaller.InstallHidHide(Log));
@@ -1063,8 +1371,7 @@ namespace ClawTweaksSetup
                     }
                     if (!pawnio.Installed)
                     {
-                        // Silent like HidHide/RTSS (no interactive window), but its own multi-step
-                        // download+verify+install flow is grouped the same way usbip's is below.
+                        // Group PawnIO's silent substeps in one row.
                         Log("Installing PawnIO (driver)…");
                         bool r = await Task.Run(() => PawnIoSetup.Run(LogDetail)) == PawnIoSetup.Result.Success;
                         FinishLogRow(currentLogBadge, r);
@@ -1072,16 +1379,14 @@ namespace ClawTweaksSetup
                     }
                     if (!await Task.Run(() => ToolDetect.Usbip().Installed))
                     {
-                        // Grouped into one row — UsbipSetup.Run's own internal steps (download, verify,
-                        // launch, exit code) go through LogDetail so they land as sub-lines here instead
-                        // of each becoming its own top-level checkmark.
+                        // Group usbip's download, verification, launch, and result in one row.
                         Log("Installing usbip (driver) — not silent, a separate installer window will open.");
                         LogDetail("Confirm the driver-install prompt when it appears.");
                         var usbipResult = await Task.Run(() => UsbipSetup.Run(LogDetail));
                         if (usbipResult == UsbipSetup.Result.RebootRequired || usbipResult == UsbipSetup.Result.Success)
                         {
                             LogDetail("Reboot required for the driver to activate.");
-                            statusPanel.Content = BuildBigStatusCard(StatusKind.Warning, "Reboot required",
+                            SetInstallStatus(statusPanel, statusCard, StatusKind.Warning, "Reboot required",
                                 "Virtual controller support won't work until you reboot — usbip's driver was just installed and needs it to activate.");
                             AppendHistory(historyPanel, false, "Reboot required",
                                 "usbip's driver needs a restart before virtual controller mode works.");
@@ -1090,14 +1395,10 @@ namespace ClawTweaksSetup
                 }
                 else Log("Required tools (HidHide, RTSS, usbip, PawnIO) already installed.");
 
-                // Stop here, clearly, if a required tool failed — rather than continuing on to the
-                // certificate/package/Game-Bar steps and quietly falling through to nothing with no
-                // explanation (the "it looks frozen" symptom this was fixed from: tools failed, cert
-                // and package steps ran anyway, then the flow just stopped after "Certificate already
-                // trusted." with only an easy-to-miss red X several rows back as the only clue).
+                // Required-tool failures must stop before certificate and package installation.
                 if (!ok)
                 {
-                    statusPanel.Content = BuildBigStatusCard(StatusKind.Error, "Installation stopped",
+                    SetInstallStatus(statusPanel, statusCard, StatusKind.Error, "Installation stopped",
                         "One or more required tools failed to install — see the log above for details. " +
                         "Fix the issue (e.g. check the system clock for the winget/certificate error) and try again.");
                     FinishLogRow(currentLogBadge, false);
@@ -1140,15 +1441,13 @@ namespace ClawTweaksSetup
                     progressBar.Value = 0;
                     var helperProgress = new Progress<int>(p => progressBar.Value = p);
 
-                    // Reinstalling the exact version that's already running doesn't restart the helper
-                    // or show a UAC prompt — the "fresh, elevated PID" check below can never be
-                    // satisfied, so a same-version reinstall always times out. Not a failure; the
-                    // timeout message needs to say so instead of implying something went wrong.
+                    // Same-version installs do not restart the helper, so skip the fresh-PID check.
                     bool sameVersionReinstall = previousVersion != null
                         && TryParseVersion(build.Version, out var selVerForReinstall) && selVerForReinstall == previousVersion;
 
                     bool up = await RunPostInstallMonitorAsync(
-                        priorHelperPids, previousVersion != null, sameVersionReinstall, helperProgress, statusPanel, historyPanel);
+                        priorHelperPids, previousVersion != null, sameVersionReinstall, helperProgress,
+                        statusPanel, statusCard, historyPanel);
                     progressBar.Value = 100;
 
                     Log(up
@@ -1161,10 +1460,7 @@ namespace ClawTweaksSetup
                 _installFinished = true;
                 RefreshActionBar();
 
-                // Fresh install or update, helper confirmed elevated and running — this is exactly the
-                // trigger from the plan (Doku/PLAN_Center_Helper_Integration.md §3 Phase 3). Let the
-                // install screen finish settling first (log/badge/action bar above) rather than yanking
-                // the view away mid-render.
+                // Enter onboarding only after the successful install view has settled.
                 if (ok) OpenOnboarding();
             }
             catch (Exception ex)
@@ -1177,7 +1473,7 @@ namespace ClawTweaksSetup
             }
         }
 
-        /// <summary>Human-readable version transition for the final status ("Updated X → Y", not just "Installed Y").</summary>
+        /// <summary>Formats the installed or updated version transition.</summary>
         private static string DescribeTransition(Version previous, string selectedVersion)
         {
             if (previous == null) return $"Installed {selectedVersion}";
@@ -1188,21 +1484,12 @@ namespace ClawTweaksSetup
         }
 
         /// <summary>
-        /// Everything that happens after Add-AppxPackage succeeds: open the Game Bar (auto-closes
-        /// itself after a few seconds so the user sees this panel, not just the overlay — long enough
-        /// for the widget to actually finish loading and kick off the helper; 1s wasn't, observed live:
-        /// the Game Bar closed before the widget had a chance to start it), wait for the FRESH
-        /// helper (surfacing the UAC prompt prominently if the helper's own first-run --setup needs
-        /// one), check for and remove any stale helper left over from before the update, then run the
-        /// controller diagnostic (HW vs. virtual mode). Settles for a fixed ~20s total before
-        /// declaring the install done, so nothing flaky shows up right after. Every step is shown live
-        /// in <paramref name="statusPanel"/> (the big current-step card, the only place that keeps the
-        /// checkmark-in-circle look) and appended to <paramref name="historyPanel"/> as plain, flush
-        /// text lines (a permanent log of what happened, deliberately no badge/circle of its own).
+        /// Starts the widget, validates a fresh elevated helper, removes stale helpers, and probes
+        /// controller state. Reports live status and permanent history before settling completion.
         /// </summary>
         private static async Task<bool> RunPostInstallMonitorAsync(
             int[] priorHelperPids, bool isUpdate, bool sameVersionReinstall, IProgress<int> progress,
-            ContentControl statusPanel, StackPanel historyPanel)
+            ContentControl statusPanel, Border statusCard, StackPanel historyPanel)
         {
             void AddHistory(bool ok, string title, string detail) => AppendHistory(historyPanel, ok, title, detail);
 
@@ -1210,17 +1497,13 @@ namespace ClawTweaksSetup
 
             HelperControl.OpenGameBar();
             await Task.Delay(5000);
-            HelperControl.CloseGameBarBestEffort(); // best-effort — the big UAC card below is the fallback if this doesn't land
+            HelperControl.CloseGameBarBestEffort(); // The UAC status remains visible if closing fails.
 
-            // 1) Wait for the FRESH helper, running ELEVATED — surfacing the UAC prompt prominently
-            // while we wait. A new PID can appear before its own elevation request is even shown (an
-            // initial unelevated instance that then requests --setup elevation itself), so "PID
-            // exists" alone isn't proof the UAC was confirmed. Checking TokenElevation is the actual,
-            // verifiable signal instead of guessing from timing.
+            // A new PID is insufficient; token elevation confirms UAC completed.
             bool FreshHelperUp() => HelperControl.GetHelperPids()
                 .Any(pid => !priorHelperPids.Contains(pid) && HelperControl.IsProcessElevated(pid));
 
-            statusPanel.Content = BuildBigStatusCard(StatusKind.Working, "Starting…",
+            SetInstallStatus(statusPanel, statusCard, StatusKind.Working, "Starting…",
                 "Waiting for the ClawTweaks helper to start.");
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -1233,10 +1516,11 @@ namespace ClawTweaksSetup
                 bool uacShowing = HelperControl.IsUacPromptShowing();
                 if (uacShowing != lastUacShowing)
                 {
-                    statusPanel.Content = uacShowing
-                        ? BuildBigStatusCard(StatusKind.Warning, "Waiting for UAC…",
-                            "A confirmation prompt appeared — please confirm it to continue.")
-                        : BuildBigStatusCard(StatusKind.Working, "Starting…",
+                    if (uacShowing)
+                        SetInstallStatus(statusPanel, statusCard, StatusKind.Warning, "Waiting for UAC…",
+                            "A confirmation prompt appeared — please confirm it to continue.");
+                    else
+                        SetInstallStatus(statusPanel, statusCard, StatusKind.Working, "Starting…",
                             "Waiting for the ClawTweaks helper to start.");
                     lastUacShowing = uacShowing;
                 }
@@ -1247,21 +1531,18 @@ namespace ClawTweaksSetup
 
             if (!up)
             {
-                statusPanel.Content = sameVersionReinstall
-                    ? BuildBigStatusCard(StatusKind.Warning, "Timed out",
-                        "Expected for a same-version reinstall — the helper doesn't restart or show a UAC prompt when nothing changed. Open the Game Bar (Win+G) to check it's still running.")
-                    : BuildBigStatusCard(StatusKind.Warning, "Timed out",
-                        "Open the Game Bar manually (Win+G).");
+                SetInstallStatus(statusPanel, statusCard, StatusKind.Warning, "Timed out",
+                    sameVersionReinstall
+                        ? "Expected for a same-version reinstall — the helper doesn't restart or show a UAC prompt when nothing changed. Open the Game Bar (Win+G) to check it's still running."
+                        : "Open the Game Bar manually (Win+G).");
                 return false;
             }
 
             AddHistory(true, isUpdate ? "New update — background helper started" : "Installed — background helper started", "");
             progress?.Report(70);
 
-            // 2) Duplicate-helper check: a stale instance from before the update often exits on its
-            // own within a few seconds once it notices the fresh one; give it that grace period, then
-            // forcibly remove anything still left over so only the new helper keeps running.
-            statusPanel.Content = BuildBigStatusCard(StatusKind.Working, "Checking for duplicate helpers…", "");
+            // Give stale helpers time to exit, then remove remaining duplicates.
+            SetInstallStatus(statusPanel, statusCard, StatusKind.Working, "Checking for duplicate helpers…", "");
             bool AnyStaleAlive() => priorHelperPids.Any(IsProcessAlive);
 
             if (priorHelperPids.Length == 0 || !AnyStaleAlive())
@@ -1275,7 +1556,7 @@ namespace ClawTweaksSetup
 
                 if (AnyStaleAlive())
                 {
-                    statusPanel.Content = BuildBigStatusCard(StatusKind.Warning, "Removing leftover helper…",
+                    SetInstallStatus(statusPanel, statusCard, StatusKind.Warning, "Removing leftover helper…",
                         "A helper from before the update is still running.");
                     int killed = 0;
                     foreach (var pid in priorHelperPids)
@@ -1293,30 +1574,22 @@ namespace ClawTweaksSetup
             }
             progress?.Report(82);
 
-            // 3) Controller diagnostic — same probe ControllerPhase/FinalizePhase already use during
-            // first-time setup, reused here rather than reinvented. Retries a few times with a short
-            // delay since the helper can take a moment after starting to actually mount the controller.
-            statusPanel.Content = BuildBigStatusCard(StatusKind.Working, "Checking controller mode…", "");
+            // Reuse the setup controller probe and allow time for helper mounting.
+            SetInstallStatus(statusPanel, statusCard, StatusKind.Working, "Checking controller mode…", "");
             var (controllerOk, ctrlTitle, ctrlDetail, ctrlCause) = await ProbeControllerModeAsync();
             if (controllerOk) AddHistory(true, ctrlTitle, ctrlDetail);
             else AddHistory(false, ctrlTitle, ctrlCause);
             progress?.Report(95);
 
-            // 4) Settle: give everything ~20s total (from opening the Game Bar) before declaring victory.
+            // Allow roughly 20 seconds total for post-install state to settle.
             int remainingMs = 20000 - (int)totalSw.ElapsedMilliseconds;
             if (remainingMs > 0) await Task.Delay(remainingMs);
 
-            statusPanel.Content = BuildBigStatusCard(StatusKind.Ok, "Installation complete", "No restart necessary.");
+            SetInstallStatus(statusPanel, statusCard, StatusKind.Ok, "Installation complete", "No restart necessary.");
             return true;
         }
 
-        /// <summary>
-        /// Reuses ControllerHealth.Probe() (the same PnP/XInput probe ControllerPhase/FinalizePhase run
-        /// during first-time setup) to report whether the Claw is running in HW controller mode (native
-        /// XInput surface, no overlay) or virtual controller mode (a VIIPER/ViGEm pad is mounted). The
-        /// helper can take a moment after starting to actually mount the controller, so this retries a
-        /// few times with a short delay before giving up and reporting why.
-        /// </summary>
+        /// <summary>Retries the shared controller probe while the helper mounts its device.</summary>
         private static async Task<(bool ok, string title, string detail, string cause)> ProbeControllerModeAsync()
         {
             HealthResult result = null;
@@ -1346,73 +1619,100 @@ namespace ClawTweaksSetup
             catch { return false; }
         }
 
-        /// <summary>Permanent history line (title + optional detail) — unlike the big status card above
-        /// it, these never get overwritten, so a fact like "reboot required" survives later steps
-        /// moving the status card on to something else.</summary>
+        /// <summary>Appends a persistent history item with optional detail.</summary>
         private static void AppendHistory(StackPanel historyPanel, bool ok, string title, string detail)
         {
-            var stack = new StackPanel { Margin = new Thickness(2, 8, 0, 0) };
+            var stack = new StackPanel();
             stack.Children.Add(new TextBlock
             {
-                Text = title, FontSize = 16, FontWeight = FontWeights.SemiBold,
-                Foreground = ok ? UiHelpers.Ok : UiHelpers.Warn,
+                Text = title, FontSize = 14, FontWeight = FontWeights.SemiBold,
+                Foreground = UiHelpers.Text,
             });
             if (!string.IsNullOrEmpty(detail))
                 stack.Children.Add(new TextBlock
                 {
-                    Text = detail, FontSize = 13, Foreground = UiHelpers.Subtle,
-                    Margin = new Thickness(14, 2, 0, 0), TextWrapping = TextWrapping.Wrap,
+                    Text = detail, FontSize = 12, Foreground = UiHelpers.Subtle,
+                    Margin = new Thickness(0, 2, 0, 0), TextWrapping = TextWrapping.Wrap,
                 });
-            historyPanel.Children.Add(stack);
+
+            var row = new Grid { Margin = new Thickness(2, 6, 0, 0) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var badge = UiHelpers.Badge(ok ? StatusKind.Ok : StatusKind.Warning, 16);
+            badge.Margin = new Thickness(0, 2, 8, 0);
+            badge.VerticalAlignment = VerticalAlignment.Top;
+            Grid.SetColumn(badge, 0);
+            Grid.SetColumn(stack, 1);
+            row.Children.Add(badge);
+            row.Children.Add(stack);
+            historyPanel.Children.Add(row);
         }
 
-        /// <summary>
-        /// Large, colour-highlighted "what's happening right now" card for the install's right column
-        /// — deliberately much bigger than the regular <see cref="UiHelpers.StatusRow"/> rows, since
-        /// this is the one thing the user needs to notice even glancing over from behind the Game Bar
-        /// overlay (the UAC prompt in particular). Shows the looping loading-spinner GIF while
-        /// <see cref="StatusKind.Working"/> (via <see cref="UiHelpers.Badge"/>).
-        /// </summary>
-        private static Border BuildBigStatusCard(StatusKind kind, string title, string detail)
+        /// <summary>Updates live install status without replacing the build heading.</summary>
+        private static void SetInstallStatus(
+            ContentControl statusPanel, Border statusCard, StatusKind kind, string title, string detail)
         {
-            var accent = UiHelpers.BrushFor(kind);
-            var badge = UiHelpers.Badge(kind, 56);
+            var accent = kind == StatusKind.Working ? UiHelpers.Accent : UiHelpers.BrushFor(kind);
+            statusCard.BorderBrush = accent;
+            var context = ((string installLabel, string buildDetail))statusPanel.Tag;
+            statusPanel.Content = BuildInstallStatusContent(
+                kind, context.installLabel, context.buildDetail, title, detail);
+        }
 
-            var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(16, 0, 0, 0) };
-            text.Children.Add(new TextBlock
+        private static Grid BuildInstallStatusContent(
+            StatusKind kind, string installLabel, string buildDetail, string title, string detail)
+        {
+            bool showBadge = kind != StatusKind.Working;
+            var text = new StackPanel { Margin = showBadge ? new Thickness(12, 0, 0, 0) : new Thickness(0) };
+            var heading = new TextBlock
             {
-                Text = title, FontSize = 26, FontWeight = FontWeights.Bold,
-                Foreground = UiHelpers.Text, TextWrapping = TextWrapping.Wrap,
-            });
+                FontSize = 18,
+                Foreground = UiHelpers.Text,
+                TextWrapping = TextWrapping.Wrap,
+            };
+            heading.Inlines.Add(new System.Windows.Documents.Run
+                { Text = installLabel, FontWeight = FontWeights.SemiBold });
+            if (!string.IsNullOrEmpty(title))
+            {
+                heading.Inlines.Add(new System.Windows.Documents.Run
+                    { Text = "  ·  ", Foreground = UiHelpers.Subtle });
+                heading.Inlines.Add(new System.Windows.Documents.Run
+                    { Text = title, FontWeight = FontWeights.SemiBold });
+            }
+            text.Children.Add(heading);
+            if (!string.IsNullOrEmpty(buildDetail))
+                text.Children.Add(new TextBlock
+                {
+                    Text = buildDetail,
+                    FontSize = 12,
+                    LineHeight = 17,
+                    Foreground = UiHelpers.Subtle,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 2, 0, 0),
+                });
             if (!string.IsNullOrEmpty(detail))
                 text.Children.Add(new TextBlock
                 {
-                    Text = detail, FontSize = 16, Foreground = UiHelpers.Subtle,
-                    TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0),
+                    Text = detail, FontSize = 13, LineHeight = 18, Foreground = UiHelpers.Subtle,
+                    TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 3, 0, 0),
                 });
 
-            // Grid, not a horizontal StackPanel — same wrap-defeating pitfall as the log rows above;
-            // a long detail line (e.g. the reboot-required notice) needs to actually wrap, not run
-            // past the window edge.
+            // Grid width constraints keep long details wrapping.
             var row = new Grid();
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            if (showBadge)
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            Grid.SetColumn(badge, 0);
-            Grid.SetColumn(text, 1);
-            row.Children.Add(badge);
-            row.Children.Add(text);
-
-            var accentColor = ((SolidColorBrush)accent).Color;
-            return new Border
+            if (showBadge)
             {
-                Background = new SolidColorBrush(Color.FromArgb(0x33, accentColor.R, accentColor.G, accentColor.B)),
-                BorderBrush = accent,
-                BorderThickness = new Thickness(2),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(22, 20, 22, 20),
-                Margin = new Thickness(0, 0, 0, 12),
-                Child = row,
-            };
+                var badge = UiHelpers.Badge(kind, 28);
+                badge.VerticalAlignment = VerticalAlignment.Top;
+                badge.Margin = new Thickness(0, 1, 0, 0);
+                Grid.SetColumn(badge, 0);
+                row.Children.Add(badge);
+            }
+            Grid.SetColumn(text, showBadge ? 1 : 0);
+            row.Children.Add(text);
+            return row;
         }
         #endregion
     }

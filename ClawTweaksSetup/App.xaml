@@ -4,10 +4,7 @@
     <Application.Resources>
         <ResourceDictionary>
 
-            <!-- Fluent dark palette. The setup remains WPF so it can stay a truly self-contained
-                 single-file executable, but these surfaces mirror current WinUI 3 dark theme
-                 layering: a calm base, slightly elevated cards, subtle strokes and a restrained
-                 accent used only for primary/status affordances. -->
+            <!-- Fluent dark palette for the self-contained WPF executable. -->
             <FontFamily x:Key="AppFontFamily">Segoe UI Variable Text, Segoe UI</FontFamily>
             <Color x:Key="BgColor">#FF202020</Color>
             <Color x:Key="CardColor">#FF2B2B2B</Color>
@@ -25,7 +22,7 @@
             <SolidColorBrush x:Key="WarnBrush"     Color="#FFFCE100" />
             <SolidColorBrush x:Key="ErrorBrush"    Color="#FFFF99A4" />
 
-            <!-- Inherit the current Windows UI typeface across both XAML-authored and code-built UI. -->
+            <!-- Apply the Windows UI typeface to XAML- and code-built UI. -->
             <Style TargetType="{x:Type Window}">
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
@@ -34,7 +31,7 @@
                 <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
             </Style>
 
-            <!-- Big, controller-friendly focus visual: a thick accent ring around the focused button. -->
+            <!-- Controller-visible focus ring. -->
             <Style x:Key="ControllerFocusVisual">
                 <Setter Property="Control.Template">
                     <Setter.Value>
@@ -47,7 +44,7 @@
                 </Setter>
             </Style>
 
-            <!-- Primary button style used across the wizard. -->
+            <!-- Shared wizard button. -->
             <Style TargetType="Button" x:Key="SetupButton">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource ControllerFocusVisual}" />
                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
@@ -89,23 +86,23 @@
                 </Setter>
             </Style>
 
-            <!-- Accent (primary action) button variant. -->
+            <!-- Primary-action variant. -->
             <Style TargetType="Button" x:Key="SetupButtonAccent" BasedOn="{StaticResource SetupButton}">
                 <Setter Property="Background" Value="{StaticResource AccentBrush}" />
                 <Setter Property="Foreground" Value="#FF0A0C10" />
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
 
-            <!-- Compact controller action tile used by the footer bars. -->
+            <!-- Footer controller action. -->
             <Style TargetType="Button" x:Key="ControllerActionTile">
                 <Setter Property="FocusVisualStyle" Value="{StaticResource ControllerFocusVisual}" />
                 <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
                 <Setter Property="Background" Value="#FF303030" />
                 <Setter Property="BorderBrush" Value="#FF4A4A4A" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Padding" Value="9,7,13,7" />
-                <Setter Property="Margin" Value="4" />
-                <Setter Property="MinHeight" Value="48" />
+                <Setter Property="Padding" Value="8,5,12,5" />
+                <Setter Property="Margin" Value="3" />
+                <Setter Property="MinHeight" Value="40" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -134,6 +131,81 @@
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter Property="Opacity" Value="0.38" />
+                                    <Setter Property="Cursor" Value="Arrow" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Touch-friendly WinUI-style checkbox. -->
+            <Style TargetType="CheckBox" x:Key="ModernOptionCheckBox">
+                <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="MinHeight" Value="48" />
+                <Setter Property="Padding" Value="10,8" />
+                <Setter Property="Margin" Value="0,4" />
+                <Setter Property="Background" Value="{StaticResource CardBrush}" />
+                <Setter Property="BorderBrush" Value="{StaticResource StrokeBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{StaticResource ControllerFocusVisual}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <Border x:Name="OptionSurface"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    Padding="{TemplateBinding Padding}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="CheckBoxSurface"
+                                            Width="24" Height="24"
+                                            CornerRadius="4"
+                                            Background="#FF303030"
+                                            BorderBrush="#FF8A8A8A"
+                                            BorderThickness="2"
+                                            VerticalAlignment="Center">
+                                        <TextBlock x:Name="CheckGlyph"
+                                                   Text="✓"
+                                                   Visibility="Collapsed"
+                                                   FontSize="16"
+                                                   FontWeight="Bold"
+                                                   Foreground="#FF0A0C10"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,-1,0,0" />
+                                    </Border>
+                                    <ContentPresenter Grid.Column="1"
+                                                      Margin="12,0,0,0"
+                                                      VerticalAlignment="Center"
+                                                      RecognizesAccessKey="True" />
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="OptionSurface" Property="Background" Value="#FF343434" />
+                                    <Setter TargetName="OptionSurface" Property="BorderBrush" Value="#FF606060" />
+                                    <Setter TargetName="CheckBoxSurface" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="OptionSurface" Property="Background" Value="#FF292929" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="OptionSurface" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                    <Setter TargetName="CheckBoxSurface" Property="Background" Value="{StaticResource AccentBrush}" />
+                                    <Setter TargetName="CheckBoxSurface" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                    <Setter TargetName="CheckGlyph" Property="Visibility" Value="Visible" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
                                     <Setter Property="Cursor" Value="Arrow" />
                                 </Trigger>
                             </ControlTemplate.Triggers>

@@ -17,7 +17,7 @@ namespace ClawTweaksSetup.Ui
         private const int DwmWindowCornerRound = 2;
         private const uint MonitorDefaultToNearest = 2;
 
-        public static void Apply(Window window)
+        public static void Apply(Window window, double edgeMargin = 32)
         {
             window.FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
             window.SourceInitialized += (_, __) =>
@@ -26,7 +26,7 @@ namespace ClawTweaksSetup.Ui
                 if (hwnd == IntPtr.Zero) return;
 
                 ApplyNativeChrome(hwnd);
-                CenterAndConstrainToWorkArea(window, hwnd);
+                CenterAndConstrainToWorkArea(window, hwnd, edgeMargin);
             };
         }
 
@@ -41,8 +41,7 @@ namespace ClawTweaksSetup.Ui
                 int corners = DwmWindowCornerRound;
                 DwmSetWindowAttribute(hwnd, DwmWindowCornerPreference, ref corners, sizeof(int));
 
-                // COLORREF uses 0x00BBGGRR. These values intentionally match App.xaml's base/stroke
-                // surfaces so the native caption reads as part of the same Fluent shell.
+                // Match the native caption to App.xaml; COLORREF is 0x00BBGGRR.
                 int caption = ColorRef(0x20, 0x20, 0x20);
                 int border = ColorRef(0x3A, 0x3A, 0x3A);
                 int text = ColorRef(0xFF, 0xFF, 0xFF);
@@ -52,11 +51,11 @@ namespace ClawTweaksSetup.Ui
             }
             catch
             {
-                // Older Windows builds simply keep their native title bar appearance.
+                // Unsupported Windows builds retain native chrome.
             }
         }
 
-        private static void CenterAndConstrainToWorkArea(Window window, IntPtr hwnd)
+        private static void CenterAndConstrainToWorkArea(Window window, IntPtr hwnd, double edgeMargin)
         {
             try
             {
@@ -71,9 +70,7 @@ namespace ClawTweaksSetup.Ui
                 double workWidth = bottomRight.X - topLeft.X;
                 double workHeight = bottomRight.Y - topLeft.Y;
 
-                // Leave a calm margin around the setup instead of recreating the previous near-fullscreen
-                // sheet. On small handheld displays, gracefully use the available work area.
-                const double edgeMargin = 32;
+                // Preserve a margin where possible; small displays use the full work area.
                 double availableWidth = Math.Max(320, workWidth - edgeMargin * 2);
                 double availableHeight = Math.Max(320, workHeight - edgeMargin * 2);
                 window.Width = Math.Min(window.Width, availableWidth);
@@ -85,7 +82,7 @@ namespace ClawTweaksSetup.Ui
             }
             catch
             {
-                // WindowStartupLocation remains the fallback if monitor/DPI interop is unavailable.
+                // Fall back to WindowStartupLocation when interop fails.
             }
         }
 
