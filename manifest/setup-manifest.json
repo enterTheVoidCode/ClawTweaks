@@ -10,16 +10,16 @@
   "_readme_release":"Release procedure: (1) bump <Version> in ClawTweaksSetup.csproj, (2) dotnet publish -c Release, (3) upload ClawTweaksSetup\\PortableExe\\CTW_Center_<version>_Setup.exe as a GitHub release asset, (4) Get-FileHash -Algorithm SHA256 on THAT EXACT UPLOADED FILE, (5) fill the fields below and push to public master. The hash is the trap: every rebuild changes it, including a comment-only edit, so take it after the final build and from the uploaded artifact. latestSetupUrl must be https on github.com / objects.githubusercontent.com / release-assets.githubusercontent.com and end in .exe - old Centers' SanitizeUrl rejects anything else, and it is a string they download an executable from.",
 
   "schemaVersion": 3,
-  "updatedUtc": "2026-07-30",
+  "updatedUtc": "2026-08-04",
 
-  "minimumSetupVersion": "0.1.9.6",
+  "minimumSetupVersion": "0.1.9.12",
   "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub.",
 
   "minimumClawTweaksVersion": "0.1.8.51",
   "clawTweaksVersionMessage": "Outdated version — install 0.1.8.51 or newer",
 
-  "latestSetupVersion": "0.1.9.6",
+  "latestSetupVersion": "0.1.9.12",
   "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaks/releases",
-  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.1.8.52/CTW_Center_0.1.9.6_Setup.exe",
-  "latestSetupSha256": "24cbfb04317590373b9d4ccfbc05ee2a1ef63bb2ee06c8e8ce59cf1c5ce8fa45"
+  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.1.8.52/CTW_Center_0.1.9.12_Setup.exe",
+  "latestSetupSha256": "7339b414fc3b10f85b6551bb7a220f2628209c5910c1fa6e8b8ff0d11cc402b7"
 }
