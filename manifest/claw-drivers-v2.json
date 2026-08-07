@@ -2,7 +2,7 @@
   "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks - SCHEMA 2 (modell-gefiltert). Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. MSI-Eintraege (Firmware, BIOS, MSI-spezifisch): action=install laedt von download.msi.com (Whitelist). Intel-Eintraege (providerScope=intel): liefern die NEUESTE (WHQL-)Version fuer die automatisch erkannte Intel-Zeile - der Helper vergleicht installiert (PnP) vs. diese 'version' und meldet 'Update verfuegbar' (Update-Kachel). 'version' bei neuem WHQL-Release aktualisieren (~1x/Monat); action=deeplink (oeffnet die Intel-Seite). .zip-Dateien werden heruntergeladen aber NIE automatisch gestartet (nur .exe/.msi) - fuer Firmware/BIOS sicher.",
   "_v2Comment": "WARUM ES DIESE DATEI GIBT: claw-drivers.json (v1) MUSS unveraendert bleiben - sie ist die URL, die in JEDER alten ClawTweaks-Binary einkompiliert ist. Bis 0.1.7.94 war ModelCode immer leer (der Board-Code wurde aus Win32_ComputerSystemProduct.Name gelesen, wo er nicht steht - er lebt in Win32_BaseBoard.Product). Der models[]-Filter greift aber nur bei nicht-leerem ModelCode, d.h. alte Clients ignorieren ihn und wuerden JEDEN device-Block anzeigen. Ein zweiter Block in v1 haette Claw-8-AI-Usern das BIOS des Claw 8 EX als Update angeboten. Alte Builds kennen diese v2-URL nicht und koennen sie nie laden - deshalb ist die Trennung dicht. v1 bleibt gepflegt, solange es alte Installationen gibt.",
   "schemaVersion": 2,
-  "updatedUtc": "2026-07-30",
+  "updatedUtc": "2026-08-07",
   "_moddedWifiComment": "Optional: Drittanbieter-Modded-WiFi-Treiber (theboss619). url = aktueller TechPowerUp-Anhang (aendert sich pro Release; im ersten Post des Threads). Wird nur genutzt, wenn der User den Toggle 'Use modded Wi-Fi driver' aktiviert. Bei neuem Release nur 'url' (und optional 'version') aktualisieren. Geraeteunabhaengig (Top-Level, kein device-Block).",
   "moddedWifi": {
     "name": "Intel Ultra Killer Wi-Fi (modded, theboss619)",
@@ -81,14 +81,14 @@
           "name": "BIOS / UEFI",
           "category": "BIOS/UEFI",
           "providerScope": "msi",
-          "version": "E1T91IMS.105",
-          "releaseDate": "2026-06-11",
-          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T91IMS.105.zip",
+          "version": "E1T91IMS.10A",
+          "releaseDate": "2026-08-07",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T91IMS.10A.zip",
           "severity": "recommended",
           "pnpMatchHints": [],
           "deviceIdMatch": "",
           "action": "install",
-          "_comment": "System-BIOS (MS-1T91). MSI hat E1T91IMS.109 (2026-07-17) wieder von der Downloadseite zurueckgezogen; .105 (2026-06-11) ist die aktuell offiziell angebotene Version, deshalb der Rueckschritt auf eine aeltere Versionsnummer - das ist beabsichtigt, kein Tippfehler. Wer .109 bereits geflasht hat, wird hier faelschlich als 'veraltet' markiert; das laesst sich ohne ein weiteres Feld (letzte-bekannt-gute vs. zurueckgezogene Version) nicht sauber abbilden. Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T91IMS.110), aber erst pruefen ob MSI es nicht wieder zurueckzieht."
+          "_comment": "System-BIOS (MS-1T91). Download am 2026-08-07 per HEAD geprueft: HTTP 200, application/zip, 11.69 MiB. Ersetzt .105 (2026-06-11), das nach dem Rueckzug von .109 (2026-07-17) laengere Zeit die einzige offiziell angebotene Version war. Die Suffixe sind HEXADEZIMAL: 10A folgt auf 109, ist also NEUER als .105 - keine Zahl, die man dezimal lesen darf. Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. Wer .109 geflasht hatte, war bis hierhin faelschlich als 'veraltet' markiert und ist mit .10A wieder sauber. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T91IMS.10B), aber erst pruefen ob MSI es nicht wieder zurueckzieht."
         },
         {
           "name": "MSI Center M",
