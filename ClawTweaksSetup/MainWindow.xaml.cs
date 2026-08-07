@@ -33,6 +33,7 @@ namespace ClawTweaksSetup
         public MainWindow(string[] args)
         {
             InitializeComponent();
+            ModernWindow.Apply(this);
 
             bool resumeTools = Array.Exists(args, a => a == ToolsPhase.ResumeSilentArg);
             bool resumeInstall = Array.Exists(args, a => a == InstallPhase.ResumeArg);

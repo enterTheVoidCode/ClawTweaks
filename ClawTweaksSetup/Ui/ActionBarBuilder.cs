@@ -7,22 +7,22 @@ using ClawTweaksSetup.Navigation;
 
 namespace ClawTweaksSetup.Ui
 {
-    /// <summary>
-    /// Builds a footer action-bar chip (glyph + label, pad- and mouse-clickable) — shared between
-    /// <see cref="MainWindow"/>'s per-phase actions and <see cref="CenterMenuWindow"/>'s fixed
-    /// X/A/Y/B actions, so both windows render the same "which button does what" chips identically.
-    /// </summary>
+    /// <summary>Builds shared controller and pointer footer actions.</summary>
     public static class ActionBarBuilder
     {
+        private const double GlyphSize = 24;
+        private const double LabelFontSize = 14;
+
         public static UIElement BuildChip(PadButton button, string label, bool enabled, System.Action onClick)
         {
             var glyph = new Image
             {
                 Source = Glyphs.For(button),
-                Width = 52, Height = 52,
+                Width = GlyphSize, Height = GlyphSize,
                 Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 12, 0),
+                Margin = new Thickness(2, 0, 0, 0),
                 SnapsToDevicePixels = true,
             };
             RenderOptions.SetBitmapScalingMode(glyph, BitmapScalingMode.HighQuality);
@@ -30,51 +30,74 @@ namespace ClawTweaksSetup.Ui
             var text = new TextBlock
             {
                 Text = label,
-                FontSize = 22,
+                FontSize = LabelFontSize,
+                FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = (Brush)Application.Current.Resources["TextBrush"],
+                Margin = new Thickness(10, 0, 0, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis,
             };
 
-            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            var content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
             content.Children.Add(glyph);
             content.Children.Add(text);
 
-            // Whole chip is a clickable button too (mouse/touch), same action as the pad press.
+            // Pointer input invokes the same action as the controller.
             var btn = new Button
             {
                 Content = content,
-                Background = Brushes.Transparent,
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(16, 10, 16, 10),
-                Margin = new Thickness(10, 0, 10, 0),
-                Cursor = Cursors.Hand,
+                Style = (Style)Application.Current.Resources["ControllerActionTile"],
                 Focusable = false,
                 IsEnabled = enabled,
-                Opacity = enabled ? 1.0 : 0.35,
-                Template = TransparentButtonTemplate(),
             };
             btn.Click += (_, __) => onClick();
             return btn;
         }
 
-        public static ControlTemplate TransparentButtonTemplate()
+        /// <summary>Builds a noninteractive hint aligned with action tiles.</summary>
+        public static UIElement BuildHint(ImageSource glyphSource, string label)
         {
-            var t = new ControlTemplate(typeof(Button));
-            var border = new FrameworkElementFactory(typeof(Border), "bd");
-            border.SetValue(Border.BackgroundProperty, Brushes.Transparent);
-            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(10));
-            border.SetValue(Border.PaddingProperty, new Thickness(0));
-            var cp = new FrameworkElementFactory(typeof(ContentPresenter));
-            cp.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
-            cp.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
-            border.AppendChild(cp);
-            t.VisualTree = border;
+            var glyph = new Image
+            {
+                Source = glyphSource,
+                Width = GlyphSize, Height = GlyphSize,
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(2, 0, 0, 0),
+                SnapsToDevicePixels = true,
+            };
+            RenderOptions.SetBitmapScalingMode(glyph, BitmapScalingMode.HighQuality);
 
-            var over = new Trigger { Property = Button.IsMouseOverProperty, Value = true };
-            over.Setters.Add(new Setter(Border.BackgroundProperty,
-                new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF)), "bd"));
-            t.Triggers.Add(over);
-            return t;
+            var text = new TextBlock
+            {
+                Text = label,
+                FontSize = LabelFontSize,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = (Brush)Application.Current.Resources["SubtleTextBrush"],
+                Margin = new Thickness(10, 0, 0, 0),
+            };
+
+            var content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            content.Children.Add(glyph);
+            content.Children.Add(text);
+
+            return new Border
+            {
+                Padding = new Thickness(8, 5, 12, 5),
+                Margin = new Thickness(3),
+                MinHeight = 40,
+                Child = content,
+            };
         }
     }
 }

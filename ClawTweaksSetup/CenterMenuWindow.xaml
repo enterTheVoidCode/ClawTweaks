@@ -2,60 +2,62 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="ClawTweaks Center"
-        Width="1100" Height="720"
-        MinWidth="900" MinHeight="600"
-        WindowStyle="None"
-        ResizeMode="NoResize"
-        WindowStartupLocation="Manual"
+        Width="1120" Height="760"
+        MinWidth="720" MinHeight="520"
+        WindowStyle="SingleBorderWindow"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen"
         Background="{StaticResource BgBrush}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />   <!-- header -->
-            <RowDefinition Height="*" />      <!-- build list -->
-            <RowDefinition Height="Auto" />   <!-- footer action bar -->
+            <RowDefinition Height="Auto" />   <!-- Header -->
+            <RowDefinition Height="*" />      <!-- Content -->
+            <RowDefinition Height="Auto" />   <!-- Actions -->
         </Grid.RowDefinitions>
 
-        <!-- Header: 2 columns — title/subtitle left, device banner right. -->
-        <StackPanel Grid.Row="0" Margin="32,28,32,8">
-            <Grid>
+        <!-- Compact header; code-behind stacks it on narrow windows. -->
+        <StackPanel Grid.Row="0" Margin="24,16,24,4">
+            <Grid x:Name="ShellHeaderGrid">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Base height matches the device banner border's rendered height (72px image + 10px
-                     top/bottom padding in RenderDeviceBanner = 92), bumped 20% per request. -->
-                <StackPanel Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center">
+                <!-- Keep app identity in the title bar. -->
+                <StackPanel x:Name="BrandBlock" Grid.Column="0"
+                            HorizontalAlignment="Left" VerticalAlignment="Center">
                     <Image Source="pack://application:,,,/Assets/branding/ctw-center-logo.png"
-                           Height="110" Stretch="Uniform" HorizontalAlignment="Left"
+                           Height="40" Stretch="Uniform" HorizontalAlignment="Left"
                            RenderOptions.BitmapScalingMode="HighQuality" />
-                    <!-- The Setup/Center tool's own version (ClawTweaksSetup.csproj <Version>) — distinct
-                         from the installed ClawTweaks app version shown further down. -->
-                    <TextBlock x:Name="SetupVersionLabel" FontSize="13"
+                    <!-- Center version, distinct from the installed app version. -->
+                    <TextBlock x:Name="SetupVersionLabel" FontSize="12"
                                Foreground="{StaticResource SubtleTextBrush}"
-                               HorizontalAlignment="Left" Margin="4,4,0,0" />
+                               HorizontalAlignment="Left" Margin="2,3,0,0" />
                 </StackPanel>
 
                 <ContentControl x:Name="DeviceBanner" Grid.Column="1"
                                 Margin="16,0,0,0" VerticalAlignment="Center" Focusable="False" />
             </Grid>
-            <Border Height="1" Background="#FF2A2E38" Margin="0,16,0,0" />
+            <Border Height="1" Background="{StaticResource StrokeBrush}" Margin="0,12,0,0" />
         </StackPanel>
 
-        <!-- Build list / progress host -->
+        <!-- Build list or progress -->
         <ScrollViewer x:Name="ContentScroller" Grid.Row="1" VerticalScrollBarVisibility="Auto"
-                      Padding="32,16,32,16" Focusable="False">
-            <StackPanel x:Name="ContentHost" Focusable="False" />
+                      HorizontalScrollBarVisibility="Disabled"
+                      Padding="24,12,24,16" Focusable="False">
+            <StackPanel x:Name="ContentHost" Focusable="False"
+                        MaxWidth="1040" HorizontalAlignment="Stretch" />
         </ScrollViewer>
 
-        <!-- Footer: glyph action bar -->
-        <Border Grid.Row="2" Background="#FF181B21" BorderBrush="#FF2A2E38" BorderThickness="0,1,0,0">
-            <StackPanel x:Name="ActionBar" Orientation="Horizontal"
-                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Margin="24,18,24,18" />
+        <!-- Controller actions -->
+        <Border Grid.Row="2" Background="{StaticResource FooterBrush}"
+                BorderBrush="{StaticResource StrokeBrush}" BorderThickness="0,1,0,0">
+            <WrapPanel x:Name="ActionBar" Orientation="Horizontal"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Margin="12,4,12,4" />
         </Border>
     </Grid>
 </Window>
