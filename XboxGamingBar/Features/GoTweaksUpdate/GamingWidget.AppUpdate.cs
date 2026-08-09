@@ -116,12 +116,18 @@ namespace XboxGamingBar
         /// categorically different shape from the download-and-launch path this file used to contain,
         /// which is the one antivirus heuristics score. Same approach Center takes for driver tools.
         ///
-        /// ── The URL is opened HERE, not by the helper ────────────────────────────────────────────
-        /// Launcher.LaunchUriAsync from this sandboxed UWP widget runs at the user's own level. Routing
-        /// it through the helper looked tidier but produced nothing at all: the helper is elevated, and
-        /// the explorer.exe hand-off it used to de-elevate just flashes and exits when the caller is
-        /// elevated (measured 2026-07-30). This is also the same mechanism the "Open release page"
-        /// HyperlinkButton on each card already uses, so it is a proven path in this process.
+        /// ── The URL is opened by the HELPER, not by Launcher.LaunchUriAsync ──────────────────────
+        /// This used to call Launcher.LaunchUriAsync directly. It returns false from the Game Bar
+        /// AppContainer and nothing opens — measured on 2026-08-09, three clicks in two sessions, every
+        /// one of them "opened download page … (ok=False)". The button was a dead end again, this time
+        /// after the dialog instead of before it.
+        ///
+        /// An older comment here claimed the helper route "produced nothing at all" because of an
+        /// explorer.exe hand-off that exits when the caller is elevated. That hand-off is gone: the
+        /// helper's OpenExternalUrl handler runs `cmd /c start`, which does reach the user's default
+        /// browser from an elevated process. Every driver/Intel "Open page" button in the widget uses
+        /// it. OpenExternalUrlAsync keeps the Launcher as its own fallback, so the previous behaviour
+        /// is still the last resort rather than the first attempt.
         /// </summary>
         internal async Task OpenCenterOrOfferInstallAsync()
         {
@@ -177,10 +183,14 @@ namespace XboxGamingBar
 
             try
             {
-                bool opened = await Windows.System.Launcher.LaunchUriAsync(new Uri(downloadUrl));
-                Logger.Info($"CTW Center not installed — opened download page {downloadUrl} (ok={opened})");
+                bool opened = await OpenExternalUrlAsync(downloadUrl);
                 // The Game Bar is deliberately NOT closed first. Sending Win+G can suspend this widget
                 // before the launch runs, and the browser taking focus dismisses the overlay anyway.
+                if (opened)
+                    Logger.Info($"CTW Center not installed — opened download page {downloadUrl}");
+                else
+                    Logger.Warn($"CTW Center not installed — could not open {downloadUrl}: neither the "
+                              + "helper nor Launcher.LaunchUriAsync reached a browser.");
             }
             catch (Exception ex)
             {

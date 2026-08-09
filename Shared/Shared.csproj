@@ -14,9 +14,12 @@
       <HintPath>C:\Program Files (x86)\Windows Kits\10\UnionMetadata\10.0.26100.0\Windows.winmd</HintPath>
       <!-- Compile-time only: the WinRT metadata projection needed to build Shared.dll. Never copy-local
            or flow into a consumer's deps.json — it's not a real CLR assembly, and a modern SDK-style
-           consumer (e.g. ClawTweaksSetup) that inherits it there hits CoreClrInitFailure at startup
-           trying to load it. Old-style consumers (XboxGamingBarHelper) already declare their own
-           independent copy of this same reference, so they're unaffected by this. -->
+           consumer that inherits it there hits CoreClrInitFailure at startup trying to load it.
+           Old-style consumers (XboxGamingBarHelper) already declare their own independent copy of
+           this same reference, so they're unaffected by this.
+           NOTE: this HintPath is absolute and pins one SDK version. It is why ClawTweaks Center
+           carries mirrored copies of the few files it needs instead of referencing this project —
+           anyone with a different Windows SDK installed cannot restore it. -->
       <Private>False</Private>
     </Reference>
   </ItemGroup>
