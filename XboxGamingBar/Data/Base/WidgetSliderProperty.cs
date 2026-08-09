@@ -26,6 +26,17 @@ namespace XboxGamingBar.Data
         /// </summary>
         public bool IsUpdatingUI { get; internal set; }
 
+        /// <summary>
+        /// Raised ONLY when the user actually moved this slider — <see cref="Slider_ValueChanged"/>
+        /// discards everything else (helper sync, profile load) before this point.
+        ///
+        /// This is the one signal in the widget that is provably user-exclusive, which is why the
+        /// helper's own TDP persistence already anchors on it (only a real drag emits Function.TDP).
+        /// The widget's profile store now anchors on it too: it may only persist a TDP value that a
+        /// user actually dialled in, never one the helper pushed down for display.
+        /// </summary>
+        public Action UserInput;
+
         public WidgetSliderProperty(int inValue, Function inFunction, Slider inControl, Page inOwner) : base(inValue, inFunction, inControl, inOwner)
         {
             if (UI != null)
@@ -179,6 +190,12 @@ namespace XboxGamingBar.Data
             if (newValue != Value)
             {
                 Logger.Info($"{Function} Slider value changed from {e.OldValue} to {e.NewValue}, debouncing update.");
+
+                // Everything above filtered out helper sync and profile load, so this IS the user.
+                // Announced BEFORE the debounce on purpose: the send to the helper is delayed, but the
+                // profile save runs synchronously off this same ValueChanged (SettingChanged is the next
+                // subscriber), so the marker has to exist now, not in 500ms.
+                UserInput?.Invoke();
 
                 // Store the pending value - do NOT update internal value yet
                 // The timer will call SetValue() which updates the value and sends to helper

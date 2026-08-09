@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -1024,53 +1024,14 @@ namespace XboxGamingBar
 
             try
             {
-                UpdateButton.IsEnabled = false;
-                UpdateButton.Content = "Downloading...";
-                UpdateStatusText.Text = $"Downloading {_pendingUpdateVersion}...";
-
-                if (App.IsConnected)
-                {
-                    var message = new Windows.Foundation.Collections.ValueSet();
-                    message.Add("Command", (int)Shared.Enums.Command.Set);
-                    message.Add("Function", (int)Shared.Enums.Function.InstallUpdate);
-                    message.Add("Content", _pendingUpdateZipUrl);
-                    var result = await App.SendMessageAsync(message);
-
-                    if (result != null)
-                    {
-                        if (result.TryGetValue("UpdateStatus", out object status))
-                        {
-                            var statusStr = status?.ToString() ?? "";
-                            if (statusStr == "Installing")
-                            {
-                                UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.LimeGreen);
-                                UpdateStatusText.Text = "Installing update... Please follow the installer prompts.";
-                                UpdateButton.Content = "Installing...";
-                            }
-                            else if (statusStr.StartsWith("Error"))
-                            {
-                                UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
-                                UpdateStatusText.Text = statusStr;
-                                UpdateButton.Content = "Update";
-                                UpdateButton.IsEnabled = true;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
-                        UpdateStatusText.Text = "Failed to communicate with helper";
-                        UpdateButton.Content = "Update";
-                        UpdateButton.IsEnabled = true;
-                    }
-                }
-                else
-                {
-                    UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
-                    UpdateStatusText.Text = "Helper not connected";
-                    UpdateButton.Content = "Update";
-                    UpdateButton.IsEnabled = true;
-                }
+                // Nothing is downloaded or installed from here. The helper's InstallUpdate handler is
+                // gone (it fetched a ZIP and started the package from the elevated process); CTW Center
+                // is the app that installs builds. See GoTweaksUpdateService.
+                UpdateStatusText.Foreground = new SolidColorBrush(Windows.UI.Colors.Orange);
+                UpdateStatusText.Text = $"{_pendingUpdateVersion} is available — install it with CTW Center.";
+                UpdateButton.Content = "Update";
+                UpdateButton.IsEnabled = true;
+                await Task.CompletedTask;
             }
             catch (Exception ex)
             {
@@ -1273,50 +1234,12 @@ namespace XboxGamingBar
 
             try
             {
-                UpdateBannerButton.IsEnabled = false;
-                UpdateBannerButton.Content = "Updating...";
-
-                if (App.IsConnected)
-                {
-                    var message = new Windows.Foundation.Collections.ValueSet();
-                    message.Add("Command", (int)Shared.Enums.Command.Set);
-                    message.Add("Function", (int)Shared.Enums.Function.InstallUpdate);
-                    message.Add("Content", _pendingUpdateZipUrl);
-                    var result = await App.SendMessageAsync(message);
-
-                    if (result != null && result.TryGetValue("UpdateStatus", out object status))
-                    {
-                        var statusStr = status?.ToString() ?? "";
-                        if (statusStr == "Installing")
-                        {
-                            UpdateBannerButton.Content = "Installing...";
-                            Logger.Info("Update installation started from banner");
-                        }
-                        else if (statusStr.StartsWith("Error"))
-                        {
-                            Logger.Error($"Update failed: {statusStr}");
-                            UpdateBannerButton.Content = "Failed";
-                            await Task.Delay(2000);
-                            UpdateBannerButton.Content = "Update";
-                            UpdateBannerButton.IsEnabled = true;
-                        }
-                    }
-                    else
-                    {
-                        UpdateBannerButton.Content = "Failed";
-                        await Task.Delay(2000);
-                        UpdateBannerButton.Content = "Update";
-                        UpdateBannerButton.IsEnabled = true;
-                    }
-                }
-                else
-                {
-                    Logger.Warn("Helper not connected for update");
-                    UpdateBannerButton.Content = "No Helper";
-                    await Task.Delay(2000);
-                    UpdateBannerButton.Content = "Update";
-                    UpdateBannerButton.IsEnabled = true;
-                }
+                // Same as UpdateButton_Click: the banner reports, it does not install. CTW Center does.
+                Logger.Info("Update banner clicked — pointing the user at CTW Center.");
+                UpdateBannerButton.Content = "Use Center";
+                await Task.Delay(2000);
+                UpdateBannerButton.Content = "Update";
+                UpdateBannerButton.IsEnabled = true;
             }
             catch (Exception ex)
             {
@@ -1345,58 +1268,6 @@ namespace XboxGamingBar
             var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
             settings.Values["AutoUpdateCheckEnabled"] = AutoUpdateCheckToggle.IsOn;
             Logger.Info($"Auto-update check setting changed to: {AutoUpdateCheckToggle.IsOn}");
-        }
-
-
-        private async void ExportDGPsButton_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                ExportDGPsButton.IsEnabled = false;
-                ExportDGPsButton.Content = "Exporting...";
-
-                if (!App.IsConnected)
-                {
-                    ExportDGPsButton.Content = "Helper not connected";
-                    await Task.Delay(2000);
-                    ExportDGPsButton.Content = "Export DGPs (Desktop)";
-                    ExportDGPsButton.IsEnabled = true;
-                    return;
-                }
-
-                // Send request to helper to export DGPs
-                var message = new Windows.Foundation.Collections.ValueSet();
-                message.Add("Command", (int)Shared.Enums.Command.Set);
-                message.Add("Function", (int)Shared.Enums.Function.Debug_ExportDGPs);
-                var result = await App.SendMessageAsync(message);
-
-                if (result != null)
-                {
-                    if (result.TryGetValue("ExportPath", out object pathObj))
-                    {
-                        ExportDGPsButton.Content = $"Exported!";
-                        Logger.Info($"DGPs exported to: {pathObj}");
-                    }
-                    else if (result.TryGetValue("Error", out object errorObj))
-                    {
-                        ExportDGPsButton.Content = $"Error: {errorObj}";
-                    }
-                }
-                else
-                {
-                    ExportDGPsButton.Content = "Failed";
-                }
-
-                await Task.Delay(2000);
-                ExportDGPsButton.Content = "Export DGPs (Desktop)";
-                ExportDGPsButton.IsEnabled = true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Failed to export DGPs: {ex.Message}");
-                ExportDGPsButton.Content = "Export DGPs (Desktop)";
-                ExportDGPsButton.IsEnabled = true;
-            }
         }
 
         private async void ExportAllDataButton_Click(object sender, RoutedEventArgs e)
@@ -1487,7 +1358,6 @@ namespace XboxGamingBar
                     "This will:\n" +
                     "• Import all per-game profiles\n" +
                     "• Import global settings\n" +
-                    "• Import AutoTDP Q-learning model\n" +
                     "• Import helper settings\n" +
                     "• Apply widget settings\n\n" +
                     "Existing data will be overwritten. Continue?",
@@ -1572,9 +1442,6 @@ namespace XboxGamingBar
                 // Export all known settings keys
                 var keysToExport = new[]
                 {
-                    // AutoTDP settings
-                    "AutoTDPEnabled", "AutoTDPTargetFPS", "AutoTDPMinTDP", "AutoTDPMaxTDP",
-                    "AutoTDPUseMLMode", "AutoTDPPauseWhenUnfocused",
                     // TDP Boost settings
                     "TDPBoostEnabled", "TDPBoostSPPT", "TDPBoostFPPT",
                     // OSD settings
@@ -1590,7 +1457,7 @@ namespace XboxGamingBar
                     // Display settings
                     "RefreshRateProfile",
                     // Other settings
-                    "TdpMethod", "ForceDefaultGameProfile"
+                    "TdpMethod"
                 };
 
                 foreach (var key in keysToExport)

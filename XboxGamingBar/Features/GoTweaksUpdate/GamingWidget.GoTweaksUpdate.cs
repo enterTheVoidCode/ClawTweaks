@@ -16,11 +16,9 @@ namespace XboxGamingBar
         private const string GoTweaksCheckOnStartKey = "GoTweaksUpdate_UpdateOnStart";
         private const string GoTweaksHideBannerKey   = "GoTweaksUpdate_HideBanner";
 
-        // Cached latest update payload so the banner can drive an install
-        // without re-asking the helper (helper caches too, but this saves
-        // a pipe round-trip).
+        // Cached latest-release info for the banner. No download URL any more — tapping the banner
+        // opens CTW Center, which does the install (see GamingWidget.AppUpdate.cs for the full reason).
         private string _goTweaksLatestVersion;
-        private string _goTweaksDownloadUrl;
         private string _goTweaksReleasePageUrl;
 
         // Set while SyncUpdatePreferenceCheckboxesFromLocalSettings programmatically
@@ -121,11 +119,9 @@ namespace XboxGamingBar
                 bool isUpdate = root.TryGetValue("isUpdateAvailable", out var uv)
                                 && uv.ValueType == JsonValueType.Boolean && uv.GetBoolean();
                 string latest = JsonString(root, "latestVersion");
-                string url = JsonString(root, "downloadUrl");
                 string pageUrl = JsonString(root, "releasePageUrl");
 
                 _goTweaksLatestVersion = latest;
-                _goTweaksDownloadUrl = url;
                 _goTweaksReleasePageUrl = pageUrl;
 
                 bool hideBanner = GoTweaksHideBanner;
@@ -140,13 +136,15 @@ namespace XboxGamingBar
                         GoTweaksHideBannerCheckbox.IsChecked != hideBanner)
                         GoTweaksHideBannerCheckbox.IsChecked = hideBanner;
 
-                    bool showBanner = isUpdate && !string.IsNullOrWhiteSpace(url) && !hideBanner;
+                    // No longer gated on a download URL — there isn't one. A newer stable release is
+                    // enough to show the notice; the tile opens Center rather than installing.
+                    bool showBanner = isUpdate && !hideBanner;
                     if (QuickGoTweaksUpdateTile != null)
                         QuickGoTweaksUpdateTile.Visibility = showBanner ? Visibility.Visible : Visibility.Collapsed;
                     if (QuickGoTweaksTitleText != null && isUpdate)
-                        QuickGoTweaksTitleText.Text = $"GoTweaks {latest} available";
+                        QuickGoTweaksTitleText.Text = $"ClawTweaks {latest} available";
                     if (QuickGoTweaksSubtitleText != null)
-                        QuickGoTweaksSubtitleText.Text = "Tap to install";
+                        QuickGoTweaksSubtitleText.Text = "Tap to open CTW Center";
                 });
             }
             catch (Exception ex)
@@ -162,59 +160,15 @@ namespace XboxGamingBar
             return "";
         }
 
+        /// <summary>
+        /// Opens CTW Center, which is where updates are installed \u2014 or, if Center isn't installed,
+        /// offers the download page. This used to send an "InstallGoTweaksUpdate" pipe message that had
+        /// the helper download the package and get it launched; that whole path is deleted. See
+        /// OpenCenterOrOfferInstallAsync in GamingWidget.AppUpdate.cs for both the flow and the reason.
+        /// </summary>
         private async void QuickGoTweaksUpdateTile_Click(object sender, RoutedEventArgs e)
         {
-            await TriggerGoTweaksInstallAsync();
-        }
-
-        /// <summary>
-        /// Sends the install-url pipe message. Helper downloads the signed
-        /// .msixbundle and runs Add-AppxPackage via PowerShell. Status text
-        /// updates happen against the Quick-tab banner subtitle since we no
-        /// longer have a separate GoTweaks status label (the System tab
-        /// Debug panel's UpdateStatusText is owned by the existing manual
-        /// update flow and we don't want to collide with it).
-        /// </summary>
-        private async Task TriggerGoTweaksInstallAsync()
-        {
-            if (string.IsNullOrWhiteSpace(_goTweaksDownloadUrl))
-            {
-                if (QuickGoTweaksSubtitleText != null)
-                    QuickGoTweaksSubtitleText.Text = "No download URL cached.";
-                return;
-            }
-            if (QuickGoTweaksSubtitleText != null)
-                QuickGoTweaksSubtitleText.Text = "Downloading GoTweaks update\u2026";
-            try
-            {
-                if (!App.IsConnected)
-                {
-                    if (QuickGoTweaksSubtitleText != null)
-                        QuickGoTweaksSubtitleText.Text = "Helper not connected.";
-                    return;
-                }
-                var request = new ValueSet();
-                request.Add("InstallGoTweaksUpdate", _goTweaksDownloadUrl);
-                var response = await App.SendMessageAsync(request);
-                string message = "Install started.";
-                if (response != null && response.TryGetValue("GoTweaksUpdateInstallResult", out var payloadObj)
-                    && payloadObj is string payload)
-                {
-                    if (JsonObject.TryParse(payload, out var root))
-                    {
-                        string msg = JsonString(root, "message");
-                        if (!string.IsNullOrWhiteSpace(msg)) message = msg;
-                    }
-                }
-                if (QuickGoTweaksSubtitleText != null)
-                    QuickGoTweaksSubtitleText.Text = message;
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"TriggerGoTweaksInstallAsync failed: {ex.Message}");
-                if (QuickGoTweaksSubtitleText != null)
-                    QuickGoTweaksSubtitleText.Text = $"Install failed: {ex.Message}";
-            }
+            await OpenCenterOrOfferInstallAsync();
         }
     }
 }

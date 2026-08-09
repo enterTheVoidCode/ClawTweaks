@@ -72,6 +72,10 @@ namespace XboxGamingBar
             // gyro callback (its only other visibility owner) and used to leave the card hidden.
             if (ControllerFeedbackCard != null) ControllerFeedbackCard.Visibility = Visibility.Visible;
 
+            // Same timing problem for the gyro action button: SetGyroSectionVisibility may have run
+            // before the device name arrived and left it labelled for a Legion.
+            UpdateGyroActionButtonForDevice();
+
             // Controller-Status card is always visible in the Controller tab (set in XAML).
             // Just fetch a fresh state on init.
             RequestControllerState();
@@ -80,6 +84,8 @@ namespace XboxGamingBar
             RestoreMsiChargeLimitFromSettings();
             RestoreGameBarWidgetPositionFromSettings();
             RestoreClawGyroSource();
+            RestoreClawGyroWorldSpace();
+            RestoreMsiFanNoScaleBreak();
 
             Logger.Debug("[MsiClawSettings] Cards visible, settings restored");
         }
@@ -99,26 +105,63 @@ namespace XboxGamingBar
                 _loadingGameBarWidgetPosition = true;
                 int pos = 1; // default 1 = auto-jump off; also the value after a factory reset (LocalSettings cleared → key missing)
                 var settings = Windows.Storage.ApplicationData.Current.LocalSettings;
-                if (settings.Values.TryGetValue(GameBarWidgetPositionKey, out var v) && v is int stored)
-                    pos = stored;
+                bool haveStored = settings.Values.TryGetValue(GameBarWidgetPositionKey, out var v) && v is int;
+                if (haveStored) pos = (int)v;
                 if (pos < 1) pos = 1;
                 if (pos > 10) pos = 10;
 
-                if (ClawTweaksWidgetPositionSlider != null) ClawTweaksWidgetPositionSlider.Value = pos;
-                if (ClawTweaksWidgetPositionValue != null) ClawTweaksWidgetPositionValue.Text = pos.ToString();
-                // Onboarding duplicate (mirror).
-                if (OnbClawTweaksWidgetPositionSlider != null) OnbClawTweaksWidgetPositionSlider.Value = pos;
-                if (OnbClawTweaksWidgetPositionValue != null) OnbClawTweaksWidgetPositionValue.Text = pos.ToString();
+                ShowGameBarWidgetPosition(pos);
 
-                // Push to helper so the RB hop count is correct even before the user touches it.
-                gameBarWidgetPosition?.SetValue(pos);
-                Logger.Info($"[GameBarAutoNav] restored ClawTweaks widget position = {pos}");
+                // Deliberately NOT pushed to the helper. This value is only what this widget last saw;
+                // the helper owns the position (it persists it and performs the RB hops), and Center's
+                // onboarding can have changed it since — through the helper, without ever touching these
+                // LocalSettings. Re-pushing from here silently reverted such a change: helper 3, widget
+                // 1, widget pushes 1, auto-jump back to off.
+                // The real value arrives via GameBarWidgetPositionPush on connect and on every change;
+                // what is shown here is just the last-known value so the UI isn't blank until then.
+                Logger.Info($"[GameBarAutoNav] showing last-known widget position = {pos} " +
+                            $"(stored={haveStored}) — waiting for the helper's authoritative value");
             }
             catch (Exception ex)
             {
                 Logger.Warn($"[GameBarAutoNav] restore position failed: {ex.Message}");
             }
             finally { _loadingGameBarWidgetPosition = false; }
+        }
+
+        /// <summary>Writes a position into both slider copies and their labels. No persist, no push.</summary>
+        private void ShowGameBarWidgetPosition(int pos)
+        {
+            if (ClawTweaksWidgetPositionSlider != null) ClawTweaksWidgetPositionSlider.Value = pos;
+            if (ClawTweaksWidgetPositionValue != null) ClawTweaksWidgetPositionValue.Text = pos.ToString();
+            // Onboarding duplicate (mirror).
+            if (OnbClawTweaksWidgetPositionSlider != null) OnbClawTweaksWidgetPositionSlider.Value = pos;
+            if (OnbClawTweaksWidgetPositionValue != null) OnbClawTweaksWidgetPositionValue.Text = pos.ToString();
+        }
+
+        /// <summary>
+        /// The helper reported the auto-jump slot it actually applies. Adopt it: update both sliders and
+        /// mirror it into LocalSettings so the UI is right immediately AND on the next start, before the
+        /// helper reconnects. Runs under the loading guard so this never echoes back as a user change.
+        ///
+        /// This is the missing link that made a Center-set position invisible in the widget: Center talks
+        /// only to the helper, and nothing carried the value the other way.
+        /// </summary>
+        internal void OnHelperGameBarWidgetPosition(int pos)
+        {
+            if (pos < 1) pos = 1;
+            if (pos > 10) pos = 10;
+
+            bool wasLoading = _loadingGameBarWidgetPosition;
+            _loadingGameBarWidgetPosition = true;
+            try
+            {
+                ShowGameBarWidgetPosition(pos);
+                Windows.Storage.ApplicationData.Current.LocalSettings.Values[GameBarWidgetPositionKey] = pos;
+                Logger.Info($"[GameBarAutoNav] adopted helper's widget position = {pos}");
+            }
+            catch (Exception ex) { Logger.Warn($"[GameBarAutoNav] adopting helper position failed: {ex.Message}"); }
+            finally { _loadingGameBarWidgetPosition = wasLoading; }
         }
 
         private bool _syncingWidgetPos;   // re-entrancy guard for the Controls-tab ↔ onboarding slider mirror

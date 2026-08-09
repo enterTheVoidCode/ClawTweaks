@@ -191,7 +191,8 @@ namespace XboxGamingBar
         /// <summary>
         /// Shows or hides the Gyro Settings card based on device support.
         /// Legion Go S has a different HID structure, so gyro configuration doesn't work.
-        /// On MSI Claw the section is visible but Calibrate Gyro is disabled (Legion Go firmware-only feature).
+        /// On MSI Claw the section is visible and the gyro button becomes "Recenter gyro"
+        /// (see UpdateGyroActionButtonForDevice).
         /// </summary>
         /// <summary>
         /// Shows the firmware keyboard-remap backend toggle only when the helper reports the device
@@ -241,17 +242,7 @@ namespace XboxGamingBar
                 Logger.Info($"Gyro section visibility set to: {visible}");
             }
 
-            // Calibrate Gyro sends a Legion Go firmware command — not applicable on MSI Claw.
-            // MSI Claw is identified by: controller emulation available AND not a Legion Go.
-            bool isMsiClaw = (legionGoDetected?.Value != true) && (controllerEmulationAvailable?.Value == true);
-            if (LegionCalibrateGyroButton != null)
-            {
-                LegionCalibrateGyroButton.IsEnabled = !isMsiClaw;
-            }
-            if (isMsiClaw && LegionCalibrateGyroStatus != null)
-            {
-                LegionCalibrateGyroStatus.Text = "Hardware calibration is not available for MSI Claw (Legion Go firmware only).";
-            }
+            UpdateGyroActionButtonForDevice();
 
             // Controller Feedback card (stepless Vibration Intensity + stick deadzones) is wired to
             // the MSI Claw ViGEm rumble passthrough / DInput deadzone in ClawButtonMonitor. Gate it on
@@ -265,30 +256,79 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Fires a one-shot "CalibrateLegionGyro" pipe message. The helper sends the
-        /// HID output report to both controllers; the controller firmware captures the
-        /// new bias while the user holds the pads still.
+        /// Labels the gyro action button for the current device. It means two different things:
+        ///
+        /// Legion — "Calibrate gyro": a firmware command to the controllers, which capture a fresh
+        ///   bias in their own sensor while held still.
+        /// MSI Claw — "Recenter gyro": that firmware command cannot work here. It targets the sensor
+        ///   inside the pad, while the Claw gyro reads the Windows sensor, and there is no
+        ///   controller HID handle to send it to (the helper logs "no open HID handle" and the
+        ///   request fails). Instead the button discards the software gyro's learned zero point so
+        ///   the next resting moment re-learns it — see GyroBiasTracker.
+        ///
+        /// Device detection goes through IsMsiClawDevice(), NOT legionGoDetected: that value is TRUE
+        /// on the Claw too (it is internally flagged as a Legion — the tech-debt note in CLAUDE.md),
+        /// so the check this replaces believed the Claw was a Legion, left the firmware calibration
+        /// wired up, and every click failed silently.
+        ///
+        /// Called from SetGyroSectionVisibility and from InitializeMsiClawSettings, because
+        /// deviceDisplayName can arrive after the gyro-support callback has already run.
+        /// </summary>
+        internal void UpdateGyroActionButtonForDevice()
+        {
+            bool isMsiClaw = IsMsiClawDevice();
+
+            if (LegionCalibrateGyroButton != null)
+            {
+                LegionCalibrateGyroButton.IsEnabled = true;
+                LegionCalibrateGyroButton.Content = isMsiClaw ? "Recenter gyro" : "Calibrate gyro";
+            }
+
+            if (LegionCalibrateGyroStatus != null && isMsiClaw)
+            {
+                LegionCalibrateGyroStatus.Text =
+                    "Put the device down flat, then recenter — the gyro zero point is re-learned within a second.";
+            }
+        }
+
+        /// <summary>
+        /// Legion: fires a one-shot "CalibrateLegionGyro" — the helper sends the HID output report
+        /// to both controllers and their firmware captures a fresh bias while the pads are held
+        /// still. MSI Claw: fires "RecenterClawGyro" instead, which throws away the software gyro's
+        /// learned zero point (see SetGyroSectionVisibility for why the firmware path is useless
+        /// there). Same button, same handler — only the verb and the wording differ.
         /// </summary>
         private async void LegionCalibrateGyroButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
-            Logger.Info("Legion gyro calibration requested from widget");
+            bool isMsiClaw = IsMsiClawDevice();
+            Logger.Info(isMsiClaw
+                ? "Claw gyro recenter requested from widget"
+                : "Legion gyro calibration requested from widget");
 
             // Brief UI feedback: disable the button while the request is in flight.
             Button button = LegionCalibrateGyroButton;
-            string originalText = button?.Content?.ToString() ?? "Calibrate gyro";
-            if (button != null) { button.IsEnabled = false; button.Content = "Calibrating…"; }
+            string originalText = button?.Content?.ToString() ?? (isMsiClaw ? "Recenter gyro" : "Calibrate gyro");
+            if (button != null)
+            {
+                button.IsEnabled = false;
+                button.Content = isMsiClaw ? "Recentering…" : "Calibrating…";
+            }
             if (LegionCalibrateGyroStatus != null)
-                LegionCalibrateGyroStatus.Text = "Hold the controllers still…";
+                LegionCalibrateGyroStatus.Text = isMsiClaw
+                    ? "Keep the device still…"
+                    : "Hold the controllers still…";
 
             try
             {
                 if (App.PipeClient?.IsConnected == true)
                 {
                     var request = new Windows.Foundation.Collections.ValueSet();
-                    request.Add("CalibrateLegionGyro", true);
+                    request.Add(isMsiClaw ? "RecenterClawGyro" : "CalibrateLegionGyro", true);
                     await App.SendMessageAsync(request);
                     if (LegionCalibrateGyroStatus != null)
-                        LegionCalibrateGyroStatus.Text = "Calibration command sent. Keep the pads still for a moment.";
+                        LegionCalibrateGyroStatus.Text = isMsiClaw
+                            ? "Zero point discarded — keep the device still for a moment while it re-learns."
+                            : "Calibration command sent. Keep the pads still for a moment.";
                 }
                 else
                 {
@@ -298,9 +338,9 @@ namespace XboxGamingBar
             }
             catch (Exception ex)
             {
-                Logger.Warn($"CalibrateLegionGyro send failed: {ex.Message}");
+                Logger.Warn($"Gyro {(isMsiClaw ? "recenter" : "calibration")} send failed: {ex.Message}");
                 if (LegionCalibrateGyroStatus != null)
-                    LegionCalibrateGyroStatus.Text = $"Calibration send failed: {ex.Message}";
+                    LegionCalibrateGyroStatus.Text = $"Send failed: {ex.Message}";
             }
             finally
             {
@@ -449,14 +489,7 @@ namespace XboxGamingBar
         /// The helper is the source of truth (it keys off the board's ModelCode); this just avoids
         /// sending a Claw 8 EX owner to the A2VM page, whose drivers do not apply to Panther Lake.</summary>
         private static string MsiSupportPageFor(string modelText)
-        {
-            bool isEx = !string.IsNullOrEmpty(modelText)
-                && (modelText.IndexOf("CG3EM", StringComparison.OrdinalIgnoreCase) >= 0
-                 || modelText.IndexOf("Claw 8 EX", StringComparison.OrdinalIgnoreCase) >= 0);
-            return isEx
-                ? "https://www.msi.com/Handheld/Claw-8-EX-AI-Plus-CG3EMX/support?sub_product=Claw-8-EX-AIplussign-CG3EM"
-                : "https://www.msi.com/Handheld/Claw-8-AI-Plus-A2VMX/support?sub_product=Claw-8-AI-Plus-A2VM";
-        }
+            => Shared.Data.ClawHardwareId.SupportPageUrlFor(modelText);
 
         /// <summary>
         /// Parses the helper's DriverUpdateResult JSON (shipped over the pipe as a
@@ -603,6 +636,8 @@ namespace XboxGamingBar
                             MuteButtonLabel = muteLabel,
                             MuteButtonVisibility = muteVis,
                             Highlights = GetD("highlights"),
+                            IsBeta = d.TryGetValue("isBeta", out var bv)
+                                     && bv.ValueType == Windows.Data.Json.JsonValueType.Boolean && bv.GetBoolean(),
                             CachedInstallers = cachedList,
                         });
                     }
@@ -612,11 +647,17 @@ namespace XboxGamingBar
                 // can filter it on the fly without another helper round-trip.
                 _allDriverDisplays = items;
 
-                // Sync the modded-Wi-Fi toggle without triggering its re-check handler.
-                if (DriverUpdatesModdedWifiCheckbox != null)
+                // Sync the two opt-in toggles without triggering their re-check handlers.
+                if (DriverUpdatesModdedWifiCheckbox != null || DriverUpdatesIntelBetaCheckbox != null)
                 {
                     _isLoadingUpdatePreferenceCheckboxes = true;
-                    try { DriverUpdatesModdedWifiCheckbox.IsChecked = DriverUpdatesUseModdedWifi; }
+                    try
+                    {
+                        if (DriverUpdatesModdedWifiCheckbox != null)
+                            DriverUpdatesModdedWifiCheckbox.IsChecked = DriverUpdatesUseModdedWifi;
+                        if (DriverUpdatesIntelBetaCheckbox != null)
+                            DriverUpdatesIntelBetaCheckbox.IsChecked = DriverUpdatesUseIntelBeta;
+                    }
                     finally { _isLoadingUpdatePreferenceCheckboxes = false; }
                 }
 
@@ -798,6 +839,12 @@ namespace XboxGamingBar
             public string Highlights { get; set; } = "";
             public Windows.UI.Xaml.Visibility HighlightsVisibility =>
                 string.IsNullOrWhiteSpace(Highlights) ? Windows.UI.Xaml.Visibility.Collapsed : Windows.UI.Xaml.Visibility.Visible;
+            /// <summary>True when this row offers one of Intel's beta builds instead of a WHQL-certified
+            /// one. Only ever true while the user opted in — but then the row has to say so, otherwise
+            /// the opt-in is invisible and a beta looks like any other update.</summary>
+            public bool IsBeta { get; set; }
+            public Windows.UI.Xaml.Visibility BetaBadgeVisibility =>
+                IsBeta ? Windows.UI.Xaml.Visibility.Visible : Windows.UI.Xaml.Visibility.Collapsed;
             /// <summary>Installer files still on disk from earlier downloads of this driver
             /// (re-run/downgrade/delete). Populated from the helper's "cachedInstallers".</summary>
             public System.Collections.Generic.List<CachedInstaller> CachedInstallers { get; set; }
@@ -863,6 +910,7 @@ namespace XboxGamingBar
         private const string DriverUpdatesUpdateOnStartKey = "DriverUpdates_UpdateOnStart";
         private const string DriverUpdatesHideBannerKey    = "DriverUpdates_HideBanner";
         private const string DriverUpdatesModdedWifiKey    = "DriverUpdates_ModdedWifi";
+        private const string DriverUpdatesIntelBetaKey     = "DriverUpdates_IntelBeta";
 
         private static bool GetBoolSetting(string key, bool defaultValue)
         {
@@ -899,6 +947,12 @@ namespace XboxGamingBar
             set => SetBoolSetting(DriverUpdatesModdedWifiKey, value);
         }
 
+        private bool DriverUpdatesUseIntelBeta
+        {
+            get => GetBoolSetting(DriverUpdatesIntelBetaKey, false);
+            set => SetBoolSetting(DriverUpdatesIntelBetaKey, value);
+        }
+
         private async void DriverUpdatesModdedWifiCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
         {
             if (_isLoadingUpdatePreferenceCheckboxes) return;
@@ -921,6 +975,36 @@ namespace XboxGamingBar
                 }
             }
             catch (Exception ex) { Logger.Warn($"SetUseModdedWifi forward failed: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Opt-in for Intel's beta graphics drivers. Off by default — Intel's catalog carries both a
+        /// certified and a beta build, and the beta is usually the higher version, so "newest wins"
+        /// handed out betas unannounced until this switch existed (verified in the live catalog on
+        /// 2026-08-04: 32.0.101.8864 beta vs 32.0.101.8860 certified).
+        /// </summary>
+        private async void DriverUpdatesIntelBetaCheckbox_Changed(object sender, Windows.UI.Xaml.RoutedEventArgs e)
+        {
+            if (_isLoadingUpdatePreferenceCheckboxes) return;
+            if (DriverUpdatesIntelBetaCheckbox == null) return;
+            bool on = DriverUpdatesIntelBetaCheckbox.IsChecked == true;
+            DriverUpdatesUseIntelBeta = on;
+            try
+            {
+                if (App.IsConnected)
+                {
+                    var req = new Windows.Foundation.Collections.ValueSet();
+                    req.Add("SetUseIntelBeta", on);
+                    await App.SendMessageAsync(req);
+                    // Re-check so the Intel rows switch between certified and beta.
+                    var check = new Windows.Foundation.Collections.ValueSet();
+                    check.Add("CheckDriverUpdates", true);
+                    var resp = await App.SendMessageAsync(check);
+                    if (resp != null && resp.TryGetValue("DriverUpdateResult", out var po) && po is string p)
+                        RenderDriverUpdateResult(p);
+                }
+            }
+            catch (Exception ex) { Logger.Warn($"SetUseIntelBeta forward failed: {ex.Message}"); }
         }
 
         /// <summary>
@@ -1125,10 +1209,13 @@ namespace XboxGamingBar
         {
             try
             {
-                // Switch to Legion tab first (idempotent if already selected).
-                if (LegionNavItem != null && LegionNavItem.IsChecked != true)
+                // Switch to the Drivers tab (idempotent if already selected). It used to open the
+                // Controls tab, which is where the driver list sat back when this was a Lenovo feature
+                // and everything Legion lived on one page — an odd place to land for a chipset or
+                // graphics driver.
+                if (DriverNavItem != null && DriverNavItem.IsChecked != true)
                 {
-                    LegionNavItem.IsChecked = true;
+                    DriverNavItem.IsChecked = true;
                 }
 
                 // If we haven't yet populated the driver list in this session
@@ -1222,6 +1309,88 @@ namespace XboxGamingBar
                 : Windows.UI.Xaml.Visibility.Collapsed;
 
             UpdateUpdateAllButtonVisibility();
+        }
+
+        // ── Controller navigation through the driver list ────────────────────────────────────────────
+        //
+        // The rows come from a DataTemplate, so there is nothing to point an XYFocus hint AT — the
+        // buttons do not exist until the list is bound, and their count changes with every check. That
+        // is why the D-pad could never reach a Download button and the whole tab was touch-only
+        // (user, 2026-08-02). The chain is therefore built at key-press time from the rows that are
+        // actually on screen.
+
+        /// <summary>
+        /// Every focusable button inside the driver list, in visual order. Collapsed buttons are left
+        /// out: a row can show Mute without Install (or the reverse), and stepping onto a hidden control
+        /// is how a focus chain silently dead-ends.
+        /// </summary>
+        private List<Control> CollectDriverRowButtons()
+        {
+            var result = new List<Control>();
+            if (DriverUpdatesList == null || DriverUpdatesList.Visibility != Visibility.Visible) return result;
+            CollectFocusableButtons(DriverUpdatesList, result);
+            return result;
+        }
+
+        private static void CollectFocusableButtons(DependencyObject parent, List<Control> into)
+        {
+            int count = Windows.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = Windows.UI.Xaml.Media.VisualTreeHelper.GetChild(parent, i);
+                if (child is Windows.UI.Xaml.Controls.Button b
+                    && b.Visibility == Visibility.Visible && b.IsEnabled)
+                {
+                    into.Add(b);
+                    continue;   // a Button's own template has no further targets we want
+                }
+                CollectFocusableButtons(child, into);
+            }
+        }
+
+        /// <summary>Up/Down between the driver rows' action buttons; leaving at the top rejoins the
+        /// fixed controls above the list.</summary>
+        private void DriverRowButton_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            bool up = e.Key == Windows.System.VirtualKey.GamepadDPadUp
+                   || e.Key == Windows.System.VirtualKey.GamepadLeftThumbstickUp
+                   || e.Key == Windows.System.VirtualKey.Up;
+            bool down = e.Key == Windows.System.VirtualKey.GamepadDPadDown
+                     || e.Key == Windows.System.VirtualKey.GamepadLeftThumbstickDown
+                     || e.Key == Windows.System.VirtualKey.Down;
+            if (!up && !down) return;
+
+            var buttons = CollectDriverRowButtons();
+            int idx = buttons.IndexOf(sender as Control);
+            if (idx < 0) return;
+
+            Control target;
+            if (up)
+                target = idx > 0 ? buttons[idx - 1] : (Control)DriverUpdatesModdedWifiCheckbox;
+            else
+                target = idx < buttons.Count - 1 ? buttons[idx + 1] : null;
+
+            // No target below the last row: swallow the key rather than letting focus jump somewhere
+            // unrelated further down the page.
+            if (target != null)
+            {
+                try { target.Focus(FocusState.Keyboard); } catch { }
+            }
+            e.Handled = true;
+        }
+
+        /// <summary>The last fixed control above the list — Down enters the first driver row.</summary>
+        private void DriverUpdatesModdedWifiCheckbox_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.GamepadDPadDown
+                && e.Key != Windows.System.VirtualKey.GamepadLeftThumbstickDown
+                && e.Key != Windows.System.VirtualKey.Down) return;
+
+            var buttons = CollectDriverRowButtons();
+            if (buttons.Count == 0) return;   // nothing checked yet — leave default behaviour alone
+
+            try { buttons[0].Focus(FocusState.Keyboard); } catch { }
+            e.Handled = true;
         }
 
         private async void DriverUpdatesIntelDsaButton_Click(object sender, Windows.UI.Xaml.RoutedEventArgs e)
@@ -1371,8 +1540,11 @@ namespace XboxGamingBar
                         ? "Downloading in the background \u2014 this can take a while for large drivers "
                           + "(the Intel Arc package is 800 MB+). You can keep using the device; the "
                           + "installer will start on its own once the download finishes."
-                        : "Downloading in the background \u2014 you can keep using the device; the installer "
-                          + "will start on its own once the download finishes.";
+                        // Deliberately does NOT promise a self-starting installer: every download now
+                        // takes this path, and BIOS/firmware .zip payloads are never auto-launched.
+                        // OnDriverInstallComplete reports what actually happened.
+                        : "Downloading in the background \u2014 you can keep using the device; "
+                          + "you'll get a message here when it finishes.";
                 }
                 if (DriverUpdatesStatusText != null)
                     DriverUpdatesStatusText.Text = message;
@@ -1677,7 +1849,7 @@ namespace XboxGamingBar
         {
             if (PerformanceOverlayComboBox != null && TDPModeComboBox != null && TDPSlider != null)
             {
-                if (isLegion)
+                if (isLegion && TDPModeComboBox.Visibility == Visibility.Visible)
                 {
                     // Legion: PerformanceOverlay -> TDPMode -> TDPSlider
                     PerformanceOverlayComboBox.XYFocusDown = TDPModeComboBox;
@@ -1685,23 +1857,13 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // Non-Legion: PerformanceOverlay -> TDPSlider
+                    // Everything else, INCLUDING the Claw: TDPModeCard is Collapsed there (Legion-only
+                    // card), and pointing XYFocusUp at a hidden control is how the PL1 slider ended up
+                    // with nowhere to go. The visibility test above is what routes the Claw here even
+                    // though it reports as a Legion device internally.
                     PerformanceOverlayComboBox.XYFocusDown = TDPSlider;
-                    TDPSlider.XYFocusUp = PerformanceOverlayComboBox;
+                    TDPSlider.XYFocusUp = FPSStateCycleButton ?? (Windows.UI.Xaml.Controls.Control)PerformanceOverlayComboBox;
                 }
-            }
-        }
-
-        /// <summary>
-        /// MSI Claw: AMD Z1/Z2 default game profile recommendation disabled — always stays collapsed.
-        /// </summary>
-        private void SetDefaultProfileCardVisibility(bool isVisible)
-        {
-            // Disabled for MSI Claw — DefaultGameProfileCard is AMD-only (Z1/Z2 Extreme).
-            // Always keep it collapsed regardless of what the helper reports.
-            if (DefaultGameProfileCard != null)
-            {
-                DefaultGameProfileCard.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -1709,64 +1871,38 @@ namespace XboxGamingBar
         /// Updates XY focus navigation for the Performance tab based on current state.
         ///
         /// Full card order (MSI Claw):
-        ///   [DGP card — optional]  →  Per-Game Profile  →  FPS Limit  →  (FPS Mode + Slider when expanded)
+        ///   Per-Game Profile  →  FPS Limit  →  (FPS Mode + Slider when expanded)
         ///   →  TDP Power Limit  →  TDP Overboost (toggle + PL2 slider)
         ///   →  OS Power Mode  →  CPU Boost  →  Overlay  →  (loop to top)
         ///
-        /// When DGP is ON: Nav → DGP Toggle → TDP Extras (skips disabled TDP/FPS)
+        /// The chain used to start with an optional Default Game Profile card; that feature was
+        /// removed on 2026-08-02, so Per-Game Profile is now unconditionally the first element.
         /// </summary>
         private void UpdatePerformanceTabXYNavigation()
         {
             // Early exit if critical UI elements aren't ready
             if (PerformanceNavItem == null) return;
 
-            bool dgpVisible   = DefaultGameProfileCard?.Visibility == Visibility.Visible;
-            bool dgpEnabled   = defaultGameProfileEnabled?.Value == true;
             bool gameDetected = runningGame?.Value.IsValid() == true;
 
-            Logger.Debug($"UpdatePerformanceTabXYNavigation: dgpVisible={dgpVisible}, dgpEnabled={dgpEnabled}, gameDetected={gameDetected}");
+            Logger.Debug($"UpdatePerformanceTabXYNavigation: gameDetected={gameDetected}");
 
             // ── Determine the first focusable element below the nav bar ──────────────
             // Always include Per-Game Profile (even when disabled/no-game — keeps navigation consistent)
+            // Fallbacks name FPSStateCycleButton, never FPSLimitToggle — the latter is a collapsed
+            // stub (see the TDP slider below) and is non-null, so it swallows every `??` it appears in.
             Windows.UI.Xaml.Controls.Control firstElement =
-                (dgpVisible && DefaultProfileToggle != null) ? (Windows.UI.Xaml.Controls.Control)DefaultProfileToggle :
-                (PerGameProfileToggle != null)               ? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle :
-                (Windows.UI.Xaml.Controls.Control)FPSLimitToggle;
+                (PerGameProfileToggle != null) ? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle :
+                (Windows.UI.Xaml.Controls.Control)FPSStateCycleButton;
 
             PerformanceNavItem.XYFocusDown = firstElement;
-
-            // ── Default Game Profile card (optional, Legion Go only) ─────────────────
-            if (dgpVisible && DefaultProfileToggle != null)
-            {
-                DefaultProfileToggle.XYFocusUp = PerformanceNavItem;
-
-                if (dgpEnabled && TDPExtrasExpandToggle != null)
-                {
-                    // DGP ON → skip disabled TDP/FPS controls, jump straight to TDP Extras
-                    DefaultProfileToggle.XYFocusDown = TDPExtrasExpandToggle;
-                    TDPExtrasExpandToggle.XYFocusUp  = DefaultProfileToggle;
-                    if (OSPowerModeComboBox != null)
-                    {
-                        TDPExtrasExpandToggle.XYFocusDown  = OSPowerModeComboBox;
-                        OSPowerModeComboBox.XYFocusUp      = TDPExtrasExpandToggle;
-                    }
-                    // For DGP-ON the remainder of the chain is handled below (CPU Boost → Overlay)
-                }
-                else
-                {
-                    // DGP visible but OFF → continue down to Per-Game Profile
-                    DefaultProfileToggle.XYFocusDown = PerGameProfileToggle ?? (Windows.UI.Xaml.Controls.Control)FPSLimitToggle;
-                }
-            }
 
             // ── Per-Game Profile toggle ───────────────────────────────────────────────
             // Always include (even disabled) so the user can see the current profile state.
             if (PerGameProfileToggle != null)
             {
-                PerGameProfileToggle.XYFocusUp   = (dgpVisible && DefaultProfileToggle != null)
-                                                       ? (Windows.UI.Xaml.Controls.Control)DefaultProfileToggle
-                                                       : PerformanceNavItem;
-                PerGameProfileToggle.XYFocusDown = FPSLimitToggle ?? (Windows.UI.Xaml.Controls.Control)TDPSlider;
+                PerGameProfileToggle.XYFocusUp   = PerformanceNavItem;
+                PerGameProfileToggle.XYFocusDown = FPSStateCycleButton ?? (Windows.UI.Xaml.Controls.Control)TDPSlider;
             }
 
             // ── FPS Limit toggle ──────────────────────────────────────────────────────
@@ -1777,10 +1913,7 @@ namespace XboxGamingBar
 
             if (FPSLimitToggle != null)
             {
-                FPSLimitToggle.XYFocusUp = PerGameProfileToggle
-                                               ?? (dgpVisible && DefaultProfileToggle != null
-                                                       ? (Windows.UI.Xaml.Controls.Control)DefaultProfileToggle
-                                                       : PerformanceNavItem);
+                FPSLimitToggle.XYFocusUp = (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle ?? PerformanceNavItem;
                 // Only point into the expanded FPS panel if it is actually visible.
                 // Otherwise go directly to TDPSlider — no collapsed-element indirection.
                 if (fpsExpanded && FPSModeRTSSRadio != null)
@@ -1789,17 +1922,20 @@ namespace XboxGamingBar
                     FPSLimitToggle.XYFocusDown = TDPSlider;
             }
 
-            // ── FPS inner panel (wired in XAML, only reachable when panel is visible) ──
-            // TDPSlider.Up is also adjusted: when FPS panel is expanded, the last element
-            // in the panel (FPSLimitSlider / IntelFpsTierComboBox) exits down to TDPSlider,
-            // so TDPSlider.Up should point back to FPSLimitToggle so the user can exit
-            // the FPS panel upwards without getting stuck.
-
             // ── TDP Power Limit slider ────────────────────────────────────────────────
             if (TDPSlider != null)
             {
-                // Up always returns to FPS Limit toggle (panel content's Down already exits here)
-                TDPSlider.XYFocusUp = FPSLimitToggle ?? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle;
+                // Up returns to the FPS limiter's On/Off switch — the element that is actually on
+                // screen above this slider.
+                //
+                // It pointed at FPSLimitToggle until 2026-08-06, and FPSLimitToggle is a DEAD STUB:
+                // `<ToggleSwitch x:Name="FPSLimitToggle" Visibility="Collapsed" IsTabStop="False"/>`,
+                // kept only so older code still compiles. Being non-null, it also defeated the `??`
+                // fallback beside it. A collapsed control cannot take focus, so FocusXYTarget failed,
+                // the page-level Up handler fell through its whole chain, and the press ended in the
+                // last-resort branch — which is what "Up jumps to the tab bar", and later "Up does
+                // nothing", both actually were. Never point an XYFocus target at a Collapsed element.
+                TDPSlider.XYFocusUp = FPSStateCycleButton ?? (Windows.UI.Xaml.Controls.Control)PerGameProfileToggle;
                 if (TDPBoostToggle != null)
                     TDPSlider.XYFocusDown = TDPBoostToggle;
             }
@@ -1809,7 +1945,7 @@ namespace XboxGamingBar
             // TDPBoostFPPTSliderCard Up=TDPBoostToggle, Down=OSPowerModeComboBox — set in XAML.
 
             // ── OS Power Mode ComboBox ────────────────────────────────────────────────
-            if (OSPowerModeComboBox != null && !dgpEnabled)
+            if (OSPowerModeComboBox != null)
             {
                 // Up: TDP Boost PL2 slider (was wrongly pointing to TDPSlider in XAML)
                 if (TDPBoostFPPTSliderCard != null)
@@ -1837,363 +1973,6 @@ namespace XboxGamingBar
             {
                 OSDCustomizeExpandButton.XYFocusUp   = CPUBoostToggle ?? (Windows.UI.Xaml.Controls.Control)OSPowerModeComboBox;
                 OSDCustomizeExpandButton.XYFocusDown = firstElement;
-            }
-        }
-
-        /// <summary>
-        /// Updates the Default Game Profile card display with profile settings.
-        /// </summary>
-        private void UpdateDefaultProfileDisplay(Shared.Data.DefaultGameProfile? profile)
-        {
-            if (profile.HasValue)
-            {
-                var p = profile.Value;
-
-                // Store current profile first (needed by UpdateDefaultProfileGameIcon)
-                currentDefaultGameProfile = p;
-
-                // Update game name
-                if (DefaultProfileGameName != null)
-                {
-                    DefaultProfileGameName.Text = p.GameName ?? "";
-                }
-
-                // Update game icon from Steam CDN if available
-                UpdateDefaultProfileGameIcon();
-
-                // Update settings text
-                if (DefaultProfileSettingsText != null)
-                {
-                    var settings = new System.Collections.Generic.List<string>();
-
-                    settings.Add($"{p.TDP}W");
-
-                    if (p.FrameCap.HasValue && p.FrameCap.Value > 0)
-                    {
-                        settings.Add($"{p.FrameCap.Value}fps");
-                    }
-
-                    if (!string.IsNullOrEmpty(p.ResolutionCap))
-                    {
-                        settings.Add(p.ResolutionCap);
-                    }
-
-                    DefaultProfileSettingsText.Text = string.Join(" - ", settings);
-                    Logger.Info($"Default Game Profile display updated: {DefaultProfileSettingsText.Text}");
-                }
-
-                // Update "Optimizing for Z2/Z1 Extreme" text based on hardware model
-                if (DefaultProfileOptimizingText != null && DefaultProfileSeparator != null)
-                {
-                    string optimizingText = "Optimizing for your device";
-                    if (!string.IsNullOrEmpty(p.HardwareModel))
-                    {
-                        if (p.HardwareModel == "HORSEM4N")
-                        {
-                            optimizingText = "Optimizing for Z2 Extreme";
-                        }
-                        else if (p.HardwareModel == "OMNI")
-                        {
-                            optimizingText = "Optimizing for Z1 Extreme";
-                        }
-                    }
-                    DefaultProfileOptimizingText.Text = optimizingText;
-                    DefaultProfileOptimizingText.Visibility = Visibility.Visible;
-                    DefaultProfileSeparator.Visibility = Visibility.Visible;
-                }
-            }
-            else
-            {
-                // Hide elements when no profile
-                if (DefaultProfileOptimizingText != null)
-                {
-                    DefaultProfileOptimizingText.Visibility = Visibility.Collapsed;
-                }
-                if (DefaultProfileSeparator != null)
-                {
-                    DefaultProfileSeparator.Visibility = Visibility.Collapsed;
-                }
-                if (DefaultProfileGameName != null)
-                {
-                    DefaultProfileGameName.Text = "";
-                }
-                currentDefaultGameProfile = null;
-            }
-        }
-
-        /// <summary>
-        /// Updates the game icon in the Default Game Profile card.
-        /// First tries helper-cached icons, then Steam's local cache.
-        /// </summary>
-        private async void UpdateDefaultProfileGameIcon()
-        {
-            // Ensure we're on the UI thread
-            if (!Dispatcher.HasThreadAccess)
-            {
-                await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () => UpdateDefaultProfileGameIcon());
-                return;
-            }
-
-            if (DefaultProfileGameIcon == null)
-            {
-                Logger.Info("UpdateDefaultProfileGameIcon: DefaultProfileGameIcon element is null");
-                return;
-            }
-
-            Logger.Info($"UpdateDefaultProfileGameIcon: Starting, currentGameExePath={currentGameExePath ?? "null"}");
-
-            string iconPath = null;
-
-            // First, try to use the helper-cached icon for the current running game
-            // (Default profiles are shown when a matching game is detected)
-            if (!string.IsNullOrEmpty(currentGameExePath))
-            {
-                iconPath = GetCachedIconPath(currentGameExePath);
-                if (!string.IsNullOrEmpty(iconPath))
-                {
-                    Logger.Info($"UpdateDefaultProfileGameIcon: Using helper-cached icon: {iconPath}");
-                }
-                else
-                {
-                    Logger.Info($"UpdateDefaultProfileGameIcon: No cached icon found for {currentGameExePath}");
-                }
-            }
-
-            // Fall back to Steam icon if we have a Steam App ID
-            if (string.IsNullOrEmpty(iconPath) && currentDefaultGameProfile.HasValue)
-            {
-                iconPath = currentDefaultGameProfile.Value.GetSteamIconPath();
-                if (!string.IsNullOrEmpty(iconPath))
-                {
-                    Logger.Info($"UpdateDefaultProfileGameIcon: Using Steam icon: {iconPath}");
-                }
-            }
-
-            // Try to load the icon
-            if (!string.IsNullOrEmpty(iconPath))
-            {
-                try
-                {
-                    // Load from local file using StorageFile for UWP compatibility
-                    var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(iconPath);
-                    using (var stream = await file.OpenReadAsync())
-                    {
-                        var bitmap = new Windows.UI.Xaml.Media.Imaging.BitmapImage();
-                        await bitmap.SetSourceAsync(stream);
-                        DefaultProfileGameIcon.Source = bitmap;
-                        DefaultProfileGameIcon.Visibility = Visibility.Visible;
-                        Logger.Info($"UpdateDefaultProfileGameIcon: Icon loaded successfully");
-                        return;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Logger.Warn($"UpdateDefaultProfileGameIcon: Failed to load icon from {iconPath}: {ex.Message}");
-                }
-            }
-            else
-            {
-                Logger.Info("UpdateDefaultProfileGameIcon: No icon path available");
-            }
-
-            // Hide the icon if no icon available
-            DefaultProfileGameIcon.Visibility = Visibility.Collapsed;
-        }
-
-        // Cached default game profile for UI state management
-        private Shared.Data.DefaultGameProfile? currentDefaultGameProfile;
-
-        /// <summary>
-        /// Called when the Default Game Profile enabled state changes.
-        /// Greys out TDP controls and syncs FPS limit when enabled.
-        /// </summary>
-        private void OnDefaultProfileEnabledChanged(bool enabled)
-        {
-            Logger.Info($"Default Game Profile enabled changed to: {enabled}");
-
-            // IMPORTANT: When DISABLING, load the appropriate profile for current power state!
-            // Don't restore saved values - they may be from a different power state (e.g., DC when now on AC)
-            // Set flag to suppress profile saves during restoration (toggle handlers would otherwise save wrong values)
-            if (!enabled)
-            {
-                isRestoringFromDefaultProfile = true;
-                try
-                {
-                    // Clear saved state - we'll load from profile instead of restoring
-                    // FPS limit and TDP can differ between AC/DC profiles, so restoring pre-DGP state is wrong
-                    originalFpsLimitToggleState = null;
-                    originalFpsLimitSliderValue = null;
-                    originalTdpSliderValue = null;
-
-                    // Load the appropriate profile for current power state
-                    // This ensures AC profile is loaded when on AC, DC profile when on DC
-                    // Profile loading handles TDP, FPS limit, and all other settings
-                    string targetProfile = GetTargetProfileName();
-                    Logger.Info($"DGP disabled - loading profile for current power state: {targetProfile}");
-                    LoadProfileSettings(targetProfile, isExplicitSwitch: false);
-                }
-                finally
-                {
-                    isRestoringFromDefaultProfile = false;
-                }
-            }
-
-            // Update TDP controls enabled state (now with correct values if disabling)
-            UpdateTDPControlsForDefaultProfile(enabled);
-
-            // Update per-game profile toggle state
-            UpdatePerGameProfileForDefaultProfile(enabled);
-
-            if (enabled && currentDefaultGameProfile.HasValue)
-            {
-                var profile = currentDefaultGameProfile.Value;
-
-                // Save original FPS limit state before changing
-                if (FPSLimitToggle != null && !originalFpsLimitToggleState.HasValue)
-                {
-                    originalFpsLimitToggleState = FPSLimitToggle.IsOn;
-                    originalFpsLimitSliderValue = FPSLimitSlider?.Value ?? 60;
-                    Logger.Info($"Saved original FPS limit state: toggle={originalFpsLimitToggleState}, value={originalFpsLimitSliderValue}");
-                }
-
-                // Save original TDP slider value before changing
-                if (TDPSlider != null && !originalTdpSliderValue.HasValue)
-                {
-                    originalTdpSliderValue = TDPSlider.Value;
-                    Logger.Info($"Saved original TDP slider value: {originalTdpSliderValue}W");
-                }
-
-                // Sync FPS limit toggle and slider to match profile
-                if (profile.FrameCap.HasValue && profile.FrameCap.Value > 0)
-                {
-                    if (FPSLimitToggle != null)
-                    {
-                        FPSLimitToggle.IsOn = true;
-                    }
-                    if (FPSLimitSlider != null)
-                    {
-                        FPSLimitSlider.Value = profile.FrameCap.Value;
-                    }
-                    Logger.Info($"FPS limit synced to default profile: {profile.FrameCap.Value}fps");
-                }
-
-                // Sync TDP slider to match profile
-                if (profile.TDP > 0 && TDPSlider != null)
-                {
-                    TDPSlider.Value = profile.TDP;
-                    Logger.Info($"TDP slider synced to default profile: {profile.TDP}W");
-                }
-            }
-
-            // Update Quick tab tile styling
-            UpdateQuickSettingsTileStates();
-
-            // Update XY navigation for controller support
-            UpdatePerformanceTabXYNavigation();
-        }
-
-        // Store original state for restoration when default profile is disabled
-        private bool? originalFpsLimitToggleState;
-        private double? originalFpsLimitSliderValue;
-        private double? originalTdpSliderValue;
-        private bool isRestoringFromDefaultProfile; // Flag to suppress profile saves during DGP restoration
-
-        /// <summary>
-        /// Updates per-game profile toggle state based on Default Game Profile.
-        /// </summary>
-        private void UpdatePerGameProfileForDefaultProfile(bool defaultProfileEnabled)
-        {
-            if (defaultProfileEnabled)
-            {
-                // Hide the Active Profile card when default game profile is enabled
-                if (ActiveProfileCard != null)
-                {
-                    ActiveProfileCard.Visibility = Visibility.Collapsed;
-                }
-
-                Logger.Debug("Active Profile card hidden - Default Game Profile is active");
-            }
-            else
-            {
-                // Show the Active Profile card when default game profile is disabled
-                if (ActiveProfileCard != null)
-                {
-                    ActiveProfileCard.Visibility = Visibility.Visible;
-                }
-
-                // Re-enable the per-game profile toggle
-                if (PerGameProfileToggle != null)
-                {
-                    PerGameProfileToggle.IsEnabled = runningGame?.Value.IsValid() == true;
-                }
-
-                Logger.Debug("Active Profile card shown - Default Game Profile is inactive");
-            }
-        }
-
-        /// <summary>
-        /// Updates TDP control enabled states based on Default Game Profile.
-        /// </summary>
-        private void UpdateTDPControlsForDefaultProfile(bool defaultProfileEnabled)
-        {
-            if (defaultProfileEnabled)
-            {
-                // Disable TDP controls when default profile is active
-                if (TDPModeComboBox != null)
-                {
-                    TDPModeComboBox.IsEnabled = false;
-                }
-                if (TDPSlider != null)
-                {
-                    TDPSlider.IsEnabled = true;
-                }
-                if (TDPBoostToggle != null)
-                {
-                    TDPBoostToggle.IsEnabled = true;
-                }
-                if (AutoTDPToggle != null)
-                {
-                    AutoTDPToggle.IsEnabled = false;
-                }
-                if (StickyTDPToggle != null)
-                {
-                    StickyTDPToggle.IsEnabled = false;
-                }
-
-                // Also disable FPS limit controls (controlled by Default Game Profile)
-                if (FPSLimitToggle != null)
-                {
-                    FPSLimitToggle.IsEnabled = false;
-                }
-                if (FPSLimitSlider != null)
-                {
-                    FPSLimitSlider.IsEnabled = false;
-                }
-
-                Logger.Debug("TDP and FPS controls disabled - Default Game Profile is active");
-            }
-            else
-            {
-                // Re-enable TDP controls based on current mode
-                if (TDPModeComboBox != null)
-                {
-                    TDPModeComboBox.IsEnabled = true;
-                }
-
-                // Re-enable FPS limit controls
-                if (FPSLimitToggle != null)
-                {
-                    FPSLimitToggle.IsEnabled = true;
-                }
-                if (FPSLimitSlider != null)
-                {
-                    FPSLimitSlider.IsEnabled = true;
-                }
-
-                // Re-evaluate other controls based on current TDP mode
-                UpdateTDPSliderEnabledState();
-
-                Logger.Debug("TDP and FPS controls re-enabled - Default Game Profile is inactive");
             }
         }
 
@@ -3082,7 +2861,7 @@ namespace XboxGamingBar
             // Save profile when TDP Mode changes (if not during initialization or helper update)
             // Allow save if user-initiated from Quick Tab tile (bypasses isApplyingHelperUpdate)
             // Don't save when Default Game Profile is active (to avoid contaminating user's profile)
-            if (!isInitialSync && !isLoadingProfile && SaveTDP && (!isApplyingHelperUpdate || isUserInitiatedTDPModeChange) && defaultGameProfileEnabled?.Value != true)
+            if (!isInitialSync && !isLoadingProfile && SaveTDP && (!isApplyingHelperUpdate || isUserInitiatedTDPModeChange))
             {
                 // Don't save to game profile if per-game profile is disabled.
                 // During game close, helper sends global mode via pipe → ComboBox changes → handler fires.
@@ -3097,12 +2876,12 @@ namespace XboxGamingBar
                 else
                 {
                     Logger.Info($"Saving TDP Mode change to profile: {currentProfileName}");
-                    SaveCurrentSettingsToProfile(currentProfileName);
+                    SaveWidgetUiStateToProfile(currentProfileName);
                 }
             }
             else
             {
-                Logger.Warn($"TDP Mode save skipped: isInitialSync={isInitialSync}, isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile}, SaveTDP={SaveTDP}, isUserInitiatedTDPModeChange={isUserInitiatedTDPModeChange}, defaultGameProfile={defaultGameProfileEnabled?.Value}");
+                Logger.Warn($"TDP Mode save skipped: isInitialSync={isInitialSync}, isApplyingHelperUpdate={isApplyingHelperUpdate}, isLoadingProfile={isLoadingProfile}, SaveTDP={SaveTDP}, isUserInitiatedTDPModeChange={isUserInitiatedTDPModeChange}");
             }
         }
 
@@ -3120,13 +2899,6 @@ namespace XboxGamingBar
             // itself — so TDP is settable and MSI-conform even with MSI Center M active. Fall through to the
             // normal state logic so the real TDP value is shown and the slider behaves as usual.
 
-            // If Default Game Profile is active, keep TDP controls disabled
-            if (defaultGameProfileEnabled?.Value == true)
-            {
-                Logger.Debug("TDP slider state update skipped - Default Game Profile is active");
-                return;
-            }
-
             // Check if in Custom mode (uses preset system for proper detection)
             bool isCustomMode = IsCustomTdpModeSelected();
             bool isLegion = legionGoDetected?.Value == true;
@@ -3135,7 +2907,7 @@ namespace XboxGamingBar
             // When true, widget's profile may have stale values - use helper's property values instead.
             bool isHelperModeSync = legionPerformanceMode?.IsUpdatingUI == true;
 
-            // TDP slider, TDP Boost, and AutoTDP should only be enabled in Custom mode
+            // TDP slider and TDP Boost should only be enabled in Custom mode
             // Note: TDP slider also requires tdp property to be ready (IsEnabled is set elsewhere too)
             if (!isCustomMode)
             {
@@ -3169,51 +2941,18 @@ namespace XboxGamingBar
 
                 // Set flag to prevent toggle handlers from saving forced-off state to LocalSettings
                 isUpdatingTDPMode = true;
-                bool wasAutoTDPOn = AutoTDPToggle?.IsOn == true;
-                bool wasStickyTDPOn = StickyTDPToggle?.IsOn == true;
                 try
                 {
-                    // Also disable TDP Boost and AutoTDP controls in preset modes
+                    // Also disable TDP Boost in preset modes
                     if (TDPBoostToggle != null)
                     {
                         TDPBoostToggle.IsEnabled = true;
                         TDPBoostToggle.IsOn = false; // Turn off when switching to preset mode (binding handles slider visibility)
                     }
-                    if (AutoTDPToggle != null)
-                    {
-                        AutoTDPToggle.IsEnabled = false;
-                        AutoTDPToggle.IsOn = false; // Turn off when switching to preset mode
-                    }
-                    if (AutoTDPTargetFPSSlider != null) AutoTDPTargetFPSSlider.IsEnabled = false;
-                    if (AutoTDPMinSlider != null) AutoTDPMinSlider.IsEnabled = false;
-                    if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = false;
-                    if (StickyTDPToggle != null)
-                    {
-                        StickyTDPToggle.IsEnabled = false;
-                        StickyTDPToggle.IsOn = false; // Turn off when switching to preset mode
-                    }
-                    if (StickyTDPIntervalSlider != null) StickyTDPIntervalSlider.IsEnabled = false;
                 }
                 finally
                 {
                     isUpdatingTDPMode = false;
-                }
-
-                // Explicitly notify helper to disable AutoTDP/StickyTDP since toggle handlers were blocked.
-                // Skip when:
-                // - isLoadingProfile: helper manages state during profile switches, ComboBox may show wrong mode
-                // - isHelperModeSync: mode change came from helper pipe sync (not user).
-                //   During game close, helper sends global mode → widget shouldn't send stale values back.
-                //   During game open, helper sends game mode → widget's profile may have stale AutoTDP.
-                if (wasAutoTDPOn && !isLoadingProfile && !isHelperModeSync)
-                {
-                    autoTDPEnabled?.SetValue(false);
-                    Logger.Info("AutoTDP disabled due to TDP mode change away from Custom");
-                }
-                if (wasStickyTDPOn)
-                {
-                    StopStickyTDPTimer();
-                    Logger.Info("Sticky TDP disabled due to TDP mode change away from Custom");
                 }
 
                 // Update XY focus to skip disabled controls
@@ -3252,20 +2991,12 @@ namespace XboxGamingBar
                     CurrentTDPValueText.Text = !string.IsNullOrEmpty(currentTdp?.Value) ? currentTdp.Value : "-- W";
                 }
 
-                // Re-enable TDP Boost, AutoTDP, and Sticky TDP controls in Custom mode
+                // Re-enable TDP Boost in Custom mode
                 if (TDPBoostToggle != null) TDPBoostToggle.IsEnabled = true;
-                if (AutoTDPToggle != null) AutoTDPToggle.IsEnabled = true;
-                if (AutoTDPTargetFPSSlider != null) AutoTDPTargetFPSSlider.IsEnabled = true;
-                if (AutoTDPMinSlider != null) AutoTDPMinSlider.IsEnabled = true;
-                if (AutoTDPMaxSlider != null) AutoTDPMaxSlider.IsEnabled = true;
-                if (StickyTDPToggle != null) StickyTDPToggle.IsEnabled = true;
-                if (StickyTDPIntervalSlider != null) StickyTDPIntervalSlider.IsEnabled = true;
 
-                // Restore toggle states when switching back to Custom mode.
-                // When SaveAutoTDP/SaveTDP is enabled, use the CURRENT PROFILE's values (source of truth)
-                // instead of LocalSettings. LocalSettings stores a global value that can be stale
-                // (e.g., AutoTDP=true from a per-game profile bleeds into global via deferred UI updates).
-                // Only fall back to LocalSettings when the profile system doesn't manage the setting.
+                // Restore the toggle state when switching back to Custom mode.
+                // When SaveTDP is enabled, use the CURRENT PROFILE's value (source of truth) instead
+                // of LocalSettings, which stores a global value that can be stale.
                 isUpdatingTDPMode = true;
                 try
                 {
@@ -3274,18 +3005,25 @@ namespace XboxGamingBar
                     // Skip sending to helper when:
                     // - isLoadingProfile: profile is being loaded, helper manages state
                     // - isHelperModeSync: mode change came from helper pipe sync, widget's profile
-                    //   may have stale values (e.g., AutoTDP=false saved during game close)
+                    //   may hold stale values
                     bool canSendToHelper = !isLoadingProfile && !isHelperModeSync;
 
                     if (TDPBoostToggle != null)
                     {
                         if (SaveTDP)
                         {
-                            var profile = GetProfile(currentProfileName);
-                            // When helper is syncing mode, use the helper's property value.
-                            bool tdpBoostState = isHelperModeSync && this.tdpBoostEnabled != null
+                            // The profile's Overboost state comes from the HELPER's store (plan §5.4).
+                            // It used to be read from the widget copy, which nothing has written since
+                            // §5.4 step 1 — so this pushed a frozen value back to the helper on every
+                            // switch to Custom mode. Falls back to the helper's live property when the
+                            // snapshot has no profile for the current name (or has not arrived).
+                            var snapProfile = profileSnapshot?.GetByName(
+                                currentProfileName != null && currentProfileName.StartsWith("Game_")
+                                    ? currentProfileName.Substring("Game_".Length)
+                                    : Shared.Data.GameProfile.GLOBAL_PROFILE_NAME);
+                            bool tdpBoostState = (isHelperModeSync || snapProfile == null) && this.tdpBoostEnabled != null
                                 ? this.tdpBoostEnabled.Value
-                                : profile.TDPBoostEnabled;
+                                : (snapProfile?.TDPBoostEnabled ?? false);
                             TDPBoostToggle.IsOn = tdpBoostState;
                             if (canSendToHelper)
                                 this.tdpBoostEnabled?.SetValue(tdpBoostState);
@@ -3300,61 +3038,13 @@ namespace XboxGamingBar
                         }
                     }
 
-                    if (AutoTDPToggle != null)
-                    {
-                        isLoadingAutoTDPSettings = true;
-                        try
-                        {
-                            if (SaveAutoTDP)
-                            {
-                                var profile = GetProfile(currentProfileName);
-                                // When helper is syncing mode, use the helper's property value.
-                                // The widget's profile may be stale (e.g., AutoTDP=false saved during
-                                // game close). The helper's autoTDPEnabled.Value is the source of truth.
-                                bool autoTDPState = isHelperModeSync && autoTDPEnabled != null
-                                    ? autoTDPEnabled.Value
-                                    : profile.AutoTDPEnabled;
-                                AutoTDPToggle.IsOn = autoTDPState;
-                                if (canSendToHelper)
-                                    autoTDPEnabled?.SetValue(autoTDPState);
-                                Logger.Debug($"Restored AutoTDP from {(isHelperModeSync ? "helper" : "profile")} '{currentProfileName}': {autoTDPState}");
-                            }
-                            else if (settings.Values.TryGetValue("AutoTDPEnabled", out object autoTdpVal) && autoTdpVal is bool autoTdpEnabled)
-                            {
-                                AutoTDPToggle.IsOn = autoTdpEnabled;
-                                if (canSendToHelper)
-                                    autoTDPEnabled?.SetValue(autoTdpEnabled);
-                                Logger.Debug($"Restored AutoTDP from LocalSettings: {autoTdpEnabled}");
-                            }
-                        }
-                        finally
-                        {
-                            isLoadingAutoTDPSettings = false;
-                        }
-                    }
-
-                    if (StickyTDPToggle != null && settings.Values.TryGetValue("StickyTDPEnabled", out object stickyVal) && stickyVal is bool stickyEnabled)
-                    {
-                        StickyTDPToggle.IsOn = stickyEnabled;
-                        if (stickyEnabled)
-                        {
-                            targetTDPLimit = TDPSlider.Value;
-                            StartStickyTDPTimer();
-                            Logger.Debug($"Restored Sticky TDP enabled - monitoring TDP: {targetTDPLimit}W");
-                        }
-                        else
-                        {
-                            StopStickyTDPTimer();
-                        }
-                        Logger.Debug($"Restored Sticky TDP toggle state from LocalSettings: {stickyEnabled}");
-                    }
                 }
                 finally
                 {
                     isUpdatingTDPMode = false;
                 }
 
-                Logger.Debug($"TDP slider, TDP Boost, AutoTDP, and Sticky TDP enabled in Custom mode: {TDPSlider.IsEnabled}");
+                Logger.Debug($"TDP slider and TDP Boost enabled in Custom mode: {TDPSlider.IsEnabled}");
 
                 // Update display to show wattage in Custom mode
                 UpdateTDPDisplayText();
@@ -3370,9 +3060,15 @@ namespace XboxGamingBar
                     tdp.StopDebounceTimer(); // Cancel any pending debounce
                     tdp.SetValueSilent(currentSliderValue); // Update internal Value without sending
 
-                    // Also send current value to helper to ensure hardware matches UI
-                    tdp.ForceSetValue(currentSliderValue);
-                    Logger.Info($"Custom mode enabled - synced TDP property to slider value: {currentSliderValue}W");
+                    // The ForceSetValue that used to follow is gone: the helper owns TDP and this ran on
+                    // every UpdateTDPSliderEnabledState() call, including the ones inside a profile LOAD.
+                    // Measured on a user's Claw 8 EX (2026-07-28 18:51): a Game Bar background→foreground
+                    // bounce triggered a profile reload, this pushed the slider's stale 30W at a helper
+                    // holding the user's 35W, and — 10.7s after connect, past the helper's 4s connect
+                    // guard — it was accepted, persisted and written to hardware. Keeping SetValueSilent
+                    // is deliberate: it only aligns the property's internal value with what the user sees
+                    // so Slider_ValueChanged's (newValue != Value) comparison still fires correctly.
+                    Logger.Debug($"Custom mode enabled - aligned TDP property to slider value: {currentSliderValue}W (display only)");
                 }
 
                 // Restore normal XY focus chain in Slider mode
@@ -3380,7 +3076,11 @@ namespace XboxGamingBar
                 if (TDPModeComboBox != null && OSPowerModeComboBox != null)
                 {
                     TDPModeComboBox.XYFocusDown = TDPSlider;
-                    TDPSlider.XYFocusUp = TDPModeComboBox;
+                    // Only when that ComboBox is actually on screen - it is Collapsed on the Claw.
+                    if (TDPModeComboBox.Visibility == Visibility.Visible)
+                        TDPSlider.XYFocusUp = TDPModeComboBox;
+                    else if (FPSStateCycleButton != null)
+                        TDPSlider.XYFocusUp = FPSStateCycleButton;
                     TDPSlider.XYFocusDown = TDPBoostToggle;
                     TDPBoostToggle.XYFocusUp = TDPSlider;
                     TDPBoostToggle.XYFocusDown = OSPowerModeComboBox;
@@ -3424,6 +3124,9 @@ namespace XboxGamingBar
         /// </summary>
         private void TDPSlider_ValueChanged_UpdateDisplay(object sender, Windows.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
         {
+            // Keep the watt scale's highlight tracking the thumb.
+            BuildWattScaleLabels(TDPScaleLabels, TDPSlider);
+
             // Only update display if in Custom mode and slider is enabled
             // The slider is disabled in preset modes, so this prevents overwriting mode names
             if (IsCustomTdpModeSelected() && TDPSlider?.IsEnabled == true)
@@ -3447,6 +3150,73 @@ namespace XboxGamingBar
             // Note: CurrentTDPValueText is updated by the helper with actual hardware limits
             // via CurrentTDPProperty. Don't set it here - slider values would overwrite
             // the detailed hardware readout (e.g., "S:21W F:21W L:21W").
+        }
+
+        /// <summary>
+        /// What each gyro control does, shown in the card's shared hint line while the control has focus.
+        ///
+        /// Written for someone holding the device, not for someone reading the source: each line says what
+        /// changes and what it costs, because every one of these is a trade rather than a "more is better"
+        /// slider. Kept to two lines so the reserved height in the XAML always fits.
+        /// </summary>
+        private static string GyroHintFor(string controlName)
+        {
+            switch (controlName)
+            {
+                case "LegionGyroSensitivityXSlider":
+                    return "How far a horizontal turn of the device moves the stick.";
+                case "LegionGyroSensitivityYSlider":
+                    return "How far tilting the device up or down moves the stick.";
+                case "LegionGyroDeadzoneSlider":
+                    return "Discards motion slower than this so resting sensor noise cannot nudge the "
+                         + "stick. Raise it only if the stick drifts at rest — it costs slow aiming.";
+                case "LegionGyroAntiDeadzoneSlider":
+                    return "Lifts every movement that passes the gate to at least this much stick travel, "
+                         + "so the game's own dead zone cannot swallow the first small turn.";
+                case "LegionGyroSmoothingSlider":
+                    return "Filters out hand tremor. Higher is steadier but adds a little lag.";
+                case "LegionGyroBoostButtonComboBox":
+                    return "Button that switches the gyro to the boost factor while you hold it.";
+                case "LegionGyroBoostFactorSlider":
+                    return "Sensitivity while the boost button is held — below 100% for precise aiming, "
+                         + "above for fast turns. 100% means the button does nothing.";
+                default:
+                    return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Shows the hint while a slider is ENGAGED — the state you enter by pressing A on it, and leave
+        /// with B.
+        ///
+        /// Two earlier attempts hung off GotFocus and neither worked. ModernSliderStyle sets
+        /// IsFocusEngagementEnabled, which makes "has focus" and "is being adjusted" two different states:
+        /// merely landing on a slider while travelling through the column is not the moment anyone wants
+        /// to read anything, and the focus events around engagement do not describe it. Engagement is the
+        /// user saying "this one" — no timer needed, and nothing appears while passing by.
+        /// </summary>
+        private void GyroHint_Engaged(object sender, FocusEngagedEventArgs e)
+        {
+            if (LegionGyroFocusHint == null) return;
+            LegionGyroFocusHint.Text = GyroHintFor((sender as FrameworkElement)?.Name ?? string.Empty);
+        }
+
+        private void GyroHint_Disengaged(object sender, FocusDisengagedEventArgs e)
+        {
+            if (LegionGyroFocusHint != null) LegionGyroFocusHint.Text = string.Empty;
+        }
+
+        // The boost-button picker is a ComboBox, which has no engagement state — A opens its list instead.
+        // Opening it is the same intent, so it drives the same line.
+        private void GyroHint_ComboOpened(object sender, object e)
+        {
+            if (LegionGyroFocusHint == null) return;
+            LegionGyroFocusHint.Text = GyroHintFor((sender as FrameworkElement)?.Name ?? string.Empty);
+        }
+
+        private void GyroHint_ComboClosed(object sender, object e)
+        {
+            if (LegionGyroFocusHint != null) LegionGyroFocusHint.Text = string.Empty;
         }
 
     }

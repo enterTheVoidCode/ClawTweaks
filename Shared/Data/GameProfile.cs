@@ -8,8 +8,32 @@ using System.Xml.Serialization;
 
 namespace Shared.Data
 {
+    /// <summary>
+    /// A performance profile — the global one (global.xml) or one per game (profiles\&lt;game&gt;.xml).
+    /// This is the helper's own store and the superset of every performance setting; see
+    /// Doku/PLAN_Performance_SingleStore.md.
+    ///
+    /// ── Why this is a CLASS and must stay one (was a struct until §5.1) ──────────────────────────
+    /// Every setter here ends in <see cref="Save()"/>, i.e. "mutate me and I persist myself". With
+    /// value semantics that promise was false half the time: any code that received a GameProfile —
+    /// a local, a method parameter, an <c>Action&lt;GameProfile&gt;</c>, a dictionary lookup — got a
+    /// COPY, mutated the copy, and the copy's Save() wrote a file the caller was not looking at (or,
+    /// with an empty Path, wrote nothing at all). That is the whole content of the
+    /// global-profile-struct-save-bug note: RouteProfileSave's global branch took
+    /// <c>Action&lt;GameProfile&gt;</c>, so every single "save to global" was silently discarded. It was
+    /// patched with a <c>ref</c> delegate and, separately, by mirroring four values into a second
+    /// store (settings.json's Global* keys) — a scar, not a design.
+    ///
+    /// As a reference type the promise holds by construction: one profile is one object, whoever
+    /// holds it mutates the real thing, and Save() persists that. The ref delegate is gone; the
+    /// Global* keys go away in §5.2.
+    ///
+    /// The XML shape is unchanged by this — XmlSerializer works off the PUBLIC PROPERTIES (the
+    /// [XmlElement] attributes sit on private backing fields, which it never sees, and every
+    /// property name happens to match its element name). So no profile file needs migrating.
+    /// </summary>
     [XmlRoot("GameProfile")]
-    public struct GameProfile
+    public sealed class GameProfile
     {
         public const string GLOBAL_PROFILE_NAME = "global";
 
@@ -254,6 +278,54 @@ namespace Shared.Data
             set { if (intelFrameSync != value) { intelFrameSync = value; Save(); } }
         }
 
+        /// <summary>XeSS frame generation override: 0=App choice, 1=2X, 2=3X, 3=4X.</summary>
+        [XmlElement("IntelFrameGeneration")]
+        private int? intelFrameGeneration;
+        public int? IntelFrameGeneration
+        {
+            get { return intelFrameGeneration; }
+            set { if (intelFrameGeneration != value) { intelFrameGeneration = value; Save(); } }
+        }
+
+        /// <summary>Variable refresh rate (Intel Arc Sync): 0=off, 1=on.</summary>
+        [XmlElement("IntelVrr")]
+        private int? intelVrr;
+        public int? IntelVrr
+        {
+            get { return intelVrr; }
+            set { if (intelVrr != value) { intelVrr = value; Save(); } }
+        }
+
+        /// <summary>Which presentations VRR applies to: 0=Auto, 1=Windowed and fullscreen, 2=Fullscreen
+        /// only. Separate from IntelVrr because Intel keeps them as two controls — the on/off is the
+        /// display's Arc Sync profile, this is the driver's windowed-VRR mode.</summary>
+        [XmlElement("IntelVrrMode")]
+        private int? intelVrrMode;
+        public int? IntelVrrMode
+        {
+            get { return intelVrrMode; }
+            set { if (intelVrrMode != value) { intelVrrMode = value; Save(); } }
+        }
+
+        /// <summary>Scaling group: 0=Display, 1=GPU, 2=Retro. Only meaningful together with
+        /// IntelScalingMethod — the two are one setting split the way Intel splits it.</summary>
+        [XmlElement("IntelScalingMode")]
+        private int? intelScalingMode;
+        public int? IntelScalingMode
+        {
+            get { return intelScalingMode; }
+            set { if (intelScalingMode != value) { intelScalingMode = value; Save(); } }
+        }
+
+        /// <summary>Entry within the scaling group (see IntelScalingMode).</summary>
+        [XmlElement("IntelScalingMethod")]
+        private int? intelScalingMethod;
+        public int? IntelScalingMethod
+        {
+            get { return intelScalingMethod; }
+            set { if (intelScalingMethod != value) { intelScalingMethod = value; Save(); } }
+        }
+
         [XmlElement("TDPBoostEnabled")]
         private bool tdpBoostEnabled;
         public bool TDPBoostEnabled
@@ -270,8 +342,116 @@ namespace Shared.Data
         }
 
         /// <summary>
-        /// PL2 Overboost additional watts (FPPT = TDP + this value).
-        /// -1 means "not set" — fall back to LocalSettings / device default.
+        /// Whether this profile keeps SEPARATE values for mains and battery ("Plugged in" / "On
+        /// battery" in the UI — the trigger is the power source, not a dock).
+        ///
+        /// Off: one value applies in both states — the *_Plugged slots stay untouched and Effective*
+        /// resolves to the base value.
+        /// On: a change made while PLUGGED IN is written to the *_Plugged slot instead of the base one,
+        /// so the two states can differ.
+        ///
+        /// THE BASE VALUE IS THE UNPLUGGED ONE. This direction is the whole point and was reversed on
+        /// 2026-08-02 (user requirement): a handheld runs on battery ~90 % of the time, most people
+        /// never enable this split at all, so the value someone configures without thinking about power
+        /// states has to be the battery value. An empty override then means "plugged inherits from
+        /// unplugged", and nothing done while plugged in — nor a field added later that nobody has
+        /// configured yet — can move the battery side. The reverse direction had the opposite property:
+        /// every edit made on mains silently redefined what the device does on battery.
+        ///
+        /// It lives HERE, in the profile, rather than in a settings store beside it — the rule from
+        /// plan §4.1: a new profile setting is a field on GameProfile and nothing else. That makes it
+        /// per-profile automatically (each game AND the global profile can decide for itself), and it
+        /// travels in the snapshot, in backup and in export without another line of code.
+        ///
+        /// The global profile carrying this is deliberate and reverses an earlier decision. The global
+        /// split was removed after #21 because a stale global AC/DC value in a SECOND store clobbered
+        /// the real global TDP on plug/unplug. With a single store and a real override slot, the value
+        /// that gets applied is the value that was stored — the failure mode needed two stores.
+        /// </summary>
+        [XmlElement("PowerSourceSplit")]
+        private bool powerSourceSplit;
+        public bool PowerSourceSplit
+        {
+            get { return powerSourceSplit; }
+            set
+            {
+                if (powerSourceSplit != value)
+                {
+                    powerSourceSplit = value;
+                    if (value) SeedPowerStateOverrides(); else ClearPowerStateOverrides();
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Copies each base (unplugged) value into its plugged override slot, so the two power states
+        /// start out identical but INDEPENDENT — "enabling the split copies the unplugged settings over
+        /// to plugged, and you adjust from there".
+        ///
+        /// Unlike the previous direction, this is a CONVENIENCE, not a safety net: with the base
+        /// meaning unplugged, an empty slot already resolves to the unplugged value, so a profile whose
+        /// slots never got seeded still behaves correctly. Seeding only makes the copy explicit in the
+        /// file and freezes it, so a later unplugged edit does not drag the plugged side along with it.
+        ///
+        /// Only empty slots are filled: a profile that already carries plugged values keeps them when
+        /// the split is toggled off and on again.
+        /// </summary>
+        private void SeedPowerStateOverrides()
+        {
+            if (tdpPlugged == null) tdpPlugged = tdp;
+            if (cpuBoostPlugged == null) cpuBoostPlugged = cpuBoost;
+            if (cpuEppPlugged == null) cpuEppPlugged = cpuEPP;
+            if (maxCpuStatePlugged == null) maxCpuStatePlugged = maxCPUState;
+            if (minCpuStatePlugged == null) minCpuStatePlugged = minCPUState;
+            if (fpsLimitPlugged == null) fpsLimitPlugged = fpsLimit;
+            if (osPowerModePlugged == null) osPowerModePlugged = osPowerMode;
+            if (tdpBoostEnabledPlugged == null) tdpBoostEnabledPlugged = tdpBoostEnabled;
+            if (tdpBoostFPPTWattsPlugged == null) tdpBoostFPPTWattsPlugged = tdpBoostFPPTWatts;
+            if (fpsCapModePlugged == null) fpsCapModePlugged = fpsCapMode;
+            if (intelFpsTierPlugged == null) intelFpsTierPlugged = intelFpsTier;
+            // The fan curve seeds on empty, not on null: see EffectiveMsiFanCurve on why both spellings
+            // of "unset" occur for this one. Seeding an empty string would freeze "no override" into the
+            // plugged slot and make the two states diverge in the one direction nobody asked for.
+            if (string.IsNullOrEmpty(msiFanCurvePlugged)) msiFanCurvePlugged = msiFanCurve;
+        }
+
+        /// <summary>
+        /// Drops the plugged overrides, so one value applies in both states again. Without this a
+        /// profile switched back to "one value" would keep resolving to its old plugged values while
+        /// plugged in — the setting would look off while still behaving as if it were on.
+        ///
+        /// Note which side survives: the base, i.e. the UNPLUGGED values. Turning the split off can
+        /// therefore never change what the handheld does on battery.
+        /// </summary>
+        private void ClearPowerStateOverrides()
+        {
+            tdpPlugged = null;
+            cpuBoostPlugged = null;
+            cpuEppPlugged = null;
+            maxCpuStatePlugged = null;
+            minCpuStatePlugged = null;
+            fpsLimitPlugged = null;
+            osPowerModePlugged = null;
+            tdpBoostEnabledPlugged = null;
+            tdpBoostFPPTWattsPlugged = null;
+            fpsCapModePlugged = null;
+            intelFpsTierPlugged = null;
+            msiFanCurvePlugged = null;
+        }
+
+        /// <summary>
+        /// PL2 Overboost target in watts — an ABSOLUTE PL2 value, not an offset on PL1.
+        ///
+        /// The "additional watts (FPPT = TDP + this value)" this comment used to claim was wrong and
+        /// contradicted both implementations: PerformanceManager.ApplyTDPInternal treats it as the
+        /// absolute FPPT target and clamps it into [PL1 + Pl2MinOffset, MaxPL2] per model (A2VM: +1 /
+        /// 37W, Claw 8 EX: +2 / 45W), and the widget's PL2 slider maxes out at the device's MaxPL2.
+        /// The distinction matters now that the helper owns PL2 — reading it as an offset would be a
+        /// factor error straight into a hardware power limit.
+        ///
+        /// Any value &lt;= 0 means "not set" and resolves to the device default (the minimum burst,
+        /// PL1 + Pl2MinOffset) via that same clamp; the ctor default is 0.
         /// </summary>
         [XmlElement("TDPBoostFPPTWatts")]
         private int tdpBoostFPPTWatts;
@@ -291,120 +471,150 @@ namespace Shared.Data
         // ========== DC (Battery) Overrides ==========
         // When null, the AC value (above) is used. When set, overrides for DC power.
 
-        [XmlElement("TDP_DC")]
-        private int? tdpDC;
-        public int? TDP_DC
+        [XmlElement("TDP_Plugged")]
+        private int? tdpPlugged;
+        public int? TDP_Plugged
         {
-            get { return tdpDC; }
+            get { return tdpPlugged; }
             set
             {
-                if (tdpDC != value)
+                if (tdpPlugged != value)
                 {
-                    tdpDC = value;
+                    tdpPlugged = value;
                     Save();
                 }
             }
         }
 
-        [XmlElement("CPUBoost_DC")]
-        private bool? cpuBoostDC;
-        public bool? CPUBoost_DC
+        [XmlElement("CPUBoost_Plugged")]
+        private bool? cpuBoostPlugged;
+        public bool? CPUBoost_Plugged
         {
-            get { return cpuBoostDC; }
+            get { return cpuBoostPlugged; }
             set
             {
-                if (cpuBoostDC != value)
+                if (cpuBoostPlugged != value)
                 {
-                    cpuBoostDC = value;
+                    cpuBoostPlugged = value;
                     Save();
                 }
             }
         }
 
-        [XmlElement("CPUEPP_DC")]
-        private int? cpuEppDC;
-        public int? CPUEPP_DC
+        [XmlElement("CPUEPP_Plugged")]
+        private int? cpuEppPlugged;
+        public int? CPUEPP_Plugged
         {
-            get { return cpuEppDC; }
+            get { return cpuEppPlugged; }
             set
             {
-                if (cpuEppDC != value)
+                if (cpuEppPlugged != value)
                 {
-                    cpuEppDC = value;
+                    cpuEppPlugged = value;
                     Save();
                 }
             }
         }
 
-        [XmlElement("MaxCPUState_DC")]
-        private int? maxCpuStateDC;
-        public int? MaxCPUState_DC
+        [XmlElement("MaxCPUState_Plugged")]
+        private int? maxCpuStatePlugged;
+        public int? MaxCPUState_Plugged
         {
-            get { return maxCpuStateDC; }
+            get { return maxCpuStatePlugged; }
             set
             {
-                if (maxCpuStateDC != value)
+                if (maxCpuStatePlugged != value)
                 {
-                    maxCpuStateDC = value;
+                    maxCpuStatePlugged = value;
                     Save();
                 }
             }
         }
 
-        [XmlElement("MinCPUState_DC")]
-        private int? minCpuStateDC;
-        public int? MinCPUState_DC
+        [XmlElement("MinCPUState_Plugged")]
+        private int? minCpuStatePlugged;
+        public int? MinCPUState_Plugged
         {
-            get { return minCpuStateDC; }
+            get { return minCpuStatePlugged; }
             set
             {
-                if (minCpuStateDC != value)
+                if (minCpuStatePlugged != value)
                 {
-                    minCpuStateDC = value;
+                    minCpuStatePlugged = value;
                     Save();
                 }
             }
         }
 
-        /// <summary>
-        /// Whether DGP is enabled on AC power for this game.
-        /// null = use default auto behavior (disabled on AC)
-        /// true/false = user preference
-        /// </summary>
-        [XmlElement("DgpEnabledOnAC")]
-        private bool? dgpEnabledOnAC;
-        public bool? DgpEnabledOnAC
+        // The four below were added 2026-08-02. They had no override slot, so with the power-state
+        // split on they still applied one value in both states — reported as "Overboost, PL2 and the
+        // FPS cap follow whatever I set while plugged in". TDPBoost in particular was single-valued by
+        // the #21 rule, which only ever existed because the global profile had no split at all.
+
+        [XmlElement("TDPBoostEnabled_Plugged")]
+        private bool? tdpBoostEnabledPlugged;
+        public bool? TDPBoostEnabled_Plugged
         {
-            get { return dgpEnabledOnAC; }
+            get { return tdpBoostEnabledPlugged; }
             set
             {
-                if (dgpEnabledOnAC != value)
+                if (tdpBoostEnabledPlugged != value)
                 {
-                    dgpEnabledOnAC = value;
+                    tdpBoostEnabledPlugged = value;
                     Save();
                 }
             }
         }
 
-        /// <summary>
-        /// Whether DGP is enabled on DC (battery) power for this game.
-        /// null = use default auto behavior (enabled on DC)
-        /// true/false = user preference
-        /// </summary>
-        [XmlElement("DgpEnabledOnDC")]
-        private bool? dgpEnabledOnDC;
-        public bool? DgpEnabledOnDC
+        [XmlElement("TDPBoostFPPTWatts_Plugged")]
+        private int? tdpBoostFPPTWattsPlugged;
+        public int? TDPBoostFPPTWatts_Plugged
         {
-            get { return dgpEnabledOnDC; }
+            get { return tdpBoostFPPTWattsPlugged; }
             set
             {
-                if (dgpEnabledOnDC != value)
+                if (tdpBoostFPPTWattsPlugged != value)
                 {
-                    dgpEnabledOnDC = value;
+                    tdpBoostFPPTWattsPlugged = value;
                     Save();
                 }
             }
         }
+
+        [XmlElement("FpsCapMode_Plugged")]
+        private int? fpsCapModePlugged;
+        public int? FpsCapMode_Plugged
+        {
+            get { return fpsCapModePlugged; }
+            set
+            {
+                if (fpsCapModePlugged != value)
+                {
+                    fpsCapModePlugged = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("IntelFpsTier_Plugged")]
+        private int? intelFpsTierPlugged;
+        public int? IntelFpsTier_Plugged
+        {
+            get { return intelFpsTierPlugged; }
+            set
+            {
+                if (intelFpsTierPlugged != value)
+                {
+                    intelFpsTierPlugged = value;
+                    Save();
+                }
+            }
+        }
+
+        // DgpEnabledOnAC / DgpEnabledOnDC removed 2026-08-02 with the Default Game Profiles feature.
+        // Existing profile files still carry the two elements; XmlSerializer ignores unknown elements,
+        // so they are simply dropped the next time a profile is saved. Nothing to migrate — they only
+        // ever held a per-game on/off preference for a feature that no longer exists.
 
         // ========== Additional Profile Settings ==========
 
@@ -459,166 +669,97 @@ namespace Shared.Data
             }
         }
 
-        [XmlElement("FPSLimit_DC")]
-        private int? fpsLimitDC;
-        public int? FPSLimit_DC
+        [XmlElement("FPSLimit_Plugged")]
+        private int? fpsLimitPlugged;
+        public int? FPSLimit_Plugged
         {
-            get { return fpsLimitDC; }
+            get { return fpsLimitPlugged; }
             set
             {
-                if (fpsLimitDC != value)
+                if (fpsLimitPlugged != value)
                 {
-                    fpsLimitDC = value;
+                    fpsLimitPlugged = value;
                     Save();
                 }
             }
         }
 
-        [XmlElement("AutoTDPEnabled")]
-        private bool autoTDPEnabled;
-        public bool AutoTDPEnabled
-        {
-            get { return autoTDPEnabled; }
-            set
-            {
-                if (autoTDPEnabled != value)
-                {
-                    autoTDPEnabled = value;
-                    Save();
-                }
-            }
-        }
+        // ---------------------------------------------------------------------------------------
+        // Effective-value resolution for the eleven fields that have a power-state override.
+        //
+        // THE BASE VALUE IS THE UNPLUGGED ONE; the override is the plugged-in one. The rule is always
+        // "plugged override if set, otherwise the base (unplugged) value", and it lives HERE rather
+        // than at each reader. It used to be open-coded wherever someone needed it (e.g.
+        // Sidebar/ProfilesTab.cs), which means every new reader re-decides the semantics and the
+        // widget's cards could disagree with what the helper actually applies. Both sides call these.
+        //
+        // The direction was reversed on 2026-08-02 and this is the single most important property of
+        // the whole feature: on a handheld the battery state is the product, so an override that was
+        // never filled — because the user never enabled the split, because a seeding pass missed it, or
+        // because the field was added in a later build — resolves to the value the user configured, and
+        // the battery side simply cannot be moved by anything that happens while plugged in. Under the
+        // previous direction (base = plugged) an empty slot meant battery READ the mains value, so every
+        // edit made on mains silently redefined battery behaviour. Do not turn this around again.
+        //
+        // Only these twelve carry an override (the eleven below plus OSPowerMode and MsiFanCurve further
+        // down, which sit next to their own fields); every other group-A/B field is power-source
+        // independent, so its stored value IS its effective value and no resolver exists on purpose.
+        //
+        // WHEN A THIRTEENTH IS ADDED, MOVE EVERY READER WITH IT. A partial switch to Effective* is more
+        // dangerous than none at all: the AC/DC handler resolves correctly, so the result looks right for
+        // a moment, and only a later re-apply from some other trigger reveals the raw read. That is
+        // exactly how the 0.1.8.114 case behaved (see CLAUDE.md).
+        // ---------------------------------------------------------------------------------------
 
-        [XmlElement("AutoTDPEnabled_DC")]
-        private bool? autoTDPEnabledDC;
-        public bool? AutoTDPEnabled_DC
-        {
-            get { return autoTDPEnabledDC; }
-            set
-            {
-                if (autoTDPEnabledDC != value)
-                {
-                    autoTDPEnabledDC = value;
-                    Save();
-                }
-            }
-        }
+        /// <summary>Effective TDP in watts for the given power source.</summary>
+        public int EffectiveTDP(bool onBattery) => onBattery ? TDP : (TDP_Plugged ?? TDP);
 
-        [XmlElement("AutoTDPTargetFPS")]
-        private int autoTDPTargetFPS;
-        public int AutoTDPTargetFPS
-        {
-            get { return autoTDPTargetFPS; }
-            set
-            {
-                if (autoTDPTargetFPS != value)
-                {
-                    autoTDPTargetFPS = value;
-                    Save();
-                }
-            }
-        }
+        /// <summary>Effective CPU-boost state for the given power source.</summary>
+        public bool EffectiveCPUBoost(bool onBattery) => onBattery ? CPUBoost : (CPUBoost_Plugged ?? CPUBoost);
 
-        [XmlElement("AutoTDPTargetFPS_DC")]
-        private int? autoTDPTargetFPSDC;
-        public int? AutoTDPTargetFPS_DC
-        {
-            get { return autoTDPTargetFPSDC; }
-            set
-            {
-                if (autoTDPTargetFPSDC != value)
-                {
-                    autoTDPTargetFPSDC = value;
-                    Save();
-                }
-            }
-        }
+        /// <summary>Effective CPU EPP for the given power source.</summary>
+        public int EffectiveCPUEPP(bool onBattery) => onBattery ? CPUEPP : (CPUEPP_Plugged ?? CPUEPP);
 
-        [XmlElement("AutoTDPMinTDP")]
-        private int autoTDPMinTDP;
-        public int AutoTDPMinTDP
-        {
-            get { return autoTDPMinTDP; }
-            set
-            {
-                if (autoTDPMinTDP != value)
-                {
-                    autoTDPMinTDP = value;
-                    Save();
-                }
-            }
-        }
+        /// <summary>Effective maximum CPU state (%) for the given power source.</summary>
+        public int EffectiveMaxCPUState(bool onBattery) => onBattery ? MaxCPUState : (MaxCPUState_Plugged ?? MaxCPUState);
 
-        [XmlElement("AutoTDPMaxTDP")]
-        private int autoTDPMaxTDP;
-        public int AutoTDPMaxTDP
-        {
-            get { return autoTDPMaxTDP; }
-            set
-            {
-                if (autoTDPMaxTDP != value)
-                {
-                    autoTDPMaxTDP = value;
-                    Save();
-                }
-            }
-        }
+        /// <summary>Effective minimum CPU state (%) for the given power source.</summary>
+        public int EffectiveMinCPUState(bool onBattery) => onBattery ? MinCPUState : (MinCPUState_Plugged ?? MinCPUState);
 
-        /// <summary>
-        /// DEPRECATED: Use AutoTDPControllerType instead.
-        /// Kept for backwards compatibility during migration.
-        /// </summary>
-        [XmlElement("AutoTDPUseMLMode")]
-        private bool autoTDPUseMLMode;
-        public bool AutoTDPUseMLMode
-        {
-            get { return autoTDPUseMLMode; }
-            set
-            {
-                if (autoTDPUseMLMode != value)
-                {
-                    autoTDPUseMLMode = value;
-                    Save();
-                }
-            }
-        }
+        /// <summary>Effective RTSS FPS limit for the given power source.</summary>
+        public int EffectiveFPSLimit(bool onBattery) => onBattery ? FPSLimit : (FPSLimit_Plugged ?? FPSLimit);
 
-        [XmlElement("AutoTDPPauseWhenUnfocused")]
-        private bool autoTDPPauseWhenUnfocused;
-        public bool AutoTDPPauseWhenUnfocused
-        {
-            get { return autoTDPPauseWhenUnfocused; }
-            set
-            {
-                if (autoTDPPauseWhenUnfocused != value)
-                {
-                    autoTDPPauseWhenUnfocused = value;
-                    Save();
-                }
-            }
-        }
+        /// <summary>Effective PL2 Overboost state for the given power source.</summary>
+        public bool EffectiveTDPBoostEnabled(bool onBattery) => onBattery ? TDPBoostEnabled : (TDPBoostEnabled_Plugged ?? TDPBoostEnabled);
 
-        /// <summary>
-        /// AutoTDP controller type: 0=PID, 1=Q-Learning, 2=SARSA
-        /// </summary>
-        [XmlElement("AutoTDPControllerType")]
-        private int autoTDPControllerType;
-        public int AutoTDPControllerType
-        {
-            get { return autoTDPControllerType; }
-            set
-            {
-                if (autoTDPControllerType != value)
-                {
-                    autoTDPControllerType = value;
-                    Save();
-                }
-            }
-        }
+        /// <summary>Effective absolute PL2 target in watts for the given power source.</summary>
+        public int EffectiveTDPBoostFPPTWatts(bool onBattery) => onBattery ? TDPBoostFPPTWatts : (TDPBoostFPPTWatts_Plugged ?? TDPBoostFPPTWatts);
 
+        /// <summary>Effective FPS cap mode (0=RTSS, 1=Intel) for the given power source.</summary>
+        public int EffectiveFpsCapMode(bool onBattery) => onBattery ? FpsCapMode : (FpsCapMode_Plugged ?? FpsCapMode);
+
+        /// <summary>Effective Intel cap in fps for the given power source (0 = off).</summary>
+        public int EffectiveIntelFpsTier(bool onBattery) => onBattery ? IntelFpsTier : (IntelFpsTier_Plugged ?? IntelFpsTier);
+
+        // AutoTDP (AutoTDPEnabled/_DC, AutoTDPTargetFPS/_DC, AutoTDPMinTDP, AutoTDPMaxTDP,
+        // AutoTDPUseMLMode, AutoTDPPauseWhenUnfocused, AutoTDPControllerType) was REMOVED here.
+        // Inherited from the GoTweaks origin project, disconnected in the product and explicitly not
+        // wanted back (user decision 2026-07-31; see Doku/PLAN_Performance_SingleStore.md §3 group D
+        // and the no-software-autotdp note). XmlSerializer ignores unknown elements, so existing
+        // profile files keep loading — the stale elements simply disappear on the next write.
+        // NOT to be confused with TDPBoostEnabled / TDPBoostFPPTWatts above: PL2 Overboost is a live
+        // feature owned by the helper and stays.
+
+        // Windows power-mode overlay: 0 = Best Power Efficiency, 1 = Balanced, 2 = Best Performance.
+        // null = not configured, so a profile that never set one does not drag the OS mode around.
+        //
+        // This was a `string` that NOTHING in the helper ever wrote or applied — it did not appear in a
+        // single real profile file, so there is no legacy data to migrate and the type change is safe.
+        // The runtime property (PowerManager.OSPowerMode) has always been an int and always worked;
+        // only the per-profile half was missing, which is why the mode never followed a game.
         [XmlElement("OSPowerMode")]
-        private string osPowerMode;
-        public string OSPowerMode
+        private int? osPowerMode;
+        public int? OSPowerMode
         {
             get { return osPowerMode; }
             set
@@ -631,20 +772,78 @@ namespace Shared.Data
             }
         }
 
-        [XmlElement("OSPowerMode_DC")]
-        private string osPowerModeDC;
-        public string OSPowerMode_DC
+        [XmlElement("OSPowerMode_Plugged")]
+        private int? osPowerModePlugged;
+        public int? OSPowerMode_Plugged
         {
-            get { return osPowerModeDC; }
+            get { return osPowerModePlugged; }
             set
             {
-                if (osPowerModeDC != value)
+                if (osPowerModePlugged != value)
                 {
-                    osPowerModeDC = value;
+                    osPowerModePlugged = value;
                     Save();
                 }
             }
         }
+
+        /// <summary>Plugged override if set, else the base (unplugged) value. Mirrors the other Effective* resolvers.</summary>
+        public int? EffectiveOSPowerMode(bool onBattery) => onBattery ? OSPowerMode : (OSPowerMode_Plugged ?? OSPowerMode);
+
+        // MSI Claw custom fan curve, "sync|cpuD0..D5|gpuD0..D5" (raw EC duties, the same wire format the
+        // fan editor and MsiClawFanController.ApplyMsiCurve6 already speak).
+        //
+        // EMPTY MEANS "NO OVERRIDE", and that distinction is the whole reason only the curve is stored and
+        // not a preset index. The previous attempt stored a preset, where 0 = "MSI Default" was
+        // indistinguishable from "nothing captured" — so every game without a fan setting wrote the factory
+        // curve over the user's global one. A profile that never got a curve must leave the fan alone.
+        //
+        // The GLOBAL curve deliberately does NOT live here; it stays in the helper's LocalSettings
+        // (MsiFan_Curve3), which is what the boot and resume restore paths read. This field is the per-game
+        // override on top of it (user decision 2026-08-02, Doku/PLAN_Fan_PerGame_Curves.md §6).
+        [XmlElement("MsiFanCurve")]
+        private string msiFanCurve;
+        public string MsiFanCurve
+        {
+            get { return msiFanCurve; }
+            set
+            {
+                if (msiFanCurve != value)
+                {
+                    msiFanCurve = value;
+                    Save();
+                }
+            }
+        }
+
+        [XmlElement("MsiFanCurve_Plugged")]
+        private string msiFanCurvePlugged;
+        public string MsiFanCurve_Plugged
+        {
+            get { return msiFanCurvePlugged; }
+            set
+            {
+                if (msiFanCurvePlugged != value)
+                {
+                    msiFanCurvePlugged = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Plugged override if set, else the base (unplugged) curve. The twelfth split-capable field —
+        /// same direction as all the others: the base slot is the UNPLUGGED one.
+        ///
+        /// Tests for empty rather than null because an unset string slot can arrive either way (a profile
+        /// written before this field existed has no element at all; one saved with the split on and nothing
+        /// entered yet has an empty one). Both mean "inherit", and an empty string reaching the fan
+        /// controller would parse to no curve at all.
+        /// </summary>
+        public string EffectiveMsiFanCurve(bool onBattery)
+            => onBattery
+                ? MsiFanCurve
+                : (string.IsNullOrEmpty(MsiFanCurve_Plugged) ? MsiFanCurve : MsiFanCurve_Plugged);
 
         [XmlElement("HDREnabled")]
         private bool hdrEnabled;
@@ -691,20 +890,7 @@ namespace Shared.Data
             }
         }
 
-        [XmlElement("StickyTDP")]
-        private bool stickyTDP;
-        public bool StickyTDP
-        {
-            get { return stickyTDP; }
-            set
-            {
-                if (stickyTDP != value)
-                {
-                    stickyTDP = value;
-                    Save();
-                }
-            }
-        }
+        // StickyTDP was REMOVED here — same GoTweaks legacy as AutoTDP above, same user decision.
 
         /// <summary>
         /// Performance overlay level (0=Off, 1=Basic, 2=Detailed, 3=Full for RTSS; 1-4 for AMD)
@@ -719,6 +905,48 @@ namespace Shared.Data
                 if (overlayLevel != value)
                 {
                     overlayLevel = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Which renderer draws the overlay for this game: 0 = RTSS, 1 = the built-in one.
+        ///
+        /// Deliberately NOT split by power source, unlike TDP and the FPS cap. Those are about how much
+        /// power a game may have, which is exactly what changes when the cable comes out; which
+        /// renderer draws a text box is not. Two more slots here would be two more places to forget in
+        /// the Effective* sweep for no behaviour anyone asked for.
+        /// </summary>
+        [XmlElement("OsdType")]
+        private int? osdType;
+        public int? OsdType
+        {
+            get { return osdType; }
+            set
+            {
+                if (osdType != value)
+                {
+                    osdType = value;
+                    Save();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Where the built-in overlay sits for this game: MSI's six anchor points, 1..6.
+        /// Ignored while RTSS is the renderer - RTSS keeps its own position setting.
+        /// </summary>
+        [XmlElement("OsdPosition")]
+        private int? osdPosition;
+        public int? OsdPosition
+        {
+            get { return osdPosition; }
+            set
+            {
+                if (osdPosition != value)
+                {
+                    osdPosition = value;
                     Save();
                 }
             }
@@ -1016,6 +1244,11 @@ namespace Shared.Data
             }
         }
 
+        // NOTE: the per-game gyro tuning added 2026-08-03 (anti-deadzone, hold-boost button/factor)
+        // deliberately has NO field here. It lives only in the widget's controller-profile container,
+        // like smoothing and the stick deadzones — see Program.LegionControllerHandlers. A second copy
+        // in this XML would be a second truth for the same value, which is how the profile-save bug of
+        // 0.1.8.65 happened.
         [XmlElement("LegionLeftStickDeadzone")]
         private int? legionLeftStickDeadzone;
         public int? LegionLeftStickDeadzone
@@ -1355,6 +1588,19 @@ namespace Shared.Data
             set { cache = value; }
         }
 
+        /// <summary>
+        /// For XmlSerializer only — it constructs the instance and then assigns whatever elements the
+        /// file contains. DELIBERATELY EMPTY: it must leave every field at its default(T), exactly the
+        /// blank slate a struct gave the serializer before §5.1. Seeding the "unset" sentinels here
+        /// (ProcessorSchedulingPolicy = -1, …) would silently change how OLD profile files load: an
+        /// element absent from the file would come back as the sentinel instead of 0, i.e. "unset"
+        /// instead of "Auto". The sentinels belong in the real ctor below, which is what new profiles
+        /// go through.
+        /// </summary>
+        public GameProfile()
+        {
+        }
+
         public GameProfile(string gameName, string gamePath, bool inUse, int inTDP, bool inCPUBoost, int inCPUEPP, int inMaxCPUState, int inMinCPUState, bool inTDPBoostEnabled, string inPath, IDictionary<GameId, GameProfile> inCache)
         {
             GameId = new GameId(gameName, gamePath);
@@ -1381,40 +1627,29 @@ namespace Shared.Data
             // Intel gaming 3D features: null = not configured.
             intelLowLatency = null;
             intelFrameSync = null;
-            // DC overrides (null = use AC value)
-            tdpDC = null;
-            cpuBoostDC = null;
-            cpuEppDC = null;
-            maxCpuStateDC = null;
-            minCpuStateDC = null;
-            // DGP preferences
-            dgpEnabledOnAC = null;
-            dgpEnabledOnDC = null;
+            // Plugged-in overrides (null = inherit the base, i.e. the unplugged value)
+            tdpPlugged = null;
+            cpuBoostPlugged = null;
+            cpuEppPlugged = null;
+            maxCpuStatePlugged = null;
+            minCpuStatePlugged = null;
             // Intel FPS Tier and cap mode (global/per-game)
             intelFpsTier = 0;
             fpsCapMode   = 0;
             // Additional profile settings (AC)
             fpsLimit = 0;
-            autoTDPEnabled = false;
-            autoTDPTargetFPS = 60;
-            autoTDPMinTDP = 8;
-            autoTDPMaxTDP = 30;
-            autoTDPUseMLMode = false;
-            autoTDPPauseWhenUnfocused = true; // Default: pause when game not focused
-            autoTDPControllerType = 0; // PID by default
             osPowerMode = null;
             // Additional profile settings (DC overrides)
-            fpsLimitDC = null;
-            autoTDPEnabledDC = null;
-            autoTDPTargetFPSDC = null;
-            osPowerModeDC = null;
+            fpsLimitPlugged = null;
+            osPowerModePlugged = null;
             // Display settings (shared AC/DC)
             hdrEnabled = false;
             resolution = null;
             refreshRate = null;
-            stickyTDP = false;
             // Overlay and CPU affinity
             overlayLevel = null;
+            osdType = null;
+            osdPosition = null;
             cpuAffinity = null;
             // Legion controller remapping (shared AC/DC)
             legionButtonY1 = null;
@@ -1466,8 +1701,16 @@ namespace Shared.Data
             return GameId.IsValid();
         }
 
+        /// <summary>
+        /// Identity is the GameId alone — two instances describing the same game are "equal" no matter
+        /// what values they carry. That was true as a struct and stays true; only the null handling is
+        /// new, and it must be here: without it every <c>profile == null</c> in the codebase would
+        /// recurse into a NullReferenceException on GameId.
+        /// </summary>
         public static bool operator ==(GameProfile g1, GameProfile g2)
         {
+            if (ReferenceEquals(g1, g2)) return true;
+            if (ReferenceEquals(g1, null) || ReferenceEquals(g2, null)) return false;
             return g1.GameId == g2.GameId;
         }
 
@@ -1502,12 +1745,30 @@ namespace Shared.Data
         /// full XML to disk each time is wasteful. We instead update the cache synchronously
         /// (so reads are always consistent) and schedule the disk write after a short delay,
         /// collapsing bursts of changes into a single write.
+        ///
+        /// Since §5.1 the queued entry is a REFERENCE to the live profile, not a snapshot copy, so the
+        /// deferred write always serializes the newest state — a field changed during the debounce
+        /// window can no longer be written stale by an earlier queued copy.
         /// </summary>
         private const int SaveDebounceMs = 250;
         private static readonly ConcurrentDictionary<string, GameProfile> PendingWrites
             = new ConcurrentDictionary<string, GameProfile>(System.StringComparer.OrdinalIgnoreCase);
         private static readonly ConcurrentDictionary<string, Timer> PendingTimers
             = new ConcurrentDictionary<string, Timer>(System.StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Raised after ANY profile save has updated the in-memory state. The single invalidation point
+        /// for the helper's ProfileSnapshot (plan §5.3): every setter of this type ends in Save(), so
+        /// subscribing here catches every value change without the callers having to remember anything.
+        /// Notifying from the individual call sites is what this design deliberately avoids — the first
+        /// forgotten call site is the next "two truths" bug.
+        ///
+        /// Fires on the caller's thread, before the debounced disk write, and describes the IN-MEMORY
+        /// state (which Save() has already updated). Subscribers must therefore be cheap and must not
+        /// throw; treat it as "mark dirty", not "do work". Deliberately static: GameProfile lives in
+        /// Shared and must not know about the helper's property system.
+        /// </summary>
+        public static event Action<GameProfile> Saved;
 
         public void Save()
         {
@@ -1519,6 +1780,10 @@ namespace Shared.Data
                     cache[GameId] = this;
                 }
             }
+
+            // Announce BEFORE the early return below: a profile without a Path still changed in memory,
+            // and the snapshot mirrors memory, not the disk.
+            try { Saved?.Invoke(this); } catch { /* a broken subscriber must never break a save */ }
 
             if (string.IsNullOrEmpty(Path))
             {
@@ -1555,6 +1820,22 @@ namespace Shared.Data
             lock (ProfileLock)
             {
                 XmlHelper.ToXMLFile(profile, path);
+            }
+        }
+
+        /// <summary>
+        /// Copies the entries of a profile cache under the SAME lock <see cref="Save"/> uses to write
+        /// into it. Reading such a dictionary without this lock races the cache update in Save() and
+        /// throws "collection was modified" at unpredictable moments — which is why the lock stays
+        /// private and callers get this instead of direct enumeration.
+        /// </summary>
+        public static List<GameProfile> SnapshotCache(IDictionary<GameId, GameProfile> cache)
+        {
+            if (cache == null) return new List<GameProfile>();
+
+            lock (ProfileLock)
+            {
+                return new List<GameProfile>(cache.Values);
             }
         }
 

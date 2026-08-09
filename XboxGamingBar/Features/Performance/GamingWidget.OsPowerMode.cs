@@ -92,7 +92,7 @@ namespace XboxGamingBar
                 if (!isInitialSync && !isApplyingHelperUpdate && !isLoadingProfile && SaveOSPowerMode)
                 {
                     Logger.Info($"Saving OS Power Mode change to profile: {currentProfileName}");
-                    SaveCurrentSettingsToProfile(currentProfileName);
+                    SaveWidgetUiStateToProfile(currentProfileName);
                 }
             }
         }

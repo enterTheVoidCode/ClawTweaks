@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -64,10 +64,6 @@ namespace XboxGamingBar
             PerGameProfileToggle.GotFocus += Control_GotFocus;
             PerGameProfileToggle.LostFocus += Control_LostFocus;
 
-            // Performance tab - Default Game Profile card
-            DefaultProfileToggle.GotFocus += Control_GotFocus;
-            DefaultProfileToggle.LostFocus += Control_LostFocus;
-
             // Performance tab - Performance Overlay card
             PerformanceOverlayComboBox.GotFocus += Control_GotFocus;
             PerformanceOverlayComboBox.LostFocus += Control_LostFocus;
@@ -79,12 +75,6 @@ namespace XboxGamingBar
             // Performance tab - TDP card
             TDPSlider.GotFocus += Control_GotFocus;
             TDPSlider.LostFocus += Control_LostFocus;
-
-            // Performance tab - AutoTDP card
-            AutoTDPToggle.GotFocus += Control_GotFocus;
-            AutoTDPToggle.LostFocus += Control_LostFocus;
-            AutoTDPTargetFPSSlider.GotFocus += Control_GotFocus;
-            AutoTDPTargetFPSSlider.LostFocus += Control_LostFocus;
 
             // Performance tab - CPU Boost card
             CPUBoostToggle.GotFocus += Control_GotFocus;
@@ -171,12 +161,6 @@ namespace XboxGamingBar
             ProfileSaveCPUEPPCheckBox.GotFocus += StandaloneControl_GotFocus;
             ProfileSaveCPUStateCheckBox.GotFocus += StandaloneControl_GotFocus;
             ProfileSaveAMDFeaturesCheckBox.GotFocus += StandaloneControl_GotFocus;
-
-            // System tab - Sticky TDP card
-            StickyTDPToggle.GotFocus += Control_GotFocus;
-            StickyTDPToggle.LostFocus += Control_LostFocus;
-            StickyTDPIntervalSlider.GotFocus += Control_GotFocus;
-            StickyTDPIntervalSlider.LostFocus += Control_LostFocus;
 
             // System tab - TDP Method card
             TdpMethodComboBox.GotFocus += Control_GotFocus;

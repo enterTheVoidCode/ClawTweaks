@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -52,13 +52,6 @@ namespace XboxGamingBar
         {
             try
             {
-                // Skip when Default Game Profile is active - DGP controls TDP, not the profile
-                if (defaultGameProfileEnabled?.Value == true)
-                {
-                    Logger.Info("Skipping ApplyProfileTDPToHelper - Default Game Profile is active");
-                    return;
-                }
-
                 var profile = GetProfile(currentProfileName);
                 if (profile == null)
                 {
@@ -140,7 +133,10 @@ namespace XboxGamingBar
 
                     if (tdp != null && isCustomMode)
                     {
-                        int targetTDP = (int)profile.TDP;
+                        // The helper's own value, not the widget's profile copy (plan §5.4): both
+                        // branches below only LOG, and logging a number this widget no longer owns
+                        // would report a value nobody is about to set.
+                        int targetTDP = (int)Math.Round((double)(tdp.Value));
 
                         // GLOBAL profile: the helper is the single source of truth for the global TDP.
                         // It persists the value, applies it at startup, and syncs it DOWN to this slider
@@ -156,21 +152,15 @@ namespace XboxGamingBar
                         }
                         else
                         {
-                            Logger.Info($"Applying profile TDP to helper: {targetTDP}W (profile: {currentProfileName})");
-
-                            // Invalidate cached value first to force send even if values match
-                            // This is needed because profile was loaded before connection, so the cached
-                            // value matches but was never sent to hardware
-                            tdp.SetValueSilent(-1);
-                            tdp.SetValue(targetTDP, DateTime.Now.Ticks);
+                            // The per-game push that used to live here is gone too. The helper applies a
+                            // running game's TDP itself in RunningGame_PropertyChanged via
+                            // TDP.SetProfileValue (field-verified), so by the time the widget connects
+                            // the hardware already carries the per-game value — and pushing again from
+                            // a widget whose store may be stale is the same hazard the global branch
+                            // above already refuses to take.
+                            Logger.Info($"Skipping connect-time per-game TDP push ({targetTDP}W) - helper applies the running game's profile itself (profile: {currentProfileName})");
                         }
 
-                        // Update Sticky TDP target if enabled
-                        if (StickyTDPToggle?.IsOn == true)
-                        {
-                            targetTDPLimit = profile.TDP;
-                            Logger.Info($"Sticky TDP target set to: {targetTDPLimit}W");
-                        }
                     }
                     else if (tdp != null && !isCustomMode)
                     {
@@ -621,6 +611,14 @@ namespace XboxGamingBar
                 Logger.Info($"Skipping launch ({reason}) - too soon since last attempt ({timeSinceLastLaunch:F0}ms)");
                 // Show reconnecting banner since we're rate-limited but trying to connect
                 ShowConnectionBanner(BannerState.Reconnecting);
+
+                // Rate-limited on LAUNCHING a helper — which is about UAC and process starts, not about
+                // connecting to one that is already up. This branch used to return here and drop the
+                // request entirely, so a disconnect arriving inside the interval produced no reconnect
+                // at all (measured 2026-08-02: "too soon since last attempt (420ms)", and the widget
+                // never asked again). Connecting is cheap and the single-loop guard makes it safe.
+                _ = TryConnectPipeAsync();
+                StartReconnectionTimeoutTimer();
                 return false;
             }
 

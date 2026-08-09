@@ -712,7 +712,7 @@ namespace XboxGamingBar
 
             // Save the profile so future game→global transitions restore the correct mode
             Logger.Info($"SyncTDPModeToCurrentTDP: saving profile '{currentProfileName}' (TDP={helperTDP}W, modeIndex={matchedIndex})");
-            SaveCurrentSettingsToProfile(currentProfileName);
+            SaveWidgetUiStateToProfile(currentProfileName);
         }
 
     }

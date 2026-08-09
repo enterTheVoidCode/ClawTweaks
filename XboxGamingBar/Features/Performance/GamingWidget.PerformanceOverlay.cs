@@ -97,18 +97,20 @@ namespace XboxGamingBar
 
         private void TDPSlider_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            // Slider swallows arrow keys, so Up/Down are normally handled by PreviewKeyDown.
-            // These remain as a fallback (e.g. focus arrived without the slider grabbing keys).
             // Up → FPS On/Off toggle (spine pos 1), Down → TDP Boost toggle.
+            //
+            // The key is only marked handled when focus ACTUALLY moved. It used to be marked handled
+            // unconditionally, so a target that refused focus — a ToggleSwitch can, and a disabled one
+            // always does — left the press with nowhere to go, and the D-pad appeared to jump to the
+            // top of the tab instead of stepping one row up. Leaving it unhandled hands the press back
+            // to the XYFocus chain, which names the same targets.
             if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
-                FPSStateCycleButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                e.Handled = true;
+                e.Handled = TryFocusControl(FPSStateCycleButton);
             }
             else if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
-                TDPBoostToggle?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
-                e.Handled = true;
+                e.Handled = TryFocusControl(TDPBoostToggle);
             }
         }
 
@@ -292,6 +294,8 @@ namespace XboxGamingBar
                     else // RTSS
                     {
                         PerformanceOverlaySlider.Value = index;
+                        // Keep the item editor pointed at the preset that is now on screen.
+                        SyncOsdCustomizeLevelToActiveOverlay();
                     }
                     // Save the setting (but not during initial load)
                     if (!isLoadingPerformanceOverlaySetting)
@@ -332,12 +336,12 @@ namespace XboxGamingBar
                 }
                 else
                 {
-                    // No saved value (fresh install / factory reset) — default to H. Detailed (index 3).
+                    // No saved value (fresh install / factory reset) — default to Horizontal Custom (index 3).
                     // The helper persists OSD level independently and defaults to the same value,
                     // so this keeps the UI in sync with what's actually active in the overlay.
                     level = 3;
                     settings.Values["PerformanceOverlayLevel"] = level;
-                    Logger.Info($"No saved PerformanceOverlayLevel — defaulting to H. Detailed (level {level})");
+                    Logger.Info($"No saved PerformanceOverlayLevel — defaulting to Horizontal Custom (level {level})");
                 }
 
                 PerformanceOverlayComboBox.SelectedIndex = level;

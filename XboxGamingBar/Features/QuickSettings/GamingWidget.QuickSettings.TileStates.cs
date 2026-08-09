@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -98,13 +98,6 @@ namespace XboxGamingBar
                 for (int c = colIndex; c < colIndex + span && c < qsColumnCount; c++)
                     thisRowByCol[c] = tileButton;
 
-                // Media tile: point the top (brightness) slider's up-focus at the tile directly above.
-                if (tile.ActionType == TileActionType.MediaSliders && _mediaBrightnessSlider != null
-                    && colIndex < aboveByCol.Length && aboveByCol[colIndex] != null)
-                {
-                    _mediaBrightnessSlider.XYFocusUp = aboveByCol[colIndex];
-                }
-
                 colIndex += span;
                 if (colIndex >= qsColumnCount)
                 {
@@ -112,11 +105,121 @@ namespace XboxGamingBar
                 }
             }
 
+            _firstQuickTile = QuickSettingsTilesContainer.Children.Count > 0
+                ? (QuickSettingsTilesContainer.Children[0] as Grid)?.Children.FirstOrDefault() as FrameworkElement
+                : null;
+            WireMediaRailFocus(_firstQuickTile);
+
             // Apply the global glass-effect state to the freshly built tiles. The per-button
             // Loaded handler is unreliable for runtime rebuilds (when the Quick tab is collapsed
             // the template parts aren't realised yet, so Loaded no-ops and the tiles keep the
             // template default = glass visible). Re-applying after layout fixes both directions.
             ApplyGlassEffectToTilesDeferred();
+        }
+
+        /// <summary>
+        /// Ties the fixed media rail into the D-pad chain: coming DOWN from the tab bar lands on the
+        /// first tile, never on the rail.
+        ///
+        /// Without this the rail won by geometry — it is the leftmost thing under the tabs, so XY focus
+        /// picked it, and every trip into the tile view started on the brightness slider. The rail is
+        /// reached SIDEWAYS instead (left off the first tile), which is where it is on screen and how
+        /// people describe it. Re-run on every rebuild because the first tile changes with the column
+        /// count and with which tiles are visible.
+        /// </summary>
+        // The tile the D-pad should land on when entering the Quick tab from the nav bar. Held as a
+        // field because FocusFirstTabContentElement focuses EXPLICITLY rather than navigating, so an
+        // XYFocusDown on the nav item never gets a say there.
+        internal FrameworkElement _firstQuickTile;
+
+        // The per-key diagnostics that lived here are gone. They did their job: they proved the D-pad
+        // arrives as plain VirtualKey.Up/Down (not GamepadDPad*), that A arrives as Space, and that the
+        // interception was in our own page-level handler rather than in the Slider. Keeping a 1-per-key
+        // log line for a settled question is noise in every future report. The rules they established
+        // are written down in the memory file widget-dpad-spine-slider-rules, and the two lines that
+        // still earn their place are in GamingWidget.Navigation.cs: [SpineUp] when a slider finds
+        // nothing above it, and [XYFocus] when a target turns out to be Collapsed.
+
+        /// <summary>
+        /// Marks a tile available or unavailable. An unavailable tile stays FOCUSABLE — the D-pad has
+        /// to be able to reach it and read the reason off its state text — and is only dimmed; the
+        /// click path refuses to fire it (see QuickSettingsTile_Click).
+        ///
+        /// Never set TileButton.IsEnabled = false for this. A disabled Button leaves XY focus
+        /// entirely, which takes out the entry anchor and any XYFocus target pointing at it — the
+        /// measured cause of "D-pad Down lands on the brightness slider" and "right out of the rail
+        /// is stuck" on the hardware controller. Details on TileDefinition.IsActionable.
+        /// </summary>
+        private void SetTileActionable(TileDefinition tile, bool actionable)
+        {
+            if (tile == null) return;
+            tile.IsActionable = actionable;
+
+            // Deliberately forced back to true: this is the property that must never carry the
+            // "unavailable" state, and older builds may have left it false on a reused definition.
+            if (tile.TileButton != null) tile.TileButton.IsEnabled = true;
+
+            // Icon and label dim; the state text does not — it is the part that explains WHY the tile
+            // is off, and unreadable grey is exactly what that explanation must not be.
+            if (tile.IconElement != null) tile.IconElement.Opacity = actionable ? 1.0 : 0.4;
+            if (tile.NameText != null) tile.NameText.Opacity = actionable ? 1.0 : 0.5;
+        }
+
+        private bool _spineFocusWired;
+
+        private void WirePerformanceSpineFocus()
+        {
+            if (_spineFocusWired) return;
+            _spineFocusWired = true;
+            try
+            {
+                if (TDPSlider != null && FPSStateCycleButton != null)
+                {
+                    TDPSlider.XYFocusUp = FPSStateCycleButton;
+                    TDPSlider.XYFocusDown = TDPBoostToggle;
+                }
+                if (FPSLimitSlider != null && FPSStateCycleButton != null)
+                    FPSLimitSlider.XYFocusRight = FPSModeToggle ?? (DependencyObject)FPSStateCycleButton;
+
+                Logger.Info($"[Spine] TDPSlider.XYFocusUp={(TDPSlider?.XYFocusUp as FrameworkElement)?.Name ?? "null"}, " +
+                            $"XYFocusDown={(TDPSlider?.XYFocusDown as FrameworkElement)?.Name ?? "null"}, " +
+                            $"FPSStateCycleButton.IsEnabled={FPSStateCycleButton?.IsEnabled}");
+            }
+            catch (Exception ex) { Logger.Warn($"WirePerformanceSpineFocus: {ex.Message}"); }
+        }
+
+        private void WireMediaRailFocus(FrameworkElement firstTile)
+        {
+            try
+            {
+                WirePerformanceSpineFocus();
+
+                if (QuickNavItem != null && firstTile != null)
+                    QuickNavItem.XYFocusDown = firstTile;
+
+                // XYFocusLeft/Right live on Control, not FrameworkElement — the tiles are Buttons, so
+                // the cast holds, but it has to be spelled out.
+                if (firstTile is Control firstTileControl && RailBrightnessSlider != null)
+                    firstTileControl.XYFocusLeft = RailBrightnessSlider;
+
+                // Out of the rail to the right, back into the grid. Each control names the same target
+                // so leaving is one press from anywhere in the rail.
+                foreach (Control el in new Control[]
+                         { RailBrightnessSlider, RailVolumeSlider, RailMuteButton, RailCenterButton })
+                {
+                    if (el != null && firstTile != null) el.XYFocusRight = firstTile;
+                }
+
+                // DELIBERATELY NOT setting XYFocusUp/Down on the two SLIDERS.
+                //
+                // A vertical Slider consumes Up/Down itself to change its value. Giving it an XYFocus
+                // target in those directions takes the key away from it and turns it into a focus move,
+                // which is how three attempts in a row ended with sliders that could not be adjusted at
+                // all. The buttons below have no such conflict, so they keep their chain.
+                if (RailMuteButton != null) RailMuteButton.XYFocusDown = RailCenterButton;
+                if (RailCenterButton != null) RailCenterButton.XYFocusUp = RailMuteButton;
+            }
+            catch (Exception ex) { Logger.Debug($"WireMediaRailFocus: {ex.Message}"); }
         }
 
         /// <summary>
@@ -146,149 +249,31 @@ namespace XboxGamingBar
             catch { }
         }
 
-        /// <summary>
-        /// Create a tile button for the given definition
-        /// </summary>
-        // Media-slider tile (2 cells wide): brightness on top, volume on bottom, 5-step.
-        private Slider _mediaBrightnessSlider;
-        private Slider _mediaVolumeSlider;
-        private TextBlock _mediaBrightnessValue;
-        private TextBlock _mediaVolumeValue;
-        // True while we're pushing helper-reported levels into the sliders, so their
+        // True while we're pushing helper-reported levels into the rail's sliders, so their
         // ValueChanged handlers don't echo the value straight back to the helper.
         private bool _mediaSlidersUpdating;
 
-        private Brush MediaAccentBrush()
-        {
-            if (this.Resources.TryGetValue("ThemeAccentBrush", out var ab) && ab is Brush b1) return b1;
-            if (Application.Current.Resources.TryGetValue("ThemeAccentBrush", out var ab2) && ab2 is Brush b2) return b2;
-            return new SolidColorBrush(Windows.UI.Color.FromArgb(255, 138, 180, 248));
-        }
+        // Brightness, volume and mute live in the fixed media rail (MediaRail in the XAML), not in a
+        // tile. The 2-cell "Brightness / Volume" tile that used to render them is gone: two places to
+        // set one value is the kind of duplication that drifts, and a tile could be hidden or pushed
+        // off the visible rows by the column count, which these two controls must never be.
 
-        private FrameworkElement CreateMediaSliderTile(TileDefinition tile)
-        {
-            var accent = MediaAccentBrush();
-
-            Slider MakeSlider()
-            {
-                return new Slider
-                {
-                    Minimum = 0,
-                    Maximum = 100,
-                    StepFrequency = 5,
-                    SmallChange = 5,
-                    LargeChange = 10,
-                    TickFrequency = 5,
-                    Value = 50,
-                    Style = Resources["ModernSliderStyle"] as Style,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-            }
-
-            var brightnessSlider = MakeSlider();
-            var volumeSlider = MakeSlider();
-            _mediaBrightnessSlider = brightnessSlider;
-            _mediaVolumeSlider = volumeSlider;
-
-            var brightnessValue = new TextBlock { Text = "50%" };
-            var volumeValue = new TextBlock { Text = "50%" };
-            _mediaBrightnessValue = brightnessValue;
-            _mediaVolumeValue = volumeValue;
-
-            // Keep vertical focus INSIDE the tile: down = brightness->volume, up = volume->brightness.
-            // Without the explicit up link, up-nav from the volume slider escaped to the tabs.
-            brightnessSlider.XYFocusDown = volumeSlider;
-            volumeSlider.XYFocusUp = brightnessSlider;
-
-            brightnessSlider.ValueChanged += (s, e) =>
-            {
-                int val = (int)Math.Round(e.NewValue);
-                brightnessValue.Text = val + "%";
-                if (_mediaSlidersUpdating) return;
-                _ = SendMediaLevelAsync("SetBrightnessLevel", val);
-            };
-            volumeSlider.ValueChanged += (s, e) =>
-            {
-                int val = (int)Math.Round(e.NewValue);
-                volumeValue.Text = val + "%";
-                if (_mediaSlidersUpdating) return;
-                _ = SendMediaLevelAsync("SetVolumeLevel", val);
-            };
-
-            StackPanel Row(string glyph, Slider slider, TextBlock valueLabel)
-            {
-                var header = new Grid { Margin = new Thickness(2, 0, 2, 0) };
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-                var icon = new FontIcon
-                {
-                    Glyph = glyph,
-                    FontSize = 16,
-                    Foreground = accent,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    HorizontalAlignment = HorizontalAlignment.Left
-                };
-                Grid.SetColumn(icon, 0);
-
-                valueLabel.Foreground = accent;
-                valueLabel.FontSize = 13;
-                valueLabel.FontWeight = Windows.UI.Text.FontWeights.SemiBold;
-                valueLabel.HorizontalAlignment = HorizontalAlignment.Right;
-                valueLabel.VerticalAlignment = VerticalAlignment.Center;
-                Grid.SetColumn(valueLabel, 1);
-
-                header.Children.Add(icon);
-                header.Children.Add(valueLabel);
-
-                var row = new StackPanel { Spacing = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
-                row.Children.Add(header);
-                row.Children.Add(slider);
-                return row;
-            }
-
-            var content = new StackPanel { Spacing = 8, HorizontalAlignment = HorizontalAlignment.Stretch };
-            content.Children.Add(Row("", brightnessSlider, brightnessValue)); // brightness (top)
-            content.Children.Add(Row("", volumeSlider, volumeValue));         // volume (bottom)
-
-            var bg = new LinearGradientBrush { StartPoint = new Windows.Foundation.Point(0, 0), EndPoint = new Windows.Foundation.Point(0, 1) };
-            bg.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 42, 48, 74), Offset = 0 });
-            bg.GradientStops.Add(new GradientStop { Color = Windows.UI.Color.FromArgb(255, 30, 34, 54), Offset = 1 });
-
-            var border = new Border
-            {
-                Tag = tile.Id,
-                Background = bg,
-                BorderBrush = accent,
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(14, 12, 14, 12),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
-                Child = content
-            };
-
-            // Pull the current brightness/volume once the tile exists.
-            _ = RefreshMediaSliderLevelsAsync();
-            return border;
-        }
         // Like RefreshMediaSliderLevelsAsync, but tolerates being called before the pipe has (re)connected
         // — e.g. from VisibleChanged on Game Bar open, which can run before the helper pipe is back up.
         // Retries briefly until connected so external brightness/volume changes are still picked up.
         internal async System.Threading.Tasks.Task RefreshMediaSliderLevelsSoonAsync()
         {
-            if (_mediaBrightnessSlider == null && _mediaVolumeSlider == null) return;
+            if (RailBrightnessSlider == null && RailVolumeSlider == null) return;
             for (int i = 0; i < 8 && !App.IsConnected; i++)
                 await System.Threading.Tasks.Task.Delay(250);
             await RefreshMediaSliderLevelsAsync();
         }
 
-        // Fetches current brightness + volume from the helper and pushes them into the sliders
+        // Fetches current brightness, volume and mute from the helper and pushes them into the rail
         // (guarded so it doesn't echo back). Safe to call whenever the Quick tab is shown.
         internal async System.Threading.Tasks.Task RefreshMediaSliderLevelsAsync()
         {
-            if (_mediaBrightnessSlider == null && _mediaVolumeSlider == null) return;
+            if (RailBrightnessSlider == null && RailVolumeSlider == null) return;
             if (!App.IsConnected) return;
             try
             {
@@ -301,6 +286,7 @@ namespace XboxGamingBar
 
                 double bright = root.TryGetValue("brightness", out var b) && b.ValueType == Windows.Data.Json.JsonValueType.Number ? b.GetNumber() : 50;
                 double vol = root.TryGetValue("volume", out var v) && v.ValueType == Windows.Data.Json.JsonValueType.Number ? v.GetNumber() : 50;
+                bool muted = root.TryGetValue("muted", out var m) && m.ValueType == Windows.Data.Json.JsonValueType.Boolean && m.GetBoolean();
 
                 // Marshal the slider/label writes to the UI thread. The main trigger for this refresh is
                 // the Game-Bar-open foreground edge (UpdateGameBarForegroundSignal), which the Game Bar
@@ -312,15 +298,74 @@ namespace XboxGamingBar
                     _mediaSlidersUpdating = true;
                     try
                     {
-                        if (_mediaBrightnessSlider != null) _mediaBrightnessSlider.Value = bright;
-                        if (_mediaVolumeSlider != null) _mediaVolumeSlider.Value = vol;
-                        if (_mediaBrightnessValue != null) _mediaBrightnessValue.Text = (int)Math.Round(bright) + "%";
-                        if (_mediaVolumeValue != null) _mediaVolumeValue.Text = (int)Math.Round(vol) + "%";
+                        if (RailBrightnessSlider != null) RailBrightnessSlider.Value = bright;
+                        if (RailVolumeSlider != null) RailVolumeSlider.Value = vol;
+                        if (RailBrightnessValue != null) RailBrightnessValue.Text = (int)Math.Round(bright) + "%";
+                        if (RailVolumeValue != null) RailVolumeValue.Text = (int)Math.Round(vol) + "%";
+                        ApplyMuteVisual(muted);
                     }
                     finally { _mediaSlidersUpdating = false; }
                 });
             }
             catch (Exception ex) { Logger.Warn($"RefreshMediaSliderLevels failed: {ex.Message}"); }
+        }
+
+        /// <summary>
+        /// Paints the speaker icon from Windows' mute flag. Dimmed + crossed-out speaker when muted.
+        /// The state is never remembered between calls — every path that touches it has just read the
+        /// endpoint, because the user can mute from the keyboard or a game at any time.
+        /// </summary>
+        private void ApplyMuteVisual(bool muted)
+        {
+            if (RailMuteIcon == null) return;
+            RailMuteIcon.Glyph = muted ? "\uE74F" : "\uE767";   // Segoe Fluent: Mute / Volume
+            RailMuteIcon.Foreground = muted
+                ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 107, 107))
+                : MediaAccentBrush();
+            if (RailVolumeSlider != null) RailVolumeSlider.Opacity = muted ? 0.45 : 1.0;
+        }
+
+        private Brush MediaAccentBrush()
+        {
+            if (this.Resources.TryGetValue("ThemeAccentBrush", out var ab) && ab is Brush b1) return b1;
+            if (Application.Current.Resources.TryGetValue("ThemeAccentBrush", out var ab2) && ab2 is Brush b2) return b2;
+            return new SolidColorBrush(Windows.UI.Color.FromArgb(255, 138, 180, 248));
+        }
+
+        private void RailBrightnessSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            int val = (int)Math.Round(e.NewValue);
+            if (RailBrightnessValue != null) RailBrightnessValue.Text = val + "%";
+            if (_mediaSlidersUpdating) return;
+            _ = SendMediaLevelAsync("SetBrightnessLevel", val);
+        }
+
+        private void RailVolumeSlider_ValueChanged(object sender, RangeBaseValueChangedEventArgs e)
+        {
+            int val = (int)Math.Round(e.NewValue);
+            if (RailVolumeValue != null) RailVolumeValue.Text = val + "%";
+            if (_mediaSlidersUpdating) return;
+            _ = SendMediaLevelAsync("SetVolumeLevel", val);
+        }
+
+        /// <summary>
+        /// Toggles Windows' mute. No desired state is sent: the helper reads the endpoint, flips it and
+        /// reports back what is actually in force. Sending "mute = !whatIShowed" would act on a picture
+        /// that could be seconds old — the user mutes from the keyboard too.
+        /// </summary>
+        private async void RailMuteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!App.IsConnected) return;
+            try
+            {
+                var response = await App.SendMessageAsync(
+                    new Windows.Foundation.Collections.ValueSet { { "ToggleMute", true } });
+                if (response != null && response.TryGetValue("MuteState", out var stateObj) && stateObj is bool muted)
+                    ApplyMuteVisual(muted);
+                else
+                    await RefreshMediaSliderLevelsAsync();   // no answer: ask rather than guess
+            }
+            catch (Exception ex) { Logger.Warn($"RailMuteButton_Click failed: {ex.Message}"); }
         }
 
         private async System.Threading.Tasks.Task SendMediaLevelAsync(string key, int level)
@@ -336,9 +381,6 @@ namespace XboxGamingBar
 
         private FrameworkElement CreateTileButton(TileDefinition tile)
         {
-            // Wide media tile renders sliders instead of a button.
-            if (tile.ActionType == TileActionType.MediaSliders)
-                return CreateMediaSliderTile(tile);
 
             // Action tiles get a distinct background color
             var bgBrush = tile.IsAction
@@ -386,9 +428,10 @@ namespace XboxGamingBar
             // so the tile still looks centered.
             var content = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
 
-            content.Children.Add(BuildTileIconElement(tile.ActionType, tile.Id, tile.Glyph, 28, null));
+            var iconElement = BuildTileIconElement(tile.ActionType, tile.Id, tile.Glyph, 28, null);
+            content.Children.Add(iconElement);
 
-            content.Children.Add(new TextBlock
+            var nameText = new TextBlock
             {
                 Text = tile.Name,
                 FontSize = 14,
@@ -396,7 +439,12 @@ namespace XboxGamingBar
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
                 TextAlignment = TextAlignment.Center
-            });
+            };
+            content.Children.Add(nameText);
+
+            // Held for the unavailable look — see TileDefinition.IsActionable.
+            tile.IconElement = iconElement;
+            tile.NameText = nameText;
 
             // Action tiles show "Action" instead of state
             var stateText = new TextBlock
@@ -480,8 +528,12 @@ namespace XboxGamingBar
                 // All tiles: main content goes directly into the button (no nested split)
                 button.Content = content;
             }
+            // (art layer is attached right after the button is stored on the tile)
             button.Click += QuickSettingsTile_Click;
             tile.TileButton = button;
+            // Re-bound with the tile: the art layer is a part of this button's template, and tiles are
+            // rebuilt whenever the grid is re-laid out (column count, customisation, visibility).
+            EnsureTileArtLayer(tile);
             tile.StateText = stateText;
 
             if (tile.HasDropdown)
@@ -634,6 +686,69 @@ namespace XboxGamingBar
         /// before starting a new one. Replaces the old Profile-only variant now
         /// that every tile gets the same scrolling treatment.
         /// </summary>
+        /// <summary>Tile label colour while game art is behind it — plain white, the one colour that
+        /// survives any icon once the veil below has its 60% floor.</summary>
+        private static readonly SolidColorBrush TileArtForeground =
+            new SolidColorBrush(Windows.UI.Colors.White);
+
+        /// <summary>
+        /// Wires the tile to the "TileArt" layer of QuickSettingsTileStyle — the Border that sits above
+        /// the tile background but BELOW the pressed/inactive/focus overlays.
+        ///
+        /// The layer is a template part rather than something built here and pushed into Button.Content,
+        /// because the ContentPresenter is the topmost child of that template: an art layer in the
+        /// content covers the focus ring, the tile's border stroke and its rounded corners. See the
+        /// comment on TileArt in GamingWidget.xaml for the full account.
+        /// </summary>
+        private void EnsureTileArtLayer(TileDefinition tile)
+        {
+            var button = tile?.TileButton;
+            if (button == null) return;
+
+            // Source is the pre-blurred copy (see CreateBlurredArtAsync); no zoom transform here.
+            tile.ArtBrush = new ImageBrush
+            {
+                Stretch = Stretch.UniformToFill,
+                AlignmentY = AlignmentY.Center
+            };
+            tile.ArtLayer = null;
+
+            // Template parts do not exist until the template is applied, which for a freshly created
+            // button has not happened yet — hence Loaded. Tried once immediately as well, for the case
+            // where a tile is rebuilt while the grid is already on screen and Loaded has passed.
+            button.Loaded += (s, e) => BindTileArtLayer(tile);
+            BindTileArtLayer(tile);
+        }
+
+        /// <summary>Looks up the template's art Border and applies whatever art is already pending.</summary>
+        private void BindTileArtLayer(TileDefinition tile)
+        {
+            if (tile?.TileButton == null || tile.ArtBrush == null || tile.ArtLayer != null) return;
+            if (!(FindDescendantByName(tile.TileButton, "TileArt") is Border art)) return;
+
+            tile.ArtLayer = art;
+            art.Background = tile.ArtBrush;
+            // SetTileArt may have run before the template existed; it always sets the brush, so the
+            // brush — not a stored flag — is what says whether this tile currently shows art.
+            art.Opacity = tile.ArtBrush.ImageSource != null ? 1 : 0;
+        }
+
+        /// <summary>
+        /// Shows the running game's art on a tile, or clears it when <paramref name="source"/> is null.
+        /// Same treatment as the two per-game profile cards: the blur is the upscale of the small cached
+        /// icon, no blur effect and no extra dependency.
+        ///
+        /// Tolerates the layer not being bound yet: the brush is set regardless, and BindTileArtLayer
+        /// picks the state up from it. Returning early here instead would leave a tile blank until the
+        /// next refresh pass happened to run.
+        /// </summary>
+        private void SetTileArt(TileDefinition tile, ImageSource source)
+        {
+            if (tile?.ArtBrush == null) return;
+            tile.ArtBrush.ImageSource = source;
+            if (tile.ArtLayer != null) tile.ArtLayer.Opacity = source != null ? 1 : 0;
+        }
+
         private void UpdateTileScrollAnimation(TileDefinition tile)
         {
             if (tile?.StateText == null || tile.StateTextCanvas == null || tile.StateTextTransform == null)
@@ -860,41 +975,32 @@ namespace XboxGamingBar
                     tdpTile.TileButton.Background = tdpModeBrush;
                 }
 
-                // AutoTDP tile
-                if (qsTileMap.TryGetValue("AutoTDP", out var autoTdpTile) && autoTdpTile.TileButton != null)
-                {
-                    bool enabled = AutoTDPToggle?.IsOn ?? false;
-                    int targetFps = (int)(AutoTDPTargetFPSSlider?.Value ?? 60);
-                    string stateText = enabled ? $"{targetFps} FPS" : "Off";
-                    autoTdpTile.StateText.Text = stateText;
-                    autoTdpTile.StateText.Foreground = enabled ? accentForeground : offForeground;
-                    autoTdpTile.TileButton.Background = enabled ? tileOnBrush : tileOffBrush;
-                }
-
                 // Profile tile
                 if (qsTileMap.TryGetValue("Profile", out var profileTile) && profileTile.TileButton != null)
                 {
                     bool perGame = perGameProfile?.Value ?? false;
-                    bool defaultProfileActive = defaultGameProfileEnabled?.Value ?? false;
+                    // Game art: one rule for the tile and both cards, kept in UpdateProfileCardArt.
+                    // Called from here too because a grid re-layout builds a fresh button and the art
+                    // layer lives inside it.
+                    UpdateProfileCardArt();
                     string gameName = (runningGame != null && runningGame.Value.IsValid()) ? runningGame.Value.GameId.Name : "Per-Game";
 
-                    // Show game name with gradient when default game profile is active
-                    string profileName;
-                    if (defaultProfileActive)
-                    {
-                        // Use game name from current profile or running game
-                        profileName = currentDefaultGameProfile?.GameName ?? gameName;
-                        profileTile.StateText.Text = profileName;
-                        profileTile.StateText.Foreground = accentForeground;
-                        profileTile.TileButton.Background = tileDefaultProfileBrush;
-                    }
-                    else
-                    {
-                        profileName = perGame ? gameName : "Global";
-                        profileTile.StateText.Text = profileName;
-                        profileTile.StateText.Foreground = perGame ? accentForeground : offForeground;
-                        profileTile.TileButton.Background = perGame ? tileOnBrush : tileOffBrush;
-                    }
+                    // A third state used to sit here: with a Default Game Profile active the tile showed
+                    // the bundled profile's game name on a gradient. That feature is gone (2026-08-02).
+                    string profileName = perGame ? gameName : "Global";
+                    profileTile.StateText.Text = profileName;
+
+                    // Pure white as soon as the game art is actually behind the text. The normal "on"
+                    // colour is the accent lightened by 35% (see accentForeground), i.e. a pastel — fine
+                    // on the flat tile background, unreadable on a blurred icon. The condition mirrors
+                    // SetTileArt's own (perGame AND art loaded) instead of reading ArtLayer.Opacity,
+                    // because the icon arrives asynchronously and the opacity may not be set yet when
+                    // this pass runs.
+                    bool tileArtOn = perGame && blurredGameArt != null;
+                    profileTile.StateText.Foreground = tileArtOn
+                        ? TileArtForeground
+                        : (perGame ? accentForeground : offForeground);
+                    profileTile.TileButton.Background = perGame ? tileOnBrush : tileOffBrush;
 
                     // Update scroll animation for long profile names (per-tile loop
                     // below also runs this for every tile, but re-running it here
@@ -922,8 +1028,10 @@ namespace XboxGamingBar
                             case 0: levelText = "Off"; break;
                             case 1: levelText = "Basic"; break;
                             case 2: levelText = "Horizontal"; break;
-                            case 3: levelText = "H.Detail"; break;
-                            case 4: levelText = "Full"; break;
+                            // Abbreviated: the tile's state line is one short row. Long form is
+                            // "Horizontal Custom" / "Vertical Custom" (overlay dropdown, hotkey toast).
+                            case 3: levelText = "H. Custom"; break;
+                            case 4: levelText = "V. Custom"; break;
                             default: levelText = "Off"; break;
                         }
                         overlayTile.StateText.Text = levelText;
@@ -959,11 +1067,12 @@ namespace XboxGamingBar
 
                     if (isIntelMode)
                     {
-                        int tier = intelFpsTier?.Value ?? 0;
-                        string[] intelLabels = { "Off", "P60", "B40", "E30" };
-                        string tierLabel = (tier >= 0 && tier < intelLabels.Length) ? intelLabels[tier] : "Off";
-                        isActive = tier > 0;
-                        stateText = $"Intel · {tierLabel}";
+                        // The value is an fps, not a 0..3 tier. This used to index a {Off,P60,B40,E30}
+                        // label array WITH the fps, so every real cap (60, 40, 30, …) fell out of range
+                        // and the tile read "Intel · Off" while the cap was active.
+                        int fps = MigrateIntelFps(intelFpsTier?.Value ?? 0);
+                        isActive = fps > 0;
+                        stateText = $"Intel · {(isActive ? fps.ToString() : "Off")}";
                     }
                     else
                     {
@@ -1116,8 +1225,7 @@ namespace XboxGamingBar
                     int cap;
                     if (isIntel)
                     {
-                        int tier = intelFpsTier?.Value ?? 0;   // 0=Off,1=60,2=40,3=30
-                        cap = tier == 1 ? 60 : tier == 2 ? 40 : tier == 3 ? 30 : 0;
+                        cap = MigrateIntelFps(intelFpsTier?.Value ?? 0);   // fps, 0 = Off
                     }
                     else
                     {
@@ -1369,11 +1477,11 @@ namespace XboxGamingBar
                             clawModeTile.StateText.Foreground = offForeground;
                         }
                         clawModeTile.TileButton.Background = tileOffBrush;
-                        clawModeTile.TileButton.IsEnabled = false;
+                        SetTileActionable(clawModeTile, false);
                     }
                     else
                     {
-                        clawModeTile.TileButton.IsEnabled = true;
+                        SetTileActionable(clawModeTile, true);
                         bool controllerOn = msiClawControllerMode?.Value != false;
                         string modeLabel = controllerOn ? "Controller" : "Mouse";
                         if (clawModeTile.StateText != null)
@@ -1440,11 +1548,11 @@ namespace XboxGamingBar
                             hwMouseTile.StateText.Foreground = offForeground;
                         }
                         hwMouseTile.TileButton.Background = tileOffBrush;
-                        hwMouseTile.TileButton.IsEnabled = false;
+                        SetTileActionable(hwMouseTile, false);
                     }
                     else
                     {
-                        hwMouseTile.TileButton.IsEnabled = true;
+                        SetTileActionable(hwMouseTile, true);
                         if (hwMouseTile.StateText != null)
                         {
                             hwMouseTile.StateText.Text = on ? "HW Mouse" : "Controller";

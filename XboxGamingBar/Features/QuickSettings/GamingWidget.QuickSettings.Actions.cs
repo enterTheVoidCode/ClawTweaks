@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -58,6 +58,20 @@ namespace XboxGamingBar
                     // to the switch block below.
                     if (qsTileMap.TryGetValue(tileTag, out var mappedTile))
                     {
+                        // Unavailable tile: reachable and readable, but inert. This is the ONLY place
+                        // that refuses the action — the button stays IsEnabled=true so it keeps its
+                        // place in XY focus (SetTileActionable explains why that matters).
+                        //
+                        // It also closes a hole that IsEnabled never covered: SimulateTileHotkeyFired
+                        // builds a throwaway Button and calls this handler directly, so a controller
+                        // hotkey used to fire tiles that were greyed out in the UI.
+                        if (!mappedTile.IsActionable)
+                        {
+                            Logger.Info($"Quick tile '{mappedTile.Id}' is not actionable right now " +
+                                        $"(state: {mappedTile.StateText?.Text ?? "?"}) - press ignored");
+                            return;
+                        }
+
                         // Check for predefined action first
                         if (mappedTile.ActionType != TileActionType.None &&
                             mappedTile.ActionType != TileActionType.KeyboardShortcut)
@@ -91,9 +105,6 @@ namespace XboxGamingBar
                             case "TDPMode":
                                 if (_isControllerTriggered) CycleTDPMode();
                                 else ShowTDPDropdown(button);
-                                break;
-                            case "AutoTDP":
-                                ToggleAutoTDPTile();
                                 break;
                             case "Profile":
                                 TogglePerGameProfile();
@@ -295,12 +306,6 @@ namespace XboxGamingBar
         {
             if (TDPModeComboBox == null) return;
 
-            // If default game profile is active, turn it off first
-            if (defaultGameProfileEnabled?.Value == true && DefaultProfileToggle != null)
-            {
-                Logger.Info("TDP Mode tile clicked - turning off Default Game Profile");
-                DefaultProfileToggle.IsOn = false;
-            }
 
             bool isLegion = legionGoDetected?.Value == true;
 
@@ -390,30 +395,31 @@ namespace XboxGamingBar
             UpdateQuickSettingsTileStates();
         }
 
-        private void ToggleAutoTDPTile()
-        {
-            if (AutoTDPToggle != null)
-            {
-                AutoTDPToggle.IsOn = !AutoTDPToggle.IsOn;
-                Logger.Info($"AutoTDP tile toggled to: {AutoTDPToggle.IsOn}");
-            }
-        }
-
         /// <summary>
         /// Called when the dropdown chevron on a split tile is tapped.
         /// The tag on the button is "{TileId}_dropdown".
         /// </summary>
+        /// <summary>
+        /// Availability check for a split tile's sub-button, whose tag is "{TileId}_dropdown" /
+        /// "_left" / "_right". Same rule as the main tile: reachable, but inert while unavailable.
+        /// </summary>
+        private bool IsSubButtonTileActionable(string tag)
+        {
+            int cut = tag.LastIndexOf('_');
+            if (cut <= 0) return true;
+            return !qsTileMap.TryGetValue(tag.Substring(0, cut), out var tile) || tile.IsActionable;
+        }
+
         private void TileDropdown_Click(object sender, RoutedEventArgs e)
         {
             if (!(sender is Button btn)) return;
             string tag = btn.Tag as string ?? "";
+            if (!IsSubButtonTileActionable(tag)) return;
 
             if (tag == "TDPMode_dropdown")
                 ShowTDPDropdown(btn);
             else if (tag == "FPSCombined_dropdown")
                 SwitchFPSCapMode();
-            else if (tag == "IntelFpsTier_dropdown")
-                ShowIntelFpsDropdown(btn);
             else if (tag == "Overlay_dropdown")
                 ShowOverlayDropdown(btn);
         }
@@ -426,6 +432,8 @@ namespace XboxGamingBar
         {
             if (!(sender is Button btn)) return;
             string tag = btn.Tag as string ?? "";
+
+            if (!IsSubButtonTileActionable(tag)) return;
 
             if (tag == "FPSCombined_left")
                 SwitchFPSCapMode();
@@ -440,14 +448,17 @@ namespace XboxGamingBar
             if (!(sender is Button btn)) return;
             string tag = btn.Tag as string ?? "";
 
+            if (!IsSubButtonTileActionable(tag)) return;
+
             if (tag == "FPSCombined_right")
                 ShowFPSCombinedDropdown(btn);
         }
 
         /// <summary>
         /// Opens a dynamic MenuFlyout with the FPS values for the currently active mode.
-        /// RTSS: Off, 30, 40, 60, 90, 120 FPS
-        /// Intel: Off, 60 FPS — Performance, 40 FPS — Balanced, 30 FPS — Efficiency
+        /// Both modes offer the SAME values (Off, 30, 40, 60, 90, 120 FPS): IGCL caps at an arbitrary
+        /// fps, so the old Intel-only 3-tier list (Performance/Balanced/Efficiency) is gone. It also
+        /// wrote its list INDEX as the value, which reached the driver as 1/2/3 fps.
         /// </summary>
         private void ShowFPSCombinedDropdown(Button anchor)
         {
@@ -457,20 +468,21 @@ namespace XboxGamingBar
             if (isIntel)
             {
                 if (intelFpsTier == null) return;
-                int current = intelFpsTier.Value;
-                string[] labels = { "Off", "60 FPS — Performance", "40 FPS — Balanced", "30 FPS — Efficiency" };
-                for (int i = 0; i < labels.Length; i++)
+                int current = MigrateIntelFps(intelFpsTier.Value);
+                int[] values = { 0, 30, 40, 60, 90, 120 };
+                string[] labels = { "Off", "30 FPS", "40 FPS", "60 FPS", "90 FPS", "120 FPS" };
+                for (int i = 0; i < values.Length; i++)
                 {
-                    int tier = i;
+                    int fps = values[i];
                     var item = new MenuFlyoutItem { Text = labels[i] };
-                    if (tier == current)
+                    if (fps == current)
                         item.Icon = new FontIcon { Glyph = "", FontSize = 12 };  // checkmark
                     item.Click += (s, ev) =>
                     {
-                        intelFpsTier.SetValue(tier);
+                        intelFpsTier.SetValue(fps);
                         UpdateQuickSettingsTileStates();
-                        if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                            SaveCurrentSettingsToProfile(currentProfileName);
+                        if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+                            SaveWidgetUiStateToProfile(currentProfileName);
                     };
                     flyout.Items.Add(item);
                 }
@@ -499,8 +511,8 @@ namespace XboxGamingBar
                         }
                         finally { isApplyingHelperUpdate = false; }
                         UpdateQuickSettingsTileStates();
-                        if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                            SaveCurrentSettingsToProfile(currentProfileName);
+                        if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+                            SaveWidgetUiStateToProfile(currentProfileName);
                     };
                     flyout.Items.Add(item);
                 }
@@ -544,7 +556,6 @@ namespace XboxGamingBar
                 isApplyingHelperUpdate = true;
                 try
                 {
-                    if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 0;
                     if (FPSLimitSlider != null) FPSLimitSlider.Value = 60;
                     if (FPSLimitToggle != null) FPSLimitToggle.IsOn = true;
                 }
@@ -557,8 +568,8 @@ namespace XboxGamingBar
             UpdateQuickSettingsTileStates();
 
             // Persist to profile
-            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                SaveCurrentSettingsToProfile(currentProfileName);
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+                SaveWidgetUiStateToProfile(currentProfileName);
         }
 
         /// <summary>
@@ -637,34 +648,6 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Opens a MenuFlyout listing the four Intel IGCL Endurance Gaming tiers for direct selection.
-        /// </summary>
-        private void ShowIntelFpsDropdown(Button anchor)
-        {
-            if (intelFpsTier == null) return;
-
-            var flyout = new MenuFlyout();
-            int current = intelFpsTier.Value;
-
-            string[] labels = { "Off", "60 FPS — Performance", "40 FPS — Balanced", "30 FPS — Efficiency" };
-            for (int i = 0; i < labels.Length; i++)
-            {
-                int tier = i;
-                var item = new MenuFlyoutItem { Text = labels[i] };
-                if (tier == current)
-                    item.Icon = new FontIcon { Glyph = "", FontSize = 12 };
-                item.Click += (s, ev) =>
-                {
-                    intelFpsTier.SetValue(tier);
-                    UpdateQuickSettingsTileStates();
-                };
-                flyout.Items.Add(item);
-            }
-
-            flyout.ShowAt(anchor);
-        }
-
-        /// <summary>
         /// Opens a MenuFlyout listing RTSS overlay levels (0–4) for direct selection.
         /// </summary>
         private void ShowOverlayDropdown(Button anchor)
@@ -674,7 +657,7 @@ namespace XboxGamingBar
             var flyout = new MenuFlyout();
             int current = (int)osd.Value;
 
-            string[] labels = { "Off", "Basic", "Horizontal", "H. Detailed", "Full" };
+            string[] labels = { "Off", "Basic", "Horizontal", "Horizontal Custom", "Vertical Custom" };
             for (int i = 0; i < labels.Length; i++)
             {
                 int level = i;
@@ -755,12 +738,6 @@ namespace XboxGamingBar
         /// </summary>
         private void SetTDPModeByIndex(int index)
         {
-            // Turn off default game profile if active (same guard as CycleTDPMode)
-            if (defaultGameProfileEnabled?.Value == true && DefaultProfileToggle != null)
-            {
-                Logger.Info("TDP Mode dropdown selection - turning off Default Game Profile");
-                DefaultProfileToggle.IsOn = false;
-            }
 
             bool isLegion = legionGoDetected?.Value == true;
 
@@ -839,14 +816,6 @@ namespace XboxGamingBar
 
         private void TogglePerGameProfile()
         {
-            // If Default Game Profile is active, toggle it off instead
-            if (defaultGameProfileEnabled?.Value == true && DefaultProfileToggle != null)
-            {
-                Logger.Info("Profile tile clicked - turning off Default Game Profile");
-                DefaultProfileToggle.IsOn = false;
-                return;
-            }
-
             // Only allow toggling when a game is detected
             if (perGameProfile != null && runningGame != null && runningGame.Value.IsValid())
             {
@@ -1257,7 +1226,7 @@ namespace XboxGamingBar
                 if (!isInitialSync && !isApplyingHelperUpdate && !isLoadingProfile && SaveOSPowerMode)
                 {
                     Logger.Info($"Saving OS Power Mode change to profile: {currentProfileName}");
-                    SaveCurrentSettingsToProfile(currentProfileName);
+                    SaveWidgetUiStateToProfile(currentProfileName);
                 }
             }
         }
@@ -1276,32 +1245,20 @@ namespace XboxGamingBar
                     case 100: nextValue = 0; break;
                     default: nextValue = 0; break;
                 }
+                // This Set is the whole persistence path (plan §5.4). The helper's CPUEPP handler runs
+                // RouteProfileSave on every change and decides global-vs-per-game itself
+                // (Program.PropertyHandlers.cs, ProfileSaveFlagsState.CPUEPP) — verified, not assumed.
+                // The widget-store write that used to follow was a second copy of the same value, kept
+                // in a field nothing reads any more.
                 cpuEPP.SetValue(nextValue);
 
-                // Update slider to match (SaveCurrentSettingsToProfile reads from it)
+                // Keep the slider in step so the tile and the Performance tab agree.
                 if (CPUEPPSlider != null)
                 {
                     CPUEPPSlider.Value = nextValue;
                 }
 
                 Logger.Info($"EPP cycled from {currentValue} to {nextValue}");
-
-                // Save the change to profile
-                // Use direct save to bypass isApplyingHelperUpdate check - this is a user-initiated action
-                if (!isInitialSync && !isLoadingProfile && SaveCPUEPP && !string.IsNullOrEmpty(currentProfileName))
-                {
-                    try
-                    {
-                        var profile = GetProfile(currentProfileName);
-                        profile.CPUEPP = nextValue;
-                        SaveProfileToStorage(currentProfileName, profile);
-                        Logger.Info($"Saved EPP {nextValue} to profile: {currentProfileName}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.Error($"Failed to save EPP to profile: {ex.Message}");
-                    }
-                }
             }
         }
 
@@ -1343,7 +1300,7 @@ namespace XboxGamingBar
                 if (osd != null)
                 {
                     int currentLevel = (int)osd.Value;
-                    int nextLevel = (currentLevel + 1) % 5;  // 0=Off, 1=Basic, 2=Horizontal, 3=H.Detailed, 4=Full
+                    int nextLevel = (currentLevel + 1) % 5;  // 0=Off, 1=Basic, 2=Horizontal, 3=Horizontal Custom, 4=Vertical Custom
                     osd.SetValue(nextLevel);
                     Logger.Info($"RTSS Performance Overlay cycled from {currentLevel} to {nextLevel}");
                 }
@@ -1356,13 +1313,6 @@ namespace XboxGamingBar
         private void CycleFPSLimit()
         {
             if (fpsLimit == null) return;
-
-            // Get max refresh rate for slider UI sync only
-            int maxRefresh = 60; // Default
-            if (refreshRates?.Value != null && refreshRates.Value.Count > 0)
-            {
-                maxRefresh = refreshRates.Value.Max();
-            }
 
             // Fixed FPS cap values in ascending order
             int[] fpsValues = new int[]
@@ -1391,14 +1341,15 @@ namespace XboxGamingBar
             int nextLimit = fpsValues[nextIndex];
 
             fpsLimit.SetValue(nextLimit);
-            Logger.Info($"FPS Limit cycled from {currentLimit} to {nextLimit} (max refresh: {maxRefresh})");
+            Logger.Info($"FPS Limit cycled from {currentLimit} to {nextLimit}");
 
             // Sync the Performance tab FPS Limit controls
             isApplyingHelperUpdate = true;
             try
             {
-                // Update slider maximum to current refresh rate
-                FPSLimitSlider.Maximum = maxRefresh;
+                // Keep the slider on the one range the rest of the FPS code uses. This used to be
+                // set from refreshRates.Max(), which could exceed 120 (see FpsSliderMax).
+                FPSLimitSlider.Maximum = FpsSliderMax();
 
                 if (nextLimit > 0)
                 {
@@ -1418,7 +1369,7 @@ namespace XboxGamingBar
             // Save to profile if FPS Limit saving is enabled
             if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
             {
-                SaveCurrentSettingsToProfile(currentProfileName);
+                SaveWidgetUiStateToProfile(currentProfileName);
             }
         }
 
@@ -1446,15 +1397,16 @@ namespace XboxGamingBar
             // Mirror of CycleFPSLimit (RTSS): without this the Intel tier set from the tile is
             // lost on reopen, because the stale widget profile gets pushed back to the helper.
             // (QuickSettingsProperty_Changed only refreshes tile state — it does not save.)
-            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                SaveCurrentSettingsToProfile(currentProfileName);
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+                SaveWidgetUiStateToProfile(currentProfileName);
         }
 
         // ── FPS-state cycle button ─────────────────────────────────────────────────
         // States: 0 = Off, 1 = RTSS, 2 = Intel
         // The 3-state cycle button replaces the old Toggle + Radio-button UI.
-        // Underlying hidden elements (FPSLimitToggle, FPSModeRTSSRadio, IntelFpsTierComboBox)
-        // are still driven programmatically so existing save/load/profile code continues to work.
+        // Underlying hidden elements (FPSLimitToggle, FPSModeRTSSRadio) are still driven
+        // programmatically so existing save/load/profile code continues to work. The hidden
+        // IntelFpsTierComboBox is gone: Intel caps at an arbitrary fps, so there are no tiers to pick.
 
         // ── Unified real-FPS model ─────────────────────────────────────────────────
         // The slider carries an ACTUAL FPS value (not an index) for BOTH RTSS and Intel.
@@ -1462,8 +1414,12 @@ namespace XboxGamingBar
         // widget-local) allows any integer FPS. Intel uses an arbitrary IGCL frame limit —
         // intelFpsTier now carries an fps (0 = off), not a 0..3 tier (see MigrateIntelFps).
 
-        /// <summary>Default snap positions (also the scale labels under the slider).</summary>
-        private static readonly int[] FpsSnapSteps = { 24, 30, 40, 45, 60, 72, 90, 100, 120 };
+        /// <summary>
+        /// Default snap positions (also the scale labels under the slider). Entries above the current
+        /// FpsSliderMax() are filtered out everywhere they are consumed, so the three high-refresh
+        /// steps only appear while the extended range is on.
+        /// </summary>
+        private static readonly int[] FpsSnapSteps = { 24, 30, 40, 45, 60, 72, 90, 100, 120, 144, 165, 180 };
         private const int FpsSliderMin = 20;
 
         /// <summary>Global "stepless FPS slider" preference (widget-local; pure UI behaviour).</summary>
@@ -1473,14 +1429,41 @@ namespace XboxGamingBar
             set { Windows.Storage.ApplicationData.Current.LocalSettings.Values["FpsSteplessSlider"] = value; }
         }
 
-        /// <summary>Upper bound of the FPS slider — the panel's max refresh (at least 120).</summary>
-        private int FpsSliderMax()
+        /// <summary>
+        /// Global "extended FPS range" preference (widget-local, OFF by default). Raises the slider's
+        /// ceiling from the panel's 120 Hz to 180 FPS. Deliberately opt-in: the Claw panel tops out at
+        /// 120, so for most users everything above it is dead track that only compresses the useful
+        /// part of the scale. It earns its keep on an external high-refresh display, and for a cap that
+        /// is meant to sit above the panel rate (frame pacing, latency tuning, VRR headroom).
+        /// </summary>
+        private bool FpsExtendedMaxEnabled
         {
-            int maxRefresh = 120;
-            try { if (refreshRates?.Value != null && refreshRates.Value.Count > 0) maxRefresh = Math.Max(120, refreshRates.Value.Max()); }
-            catch { }
-            return maxRefresh;
+            get { var v = Windows.Storage.ApplicationData.Current.LocalSettings.Values["FpsExtendedMaxSlider"]; return v is bool b && b; }
+            set { Windows.Storage.ApplicationData.Current.LocalSettings.Values["FpsExtendedMaxSlider"] = value; }
         }
+
+        /// <summary>
+        /// Upper bound of the FPS slider. 120 — the Claw panel's refresh rate — unless the user opted
+        /// into the extended range (FpsExtendedMaxEnabled), which raises it to FpsSliderMaxFpsExtended.
+        ///
+        /// This used to follow the display: Math.Max(120, refreshRates.Value.Max()). That was wrong,
+        /// because GetSupportedRefreshRates() enumerates every mode of EVERY resolution without
+        /// filtering by the one actually in use, so a machine that offers, say, 480Hz at some tiny
+        /// legacy resolution pushed the slider to 20..480. Two visible symptoms followed: the
+        /// stepless slider allowed 480 FPS, and the scale labels (24..120) all crowded into the
+        /// leftmost fifth of the track and overlapped into an unreadable smear — the label maths was
+        /// fine, it was faithfully drawing a range that should never have existed.
+        ///
+        /// That is also why the extended range is a fixed, user-chosen 180 rather than a second attempt
+        /// at deriving a ceiling from the display: the failure above was not the number 480, it was
+        /// letting an unfiltered enumeration decide the scale at all.
+        /// </summary>
+        private const int FpsSliderMaxFps = 120;
+
+        /// <summary>Ceiling while FpsExtendedMaxEnabled is on. Highest snap step is 180.</summary>
+        private const int FpsSliderMaxFpsExtended = 180;
+
+        private int FpsSliderMax() => FpsExtendedMaxEnabled ? FpsSliderMaxFpsExtended : FpsSliderMaxFps;
 
         /// <summary>Snap a raw slider FPS to the nearest step (snap mode) or just clamp it (stepless mode).</summary>
         private int SnapFps(int raw)
@@ -1497,11 +1480,19 @@ namespace XboxGamingBar
         /// <summary>Legacy Intel tier (1/2/3) → fps (60/40/30); a real fps (0 or ≥ 20) passes through.</summary>
         private static int MigrateIntelFps(int v) => v == 1 ? 60 : v == 2 ? 40 : v == 3 ? 30 : v;
 
-        /// <summary>FPS currently carried by the active limiter property (0 = off).</summary>
+        /// <summary>
+        /// FPS currently carried by the active limiter property (0 = off), clamped to the slider
+        /// range. The clamp matters for saved profiles: while FpsSliderMax() followed the display it
+        /// could reach far past 120, so a profile may hold a cap the slider can no longer represent.
+        /// Without this the readout would say "480 FPS" with the thumb sitting at 120; with it the
+        /// value reads as 120 everywhere and the next change commits a valid one.
+        /// </summary>
         private int CurrentFpsValue()
         {
-            if (fpsCapMode?.Value == 1) return MigrateIntelFps(intelFpsTier?.Value ?? 0);
-            return fpsLimit?.Value ?? 0;
+            int fps = fpsCapMode?.Value == 1
+                ? MigrateIntelFps(intelFpsTier?.Value ?? 0)
+                : fpsLimit?.Value ?? 0;
+            return fps > 0 ? Math.Min(FpsSliderMax(), fps) : fps;
         }
 
         /// <summary>
@@ -1622,7 +1613,6 @@ namespace XboxGamingBar
             if (FPSLimitScaleLabels == null) return;
 
             FPSLimitScaleLabels.Children.Clear();
-            FPSLimitScaleLabels.ColumnDefinitions.Clear();
 
             int max = FpsSliderMax();
             var values = new System.Collections.Generic.List<int>();
@@ -1644,27 +1634,48 @@ namespace XboxGamingBar
 
             for (int i = 0; i < values.Count; i++)
             {
-                FPSLimitScaleLabels.ColumnDefinitions.Add(new Windows.UI.Xaml.Controls.ColumnDefinition
-                {
-                    Width = new Windows.UI.Xaml.GridLength(1, Windows.UI.Xaml.GridUnitType.Star)
-                });
-
                 var tb = new Windows.UI.Xaml.Controls.TextBlock
                 {
                     Text = values[i].ToString(),
                     FontSize = 10,
-                    HorizontalAlignment = (i == 0)
-                        ? Windows.UI.Xaml.HorizontalAlignment.Left
-                        : (i == values.Count - 1)
-                            ? Windows.UI.Xaml.HorizontalAlignment.Right
-                            : Windows.UI.Xaml.HorizontalAlignment.Center,
+                    Tag = values[i], // carries the FPS value for proportional positioning
                     Foreground = (i == activeIndex) ? green : dim,
                     FontWeight = (i == activeIndex)
                         ? Windows.UI.Text.FontWeights.SemiBold
                         : Windows.UI.Text.FontWeights.Normal
                 };
-                Windows.UI.Xaml.Controls.Grid.SetColumn(tb, i);
                 FPSLimitScaleLabels.Children.Add(tb);
+            }
+
+            PositionFpsScaleLabels();
+        }
+
+        private void FPSLimitScaleLabels_SizeChanged(object sender, Windows.UI.Xaml.SizeChangedEventArgs e)
+            => PositionFpsScaleLabels();
+
+        /// <summary>Place each scale label under the point on the LINEAR slider track where its FPS value
+        /// sits — center = inset + (v-min)/(max-min) · usable — so labels line up with the thumb instead of
+        /// being evenly spaced (the snap steps are not linearly distributed). Edge labels are clamped in.</summary>
+        private void PositionFpsScaleLabels()
+        {
+            if (FPSLimitScaleLabels == null) return;
+            double w = FPSLimitScaleLabels.ActualWidth;
+            if (w <= 0) return;
+
+            int max = FpsSliderMax();
+            double span = Math.Max(1, max - FpsSliderMin);
+            const double inset = 9; // ≈ slider thumb half-width, so labels track the thumb ends
+
+            foreach (var child in FPSLimitScaleLabels.Children)
+            {
+                if (!(child is Windows.UI.Xaml.Controls.TextBlock tb) || !(tb.Tag is int v)) continue;
+                double frac = Math.Max(0, Math.Min(1, (v - FpsSliderMin) / span));
+                tb.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+                double tw = tb.DesiredSize.Width;
+                double left = inset + frac * Math.Max(1, w - 2 * inset) - tw / 2;
+                left = Math.Max(0, Math.Min(w - tw, left));
+                Windows.UI.Xaml.Controls.Canvas.SetLeft(tb, left);
+                Windows.UI.Xaml.Controls.Canvas.SetTop(tb, 0);
             }
         }
 
@@ -1746,8 +1757,8 @@ namespace XboxGamingBar
             }
             finally { isApplyingHelperUpdate = false; }
 
-            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                SaveCurrentSettingsToProfile(currentProfileName);
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+                SaveWidgetUiStateToProfile(currentProfileName);
         }
 
         // Guard: prevents SyncFpsStateButton / ApplyFpsState from triggering the Toggled
@@ -1835,9 +1846,9 @@ namespace XboxGamingBar
 
             // Save to profile if FPS Limit saving is enabled
             // Don't save during DGP restoration - values being restored to original state
-            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
             {
-                SaveCurrentSettingsToProfile(currentProfileName);
+                SaveWidgetUiStateToProfile(currentProfileName);
             }
         }
 
@@ -1867,15 +1878,18 @@ namespace XboxGamingBar
             // Mutual exclusion: disable the old limiter and reset the new one to 60 fps.
             if (isIntel)
             {
-                // Switching to Intel — disable RTSS, start Intel at 60fps (Performance tier 1)
+                // Switching to Intel — disable RTSS, start Intel at 60fps.
+                // This sent a literal 1 until the tier cleanup: back when the Intel cap was a 0..3
+                // tier, 1 meant "Performance / 60 fps". IGCL takes an arbitrary fps now
+                // (IntelGpuManager.ApplyFrameLimit), so a 1 asked the driver for ONE frame per second.
                 Logger.Info("[FPS-Mode] Switching to Intel: disabling RTSS, setting Intel to 60fps");
                 if (fpsLimit != null)
                     fpsLimit.SetValue(0);
-                intelFpsTier?.SetValue(1);
+                intelFpsTier?.SetValue(60);
                 isApplyingHelperUpdate = true;
                 try
                 {
-                    if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 1;
+                    if (FPSLimitSlider != null) FPSLimitSlider.Value = 60;
                     if (FPSLimitToggle != null) FPSLimitToggle.IsOn = true;
                 }
                 finally { isApplyingHelperUpdate = false; }
@@ -1890,7 +1904,6 @@ namespace XboxGamingBar
                 isApplyingHelperUpdate = true;
                 try
                 {
-                    if (IntelFpsTierComboBox != null) IntelFpsTierComboBox.SelectedIndex = 0;
                     if (FPSLimitSlider != null) FPSLimitSlider.Value = 60;
                     if (FPSLimitToggle != null) FPSLimitToggle.IsOn = true;
                 }
@@ -1901,9 +1914,9 @@ namespace XboxGamingBar
             UpdateFPSCapDisplayText();
 
             // Persist to profile
-            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
+            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
             {
-                SaveCurrentSettingsToProfile(currentProfileName);
+                SaveWidgetUiStateToProfile(currentProfileName);
             }
         }
 
@@ -2087,8 +2100,10 @@ namespace XboxGamingBar
             if (state == 2) // Intel — cheap IGCL call, apply immediately
             {
                 intelFpsTier?.SetValue(fps);
-                if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                    SaveCurrentSettingsToProfile(currentProfileName);
+                // The IGCL call is cheap; the profile save is NOT (it rebuilds every profile card, see
+                // GamingWidget.SliderCommit.cs). Mark it and let the commit boundary write it once.
+                if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+                    _slidersAwaitingProfileCommit.Add(FPSLimitSlider);
             }
             else // RTSS — debounce (avoids hammering RTSS on drag)
             {
@@ -2114,22 +2129,73 @@ namespace XboxGamingBar
             bool on = FpsSteplessCheckBox?.IsChecked == true;
             FpsSteplessEnabled = on;
             Logger.Info($"FPS slider stepless mode: {on}");
+            RefreshFpsSliderRange();
+        }
+
+        /// <summary>
+        /// "Extended range" checkbox toggled. Persists the global preference and rebuilds the slider
+        /// around the new ceiling. Turning it OFF while the cap sits above 120 pulls the value down —
+        /// see RefreshFpsSliderRange for why that has to be an explicit, guarded step.
+        /// </summary>
+        private void FpsExtendedMaxCheckBox_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (isApplyingHelperUpdate) return;
+            bool on = FpsExtendedMaxCheckBox?.IsChecked == true;
+            FpsExtendedMaxEnabled = on;
+            Logger.Info($"FPS slider extended range: {on} (max {FpsSliderMax()} FPS)");
+            RefreshFpsSliderRange();
+        }
+
+        /// <summary>
+        /// Re-apply the slider's bounds and re-snap its value after a stepless/extended-range change,
+        /// then commit the result to the active limiter.
+        ///
+        /// The ORDER of the Maximum/Value writes is load-bearing. WinUI coerces Value into the range
+        /// whenever Maximum drops below it, and that coercion raises ValueChanged like any other
+        /// change — outside our guard it would reach the limiter as if the user had dragged the thumb.
+        /// So when the ceiling drops we bring the value inside the new range first and lower Maximum
+        /// after; when it rises we raise Maximum first so the value has somewhere to go. Both writes
+        /// stay inside isApplyingHelperUpdate regardless.
+        /// </summary>
+        private void RefreshFpsSliderRange()
+        {
+            if (FPSLimitSlider == null) return;
+
+            int max = FpsSliderMax();
+            int fps = SnapFps((int)Math.Round(FPSLimitSlider.Value));
+
+            isApplyingHelperUpdate = true;
+            try
+            {
+                if (max >= FPSLimitSlider.Maximum)
+                {
+                    FPSLimitSlider.Maximum = max;
+                    FPSLimitSlider.Value   = fps;
+                }
+                else
+                {
+                    FPSLimitSlider.Value   = fps;
+                    FPSLimitSlider.Maximum = max;
+                }
+            }
+            finally { isApplyingHelperUpdate = false; }
 
             int state = GetCurrentFpsState();
-            if (state == 0 || FPSLimitSlider == null) return;
+            if (state == 0)
+            {
+                // Cap is off: keep the retained thumb position valid, but show no active step.
+                BuildFpsScaleLabels(-1);
+                return;
+            }
 
-            int fps = SnapFps((int)Math.Round(FPSLimitSlider.Value));
-            isApplyingHelperUpdate = true;
-            try { FPSLimitSlider.Value = fps; }
-            finally { isApplyingHelperUpdate = false; }
             if (FPSLimitValue != null) FPSLimitValue.Text = $"{fps} FPS";
             BuildFpsScaleLabels(fps);
 
             if (FPSLimitToggle?.IsOn == true)
             {
                 if (state == 2) intelFpsTier?.SetValue(fps); else fpsLimit?.SetValue(fps);
-                if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                    SaveCurrentSettingsToProfile(currentProfileName);
+                if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
+                    SaveWidgetUiStateToProfile(currentProfileName);
             }
         }
 
@@ -2148,7 +2214,7 @@ namespace XboxGamingBar
                 // Save to profile if FPS Limit saving is enabled
                 if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile)
                 {
-                    SaveCurrentSettingsToProfile(currentProfileName);
+                    SaveWidgetUiStateToProfile(currentProfileName);
                 }
             }
         }
@@ -2211,8 +2277,9 @@ namespace XboxGamingBar
                                 FPSLimitToggle.IsOn  = false;
                                 FPSLimitSlider.Value = Math.Min(max, 60);
                             }
-                            // Reflect the persisted stepless preference (guarded — handler no-ops).
-                            if (FpsSteplessCheckBox != null) FpsSteplessCheckBox.IsChecked = FpsSteplessEnabled;
+                            // Reflect the persisted slider preferences (guarded — handlers no-op).
+                            if (FpsSteplessCheckBox   != null) FpsSteplessCheckBox.IsChecked   = FpsSteplessEnabled;
+                            if (FpsExtendedMaxCheckBox != null) FpsExtendedMaxCheckBox.IsChecked = FpsExtendedMaxEnabled;
                         }
                         finally { isApplyingHelperUpdate = false; }
                     }
@@ -2227,24 +2294,6 @@ namespace XboxGamingBar
                 }
             });
         }
-        /// <summary>
-        /// Intel FPS tier ComboBox selection changed in the Performance tab.
-        /// Sends the selected tier to the helper; mutual exclusion with RTSS is handled there.
-        /// </summary>
-        private void IntelFpsTierComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (intelFpsTier == null || isApplyingHelperUpdate) return;
-            int tier = IntelFpsTierComboBox.SelectedIndex;
-            if (tier < 0) return;
-            intelFpsTier.SetValue(tier);
-            Logger.Info($"Intel FPS tier set from Performance tab: {tier}");
-            UpdateFPSCapDisplayText();
-            // Save tier change to profile — without this the 60fps default from FPSModeRadio_Changed
-            // is the last saved value, overwriting any subsequent tier selection.
-            if (SaveFPSLimit && !isLoadingProfile && !isSwitchingProfile && !isRestoringFromDefaultProfile)
-                SaveCurrentSettingsToProfile(currentProfileName);
-        }
-
         private void ToggleLegionTouchpad()
         {
             if (legionGoDetected?.Value == true && legionTouchpadEnabled != null)
@@ -2919,13 +2968,16 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Opens ClawTweaks Center (the desktop app) from the button next to the Quick Metrics row.
-        /// The "@ClawTweaksCenter" token is resolved helper-side (registry, then Program Files) rather
-        /// than hardcoding a path here - see ResolveClawTweaksCenterExe in Program.HotkeyHandlers.cs.
-        /// Game Bar is closed first so Center actually comes to the foreground.
+        /// The "@ClawTweaksCenter" token is resolved helper-side (registry, then the per-user install
+        /// dir) rather than hardcoding a path here - see ResolveClawTweaksCenterExe in
+        /// Program.HotkeyHandlers.cs. Game Bar is closed first so Center comes to the foreground.
+        ///
+        /// Routed through the shared handler so a user who does NOT have Center gets told so and is
+        /// offered the download, instead of clicking a button that silently does nothing.
         /// </summary>
         private async void OpenCenterButton_Click(object sender, RoutedEventArgs e)
         {
-            await LaunchProgramViaHelper("@ClawTweaksCenter", closeGameBar: true);
+            await OpenCenterOrOfferInstallAsync();
         }
 
         /// <summary>Ask the helper to open a URL in the default browser.</summary>
@@ -3284,7 +3336,7 @@ namespace XboxGamingBar
             TDPSlider.Value = next;
             tdp.SetValue(next);
             if (SaveTDP && !isLoadingProfile)
-                SaveCurrentSettingsToProfile(currentProfileName);
+                SaveWidgetUiStateToProfile(currentProfileName);
 
             Logger.Info($"AdjustTDPByWatts: {current}W → {next}W (delta={delta})");
         }

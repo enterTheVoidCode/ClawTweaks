@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -44,19 +44,20 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget
     {
         // OSD configuration per level - stores which items are enabled
-        // Level 1 (Basic):              FPS, Battery, Time              — 3 cols, horizontal
-        // Level 2 (Horizontal):         FPS, Battery, CPU, Time         — 4 cols, horizontal (screenshot 2 style)
-        // Level 3 (Horizontal Detailed):AppName+FPS+CPU+GPU+BAT+MEM+Time— 7 cols (IntelGameBar style)
-        // Level 4 (Full):               All options                     — 1 col, vertical
+        // Level 1 (Basic):             FPS, Battery, Time              — 3 cols, horizontal
+        // Level 2 (Horizontal):        FPS, Battery, CPU, Time         — 4 cols, horizontal (screenshot 2 style)
+        // Level 3 (Horizontal Custom): AppName+FPS+CPU+GPU+BAT+MEM+Time— 7 cols (IntelGameBar style)
+        // Level 4 (Vertical Custom):   All options                     — 1 col, vertical
         private Dictionary<int, Dictionary<string, bool>> osdLevelConfig = new Dictionary<int, Dictionary<string, bool>>
         {
-            // Levels 1-3 are fixed presets (not user-editable). Level 4 (Full) is what "Items to Display"
-            // configures, and it defaults to EVERYTHING on — users remove what they don't want / reorder.
-            // ControllerBattery + AutoTDP are Legion-only and intentionally not offered on the Claw.
-            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "Fan", false }, { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
-            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "Fan", false }, { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
-            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "CPUCores", false }, { "GPU", true },  { "GPUClock", true },  { "TDPLimits", true },  { "Fan", true },  { "FrametimeGraph", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
-            { 4, new Dictionary<string, bool> { { "AppName", true },  { "FPS", true },  { "FrametimeGraph", true },  { "Blank1", true },  { "GPU", true },  { "Blank5", true },  { "CPU", true },  { "CPUClock", true },  { "CPUCores", true },  { "Blank2", true },  { "Memory", true },  { "Blank3", true },  { "VRAM", true },  { "TDPLimits", true },  { "Battery", true },  { "GPUClock", true },  { "Fan", true },  { "Blank4", true },  { "Time", true } } }
+            // Levels 1-2 are fixed presets (not user-editable). Levels 3 and 4 are the two custom presets
+            // "Items to Display" configures — the preset picker there switches between them. Level 4
+            // defaults to EVERYTHING on; level 3 defaults to the 11 items that fill its 7-column layout.
+            // ControllerBattery is Legion-only and intentionally not offered on the Claw.
+            { 1, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", false }, { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "Fan", false }, { "FrametimeGraph", false }, { "FpsStats", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
+            { 2, new Dictionary<string, bool> { { "AppName", false }, { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", false }, { "VRAM", false }, { "CPU", true },  { "CPUClock", false }, { "CPUCores", false }, { "GPU", false }, { "GPUClock", false }, { "TDPLimits", false }, { "Fan", false }, { "FrametimeGraph", false }, { "FpsStats", false }, { "Blank1", false }, { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
+            { 3, new Dictionary<string, bool> { { "AppName", true },  { "Time", true },  { "FPS", true },  { "Battery", true },  { "Memory", true },  { "VRAM", false }, { "CPU", true },  { "CPUClock", true },  { "CPUCores", false }, { "GPU", true },  { "GPUClock", true },  { "TDPLimits", true },  { "Fan", true },  { "FrametimeGraph", false }, { "FpsStats", false }, { "Blank1", true },  { "Blank2", false }, { "Blank3", false }, { "Blank4", false }, { "Blank5", false } } },
+            { 4, new Dictionary<string, bool> { { "AppName", true },  { "FPS", true },  { "FrametimeGraph", true },  { "FpsStats", true },  { "Blank1", true },  { "GPU", true },  { "Blank5", true },  { "CPU", true },  { "CPUClock", true },  { "CPUCores", true },  { "Blank2", true },  { "Memory", true },  { "Blank3", true },  { "VRAM", true },  { "TDPLimits", true },  { "Battery", true },  { "GPUClock", true },  { "Fan", true },  { "Blank4", true },  { "Time", true } } }
         };
 
         private Dictionary<int, string> osdCustomTags = new Dictionary<int, string>
@@ -67,26 +68,34 @@ namespace XboxGamingBar
             { 4, "" }
         };
 
-        // Per-level column settings
+        // Per-level column settings. Only "1" still means anything to the helper: one item per row, i.e.
+        // the vertical layout itself. Horizontal layouts no longer wrap on their own — a column count is
+        // a bad proxy for width ("60 FPS" vs "TDP 17W (PL1:17W PL2:18W)") and produced breaks the user
+        // never placed and could not see here. Wrapping is done with the "↵ Row Break" items instead.
+        // These values are still sent so the helper keeps recognising the single-column case.
         private Dictionary<int, int> osdLevelColumns = new Dictionary<int, int>
         {
-            { 1, 3 },  // Basic:              3 columns
-            { 2, 4 },  // Horizontal:         4 columns
-            { 3, 7 },  // Horizontal Detailed:7 columns
-            { 4, 1 }   // Full:               1 column
+            { 1, 3 },  // Basic:             no auto-wrap
+            { 2, 4 },  // Horizontal:        no auto-wrap
+            { 3, 7 },  // Horizontal Custom: no auto-wrap — Blank1 is enabled in the default order
+            { 4, 1 }   // Vertical Custom:   1 column = one item per row
         };
 
-        // "Items to Display" customizes the FULL overlay (level 4) only; levels 1-3 are fixed presets
-        // we define. The level picker is collapsed in XAML, so this stays at 4.
+        // Which preset the "Items to Display" list edits: 3 (Horizontal Custom) or 4 (Vertical Custom),
+        // driven by OSDCustomizeLevelComboBox. Levels 1-2 are fixed presets and never appear there.
+        // Starts on 4 — same entry point the editor had before it gained the picker.
         private int osdCustomizeLevel = 4;
 
         // Per-level item order (list of item IDs in display order)
         private Dictionary<int, List<string>> osdLevelOrder = new Dictionary<int, List<string>>
         {
-            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "Fan", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" } },
-            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "Fan", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" } },
-            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Memory", "Time", "VRAM", "TDPLimits", "Fan", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" } },
-            { 4, new List<string> { "AppName", "FPS", "FrametimeGraph", "Blank1", "GPU", "Blank5", "CPU", "CPUClock", "CPUCores", "Blank2", "TDPLimits", "Blank3", "Memory", "VRAM", "Battery", "GPUClock", "Fan", "Blank4", "Time" } }
+            { 1, new List<string> { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "Fan", "FrametimeGraph", "FpsStats", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" } },
+            { 2, new List<string> { "FPS", "Battery", "CPU", "Time", "AppName", "Memory", "VRAM", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "Fan", "FrametimeGraph", "FpsStats", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" } },
+            // Blank1 sits after Battery ON PURPOSE: that is exactly where the removed 7-column auto-wrap
+            // used to break this preset's default set, so the out-of-the-box look is unchanged — the
+            // break is simply visible in the list and movable now.
+            { 3, new List<string> { "AppName", "FPS", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "Battery", "Blank1", "Memory", "Time", "VRAM", "TDPLimits", "Fan", "FrametimeGraph", "FpsStats", "Blank2", "Blank3", "Blank4", "Blank5" } },
+            { 4, new List<string> { "AppName", "FPS", "FrametimeGraph", "FpsStats", "Blank1", "GPU", "Blank5", "CPU", "CPUClock", "CPUCores", "Blank2", "TDPLimits", "Blank3", "Memory", "VRAM", "Battery", "GPUClock", "Fan", "Blank4", "Time" } }
         };
 
         // Per-level item label colors (DEFAULT = use global text color)
@@ -115,6 +124,7 @@ namespace XboxGamingBar
             { "TDPLimits", "TDP (Watts, PL1/PL2)" },
             { "Fan", "Fan Speed (RPM)" },
             { "FrametimeGraph", "Frametime Graph" },
+            { "FpsStats", "FPS Stats (min, avg, max, 1% low)" },
             { "Blank1", "---------------- Blank 1 --------------" },
             { "Blank2", "---------------- Blank 2 --------------" },
             { "Blank3", "---------------- Blank 3 --------------" },
@@ -225,9 +235,57 @@ namespace XboxGamingBar
                 if (int.TryParse(tagStr, out int level))
                 {
                     LoadOSDOptionsForLevel(level);
+                    UpdateOsdCustomizeLevelHint();
                     // Note: This is only for RTSS customization - AMD overlay doesn't have configurable levels
                 }
             }
+        }
+
+        /// <summary>
+        /// Points the "Items to Display" editor at the overlay preset that is ACTIVE right now. Without
+        /// this the editor opens on whatever it was left on, and since the two custom presets hold the
+        /// same item list they are easy to confuse — editing the wrong one looks like the overlay simply
+        /// ignoring the change. Levels 0-2 (Off / the two fixed presets) cannot be edited; the picker
+        /// then keeps its current target and the hint underneath says so instead of silently lying.
+        /// </summary>
+        private void SyncOsdCustomizeLevelToActiveOverlay()
+        {
+            if (OSDCustomizeLevelComboBox == null) return;
+
+            int active = PerformanceOverlayComboBox?.SelectedIndex ?? -1;
+            if (active == 3 || active == 4)
+            {
+                foreach (var obj in OSDCustomizeLevelComboBox.Items)
+                {
+                    if (obj is ComboBoxItem item && item.Tag is string tag &&
+                        int.TryParse(tag, out int lvl) && lvl == active)
+                    {
+                        // Fires SelectionChanged -> LoadOSDOptionsForLevel (+ hint) when it really changes.
+                        if (!ReferenceEquals(OSDCustomizeLevelComboBox.SelectedItem, item))
+                            OSDCustomizeLevelComboBox.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+
+            UpdateOsdCustomizeLevelHint();
+        }
+
+        /// <summary>States whether the preset being edited is the one currently on screen.</summary>
+        private void UpdateOsdCustomizeLevelHint()
+        {
+            if (OSDCustomizeLevelHint == null) return;
+
+            string[] labels = { "Off", "Basic", "Horizontal", "Horizontal Custom", "Vertical Custom" };
+            int active = PerformanceOverlayComboBox?.SelectedIndex ?? -1;
+            string editing = osdCustomizeLevel == 3 ? "Horizontal Custom" : "Vertical Custom";
+
+            if (active == osdCustomizeLevel)
+                OSDCustomizeLevelHint.Text = "Editing the overlay that is active right now.";
+            else if (active >= 0 && active < labels.Length)
+                OSDCustomizeLevelHint.Text = $"The active overlay is \"{labels[active]}\" — these changes apply to \"{editing}\".";
+            else
+                OSDCustomizeLevelHint.Text = $"Editing \"{editing}\".";
         }
 
         private void OSDProviderComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -413,7 +471,7 @@ namespace XboxGamingBar
                 osdItemViewModels.Add(new OSDItemViewModel
                 {
                     Id = id,
-                    DisplayName = osdItemDisplayNames.ContainsKey(id) ? osdItemDisplayNames[id] : id,
+                    DisplayName = OsdItemDisplayName(id, currentLevel),
                     IsEnabled = config.ContainsKey(id) && config[id],
                     CanMoveUp = i > 0,
                     CanMoveDown = i < order.Count - 1,
@@ -422,6 +480,24 @@ namespace XboxGamingBar
             }
 
             OSDItemsControl.ItemsSource = osdItemViewModels;
+        }
+
+        /// <summary>
+        /// Label for one item in the editor. The Blank items do different jobs per preset — an empty
+        /// spacer row in the single-column Vertical Custom, an explicit row break in the horizontal
+        /// layouts — so they are named after what they actually do in the preset being edited.
+        /// </summary>
+        private static string OsdItemDisplayName(string id, int level)
+        {
+            if (level != 4 && id.StartsWith("Blank"))
+                return $"↵ Row Break {id.Substring("Blank".Length)}";
+
+            // Horizontal layouts render FPS without the inline frametime (that's the separate
+            // Frametime Graph item there), so don't promise a frametime in the label either.
+            if (level != 4 && id == "FPS")
+                return "FPS";
+
+            return osdItemDisplayNames.ContainsKey(id) ? osdItemDisplayNames[id] : id;
         }
 
         private void OSDItemCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -445,37 +521,130 @@ namespace XboxGamingBar
         private void OSDItemMoveUp_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string itemId)
-            {
-                int currentLevel = osdCustomizeLevel;
-                var order = osdLevelOrder[currentLevel];
-                int index = order.IndexOf(itemId);
-                if (index > 0)
-                {
-                    order.RemoveAt(index);
-                    order.Insert(index - 1, itemId);
-                    RefreshOSDItemsControl();
-                    SaveOSDConfigToStorage();
-                    SendOSDConfigToHelper();
-                }
-            }
+                MoveOsdItem(itemId, -1);
         }
 
         private void OSDItemMoveDown_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string itemId)
+                MoveOsdItem(itemId, +1);
+        }
+
+        /// <summary>
+        /// Moves one item up (dir = -1) or down (dir = +1) and KEEPS FOCUS ON THE MOVED ITEM's button,
+        /// so an item can be walked from one end of the list to the other with repeated presses.
+        ///
+        /// THE CONTAINERS MUST NOT BE TOUCHED — that is the whole point of this method's shape.
+        /// Neither rebuilding the collection (the original code) nor ObservableCollection.Move (the
+        /// first attempt at a fix) works: UWP's ItemsControl turns a Move notification into a
+        /// remove + re-insert, so the container holding the focused button is destroyed either way.
+        /// A mouse click survives that (nothing visibly owns focus), a gamepad A press does not —
+        /// with the focused element gone the framework re-homes focus to the next thing in the tree,
+        /// which is the panel BELOW the list. That is the "jumps down, but only on A" report, and no
+        /// amount of re-focusing afterwards fixes it reliably because the container we want to focus
+        /// may not be realised yet at that moment.
+        ///
+        /// So instead of moving the view models, the two neighbours SWAP their payload in place. Every
+        /// container stays exactly where it is, focus is never destroyed, and the button to focus is in
+        /// an already-realised container one row away. See also RestoreFocusDeferred in
+        /// GamingWidget.GamepadButtonRemapping.cs, where the same class of bug was likewise fixed by
+        /// removing the teardown rather than by re-focusing harder.
+        /// </summary>
+        private void MoveOsdItem(string itemId, int dir)
+        {
+            int currentLevel = osdCustomizeLevel;
+            if (!osdLevelOrder.ContainsKey(currentLevel)) return;
+
+            var order = osdLevelOrder[currentLevel];
+            int index = order.IndexOf(itemId);
+            int target = index + dir;
+            if (index < 0 || target < 0 || target >= order.Count) return;
+
+            order.RemoveAt(index);
+            order.Insert(target, itemId);
+
+            int vmIndex = -1;
+            for (int i = 0; i < osdItemViewModels.Count; i++)
             {
-                int currentLevel = osdCustomizeLevel;
-                var order = osdLevelOrder[currentLevel];
-                int index = order.IndexOf(itemId);
-                if (index >= 0 && index < order.Count - 1)
+                if (osdItemViewModels[i].Id == itemId) { vmIndex = i; break; }
+            }
+            int vmTarget = vmIndex + dir;
+            if (vmIndex < 0 || vmTarget < 0 || vmTarget >= osdItemViewModels.Count)
+            {
+                RefreshOSDItemsControl();   // fallback: collection out of sync with the order list
+                SaveOSDConfigToStorage();
+                SendOSDConfigToHelper();
+                return;
+            }
+
+            // Swapping IsEnabled drives the two-way IsChecked binding, which raises Checked/Unchecked.
+            // Suppress that: the checkbox handler would otherwise write an enabled state against
+            // whichever Id happened to have propagated first.
+            bool wasLoading = isLoadingOSDConfig;
+            isLoadingOSDConfig = true;
+            try
+            {
+                SwapOsdItemPayload(osdItemViewModels[vmIndex], osdItemViewModels[vmTarget]);
+                for (int i = 0; i < osdItemViewModels.Count; i++)
                 {
-                    order.RemoveAt(index);
-                    order.Insert(index + 1, itemId);
-                    RefreshOSDItemsControl();
-                    SaveOSDConfigToStorage();
-                    SendOSDConfigToHelper();
+                    osdItemViewModels[i].CanMoveUp = i > 0;
+                    osdItemViewModels[i].CanMoveDown = i < osdItemViewModels.Count - 1;
                 }
             }
+            finally
+            {
+                isLoadingOSDConfig = wasLoading;
+            }
+
+            FocusOsdItemMoveButton(vmTarget, dir < 0);
+
+            SaveOSDConfigToStorage();
+            SendOSDConfigToHelper();
+        }
+
+        /// <summary>Exchanges everything that identifies an item between two view models (see MoveOsdItem).</summary>
+        private static void SwapOsdItemPayload(OSDItemViewModel a, OSDItemViewModel b)
+        {
+            string id = a.Id;            a.Id = b.Id;                   b.Id = id;
+            string name = a.DisplayName; a.DisplayName = b.DisplayName; b.DisplayName = name;
+            bool enabled = a.IsEnabled;  a.IsEnabled = b.IsEnabled;     b.IsEnabled = enabled;
+            string color = a.LabelColor; a.LabelColor = b.LabelColor;   b.LabelColor = color;
+        }
+
+        /// <summary>
+        /// Puts focus on the up/down button of the row the item just landed on. Falls back to the
+        /// opposite button when the preferred one just became disabled (the item hit the top or bottom).
+        /// Runs once synchronously and once more deferred: the synchronous pass is what keeps a rapid
+        /// sequence of presses responsive, the deferred one re-asserts in case the framework still had
+        /// focus work queued behind the key event.
+        /// </summary>
+        private void FocusOsdItemMoveButton(int index, bool preferUp)
+        {
+            if (OSDItemsControl == null) return;
+
+            FocusOsdItemMoveButtonNow(index, preferUp);
+            var ignore = Dispatcher.RunAsync(CoreDispatcherPriority.Low,
+                () => FocusOsdItemMoveButtonNow(index, preferUp));
+        }
+
+        private void FocusOsdItemMoveButtonNow(int index, bool preferUp)
+        {
+            try
+            {
+                if (OSDItemsControl == null || index < 0 || index >= osdItemViewModels.Count) return;
+
+                var container = OSDItemsControl.ContainerFromIndex(index);
+                if (container == null) return;
+
+                var up = FindDescendantByName(container, "OsdItemMoveUpButton") as Button;
+                var down = FindDescendantByName(container, "OsdItemMoveDownButton") as Button;
+                var preferred = preferUp ? up : down;
+                var fallback = preferUp ? down : up;
+
+                var focusTarget = (preferred != null && preferred.IsEnabled) ? preferred : fallback;
+                focusTarget?.Focus(FocusState.Programmatic);
+            }
+            catch { /* focus is cosmetic — never break reordering over it */ }
         }
 
         private void OSDItemLabelColor_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -600,7 +769,7 @@ namespace XboxGamingBar
                     Logger.Info($"OSD config reset to v{CurrentOsdConfigVersion} defaults (was v{storedOsdVersion}) — stale OSD settings wiped");
                 }
 
-                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "Fan", "FrametimeGraph", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" };
+                var itemKeys = new[] { "AppName", "Time", "FPS", "Battery", "Memory", "VRAM", "CPU", "CPUClock", "CPUCores", "GPU", "GPUClock", "TDPLimits", "Fan", "FrametimeGraph", "FpsStats", "Blank1", "Blank2", "Blank3", "Blank4", "Blank5" };
 
                 foreach (var level in new[] { 1, 2, 3, 4 })
                 {
@@ -851,6 +1020,9 @@ namespace XboxGamingBar
                 // E70D = ChevronDown, E70E = ChevronUp
                 OSDCustomizeExpandIcon.Glyph = isOSDCustomizeExpanded ? "\uE70E" : "\uE70D";
             }
+
+            // Opening the editor always lands on the preset that is on screen right now.
+            if (isOSDCustomizeExpanded) SyncOsdCustomizeLevelToActiveOverlay();
         }
 
         // \u2500\u2500 Controller navigation for the expanded Overlay (OSD customization) panel \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -861,10 +1033,16 @@ namespace XboxGamingBar
         {
             return new Windows.UI.Xaml.Controls.Control[]
             {
+                // Renderer and position first: they sit above the Layout section on screen, and a
+                // control that is not in this list cannot be reached with the D-pad at all - the panel
+                // navigates by this array, not by XY focus. The position box is skipped on its own
+                // while disabled (the loop below tests IsEnabled), which is what happens under RTSS.
+                OsdRendererComboBox, OsdPositionComboBox,
                 OSDColumnsComboBox, OSDTextSizeComboBox, OSDFontComboBox,
                 OSDTextColorDynamicCheckBox, OSDLabelColorDefaultCheckBox,
                 OSDOpacitySlider, OSDBackgroundToggle, OSDBackgroundOpacitySlider,
-                OSDPositionShiftToggle, FrametimeGraphPinnedToggle
+                OSDPositionShiftToggle, FrametimeGraphPinnedToggle,
+                OSDCustomizeLevelComboBox   // last: sits above the item list in the Items section
             };
         }
 
@@ -889,11 +1067,35 @@ namespace XboxGamingBar
             var current = sender as Windows.UI.Xaml.Controls.Control;
             if (current == null) return;
 
+            // Renderer and position are the only two controls in this panel that sit SIDE BY SIDE, so
+            // right and left have to move between them - going down from the renderer to reach the box
+            // next to it reads as a bug. Everywhere else in the panel the controls are stacked and
+            // horizontal keys keep their normal (no-op) behaviour.
+            bool sideBySide = ReferenceEquals(current, OsdRendererComboBox)
+                           || ReferenceEquals(current, OsdPositionComboBox);
+            if (sideBySide)
+            {
+                if (e.Key == Windows.System.VirtualKey.Right || e.Key == Windows.System.VirtualKey.GamepadDPadRight)
+                {
+                    if (MoveOsdPanelFocus(current, +1)) e.Handled = true;
+                    return;
+                }
+                if (e.Key == Windows.System.VirtualKey.Left || e.Key == Windows.System.VirtualKey.GamepadDPadLeft)
+                {
+                    if (MoveOsdPanelFocus(current, -1)) e.Handled = true;
+                    return;
+                }
+            }
+
             if (e.Key == Windows.System.VirtualKey.Down || e.Key == Windows.System.VirtualKey.GamepadDPadDown)
             {
                 // Move to the next control; at the last one leave it UNHANDLED so the global
                 // jump-suppressor keeps focus put (no wrap to the top).
                 if (MoveOsdPanelFocus(current, +1)) e.Handled = true;
+                // The preset picker is the last entry, and the item list starts right below it —
+                // the list lives in a DataTemplate, so it can't be part of the static nav order.
+                else if (ReferenceEquals(current, OSDCustomizeLevelComboBox) && FocusFirstOsdItemCheckBox())
+                    e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Up || e.Key == Windows.System.VirtualKey.GamepadDPadUp)
             {
@@ -901,6 +1103,33 @@ namespace XboxGamingBar
                     OSDCustomizeExpandButton?.Focus(Windows.UI.Xaml.FocusState.Keyboard); // top \u2192 back to the expand toggle
                 e.Handled = true;
             }
+        }
+
+        /// <summary>Focuses the checkbox of the first item row (the entry point from the preset picker).</summary>
+        private bool FocusFirstOsdItemCheckBox()
+        {
+            try
+            {
+                if (OSDItemsControl == null || osdItemViewModels.Count == 0) return false;
+                OSDItemsControl.UpdateLayout();
+                var container = OSDItemsControl.ContainerFromIndex(0);
+                if (container == null) return false;
+                var cb = FindDescendantByName(container, "OsdItemCheckBox") as CheckBox;
+                return cb != null && cb.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+            }
+            catch { return false; }
+        }
+
+        // Up from the FIRST item row goes back to the preset picker. Every other row is left to the
+        // framework's XY navigation, which walks the identical rows correctly on its own.
+        private void OsdItemCheckBox_KeyDown(object sender, Windows.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.Up && e.Key != Windows.System.VirtualKey.GamepadDPadUp) return;
+            if (!(sender is CheckBox cb) || !(cb.Tag is string id)) return;
+            if (osdItemViewModels.Count == 0 || osdItemViewModels[0].Id != id) return;
+
+            OSDCustomizeLevelComboBox?.Focus(Windows.UI.Xaml.FocusState.Keyboard);
+            e.Handled = true;
         }
 
         // Overlay expand toggle: Down enters the panel (when expanded) or continues to the CPU card.
@@ -1196,30 +1425,17 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Shows or hides the gyro section based on whether a per-game controller profile
-        /// is active. Gyro is per-game only \u2014 it has no effect outside of a game context.
-        ///   perGameActive=true  \u2192 expand toggle visible, hint hidden, content accessible
-        ///   perGameActive=false \u2192 expand toggle hidden, content collapsed, hint shown
+        /// Keeps the gyro section usable in every profile mode. The section used to be locked to
+        /// per-game profiles (toggle hidden + "per-game only" hint outside of games); it is now
+        /// always editable, like the "Vibration &amp; Deadzone" card. The parameter is kept so the
+        /// existing call sites stay untouched and the mode is still visible in the log.
         /// </summary>
         internal void UpdateGyroSectionForProfileMode(bool perGameActive)
         {
             if (GyroSettingsExpandToggle != null)
-                GyroSettingsExpandToggle.Visibility = perGameActive ? Visibility.Visible : Visibility.Collapsed;
+                GyroSettingsExpandToggle.Visibility = Visibility.Visible;
 
-            if (GyroPerGameOnlyHint != null)
-                GyroPerGameOnlyHint.Visibility = perGameActive ? Visibility.Collapsed : Visibility.Visible;
-
-            // Collapse gyro content when switching to global (gyro stays expanded for per-game)
-            if (!perGameActive)
-            {
-                isGyroSettingsExpanded = false;
-                if (GyroSettingsContent != null)
-                    GyroSettingsContent.Visibility = Visibility.Collapsed;
-                if (GyroSettingsExpandIcon != null)
-                    GyroSettingsExpandIcon.Glyph = "\uE70D"; // ChevronDown
-            }
-
-            Logger.Info($"[GyroUI] Profile mode = {(perGameActive ? "per-game (gyro editable)" : "global (gyro hidden)")}");
+            Logger.Info($"[GyroUI] Profile mode = {(perGameActive ? "per-game" : "global")} (gyro editable in both)");
         }
 
         private void StickDeadzonesExpandToggle_Click(object sender, RoutedEventArgs e)
@@ -1312,7 +1528,7 @@ namespace XboxGamingBar
             if (TDPExtrasExpandToggle != null && OSPowerModeComboBox != null)
             {
                 TDPExtrasExpandToggle.XYFocusDown = isTDPExtrasExpanded ? (DependencyObject)TDPBoostToggle : OSPowerModeComboBox;
-                OSPowerModeComboBox.XYFocusUp = isTDPExtrasExpanded ? (DependencyObject)StickyTDPToggle : TDPExtrasExpandToggle;
+                OSPowerModeComboBox.XYFocusUp = isTDPExtrasExpanded ? (DependencyObject)TDPBoostToggle : TDPExtrasExpandToggle;
             }
         }
         private void CPUExtrasExpandToggle_Click(object sender, RoutedEventArgs e)
@@ -1712,29 +1928,6 @@ namespace XboxGamingBar
             }
         }
 
-        private void LoadForceDefaultGameProfileSetting()
-        {
-            try
-            {
-                var settings = ApplicationData.Current.LocalSettings;
-
-                if (settings.Values.TryGetValue("ForceDefaultGameProfile", out object val) && val is bool enabled)
-                {
-                    if (ForceDefaultGameProfileToggle != null)
-                    {
-                        ForceDefaultGameProfileToggle.IsOn = enabled;
-                    }
-                    // Send to helper on startup
-                    forceDefaultGameProfile?.SetValue(enabled);
-                    Logger.Info($"Loaded Force Default Game Profile setting: {enabled}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error($"Error loading Force Default Game Profile setting: {ex.Message}");
-            }
-        }
-
         private void ColorSettingsExpandButton_Click(object sender, RoutedEventArgs e)
         {
             isColorSettingsExpanded = !isColorSettingsExpanded;
@@ -1833,9 +2026,23 @@ namespace XboxGamingBar
 
         private void UpdateTDPSliderBounds()
         {
-            // PL1 ceiling reported by the helper for this exact device (MSI Claw A2VM = 30W,
-            // Claw 8 EX = 35W; see MSIClawModels.cs). Falls back to 30 until the helper syncs it.
-            int pl1Ceiling = deviceMaxPL1?.Value ?? 30;
+            // PL1/PL2 ceilings reported by the helper for this exact device (MSI Claw A2VM = 30/37W,
+            // Claw 8 EX = 35/45W; see MSIClawModels.cs). Both are 0 until the helper answers.
+            //
+            // A ceiling we do not know yet must clamp NOTHING. There used to be a fallback to the
+            // A2VM's 30/37 here, and on a Claw 8 EX it destroyed the user's own setting: the helper
+            // pushes TDP on pipe connect but the capabilities only arrive with the BatchGet answer
+            // ~200ms later, so a legitimate 35W was coerced to 30 by a slider maximum that was only
+            // ever a placeholder — and from there it leaked back into the TDP property and stuck.
+            // Leaving the bounds untouched keeps the slider on its XAML placeholder range, which is
+            // deliberately wider than any supported device so nothing is truncated. The slider ships
+            // disabled, so an unbounded moment is not reachable by the user.
+            int pl1Ceiling = deviceMaxPL1?.Value ?? 0;
+            int pl2Ceiling = deviceMaxPL2?.Value ?? 0;
+            if (pl1Ceiling <= 0 || pl2Ceiling <= 0)
+            {
+                return;
+            }
 
             // Update Performance tab TDP slider.
             // UI-only guardrails: the manual TDP slider must never go below 7W or above the
@@ -1853,6 +2060,8 @@ namespace XboxGamingBar
                     TDPSlider.Value = tdpSliderMin;
                 else if (TDPSlider.Value > tdpSliderMax)
                     TDPSlider.Value = tdpSliderMax;
+
+                BuildWattScaleLabels(TDPScaleLabels, TDPSlider);
             }
 
             // Settings-panel PL1 ceiling picker (the "Maximum TDP" slider users drag to raise
@@ -1865,8 +2074,7 @@ namespace XboxGamingBar
             }
 
             // PL2-Boost sliders (settings panel + Performance card) — cap at the device's real PL2
-            // ceiling (A2VM = 37W, Claw 8 EX = 45W) instead of the old universal 37W constant.
-            int pl2Ceiling = deviceMaxPL2?.Value ?? 37;
+            // ceiling (A2VM = 37W, Claw 8 EX = 45W); resolved together with pl1Ceiling above.
             if (TDPBoostFPPTSlider != null)
             {
                 TDPBoostFPPTSlider.Maximum = pl2Ceiling;
@@ -1878,32 +2086,92 @@ namespace XboxGamingBar
                 TDPBoostFPPTSliderCard.Maximum = pl2Ceiling;
                 if (TDPBoostFPPTSliderCard.Value > pl2Ceiling)
                     TDPBoostFPPTSliderCard.Value = pl2Ceiling;
+
+                BuildWattScaleLabels(TDPBoostScaleLabels, TDPBoostFPPTSliderCard);
             }
 
-            // Update AutoTDP Min slider bounds
-            if (AutoTDPMinSlider != null)
-            {
-                AutoTDPMinSlider.Minimum = deviceTDPMin;
-                AutoTDPMinSlider.Maximum = deviceTDPMax;
+        }
 
-                // Clamp current value if out of bounds
-                if (AutoTDPMinSlider.Value < deviceTDPMin)
-                    AutoTDPMinSlider.Value = deviceTDPMin;
-                else if (AutoTDPMinSlider.Value > deviceTDPMax)
-                    AutoTDPMinSlider.Value = deviceTDPMax;
+        // ── Watt scale labels under the TDP sliders (PL1/PL2) ───────────────────────────
+        // Mirrors the FPS limiter's number row: a row of watt values under the slider, each
+        // positioned proportionally to its point on the LINEAR track (not evenly spaced), with
+        // the label nearest the current setting highlighted in the TDP accent colour. The label
+        // set is the slider's endpoints plus every 5 W in between, rebuilt whenever the bounds or
+        // the value change (highlight follows the thumb).
+        private void BuildWattScaleLabels(Windows.UI.Xaml.Controls.Canvas canvas, Windows.UI.Xaml.Controls.Slider slider)
+        {
+            if (canvas == null || slider == null) return;
+            canvas.Children.Clear();
+
+            int lo = (int)System.Math.Round(slider.Minimum);
+            int hi = (int)System.Math.Round(slider.Maximum);
+            if (hi <= lo) return;
+
+            var values = new System.Collections.Generic.List<int> { lo };
+            for (int v = ((lo / 5) + 1) * 5; v < hi; v += 5) values.Add(v);
+            if (!values.Contains(hi)) values.Add(hi);
+
+            // Highlight the label nearest the current value.
+            int active = (int)System.Math.Round(slider.Value);
+            int activeIndex = -1;
+            if (slider.IsEnabled && active >= lo)
+            {
+                int best = 0;
+                for (int i = 1; i < values.Count; i++)
+                    if (System.Math.Abs(values[i] - active) < System.Math.Abs(values[best] - active)) best = i;
+                activeIndex = best;
             }
 
-            // Update AutoTDP Max slider bounds
-            if (AutoTDPMaxSlider != null)
-            {
-                AutoTDPMaxSlider.Minimum = deviceTDPMin;
-                AutoTDPMaxSlider.Maximum = deviceTDPMax;
+            var accent = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x5C, 0xC9, 0xF0));
+            var dim    = new Windows.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 0x88, 0x88, 0x88));
 
-                // Clamp current value if out of bounds
-                if (AutoTDPMaxSlider.Value < deviceTDPMin)
-                    AutoTDPMaxSlider.Value = deviceTDPMin;
-                else if (AutoTDPMaxSlider.Value > deviceTDPMax)
-                    AutoTDPMaxSlider.Value = deviceTDPMax;
+            for (int i = 0; i < values.Count; i++)
+            {
+                var tb = new Windows.UI.Xaml.Controls.TextBlock
+                {
+                    Text = values[i].ToString(),
+                    FontSize = 10,
+                    Tag = values[i], // carries the watt value for proportional positioning
+                    Foreground = (i == activeIndex) ? accent : dim,
+                    FontWeight = (i == activeIndex)
+                        ? Windows.UI.Text.FontWeights.SemiBold
+                        : Windows.UI.Text.FontWeights.Normal
+                };
+                canvas.Children.Add(tb);
+            }
+
+            PositionWattScaleLabels(canvas, slider);
+        }
+
+        private void TDPScaleLabels_SizeChanged(object sender, Windows.UI.Xaml.SizeChangedEventArgs e)
+            => PositionWattScaleLabels(TDPScaleLabels, TDPSlider);
+
+        private void TDPBoostScaleLabels_SizeChanged(object sender, Windows.UI.Xaml.SizeChangedEventArgs e)
+            => PositionWattScaleLabels(TDPBoostScaleLabels, TDPBoostFPPTSliderCard);
+
+        /// <summary>Place each watt label under the point on the LINEAR slider track where its value sits —
+        /// center = inset + (v-min)/(max-min) · usable — so labels line up with the thumb. Edge labels
+        /// are clamped inside the canvas.</summary>
+        private void PositionWattScaleLabels(Windows.UI.Xaml.Controls.Canvas canvas, Windows.UI.Xaml.Controls.Slider slider)
+        {
+            if (canvas == null || slider == null) return;
+            double w = canvas.ActualWidth;
+            if (w <= 0) return;
+
+            double min = slider.Minimum;
+            double span = System.Math.Max(1, slider.Maximum - min);
+            const double inset = 9; // ≈ slider thumb half-width, so labels track the thumb ends
+
+            foreach (var child in canvas.Children)
+            {
+                if (!(child is Windows.UI.Xaml.Controls.TextBlock tb) || !(tb.Tag is int v)) continue;
+                double frac = System.Math.Max(0, System.Math.Min(1, (v - min) / span));
+                tb.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+                double tw = tb.DesiredSize.Width;
+                double left = inset + frac * System.Math.Max(1, w - 2 * inset) - tw / 2;
+                left = System.Math.Max(0, System.Math.Min(w - tw, left));
+                Windows.UI.Xaml.Controls.Canvas.SetLeft(tb, left);
+                Windows.UI.Xaml.Controls.Canvas.SetTop(tb, 0);
             }
         }
 
@@ -1912,7 +2180,7 @@ namespace XboxGamingBar
             // Update TDP slider bounds
             UpdateTDPSliderBounds();
 
-            // Send limits to helper for AutoTDP
+            // Send the configured PL1 range to the helper
             SendTDPLimitsToHelper();
         }
 

@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -253,9 +253,6 @@ namespace XboxGamingBar
                         // Load the game icon for the Profiles tab
                         // Use helper-extracted icon if available, otherwise fall back to Steam lookup
                         LoadCurrentGameIcon(exePath, iconPath);
-
-                        // Also update the Default Game Profile icon (may have been empty during initial sync)
-                        UpdateDefaultProfileGameIcon();
                     }
                     else
                     {

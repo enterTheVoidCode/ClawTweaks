@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -67,7 +67,7 @@ namespace XboxGamingBar
                     // so skipping here is safe — the profile is always up-to-date.
                     if (!currentProfileName.StartsWith("Game_") && !targetProfile.StartsWith("Game_"))
                     {
-                        SaveCurrentSettingsToProfile(currentProfileName);
+                        SaveWidgetUiStateToProfile(currentProfileName);
                     }
 
                     // Switch to new profile
@@ -140,7 +140,19 @@ namespace XboxGamingBar
             }
         }
 
-        private void SaveCurrentSettingsToProfile(string profileName)
+        // tdpEditedByUserForProfile and MarkTdpEditedByUser are GONE (plan §5.4). They existed only
+        // because this method wrote the TDP group: the slider is the helper's display surface, so a
+        // blind capture persisted every helper push as if the user had dialled it in, and at a profile
+        // transition it wrote the new profile's value into the old profile. Now that nothing here
+        // writes TDP, there is nothing left to gate — and leaving the marker in place would be dead
+        // protective code that a successor would read as active.
+
+        /// <summary>
+        /// Persists the widget's own UI state (group C) for a profile. Named for what it does: this is
+        /// NOT where a performance profile is written — the helper owns that store and the widget reads
+        /// it through the ProfileSnapshot.
+        /// </summary>
+        private void SaveWidgetUiStateToProfile(string profileName)
         {
             // Guard against null profile name during XAML initialization
             if (string.IsNullOrEmpty(profileName))
@@ -160,20 +172,6 @@ namespace XboxGamingBar
             if (isInitialSync)
             {
                 Logger.Debug($"Skipping profile save for {profileName} - isInitialSync is true");
-                return;
-            }
-
-            // Don't save when Default Game Profile is active - prevents overwriting user's profile
-            if (defaultGameProfileEnabled?.Value == true)
-            {
-                Logger.Debug($"Skipping profile save for {profileName} - Default Game Profile is active");
-                return;
-            }
-
-            // Don't save during DGP restoration - toggle handlers would save wrong values during state restore
-            if (isRestoringFromDefaultProfile)
-            {
-                Logger.Debug($"Skipping profile save for {profileName} - restoring from Default Game Profile");
                 return;
             }
 
@@ -200,84 +198,32 @@ namespace XboxGamingBar
 
             var profile = GetProfile(profileName);
 
-            // Save only enabled settings
-            if (SaveTDP && TDPSlider != null && TDPModeComboBox != null)
+            // Group C only — the widget's UI state. Everything the helper applies to hardware or the OS
+            // (TDP, Overboost/PL2, CPU boost/EPP/state, P-/E-core caps, Intel display and gaming, the FPS
+            // cap, OS power mode) is owned and persisted by the helper and reaches the widget through the
+            // ProfileSnapshot. Writing a second copy here is what produced the two-store divergences this
+            // plan exists to remove — see Doku/PLAN_Performance_SingleStore.md §5.4.
+            if (SaveTDP && TDPModeComboBox != null)
             {
                 int selectedIndex = TDPModeComboBox.SelectedIndex;
                 if (selectedIndex >= 0)
                 {
-                    // Always save the TDP mode index for proper restoration with custom presets
+                    // The preset ComboBox selection. Genuinely widget state: it has no counterpart in the
+                    // helper, which only knows watts.
                     profile.TDPModeIndex = selectedIndex;
 
-                    // Get the Legion mode value from the current selection
-                    int legionModeValue = GetCurrentPresetLegionMode();
-                    profile.LegionPerformanceMode = legionModeValue;
-
-                    // Only save TDP slider value if in actual Custom mode (slider-controlled)
-                    // Not for user-made presets (which also have legionModeValue=255 but aren't Custom)
-                    if (IsCustomTdpModeSelected())
-                    {
-                        profile.TDP = TDPSlider.Value;
-                        // Also update savedCustomTDP for consistency
-                        savedCustomTDP = TDPSlider.Value;
-                    }
-                    else
-                    {
-                        // For preset modes, save the preset's actual watt value.
-                        // This ensures LoadProfileSettings re-applies the correct TDP (not the stale default)
-                        // when the widget reopens or returns from background — preventing the "TDP resets to 15W" bug.
-                        int presetTdpVal = GetCurrentPresetTdpValue();
-                        if (presetTdpVal > 0)
-                        {
-                            profile.TDP = presetTdpVal;
-                        }
-                    }
+                    // Kept deliberately. This looks like a group-A field but it is DERIVED FROM THE
+                    // WIDGET'S OWN ComboBox (GetCurrentPresetLegionMode), not captured from a helper
+                    // push — it is effectively a second encoding of TDPModeIndex, and the mode-restore
+                    // after a game reads it. Nothing else writes it, so it cannot diverge.
+                    profile.LegionPerformanceMode = GetCurrentPresetLegionMode();
                 }
             }
-            if (SaveCPUBoost && CPUBoostToggle != null)
-            {
-                profile.CPUBoost = CPUBoostToggle.IsOn;
-            }
-            // CPU advanced (ToothNClaw port): capture combo selections into the profile so the
-            // saved cards reflect them. Tracked under the CPU Boost save flag (same CPU group).
-            // Boost mode itself was removed (see GamingWidget.CpuAdvanced.cs) — CPUBoost above already
-            // captures the plain on/off state.
-            if (SaveCPUBoost)
-            {
-                if (SchedulingPolicyComboBox != null)
-                    profile.ProcessorSchedulingPolicy = GetSelectedTagInt(SchedulingPolicyComboBox, 0);
-                if (MaxPCoreFreqComboBox != null)
-                    profile.MaxPCoreFreqMHz = GetSelectedTagInt(MaxPCoreFreqComboBox, 0);
-                if (MaxECoreFreqComboBox != null)
-                    profile.MaxECoreFreqMHz = GetSelectedTagInt(MaxECoreFreqComboBox, 0);
-            }
-
-            // Intel Display (IGCL) — full Color Remaster set captured into the Performance & Display profile.
-            if (DisplaySaturationSlider != null) profile.IntelColorSaturation = (int)DisplaySaturationSlider.Value;
-            if (DisplayHueSlider != null) profile.IntelColorHue = (int)DisplayHueSlider.Value;
-            if (DisplayContrastSlider != null) profile.IntelDisplayContrast = (int)DisplayContrastSlider.Value;
-            if (DisplayBrightnessSlider != null) profile.IntelDisplayBrightness = (int)DisplayBrightnessSlider.Value;
-            if (DisplayGammaSlider != null) profile.IntelDisplayGammaX100 = (int)DisplayGammaSlider.Value;
-            if (DisplaySharpnessSlider != null) profile.IntelAdaptiveSharpness = (int)DisplaySharpnessSlider.Value;
-            // Intel gaming (IGCL) combos — captured into the profile copy for storage/summary parity.
-            if (IntelLowLatencyComboBox != null) profile.IntelLowLatency = GetSelectedTagInt(IntelLowLatencyComboBox, 0);
-            if (IntelFrameSyncComboBox != null) profile.IntelFrameSync = GetSelectedTagInt(IntelFrameSyncComboBox, 0);
-            // MSI Claw fan: CAPTURE ONLY. Both the preset and the exact curve are stored so the editor
-            // can offer the profile's own values back verbatim (preset 3/Custom is meaningless without
-            // its curve). Deliberately NOT applied on profile load yet — the fan path is still being
-            // validated against the global profile, and applying a per-game curve before that is
-            // settled would make it impossible to tell which curve caused a given result.
-            // See LoadProfileSettings: there is intentionally no counterpart to this block.
-            CaptureMsiFanIntoProfile(profile);
-            if (SaveCPUEPP && CPUEPPSlider != null)
-            {
-                profile.CPUEPP = CPUEPPSlider.Value;
-            }
-            if (SaveCPUState && MaxCPUStateComboBox != null && MinCPUStateComboBox != null)
-            {
-                profile.MaxCPUState = GetSelectedCPUStateValue(MaxCPUStateComboBox);
-                profile.MinCPUState = GetSelectedCPUStateValue(MinCPUStateComboBox);
-            }
+            // The MSI Claw fan capture that used to sit here is GONE (2026-08-02). It stamped the fan
+            // editor's visible state into this profile on every unrelated save, which is how a per-game
+            // curve could end up in the global profile and vice versa. The per-game curve is a helper-side
+            // GameProfile field now and is written only when the user presses Apply in the fan card —
+            // see the note where CaptureMsiFanIntoProfile used to live.
             if (SaveAMDFeatures && AMDFluidMotionFrameToggle != null)
             {
                 profile.FluidMotionFrames = AMDFluidMotionFrameToggle.IsOn;
@@ -292,77 +238,19 @@ namespace XboxGamingBar
                 profile.RadeonChillMinFPS = AMDRadeonChillMinFPSSlider.Value;
                 profile.RadeonChillMaxFPS = AMDRadeonChillMaxFPSSlider.Value;
             }
-            if (SaveFPSLimit && FPSLimitToggle != null && FPSLimitSlider != null)
-            {
-                profile.FPSLimitEnabled = FPSLimitToggle.IsOn;
-                // FPSLimitValue is the actual RTSS fps. The slider is INDEX-based now
-                // (0..6 → FpsRtssValues), so the raw slider value must NOT be stored — doing
-                // so produced bogus caps like "4" on the next launch. Use the helper's live RTSS
-                // value as the source of truth; keep the prior value when RTSS is off / Intel mode.
-                int rtssFps = fpsLimit?.Value ?? 0;
-                if (rtssFps > 0)
-                    profile.FPSLimitValue = rtssFps;
-                // Also persist the active limiter mode so the correct limiter is restored
-                profile.FpsCapMode = fpsCapMode?.Value ?? 0;
-                profile.IntelFpsTier = intelFpsTier?.Value ?? 0;
-            }
-            if (SaveAutoTDP && AutoTDPToggle != null && AutoTDPTargetFPSSlider != null && AutoTDPMinSlider != null && AutoTDPMaxSlider != null)
-            {
-                profile.AutoTDPEnabled = AutoTDPToggle.IsOn;
-                profile.AutoTDPTargetFPS = (int)AutoTDPTargetFPSSlider.Value;
-                profile.AutoTDPMinTDP = (int)AutoTDPMinSlider.Value;
-                profile.AutoTDPMaxTDP = (int)AutoTDPMaxSlider.Value;
-                // Save the controller type (0=PID, 1=Q-Learning, 2=SARSA)
-                profile.AutoTDPControllerType = AutoTDPControllerModeComboBox?.SelectedIndex ?? 0;
-                // Also update deprecated field for backwards compatibility
-                profile.AutoTDPUseMLMode = AutoTDPControllerModeComboBox?.SelectedIndex > 0;
-            }
-            if (SaveOSPowerMode && OSPowerModeComboBox != null)
-            {
-                profile.OSPowerMode = OSPowerModeComboBox.SelectedIndex;
-            }
-            // TDP Boost is always saved with TDP (they go together)
-            if (SaveTDP && TDPBoostToggle != null)
-            {
-                profile.TDPBoostEnabled = TDPBoostToggle.IsOn;
-                // Save PL2-Overboost watt value alongside the toggle
-                if (TDPBoostFPPTSlider != null)
-                    profile.TDPBoostFPPTWatts = (int)Math.Round(TDPBoostFPPTSlider.Value);
-            }
-            // HDR
-            if (SaveHDR)
-            {
-                profile.HDREnabled = HDRToggle?.IsOn ?? false;
-            }
-            // Resolution
-            if (SaveResolution)
-            {
-                profile.Resolution = ResolutionComboBox?.SelectedItem?.ToString() ?? "";
-            }
-            // Refresh Rate
-            if (SaveRefreshRate)
-            {
-                profile.RefreshRate = refreshRate?.Value;
-            }
-            // Sticky TDP
-            if (SaveStickyTDP && StickyTDPToggle != null)
-            {
-                profile.StickyTDPEnabled = StickyTDPToggle.IsOn;
-                profile.StickyTDPInterval = (int)(StickyTDPIntervalSlider?.Value ?? 5);
-            }
+            // HDR is NOT captured any more: no Claw model supports it (user, 2026-08-01), so the toggle
+            // wrote a value nothing could ever apply. Same for CPU affinity at the end of this method.
+            // Resolution and refresh rate are gone from here too, with §5.5: the helper owns them now.
+            // It persists them from its own Resolution/RefreshRate properties when the change is
+            // attributed to the user, and applies them per profile — so a widget copy would only be a
+            // second truth to drift.
             // Overlay Level
             if (SaveOverlayLevel && PerformanceOverlayComboBox != null)
             {
                 profile.OverlayLevel = PerformanceOverlayComboBox.SelectedIndex;
             }
-            // CPU Affinity
-            if (SaveCPUAffinity)
-            {
-                profile.CPUAffinity = $"{activePCores},{activeECores}";
-            }
-
             // Persist to storage
-            Logger.Info($"Saving profile {profileName}: TDP={profile.TDP}W");
+            Logger.Info($"Saving widget UI state for profile {profileName}: TDP mode index={profile.TDPModeIndex}");
             SaveProfileToStorage(profileName, profile);
 
             // Update profile display
@@ -379,113 +267,27 @@ namespace XboxGamingBar
             {
                 var profile = GetProfile(profileName);
 
-                // For Legion devices: check if we need to switch to Custom mode BEFORE sending any TDP-related settings
-                // This prevents TDP/TDPBoost/EPP from being ignored when helper is still in preset mode
-                bool legionNeedsModeChange = false;
-                bool legionSwitchingToCustom = false;
-                if (legionGoDetected?.Value == true && defaultGameProfileEnabled?.Value != true && !isInitialSync)
-                {
-                    int profileMode = profile.LegionPerformanceMode;
-                    int modeIndex = GetProfileTDPModeIndex(profile);
-                    if (modeIndex >= 0 && legionPerformanceMode?.Value != profileMode)
-                    {
-                        legionNeedsModeChange = true;
-                        legionSwitchingToCustom = profileMode == 255;
-                    }
-                }
-
-                // Apply only enabled settings to UI controls
-                // Skip TDP loading when DGP is active - DGP controls TDP
-                if (SaveTDP && defaultGameProfileEnabled?.Value != true)
-                {
-                    // Set IsUpdatingUI to prevent the slider's ValueChanged from starting debounce timer.
-                    // Without this, the slider fires ValueChanged → debounce timer → sends stale LocalSettings
-                    // value back to helper, corrupting the per-game profile.
-                    if (tdp != null) tdp.IsUpdatingUI = true;
-                    try
-                    {
-                        TDPSlider.Value = profile.TDP;
-                    }
-                    finally
-                    {
-                        if (tdp != null) tdp.IsUpdatingUI = false;
-                    }
-                    // Only initialize savedCustomTDP from profile's TDP value if the profile was saved in Custom mode
-                    // Otherwise we'd be saving a preset's TDP value as the custom TDP value
-                    if (profile.LegionPerformanceMode == 255)
-                    {
-                        savedCustomTDP = profile.TDP;
-                        Logger.Debug($"Initialized savedCustomTDP from profile (Custom mode): {savedCustomTDP}W");
-                    }
-
-                    // For Legion devices: TDP value will be sent AFTER TDP mode is applied (see Legion-specific handling below)
-                    // This prevents TDP from being ignored when switching from preset mode to Custom mode
-                    // For non-Legion devices: send TDP value immediately
-                    // Skip sending when helper triggered the profile switch (isApplyingHelperUpdate) —
-                    // the helper already sent the correct TDP via pipe, don't overwrite with stale LocalSettings value.
-                    // Also skip on isInitialSync (first LoadProfileSettings at widget construction time):
-                    // helper is the source of truth for TDP across restarts (global.xml), and the widget
-                    // may have a stale or default value from LocalSettings here — pushing it would clobber
-                    // the helper's just-restored value. Issues #74 and #79 symptom: TDP resets to the
-                    // hardcoded 15 W default after every reboot because widget-owned TDP is skipped in
-                    // batch sync, then this push overwrites helper's global.xml value before the user
-                    // even touches the slider.
-                    // Restore PL2-Overboost watt value BEFORE sending TDP.
-                    // The helper's TDPBoostFPPTProperty skips TDP re-apply when isApplyingProfile=true,
-                    // so FPPT must arrive at the helper before TDP — otherwise SetTDP runs with the
-                    // stale fpptBoost value and PL2 stays at the old level (e.g. 37W instead of 20W).
-                    if (profile.TDPBoostFPPTWatts > 0)
-                    {
-                        isLoadingTDPBoostSettings = true;
-                        try
-                        {
-                            double clamped = Math.Max(TDPBoostFPPTSlider?.Minimum ?? 0,
-                                                      Math.Min(profile.TDPBoostFPPTWatts, TDPBoostFPPTSlider?.Maximum ?? 37));
-                            if (TDPBoostFPPTSlider != null)
-                                TDPBoostFPPTSlider.Value = clamped;
-                            if (TDPBoostFPPTSliderCard != null)
-                                TDPBoostFPPTSliderCard.Value = clamped;
-                            if (TDPBoostFPPTValue != null)
-                                TDPBoostFPPTValue.Text = $"{(int)clamped}W";
-                            if (TDPBoostFPPTValueInCard != null)
-                                TDPBoostFPPTValueInCard.Text = $"{(int)clamped}W";
-                            // Sync LocalSettings so the value survives widget restarts
-                            ApplicationData.Current.LocalSettings.Values["TDPBoostFPPT"] = (int)clamped;
-                            tdpBoostFPPT?.SetValue((int)clamped);
-                            Logger.Info($"PL2-Overboost restored from profile: {(int)clamped}W");
-                        }
-                        finally { isLoadingTDPBoostSettings = false; }
-                    }
-                    // Send TDP AFTER FPPT so the helper's SetTDP uses the updated fpptBoost value
-                    if (legionGoDetected?.Value != true && !isApplyingHelperUpdate && !isInitialSync)
-                    {
-                        tdp?.ForceSetValue((int)profile.TDP);
-                    }
-                    // Update Sticky TDP target when loading profile
-                    if (StickyTDPToggle?.IsOn == true)
-                    {
-                        targetTDPLimit = profile.TDP;
-                        Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (profile load)");
-                    }
-                    // Load TDP Boost toggle state from profile
-                    if (TDPBoostToggle != null)
-                    {
-                        TDPBoostToggle.IsOn = profile.TDPBoostEnabled;
-                        if (!legionSwitchingToCustom && !isApplyingHelperUpdate)
-                        {
-                            tdpBoostEnabled?.SetValue(profile.TDPBoostEnabled);
-                        }
-                        Logger.Info($"TDP Boost loaded from profile: {profile.TDPBoostEnabled} (deferred={legionSwitchingToCustom})");
-                    }
-                }
+                // Plan §5.4 step 1: the TDP group is neither read from nor pushed out of the widget's
+                // profile copy any more. The helper owns it and applies it itself on BOTH switch
+                // directions — per-game in PerGameProfile_PropertyChanged and global in
+                // RestoreGlobalProfileSettings, each in the order TDPBoostEnabled → PL2 → TDP →
+                // CPUBoost/EPP/CPUState (Program.ProfileHandlers.cs:705-720 and :457-467).
+                //
+                // The UI follows the helper's property pushes (BatchSync when the widget opens,
+                // per-property push on an in-session switch) — the same pattern the Intel Display and
+                // CPU-advanced blocks below already use, and for the same measured reason: asserting
+                // the widget's stored value here overwrote the helper's just-applied one on every
+                // reload (a Game Bar background bounce was enough).
+                //
+                // This also retires the Legion "switch to Custom first, then send the deferred TDP
+                // values" ordering dance: with nothing sent from here there is nothing left to order.
+                // savedCustomTDP is no longer seeded from the profile either — it is initialized from
+                // the helper's tdp.Value on connect (GamingWidget.xaml.cs:4444, :4886).
                 if (SaveCPUBoost)
                 {
-                    CPUBoostToggle.IsOn = profile.CPUBoost;
-                    // Send to helper explicitly — skip when helper triggered the switch
-                    if (!isApplyingHelperUpdate)
-                    {
-                        cpuBoost?.SetValue(profile.CPUBoost);
-                    }
+                    // CPUBoost: same as the TDP group above — the helper applies it from its own store
+                    // (powerManager.CPUBoost.SetValue on both switch directions) and pushes the result
+                    // back. Neither the toggle assignment nor the send belongs here any more.
 
                     // CPU advanced (ToothNClaw port): restore combo selections + push to helper.
                     ApplyCpuAdvancedFromProfile(profile);
@@ -496,37 +298,12 @@ namespace XboxGamingBar
                     // on every Game Bar reopen (slider snapped back to a stale value). UI follows
                     // the helper instead.
                 }
-                if (SaveCPUEPP)
-                {
-                    // Set IsUpdatingUI to prevent EPP slider debounce timer
-                    if (cpuEPP != null) cpuEPP.IsUpdatingUI = true;
-                    try
-                    {
-                        CPUEPPSlider.Value = profile.CPUEPP;
-                    }
-                    finally
-                    {
-                        if (cpuEPP != null) cpuEPP.IsUpdatingUI = false;
-                    }
-                    // Send to helper explicitly (cast to int for property type)
-                    // For Legion devices switching to Custom mode: defer sending to helper until mode change is applied
-                    // Skip when helper triggered the switch
-                    if (!legionSwitchingToCustom && !isApplyingHelperUpdate)
-                    {
-                        cpuEPP?.SetValue((int)profile.CPUEPP);
-                    }
-                }
+                // CPUEPP: helper-owned (powerManager.CPUEPP.SetValue from the profile it just switched
+                // to). The slider follows the helper's push, so there is nothing to load or send here.
                 if (SaveCPUState)
                 {
-                    SetCPUStateComboBoxValue(MaxCPUStateComboBox, profile.MaxCPUState);
-                    SetCPUStateComboBoxValue(MinCPUStateComboBox, profile.MinCPUState);
-                    // Send to helper explicitly — skip when helper triggered the switch
-                    if (!isApplyingHelperUpdate)
-                    {
-                        maxCPUState?.SetValue(profile.MaxCPUState);
-                        minCPUState?.SetValue(profile.MinCPUState);
-                    }
-                    // Update CPU Boost enabled state based on Max CPU State
+                    // Max/MinCPUState: helper-owned as well. Only the derived enable state of the CPU
+                    // Boost toggle is a widget concern, and that reads the live combo values.
                     UpdateCPUBoostEnabledState();
                 }
                 if (SaveAMDFeatures)
@@ -580,113 +357,37 @@ namespace XboxGamingBar
                 }
                 if (SaveFPSLimit)
                 {
-                    bool intelMode = profile.FpsCapMode == 1 && profile.IntelFpsTier > 0;
-
-                    // Apply FPS cap mode (RTSS=0 / Intel=1) — must go first so helper switches mode before values
-                    if (fpsCapMode != null && fpsCapMode.Value != profile.FpsCapMode)
-                        fpsCapMode.SetValue(profile.FpsCapMode);
-
-                    // intelFpsTier now carries a real FPS (legacy 1/2/3 tiers migrated to 60/40/30).
-                    int intelFps = MigrateIntelFps(profile.IntelFpsTier);
-                    if (intelMode)
-                    {
-                        // Intel mode active: set fps cap, silence RTSS (0)
-                        intelFpsTier?.SetValue(intelFps);
-                        fpsLimit?.SetValue(0);
-                    }
-                    else
-                    {
-                        // RTSS mode: set fps limit, silence Intel (0)
-                        intelFpsTier?.SetValue(0);
-                        int fpsLimitValue = profile.FPSLimitEnabled ? profile.FPSLimitValue : 0;
-                        fpsLimit?.SetValue(fpsLimitValue);
-                    }
-
-                    // Sync toggle + slider UI state — inside isApplyingHelperUpdate so
-                    // FPSLimitToggle_Toggled doesn't fire and overwrite the loaded values.
-                    // Slider carries a real FPS value now (not an index).
-                    isApplyingHelperUpdate = true;
-                    try
-                    {
-                        int max = FpsSliderMax();
-                        FPSLimitSlider.Minimum = FpsSliderMin;
-                        FPSLimitSlider.Maximum = max;
-                        FPSLimitToggle.IsOn = profile.FPSLimitEnabled || intelMode;
-                        int shown = intelMode ? intelFps : (profile.FPSLimitEnabled ? profile.FPSLimitValue : 60);
-                        if (shown <= 0) shown = 60;
-                        FPSLimitSlider.Value = Math.Max(FpsSliderMin, Math.Min(max, shown));
-                    }
-                    finally { isApplyingHelperUpdate = false; }
-                    // Refresh the whole FPS section so mode radio + panels match
+                    // FPS cap (RTSS limit, Intel cap, cap mode): helper-owned. It applies the profile's
+                    // state through ApplyFpsLimiterFromProfile — including the mutual exclusion between
+                    // the two limiters — on both switch directions, then pushes the result back.
+                    //
+                    // Sending from here was also the one place the two stores disagreed on ENCODING and
+                    // not just on the value: IntelFpsTier is a tier INDEX in the widget's copy
+                    // (0=Off, 1=P60, 2=B40, 3=E30) but an actual FPS number in the helper's store, so a
+                    // push from here fed a 1..3 into a field the helper reads as frames per second.
+                    //
+                    // UpdateFPSLimitControls already builds the whole section — toggle, slider bounds,
+                    // value, mode radio — from the live helper properties, which is exactly what is
+                    // wanted now.
                     UpdateFPSLimitControls();
                 }
-                if (SaveAutoTDP)
-                {
-                    // Set loading flag to prevent toggled event from sending to helper
-                    isLoadingAutoTDPSettings = true;
-                    try
-                    {
-                        // For game profiles, use the helper's synced property value.
-                        // The widget's profile may be stale (e.g., AutoTDP=false saved during game close
-                        // when helper restored global values). The helper is the source of truth.
-                        bool autoTDPState = profileName.StartsWith("Game_") && autoTDPEnabled != null
-                            ? autoTDPEnabled.Value
-                            : profile.AutoTDPEnabled;
-                        AutoTDPToggle.IsOn = autoTDPState;
-                        AutoTDPTargetFPSSlider.Value = profile.AutoTDPTargetFPS;
-                        AutoTDPMinSlider.Value = profile.AutoTDPMinTDP;
-                        AutoTDPMaxSlider.Value = profile.AutoTDPMaxTDP;
-                        // Update text displays explicitly
-                        if (AutoTDPTargetFPSValue != null)
-                        {
-                            AutoTDPTargetFPSValue.Text = $"{profile.AutoTDPTargetFPS} FPS";
-                        }
-                        if (AutoTDPMinValue != null)
-                        {
-                            AutoTDPMinValue.Text = $"{profile.AutoTDPMinTDP}W";
-                        }
-                        if (AutoTDPMaxValue != null)
-                        {
-                            AutoTDPMaxValue.Text = $"{profile.AutoTDPMaxTDP}W";
-                        }
-                        // Update controller type selection (0=PID, 1=Q-Learning, 2=SARSA)
-                        if (AutoTDPControllerModeComboBox != null)
-                        {
-                            AutoTDPControllerModeComboBox.SelectedIndex = ClampComboIndex(AutoTDPControllerModeComboBox, profile.AutoTDPControllerType);
-                            UpdateAutoTDPMLInfoPanelVisibility();
-                        }
-                        // NOTE: Do NOT send to helper here - helper is source of truth for profile values
-                        // Helper will apply profile values and sync back to widget
-                    }
-                    finally
-                    {
-                        isLoadingAutoTDPSettings = false;
-                    }
-                }
-                if (SaveOSPowerMode)
-                {
-                    isLoadingOSPowerMode = true;
-                    try
-                    {
-                        OSPowerModeComboBox.SelectedIndex = ClampComboIndex(OSPowerModeComboBox, profile.OSPowerMode);
-                        if (profile.OSPowerMode >= 0 && profile.OSPowerMode < OSPowerModeNames.Length)
-                        {
-                            OSPowerModeValue.Text = OSPowerModeNames[profile.OSPowerMode];
-                        }
-                        // Send to helper explicitly
-                        osPowerMode?.SetValue(profile.OSPowerMode);
-                    }
-                    finally
-                    {
-                        isLoadingOSPowerMode = false;
-                    }
-                }
+                // OS power mode moved to the helper on 2026-08-01: GameProfile.OSPowerMode is a real
+                // int? now, ApplyOsPowerModeFromProfile applies it on every switch and
+                // OSPowerMode_PropertyChanged persists a user change. The block that used to load and
+                // push the widget's copy here is gone with it — the ComboBox follows the helper's push
+                // like every other group-A control.
+                //
+                // Resolution and refresh rate below are the only genuinely widget-driven leftovers: no
+                // helper-side apply-from-profile exists for them yet, and their isExplicitSwitch gate is
+                // what keeps them from clobbering until the send path (§5.5) lands. HDR and CPU affinity
+                // are gone entirely — no Claw model has HDR, and CPU affinity is a GoTweaks leftover the
+                // product does not use (user, 2026-08-01).
                 // Legion Performance Mode handling
                 // Skip TDP mode loading when:
                 // - Default Game Profile is active (DGP controls TDP)
                 // - Initial sync is in progress (let helper's value take precedence - DGP state not yet known)
-                Logger.Info($"LoadProfileSettings Legion check: legionGoDetected={legionGoDetected?.Value}, LegionPerformanceModeComboBox={LegionPerformanceModeComboBox != null}, TDPModeComboBox={TDPModeComboBox != null}, defaultGameProfileEnabled={defaultGameProfileEnabled?.Value}, isInitialSync={isInitialSync}");
-                if (legionGoDetected?.Value == true && LegionPerformanceModeComboBox != null && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true && !isInitialSync)
+                Logger.Info($"LoadProfileSettings Legion check: legionGoDetected={legionGoDetected?.Value}, LegionPerformanceModeComboBox={LegionPerformanceModeComboBox != null}, TDPModeComboBox={TDPModeComboBox != null}, isInitialSync={isInitialSync}");
+                if (legionGoDetected?.Value == true && LegionPerformanceModeComboBox != null && TDPModeComboBox != null && !isInitialSync)
                 {
                     int[] modeValues = { 1, 2, 3, 255 }; // Quiet, Balanced, Performance, Custom
 
@@ -737,56 +438,42 @@ namespace XboxGamingBar
                     {
                         // Loading Global/AC/DC profile and we have a saved mode to restore
                         int index = Array.IndexOf(modeValues, savedLegionPerformanceMode);
-                        bool modeChanged = false;
-                        if (index >= 0 && (legionPerformanceMode.Value != savedLegionPerformanceMode || TDPModeComboBox.SelectedIndex != index))
+
+                        // THE TWO COMBOBOXES DO NOT SHARE AN INDEX SPACE. `index` is a Legion-mode index
+                        // (Quiet/Balanced/Performance/Custom = 0..3), while TDPModeComboBox is REBUILT AT
+                        // RUNTIME by PopulateTdpModeComboBox and holds exactly ONE item ("Slider") on the
+                        // MSI Claw — the named presets there are deliberately disabled. So a saved mode of
+                        // Custom (255 → index 3) wrote 3 into a one-item ComboBox and threw
+                        // ArgumentException ("Value does not fall within the expected range").
+                        //
+                        // Measured on 0.1.8.67: 36 occurrences in a single hour of widget log, every one on
+                        // a game end and only for the Global profile (the Game_ branch above never touches
+                        // SelectedIndex). It did not crash the widget — the outer catch contains it — but it
+                        // ABORTED THE REST of LoadProfileSettings, so the TDP-slider restore, overlay level,
+                        // CPU affinity and UpdateProfileDisplay below were silently skipped
+                        // on every single game end. ClampComboIndex existed for exactly this failure mode and
+                        // was applied to OSPowerModeComboBox only; these sites were missed.
+                        int tdpModeIndex = ClampComboIndex(TDPModeComboBox, index);
+                        int legionModeIndex = ClampComboIndex(LegionPerformanceModeComboBox, index);
+                        if (index >= 0 && (legionPerformanceMode.Value != savedLegionPerformanceMode || TDPModeComboBox.SelectedIndex != tdpModeIndex))
                         {
-                            if (LegionPerformanceModeComboBox.SelectedIndex != index)
-                                LegionPerformanceModeComboBox.SelectedIndex = index;
-                            if (TDPModeComboBox.SelectedIndex != index)
+                            if (LegionPerformanceModeComboBox.SelectedIndex != legionModeIndex)
+                                LegionPerformanceModeComboBox.SelectedIndex = legionModeIndex;
+                            if (TDPModeComboBox.SelectedIndex != tdpModeIndex)
                             {
-                                lastTDPModeIndex = index;
-                                TDPModeComboBox.SelectedIndex = index;
+                                // lastTDPModeIndex must hold what the ComboBox actually shows — it is
+                                // compared against SelectedIndex to tell helper syncs from user edits.
+                                lastTDPModeIndex = tdpModeIndex;
+                                TDPModeComboBox.SelectedIndex = tdpModeIndex;
                             }
-                            legionPerformanceMode?.ForceSetValue(savedLegionPerformanceMode);
-                            modeChanged = true;
-                            Logger.Info($"Restored Legion Performance Mode: {GetLegionModeShortName(savedLegionPerformanceMode)} ({savedLegionPerformanceMode}) after game closed");
+                            // Mode itself is NOT sent: the helper restores the global profile's
+                            // LegionPerformanceMode in RestoreGlobalProfileSettings before it even tells
+                            // the widget the game ended. Only the ComboBox index (group C) is ours.
+                            Logger.Info($"Restored TDP mode ComboBox to {GetLegionModeShortName(savedLegionPerformanceMode)} ({savedLegionPerformanceMode}) after game closed — mode owned by helper");
                         }
-                        // Also restore the TDP slider to the profile's TDP value
-                        // This is needed because the slider may still show the game profile's TDP
-                        if (SaveTDP && TDPSlider.Value != profile.TDP)
-                        {
-                            TDPSlider.Value = profile.TDP;
-                            Logger.Info($"Restored TDP slider to {profile.TDP}W after game closed");
-                        }
-                        // If restoring to Custom mode (255), send deferred settings after mode change
-                        if (SaveTDP && savedLegionPerformanceMode == 255)
-                        {
-                            if (modeChanged)
-                            {
-                                _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
-                                {
-                                    await Task.Delay(500); // Allow mode change to propagate to helper
-                                    // Send deferred TDP-related settings
-                                    if (TDPBoostToggle != null)
-                                    {
-                                        tdpBoostEnabled?.ForceSetValue(profile.TDPBoostEnabled);
-                                        if (profile.TDPBoostFPPTWatts > 0)
-                                            tdpBoostFPPT?.ForceSetValue(profile.TDPBoostFPPTWatts);
-                                    }
-                                    if (SaveCPUEPP)
-                                    {
-                                        cpuEPP?.ForceSetValue((int)profile.CPUEPP);
-                                    }
-                                    tdp?.ForceSetValue((int)profile.TDP);
-                                    Logger.Info($"Restored TDP settings after mode change: TDP={profile.TDP}W, Boost={profile.TDPBoostEnabled}, FPPT={profile.TDPBoostFPPTWatts}W, EPP={profile.CPUEPP}");
-                                });
-                            }
-                            else
-                            {
-                                tdp?.ForceSetValue((int)profile.TDP);
-                                Logger.Info($"Restored TDP value (already in Custom mode): {profile.TDP}W");
-                            }
-                        }
+                        // The slider itself and the deferred "after the mode change, re-send TDP / PL2 /
+                        // EPP" block are gone with the rest of the TDP group: the helper has already
+                        // applied the global profile's values by the time we get here.
                         savedLegionPerformanceMode = -1; // Clear saved mode
                     }
                     else if (SaveTDP)
@@ -798,50 +485,25 @@ namespace XboxGamingBar
 
                         // Always update UI to match profile when loading Global profile
                         // The internal value may already match (set by helper) but UI may be stale
-                        bool modeChanged = false;
                         if (modeIndex >= 0)
                         {
-                            // Update lastTDPModeIndex FIRST to prevent TDPModeComboBox_SelectionChanged
-                            // from treating the profile load as a user-initiated change
-                            lastTDPModeIndex = modeIndex;
-
-                            modeChanged = legionPerformanceMode.Value != profileMode;
-                            if (LegionPerformanceModeComboBox.SelectedIndex != modeIndex)
-                                LegionPerformanceModeComboBox.SelectedIndex = modeIndex;
-                            if (TDPModeComboBox.SelectedIndex != modeIndex)
-                                TDPModeComboBox.SelectedIndex = modeIndex;
-                            legionPerformanceMode?.ForceSetValue(profileMode);
-                            Logger.Info($"Applied profile TDP Mode: {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName}");
-
-                            // If Custom mode (255), send deferred settings after mode change
-                            if (profileMode == 255)
-                            {
-                                if (modeChanged)
-                                {
-                                    _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, async () =>
-                                    {
-                                        await Task.Delay(500); // Allow mode change to propagate to helper
-                                        // Send deferred TDP-related settings
-                                        if (TDPBoostToggle != null)
-                                        {
-                                            tdpBoostEnabled?.ForceSetValue(profile.TDPBoostEnabled);
-                                            if (profile.TDPBoostFPPTWatts > 0)
-                                                tdpBoostFPPT?.ForceSetValue(profile.TDPBoostFPPTWatts);
-                                        }
-                                        if (SaveCPUEPP)
-                                        {
-                                            cpuEPP?.ForceSetValue((int)profile.CPUEPP);
-                                        }
-                                        tdp?.ForceSetValue((int)profile.TDP);
-                                        Logger.Info($"Applied profile TDP settings after mode change: TDP={profile.TDP}W, Boost={profile.TDPBoostEnabled}, FPPT={profile.TDPBoostFPPTWatts}W, EPP={profile.CPUEPP} for {profileName}");
-                                    });
-                                }
-                                else
-                                {
-                                    tdp?.ForceSetValue((int)profile.TDP);
-                                    Logger.Info($"Applied profile TDP value (already in Custom mode): {profile.TDP}W for {profileName}");
-                                }
-                            }
+                            // Clamp for the same reason as the branch above: TDPModeComboBox is rebuilt at
+                            // runtime and can hold fewer items than the stored index.
+                            int legionModeIdx = ClampComboIndex(LegionPerformanceModeComboBox, modeIndex);
+                            int tdpModeIdx = ClampComboIndex(TDPModeComboBox, modeIndex);
+                            // Set lastTDPModeIndex BEFORE touching the ComboBox so
+                            // TDPModeComboBox_SelectionChanged does not treat the profile load as a
+                            // user-initiated change — and to the CLAMPED value, which is what the control
+                            // will actually report back.
+                            lastTDPModeIndex = tdpModeIdx;
+                            if (LegionPerformanceModeComboBox.SelectedIndex != legionModeIdx)
+                                LegionPerformanceModeComboBox.SelectedIndex = legionModeIdx;
+                            if (TDPModeComboBox.SelectedIndex != tdpModeIdx)
+                                TDPModeComboBox.SelectedIndex = tdpModeIdx;
+                            // Neither the mode nor the deferred TDP/PL2/EPP re-send happens here any
+                            // more — same reasoning as the game-end branch above. Only the two ComboBox
+                            // indices (group C) are still the widget's to set.
+                            Logger.Info($"Applied TDP mode ComboBox index for {GetLegionModeShortName(profileMode)} ({profileMode}) for {profileName} — mode owned by helper");
                         }
                     }
 
@@ -860,7 +522,7 @@ namespace XboxGamingBar
                 // Generic device TDP Mode handling — skip during initial sync to avoid
                 // ArgumentOutOfRangeException when the ComboBox has fewer items than the
                 // saved profile index. ApplyProfileTDPToHelper sets the correct mode after connection.
-                else if (legionGoDetected?.Value != true && TDPModeComboBox != null && defaultGameProfileEnabled?.Value != true && !isInitialSync)
+                else if (legionGoDetected?.Value != true && TDPModeComboBox != null && !isInitialSync)
                 {
                     // Load TDP Mode from profile for generic devices
                     int profileMode = profile.LegionPerformanceMode;
@@ -872,18 +534,21 @@ namespace XboxGamingBar
                     // mode change (selectedIndex == lastTDPModeIndex early return).
                     if (SaveTDP)
                     {
-                        lastTDPModeIndex = modeIndex;
+                        // Clamped: the comment above says this branch is skipped during initial sync "to
+                        // avoid ArgumentOutOfRangeException when the ComboBox has fewer items than the saved
+                        // profile index" — that gate only narrows the window, it does not close it, because
+                        // PopulateTdpModeComboBox can shrink the list at any time. Clamping closes it.
+                        int genericModeIndex = ClampComboIndex(TDPModeComboBox, modeIndex);
+                        lastTDPModeIndex = genericModeIndex;
 
-                        if (TDPModeComboBox.SelectedIndex != modeIndex)
+                        if (TDPModeComboBox.SelectedIndex != genericModeIndex)
                         {
-                            TDPModeComboBox.SelectedIndex = modeIndex;
-                            Logger.Info($"Applied generic device TDP Mode: index {modeIndex} (mode {profileMode}) for {profileName}");
+                            TDPModeComboBox.SelectedIndex = genericModeIndex;
+                            Logger.Info($"Applied generic device TDP Mode: index {genericModeIndex} (from {modeIndex}, mode {profileMode}) for {profileName}");
 
-                            // TDP slider value was already set from profile.TDP above, and
-                            // tdp.ForceSetValue(profile.TDP) was already called for non-Legion devices.
-                            // Do NOT overwrite with hardcoded GoTweaks values {8,15,25} — those
-                            // don't match MSI Claw custom presets (e.g. Max=35W, Standard=25W, Eco=15W).
-                            // The profile's saved TDP is the authoritative value here.
+                            // The slider value is NOT touched here. It follows the helper's TDP push,
+                            // and it must not be overwritten with the hardcoded GoTweaks preset watts
+                            // {8,15,25} either — those never matched the Claw's presets anyway.
                         }
                     }
 
@@ -891,133 +556,19 @@ namespace XboxGamingBar
                     UpdateTDPSliderEnabledState();
                 }
 
-                // MSI Claw: the GoTweaks performance-mode presets (Max/Standard/Balanced/...) are
-                // obsolete here — TDP is driven purely by the slider/profile value. The Legion-mode
-                // branch above only force-sends the TDP when the stored mode is Custom (255); a profile
-                // saved with a legacy preset mode (e.g. Balanced=2) would otherwise never push the slider
-                // value, leaving the Claw stuck on a preset wattage (the reported "drops to 15W"). Always
-                // apply the profile's slider TDP on the Claw — for a game without its own profile this is
-                // the global profile's value (no per-game/default fallback).
-                if (SaveTDP && tdp != null && defaultGameProfileEnabled?.Value != true && !isInitialSync && IsMsiClawDevice())
-                {
-                    tdp.ForceSetValue((int)profile.TDP);
-                    Logger.Info($"[MSIClaw] Forced profile TDP to {profile.TDP}W (slider-only; ignoring legacy preset mode) for {profileName}");
-                }
+                // The MSI-Claw-specific "always re-assert the profile's slider TDP" block that used to
+                // sit here is gone. It was the second half of the measured clobber (no isExplicitSwitch
+                // gate, so a cosmetic reload re-asserted a stale widget value over the helper's); it had
+                // already been reduced to a Debug log, and with the whole TDP group now helper-owned
+                // even that log would only print a frozen widget value.
 
-                // HDR
-                if (SaveHDR)
-                {
-                    // Only apply HDR if:
-                    // 1. This is an explicit profile switch (game detected/closed), OR
-                    // 2. No game is currently running (returning to desktop)
-                    bool shouldApplyHDR = isExplicitSwitch || !HasValidGame(currentGameName);
-
-                    if (shouldApplyHDR)
-                    {
-                        if (HDRToggle != null && hdrSupported?.Value == true)
-                        {
-                            HDRToggle.IsOn = profile.HDREnabled;
-                            hdrEnabled?.SetValue(profile.HDREnabled);
-                        }
-                    }
-                    else
-                    {
-                        Logger.Info($"Skipping HDR application - game is running and not an explicit switch");
-                    }
-                }
-
-                // Resolution
-                if (SaveResolution)
-                {
-                    // Only apply Resolution if:
-                    // 1. This is an explicit profile switch (game detected/closed), OR
-                    // 2. No game is currently running (returning to desktop)
-                    bool shouldApplyResolution = isExplicitSwitch || !HasValidGame(currentGameName);
-
-                    if (shouldApplyResolution)
-                    {
-                        if (ResolutionComboBox != null && !string.IsNullOrEmpty(profile.Resolution))
-                        {
-                            // Find and select matching resolution
-                            for (int i = 0; i < ResolutionComboBox.Items.Count; i++)
-                            {
-                                if (ResolutionComboBox.Items[i]?.ToString() == profile.Resolution)
-                                {
-                                    ResolutionComboBox.SelectedIndex = i;
-                                    resolution?.SetValue(profile.Resolution);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Logger.Info($"Skipping Resolution application - game is running and not an explicit switch");
-                    }
-                }
-
-                // Refresh Rate
-                if (SaveRefreshRate)
-                {
-                    // Only apply Refresh Rate if:
-                    // 1. This is an explicit profile switch (game detected/closed), OR
-                    // 2. No game is currently running (returning to desktop)
-                    bool shouldApplyRefreshRate = isExplicitSwitch || !HasValidGame(currentGameName);
-
-                    if (shouldApplyRefreshRate)
-                    {
-                        if (RefreshRatesComboBox != null && profile.RefreshRate.HasValue)
-                        {
-                            // Find and select matching refresh rate
-                            for (int i = 0; i < RefreshRatesComboBox.Items.Count; i++)
-                            {
-                                if (RefreshRatesComboBox.Items[i] is int rate && rate == profile.RefreshRate.Value)
-                                {
-                                    RefreshRatesComboBox.SelectedIndex = i;
-                                    refreshRate?.SetValue(profile.RefreshRate.Value);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        Logger.Info($"Skipping RefreshRate application - game is running and not an explicit switch");
-                    }
-                }
-
-                // Sticky TDP
-                if (SaveStickyTDP && StickyTDPToggle != null)
-                {
-                    isLoadingStickyTDPSettings = true;
-                    try
-                    {
-                        StickyTDPToggle.IsOn = profile.StickyTDPEnabled;
-                        if (StickyTDPIntervalSlider != null)
-                        {
-                            StickyTDPIntervalSlider.Value = profile.StickyTDPInterval;
-                            stickyTDPCheckIntervalSeconds = profile.StickyTDPInterval;
-                        }
-                        if (StickyTDPIntervalValue != null)
-                        {
-                            StickyTDPIntervalValue.Text = $"{profile.StickyTDPInterval}s";
-                        }
-                        // Update timer state based on profile
-                        if (profile.StickyTDPEnabled)
-                        {
-                            targetTDPLimit = profile.TDP;
-                            StartStickyTDPTimer();
-                        }
-                        else
-                        {
-                            StopStickyTDPTimer();
-                        }
-                    }
-                    finally
-                    {
-                        isLoadingStickyTDPSettings = false;
-                    }
-                }
+                // Resolution and refresh rate used to be read from the widget's copy and PUSHED here,
+                // guarded by isExplicitSwitch so a cosmetic reload would not move the screen. Both are
+                // gone with §5.5: the helper applies the display mode from its own store when the
+                // profile changes, which is also where the guard belongs — it knows whether a game
+                // actually started, while the widget could only approximate that from currentGameName.
+                // The combo boxes stay: picking a mode there still sends a Set, and that Set is exactly
+                // what the helper treats as the user's choice and persists.
 
                 // Overlay Level
                 if (SaveOverlayLevel && PerformanceOverlayComboBox != null)
@@ -1030,64 +581,19 @@ namespace XboxGamingBar
                     }
                 }
 
-                // CPU Affinity
-                if (SaveCPUAffinity && !string.IsNullOrEmpty(profile.CPUAffinity))
-                {
-                    var parts = profile.CPUAffinity.Split(',');
-                    if (parts.Length == 2 && int.TryParse(parts[0], out int pCores) && int.TryParse(parts[1], out int eCores))
-                    {
-                        // Validate that at least one core type is active
-                        if (pCores > 0 || eCores > 0)
-                        {
-                            isLoadingCPUCoreConfig = true;
-                            try
-                            {
-                                activePCores = pCores;
-                                activeECores = eCores;
-                                // Update UI controls
-                                UpdatePCoreComboBox();
-                                UpdateECoreComboBox();
-                            }
-                            finally
-                            {
-                                isLoadingCPUCoreConfig = false;
-                            }
-                            // Send to helper
-                            SendCPUCoreConfigToHelper();
-                            Logger.Info($"Applied CPU Affinity from profile: P={pCores}, E={eCores}");
-                        }
-                    }
-                }
+                // CPU affinity is no longer restored from the profile: it is a GoTweaks leftover the
+                // product does not use (user, 2026-08-01) and the save side is gone, so this block
+                // would have re-applied a frozen value on every switch.
 
                 // Update profile display to show correct TDP mode in Profiles tab
                 UpdateProfileDisplay();
 
-                // Safety check: If AutoTDP is enabled but we're not in Custom mode, switch to Custom mode
-                // This handles profiles that were saved with incorrect mode values before the fix.
-                // Skip for game profiles: helper manages TDP mode for game profiles, and the toggle
-                // may show true from autoTDPEnabled.Value which belongs to a DIFFERENT game's profile.
-                if (SaveAutoTDP && AutoTDPToggle?.IsOn == true && legionGoDetected?.Value == true && !profileName.StartsWith("Game_"))
-                {
-                    int customIndex = GetCustomTdpModeIndex();
-                    if (TDPModeComboBox != null && !IsCustomTdpModeSelected())
-                    {
-                        Logger.Info($"AutoTDP enabled but not in Custom mode - fixing mode to Custom");
-                        isUpdatingTDPMode = true;
-                        try
-                        {
-                            lastTDPModeIndex = customIndex;
-                            TDPModeComboBox.SelectedIndex = customIndex;
-                            if (LegionPerformanceModeComboBox != null)
-                                LegionPerformanceModeComboBox.SelectedIndex = customIndex;
-                            legionPerformanceMode?.SetValue(255);
-                            UpdateTDPSliderEnabledState();
-                        }
-                        finally
-                        {
-                            isUpdatingTDPMode = false;
-                        }
-                    }
-                }
+                // The per-game MSI fan hook that used to sit here is GONE (2026-08-02). Hanging the fan off
+                // LoadProfileSettings is exactly what made the feature untenable the first time: this
+                // method re-runs on every periodic property BatchGet (~10 s) and on every Game-Bar
+                // detection flap, so the curve was re-written ~20×/hr and each write re-entered software
+                // fan mode. The helper applies the per-game curve now, from the same events it uses for
+                // TDP — see Program.MSIClaw.ApplyFanCurveFromProfile.
             }
             catch (Exception ex)
             {

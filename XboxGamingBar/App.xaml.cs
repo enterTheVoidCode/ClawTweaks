@@ -408,6 +408,11 @@ namespace XboxGamingBar
                     rootFrame.NavigationFailed += OnNavigationFailed;
                     Window.Current.Content = rootFrame;
 
+                    // Set when construction failed because the CoreWindow was torn down underneath us
+                    // AND we successfully asked the process to exit. In that case the frame below is
+                    // empty and must NOT be activated - see the catch and DispatcherHealth.ExitForRehost.
+                    bool exitingForRehost = false;
+
                     if (widgetArgs.AppExtensionId == "GamingWidget")
                     {
                         Logger.Info("Creating XboxGameBarWidget for GamingWidget...");
@@ -426,6 +431,14 @@ namespace XboxGamingBar
                         {
                             Logger.Error($"Failed to create GamingWidget on launch activation: {ex.Message}");
                             Logger.Error($"Stack trace: {ex.StackTrace}");
+
+                            // A separated dispatcher means the Game Bar tore the CoreWindow down while
+                            // the widget was still being built, so rootFrame has no content and never
+                            // will. Activating it is what produces the blank widget users report. Exit
+                            // instead and let the Game Bar re-host. Any other exception keeps the old
+                            // behaviour - it may well have left a usable page behind.
+                            if (DispatcherHealth.IsSeparated(ex))
+                                exitingForRehost = DispatcherHealth.ExitForRehost("LaunchActivation");
                         }
                     }
                     else if (widgetArgs.AppExtensionId == "GamingWidgetSettings")
@@ -438,13 +451,22 @@ namespace XboxGamingBar
                         Window.Current.Closed += GamingSettingsWidgetWindow_Closed;
                     }
 
-                    Logger.Info("Calling Window.Current.Activate()...");
-                    Window.Current.Activate();
-                    Logger.Info("Window activated successfully");
+                    if (exitingForRehost)
+                    {
+                        // Nothing to show and the process is on its way out. Do not activate an empty
+                        // frame, and do not touch the app-mode window - the exit takes it down anyway.
+                        Logger.Warn("Skipping Window.Current.Activate() - the frame is empty and the process is exiting for a re-host.");
+                    }
+                    else
+                    {
+                        Logger.Info("Calling Window.Current.Activate()...");
+                        Window.Current.Activate();
+                        Logger.Info("Window activated successfully");
 
-                    // Auto-close the standalone app-mode window (if any) now that Game Bar hosts the widget
-                    // in its own view, so it doesn't linger as an orphan desktop window.
-                    CloseAppModeWindowIfOpen(Window.Current?.CoreWindow);
+                        // Auto-close the standalone app-mode window (if any) now that Game Bar hosts the widget
+                        // in its own view, so it doesn't linger as an orphan desktop window.
+                        CloseAppModeWindowIfOpen(Window.Current?.CoreWindow);
+                    }
                 }
                 else
                 {
@@ -785,6 +807,13 @@ namespace XboxGamingBar
         {
             Logger.Info("App suspending");
             var deferral = e.SuspendingOperation.GetDeferral();
+
+            // Slider values are written to the profile when the user finishes, not per step
+            // (GamingWidget.SliderCommit.cs). Suspending is the one way to leave a slider mid-edit
+            // with none of the commit events arriving — without this, deferring the save would turn
+            // into losing it.
+            try { gamingWidget?.FlushPendingSliderProfileCommits(); }
+            catch (Exception ex) { Logger.Warn($"Flushing pending slider writes on suspend failed: {ex.Message}"); }
 
             // Don't manually complete widget activity here - let the widget's disconnect handler manage it
             // to avoid race conditions and double-disposal

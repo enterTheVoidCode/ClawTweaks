@@ -231,7 +231,12 @@ namespace XboxGamingBar.Data
                         }
                         catch (Exception ex)
                         {
-                            Logger.Debug($"Failed to parse property {property.Function}: {ex.Message}");
+                            // Warn, not Debug: this swallows a property that the helper DID send, and the
+                            // widget then shows stale or empty state with no trace at all in a user log
+                            // (the widget writes from Info up). Include the type — "Failed to parse" says
+                            // nothing about whether it was the JSON, the conversion or the setter.
+                            Logger.Warn($"Batch sync dropped property {property.Function}: "
+                                + $"{ex.GetType().Name}: {ex.Message}");
                         }
                     }
                 }

@@ -6,11 +6,12 @@ using Windows.UI.Xaml.Controls;
 namespace XboxGamingBar.Data
 {
     /// <summary>
-    /// Property for Legion Gyro Mapping Type (0=Instant, 1=Continuous)
+    /// Property for the Claw gyro engine (repurposed Legion "Mapping Type"):
+    /// 0=Adaptive, 1=Linear, 2=Precision (MA inspired). Default 2 (Precision).
     /// </summary>
     internal class LegionGyroMappingTypeProperty : WidgetControlProperty<int, ComboBox>
     {
-        public LegionGyroMappingTypeProperty(ComboBox inUI, Page inOwner) : base(0, Function.LegionGyroMappingType, inUI, inOwner)
+        public LegionGyroMappingTypeProperty(ComboBox inUI, Page inOwner) : base(2, Function.LegionGyroMappingType, inUI, inOwner)
         {
             if (UI != null)
             {

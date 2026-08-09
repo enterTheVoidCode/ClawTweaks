@@ -45,12 +45,79 @@ namespace XboxGamingBar
     {
 
         /// <summary>
-        /// Attempts to connect to the helper via Named Pipe.
+        /// 1 while a connect loop is running. Static because App.PipeClient is process-wide: two widget
+        /// instances racing on it is the same defect as one instance racing with itself.
+        /// </summary>
+        private static int pipeConnectLoopRunning;
+
+        /// <summary>
+        /// Set when a connect request arrives while a loop is already running. A refused request must
+        /// never be DROPPED — that is what turned a noisy-but-self-healing widget into a silent dead
+        /// one in 0.1.8.126: the guard below refused the reconnect at 20:16:52 and nothing ever asked
+        /// again, so the widget sat unconnected with no attempt in the log. Before the guard existed,
+        /// the sheer number of duplicate requests hid the loss — one of the fifty-three eventually got
+        /// through. Removing the redundancy without replacing it is what exposed it.
+        /// </summary>
+        private static int pipeConnectRerequested;
+
+        /// <summary>
+        /// Attempts to connect to the helper via Named Pipe, ONE loop at a time.
         /// Runs in background and triggers PipeConnected event on success.
-        /// Uses longer retry duration to handle elevation scenario where helper
-        /// goes through setup mode (UAC prompt, task creation) before pipe server starts.
+        ///
+        /// The single-loop guard is the point. Every caller here is fire-and-forget, and
+        /// LaunchHelperWithGuardsAsync starts one of these each time it finds the helper already
+        /// alive — which is every pipe disconnect. Its isLaunchingHelper flag only covers *launching*
+        /// a helper, never connecting to one, so nothing used to stop the loops from stacking up.
+        ///
+        /// Measured 2026-08-02: a version mismatch made the widget connect and hang up on itself 53
+        /// times in 114 s, leaving that many loops racing. Each iteration disconnects before it
+        /// reconnects, so one loop's successful connect was torn down by the next loop's disconnect —
+        /// two "Disconnecting"/"Connecting" pairs landed on the same millisecond. The widget then
+        /// reported "Connected to helper via Named Pipe!" while App.IsConnected stayed false and every
+        /// property sync answered "no connection". A dead connection that believes it is alive.
+        ///
+        /// The trigger was the version race (fixed separately in the helper), but the stacking is the
+        /// older defect and it will outlive any particular trigger: any burst of disconnects reaches
+        /// this same state. Refusing a second loop is what makes that impossible.
         /// </summary>
         private async Task TryConnectPipeAsync()
+        {
+            if (System.Threading.Interlocked.Exchange(ref pipeConnectLoopRunning, 1) == 1)
+            {
+                // Hand the request to the loop that is already running instead of discarding it.
+                System.Threading.Volatile.Write(ref pipeConnectRerequested, 1);
+                Logger.Info("Pipe connect loop already running - re-arming it instead of starting a second one");
+                return;
+            }
+
+            try
+            {
+                do
+                {
+                    System.Threading.Volatile.Write(ref pipeConnectRerequested, 0);
+                    await ConnectPipeLoopAsync();
+                }
+                // Someone asked again while we were running, and we are still not connected: start the
+                // attempt budget over rather than returning. This is what makes a request that arrived
+                // three seconds too early (the helper had not yet corrected its version) still count.
+                while (System.Threading.Interlocked.Exchange(ref pipeConnectRerequested, 0) == 1
+                       && App.PipeClient?.IsConnected != true);
+            }
+            finally { System.Threading.Interlocked.Exchange(ref pipeConnectLoopRunning, 0); }
+
+            // A request that landed between the last check and releasing the flag would still be lost —
+            // the very defect this method exists to close. Picked up here, after the flag is free, so
+            // the call below can take it.
+            if (System.Threading.Interlocked.Exchange(ref pipeConnectRerequested, 0) == 1
+                && App.PipeClient?.IsConnected != true)
+            {
+                Logger.Info("Pipe connect request arrived as the loop was ending - running it now");
+                _ = TryConnectPipeAsync();
+            }
+        }
+
+        /// <summary>The retry loop itself. Only ever entered through TryConnectPipeAsync.</summary>
+        private async Task ConnectPipeLoopAsync()
         {
             // Retry duration must cover the elevation scenario:
             // - MSIX helper launches, checks elevation, launches --setup (UAC prompt)

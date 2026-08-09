@@ -105,6 +105,120 @@ namespace XboxGamingBar
                     return;
                 }
 
+                // Helper pushes a one-shot "system resumed" ping right after it re-applies TDP on
+                // resume. This is the metrics-independent trigger for the "blank widget after resume"
+                // dispatcher-teardown self-check (see OnHelperResumePing / GamingWidget.DispatcherHealth).
+                if (message.TryGetValue("WidgetResumePing", out object resumePingObj) && resumePingObj is string resumePing)
+                {
+                    OnHelperResumePing(resumePing);
+                    return;
+                }
+
+                // Helper reports which Intel features the driver actually supports ("frameGen|vrr", each
+                // 0 or 1). Drives the visibility of the Frame Generation / VRR controls and the D-pad
+                // chain around them.
+                if (message.TryGetValue("IntelDirectCaps", out object capsObj) && capsObj is string caps)
+                {
+                    var parts = caps.Split('|');
+                    bool fg = parts.Length > 0 && parts[0] == "1";
+                    bool vrr = parts.Length > 1 && parts[1] == "1";
+                    // Third field added with the VRR mode control. Absent means "not offered" rather
+                    // than a parse failure, so a helper that predates it simply hides the control.
+                    bool vrrMode = parts.Length > 2 && parts[2] == "1";
+                    bool scaling = parts.Length > 3 && parts[3] == "1";
+                    // Fields 5 and 6 say what the driver can do RIGHT NOW rather than in principle.
+                    // Absent means "assume usable": a helper that predates them must not grey out
+                    // controls that work.
+                    bool hasOutput = parts.Length <= 4 || parts[4] == "1";
+                    bool atNative = parts.Length <= 5 || parts[5] == "1";
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { SetIntelDirectFeatureVisibility(fg, vrr, vrrMode, scaling, hasOutput, atNative); }
+                        catch (Exception ex) { Logger.Warn($"[IntelDirect] applying caps failed: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // Answer to the Fetch button in Display Settings: a text readout of what the Intel
+                // driver reports. Newlines arrive escaped, because the report is multi-line.
+                if (message.TryGetValue("IntelDriverState", out object stateObj) && stateObj is string state)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnIntelDriverState(state.Replace("\\n", "\n")); }
+                        catch (Exception ex) { Logger.Warn($"[IntelDirect] showing driver state failed: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // Helper reports which fan curve the EC is actually running and under whose name
+                // ("<scope>|<cpu6>|<gpu6>", empty scope = global). The fan editor follows THIS rather
+                // than deriving the scope from currentGameName + the per-game toggle, both of which
+                // flap with game detection — see PushFanScopeToWidget for the measurement.
+                if (message.TryGetValue("MsiFanActiveScope", out object fanScopeObj) && fanScopeObj is string fanScope)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnHelperFanScope(fanScope); }
+                        catch (Exception ex) { Logger.Warn($"[PerGameFan] adopting helper scope failed: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // Helper reports where an Apply would SAVE the curve (game name, empty = global). A
+                // separate message from the scope above because the two answer different questions and
+                // only agree once a per-game curve exists — see PushFanSaveTargetToWidget.
+                if (message.TryGetValue("MsiFanSaveTarget", out object fanTargetObj) && fanTargetObj is string fanTarget)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnHelperFanSaveTarget(fanTarget); }
+                        catch (Exception ex) { Logger.Warn($"[PerGameFan] adopting fan save target failed: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // The GLOBAL fan setting for both power states, resolved
+                // ("<plugMode>|<plugCpu>|<plugGpu>|<battMode>|<battCpu>|<battGpu>"). Comes over the wire
+                // rather than out of the profile snapshot because the global curve is the one fan value
+                // that lives in the helper's LocalSettings instead of the profile.
+                if (message.TryGetValue("MsiFanGlobal", out object fanGlobalObj) && fanGlobalObj is string fanGlobal)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnHelperGlobalFan(fanGlobal); }
+                        catch (Exception ex) { Logger.Warn($"[PerGameFan] adopting global fan slots failed: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // Seconds left on a scheduled fan change ("<secondsLeft>|<isPerGame>", "0|0" = nothing
+                // pending). Sent once a second only while a change is waiting.
+                if (message.TryGetValue("MsiFanPending", out object fanPendingObj) && fanPendingObj is string fanPending)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnHelperFanPending(fanPending); }
+                        catch (Exception ex) { Logger.Warn($"[PerGameFan] fan countdown failed: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // Helper reports the Game Bar auto-jump slot it is actually applying — on connect and
+                // again whenever it changes, because Center's onboarding sets it helper-side while this
+                // widget may already be open. Deliberately NOT routed through the WidgetProperty: that
+                // path sends a Set straight back on every value change, so a helper push would bounce.
+                if (message.TryGetValue("GameBarWidgetPositionPush", out object posPushObj)
+                    && posPushObj is string posPush && int.TryParse(posPush, out int pushedPos))
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnHelperGameBarWidgetPosition(pushedPos); }
+                        catch (Exception ex) { Logger.Warn($"[GameBarAutoNav] adopt push failed: {ex.Message}"); }
+                    });
+                    return;
+                }
+
                 // Helper fires a tile hotkey that can't be executed directly (widget-side action)
                 if (message.TryGetValue("TileHotkeyFired", out object tileHotkeyIdObj)
                     && tileHotkeyIdObj is string tileHotkeyId)
@@ -151,17 +265,6 @@ namespace XboxGamingBar
                     return;
                 }
 
-                // Helper pushes the experimental controller-HID probe response (hex report).
-                if (message.TryGetValue("ClawHidProbeResult", out object hidProbeObj) && hidProbeObj is string hidProbeResult)
-                {
-                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                    {
-                        try { if (ClawHidProbeResult != null) ClawHidProbeResult.Text = hidProbeResult; }
-                        catch (Exception ex) { Logger.Error($"ClawHidProbeResult dispatch error: {ex.Message}"); }
-                    });
-                    return;
-                }
-
                 // Helper pushes the live firmware button→keyboard map (Controller-status refresh).
                 if (message.TryGetValue("FwButtonMapResult", out object fwMapObj) && fwMapObj is string fwMapResult)
                 {
@@ -169,17 +272,6 @@ namespace XboxGamingBar
                     {
                         try { OnFirmwareButtonMapResult(fwMapResult); }
                         catch (Exception ex) { Logger.Error($"FwButtonMapResult dispatch error: {ex.Message}"); }
-                    });
-                    return;
-                }
-
-                // Helper pushes the experimental native-fan detection report.
-                if (message.TryGetValue("MsiFanDetectResult", out object fanDetObj) && fanDetObj is string fanDetResult)
-                {
-                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-                    {
-                        try { if (MsiFanDetectResult != null) MsiFanDetectResult.Text = fanDetResult; }
-                        catch (Exception ex) { Logger.Error($"MsiFanDetectResult dispatch error: {ex.Message}"); }
                     });
                     return;
                 }
@@ -204,6 +296,18 @@ namespace XboxGamingBar
                     {
                         try { OnMsiFanState(msiFanState); }
                         catch (Exception ex) { Logger.Error($"OnMsiFanState dispatch error: {ex.Message}"); }
+                    });
+                    return;
+                }
+
+                // Same contract for the Left-MSI double-click config: the helper restored it at boot
+                // and owns it; we reflect it and do not echo it back.
+                if (message.TryGetValue("LeftMsiDoubleClickState", out object dcStateObj) && dcStateObj is string dcState)
+                {
+                    await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                    {
+                        try { OnLeftMsiDoubleClickState(dcState); }
+                        catch (Exception ex) { Logger.Error($"OnLeftMsiDoubleClickState dispatch error: {ex.Message}"); }
                     });
                     return;
                 }
@@ -243,16 +347,10 @@ namespace XboxGamingBar
                     return;
                 }
 
-                // Skip TDP and CurrentTDP updates during Sticky TDP reapply
-                if (isStickyTDPReapplying && message.ContainsKey("Function"))
-                {
-                    var function = Convert.ToInt32(message["Function"]);
-                    if (function == (int)Shared.Enums.Function.TDP || function == (int)Shared.Enums.Function.CurrentTDP)
-                    {
-                        Logger.Debug("Skipping TDP/CurrentTDP pipe update during Sticky TDP reapply");
-                        return;
-                    }
-                }
+                // A "skip TDP/CurrentTDP while Sticky TDP is reapplying" filter used to sit here. It
+                // went with Sticky TDP itself (GoTweaks legacy, removed 2026-07-31). Note what it did:
+                // it dropped incoming TDP pushes from the helper entirely, so the widget could show a
+                // value the hardware no longer had. One less way for the two to disagree.
 
                 // Dispatch the whole property-update path to the UI thread. NamedPipeClient
                 // delivers MessageReceived on a background reader thread; GenericProperty.SetValue

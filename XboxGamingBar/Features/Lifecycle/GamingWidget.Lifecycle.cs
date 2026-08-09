@@ -64,14 +64,7 @@ namespace XboxGamingBar
                 widget.SettingsClicked -= GamingWidget_SettingsClicked;
                 widget.VisibleChanged -= GamingWidget_VisibleChanged;
                 widget.GameBarDisplayModeChanged -= GamingWidget_GameBarDisplayModeChanged;
-            }
-
-            // Stop Sticky TDP timer
-            StopStickyTDPTimer();
-            if (stickyTDPTimer != null)
-            {
-                stickyTDPTimer.Tick -= StickyTDPTimer_Tick;
-                stickyTDPTimer = null;
+                widget.FavoritedChanged -= GamingWidget_FavoritedChanged;
             }
 
             // Stop power source TDP reapply timer

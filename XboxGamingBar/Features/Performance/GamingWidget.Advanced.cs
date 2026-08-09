@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -238,7 +238,7 @@ namespace XboxGamingBar
                     SendCPUCoreConfigToHelper();
                     if (SaveCPUAffinity)
                     {
-                        SaveCurrentSettingsToProfile(currentProfileName);
+                        SaveWidgetUiStateToProfile(currentProfileName);
                     }
                     Logger.Info($"P-Core count changed to: {activePCores}");
                 }
@@ -269,7 +269,7 @@ namespace XboxGamingBar
                     SendCPUCoreConfigToHelper();
                     if (SaveCPUAffinity)
                     {
-                        SaveCurrentSettingsToProfile(currentProfileName);
+                        SaveWidgetUiStateToProfile(currentProfileName);
                     }
                     Logger.Info($"E-Core count changed to: {activeECores}");
                 }
@@ -316,20 +316,6 @@ namespace XboxGamingBar
             settings.Values["ForceParkMode"] = enabled;
         }
 
-        private void ForceDefaultGameProfileToggle_Toggled(object sender, RoutedEventArgs e)
-        {
-            if (ForceDefaultGameProfileToggle == null) return;
-
-            bool enabled = ForceDefaultGameProfileToggle.IsOn;
-            Logger.Info($"Force Default Game Profile toggled to: {enabled}");
-
-            // Send to helper
-            forceDefaultGameProfile?.SetValue(enabled);
-
-            // Save to local settings
-            var settings = ApplicationData.Current.LocalSettings;
-            settings.Values["ForceDefaultGameProfile"] = enabled;
-        }
         private void UpdateCPUCoreConfigSummary()
         {
             // Update the Advanced card summary with current settings

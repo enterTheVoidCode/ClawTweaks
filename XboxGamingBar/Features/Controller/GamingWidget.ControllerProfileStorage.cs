@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -105,6 +105,15 @@ namespace XboxGamingBar
 
             // Advanced gyro settings
             container.Values["GyroDeadzone"] = profile.GyroDeadzone;
+            container.Values["GyroAntiDeadzone"] = profile.GyroAntiDeadzone;
+            container.Values["GyroBoostButton"] = profile.GyroBoostButton;
+            container.Values["GyroBoostFactor"] = profile.GyroBoostFactor;
+            container.Values["GyroSmoothing"] = profile.GyroSmoothing;
+            // Stored as an int so "no opinion" survives: LocalSettings has no null, and a bool would make
+            // "never set here" indistinguishable from "explicitly off".
+            container.Values["GyroWorldSpace"] = profile.GyroWorldSpace.HasValue
+                ? (profile.GyroWorldSpace.Value ? 1 : 0)
+                : -1;
 
             // Stick deadzones
             container.Values["LeftStickDeadzone"] = profile.LeftStickDeadzone;
@@ -262,12 +271,20 @@ namespace XboxGamingBar
                 profile.GyroSensitivityY = container.Values.ContainsKey("GyroSensitivityY") ? (int)container.Values["GyroSensitivityY"] : 70;
                 profile.GyroInvertX = container.Values.ContainsKey("GyroInvertX") ? (bool)container.Values["GyroInvertX"] : false;
                 profile.GyroInvertY = container.Values.ContainsKey("GyroInvertY") ? (bool)container.Values["GyroInvertY"] : false;
-                profile.GyroMappingType = container.Values.ContainsKey("GyroMappingType") ? (int)container.Values["GyroMappingType"] : 0;
+                profile.GyroMappingType = container.Values.ContainsKey("GyroMappingType") ? (int)container.Values["GyroMappingType"] : 2;
                 profile.GyroActivationMode = container.Values.ContainsKey("GyroActivationMode") ? (int)container.Values["GyroActivationMode"] : 0;
                 profile.GyroActivationButton = container.Values.ContainsKey("GyroActivationButton") ? (int)container.Values["GyroActivationButton"] : 0;
 
-                // Advanced gyro settings
-                profile.GyroDeadzone = container.Values.ContainsKey("GyroDeadzone") ? (int)container.Values["GyroDeadzone"] : 1;
+                // Advanced gyro settings. The gate is stored in tenths of a degree/sec since 2026-08-03;
+                // a profile written before that holds whole °/s and so now gates a tenth as much — the
+                // safe direction, since it can only let more of the slow range through. Default 0.
+                profile.GyroDeadzone = container.Values.ContainsKey("GyroDeadzone") ? (int)container.Values["GyroDeadzone"] : 0;
+                profile.GyroAntiDeadzone = container.Values.ContainsKey("GyroAntiDeadzone") ? (int)container.Values["GyroAntiDeadzone"] : 20;
+                profile.GyroBoostButton = container.Values.ContainsKey("GyroBoostButton") ? (int)container.Values["GyroBoostButton"] : 0;
+                profile.GyroBoostFactor = container.Values.ContainsKey("GyroBoostFactor") ? (int)container.Values["GyroBoostFactor"] : 100;
+                profile.GyroSmoothing = container.Values.ContainsKey("GyroSmoothing") ? (int)container.Values["GyroSmoothing"] : -1;
+                int worldSpaceStored = container.Values.ContainsKey("GyroWorldSpace") ? (int)container.Values["GyroWorldSpace"] : -1;
+                profile.GyroWorldSpace = worldSpaceStored < 0 ? (bool?)null : worldSpaceStored == 1;
 
                 // Stick deadzones
                 profile.LeftStickDeadzone = container.Values.ContainsKey("LeftStickDeadzone") ? (int)container.Values["LeftStickDeadzone"] : 4;
@@ -2061,33 +2078,80 @@ namespace XboxGamingBar
                 if (LegionGyroActivationModeComboBox != null)
                     LegionGyroActivationModeComboBox.SelectedIndex = profile.GyroActivationMode;
                 if (LegionGyroActivationButtonComboBox != null)
-                    LegionGyroActivationButtonComboBox.SelectedIndex = profile.GyroActivationButton;
+                    // Clamped: the list lost the four Legion-only entries (Y1/Y2/M2/M3), so a profile
+                    // written before that can hold an index past the end — which throws
+                    // ArgumentException and aborts the rest of the profile apply.
+                    LegionGyroActivationButtonComboBox.SelectedIndex = ClampComboIndex(LegionGyroActivationButtonComboBox, profile.GyroActivationButton);
 
                 // Apply advanced gyro settings
                 if (LegionGyroDeadzoneSlider != null)
                 {
                     LegionGyroDeadzoneSlider.Value = profile.GyroDeadzone;
                     if (LegionGyroDeadzoneValue != null)
-                        LegionGyroDeadzoneValue.Text = profile.GyroDeadzone.ToString();
+                        LegionGyroDeadzoneValue.Text = FormatGyroGate(profile.GyroDeadzone);
                 }
+                if (LegionGyroAntiDeadzoneSlider != null)
+                {
+                    LegionGyroAntiDeadzoneSlider.Value = profile.GyroAntiDeadzone;
+                    if (LegionGyroAntiDeadzoneValue != null)
+                        LegionGyroAntiDeadzoneValue.Text = $"{profile.GyroAntiDeadzone}%";
+                }
+                if (LegionGyroBoostButtonComboBox != null)
+                    LegionGyroBoostButtonComboBox.SelectedIndex = ClampComboIndex(LegionGyroBoostButtonComboBox, profile.GyroBoostButton);
+                if (LegionGyroBoostFactorSlider != null)
+                {
+                    LegionGyroBoostFactorSlider.Value = profile.GyroBoostFactor;
+                    if (LegionGyroBoostFactorValue != null)
+                        LegionGyroBoostFactorValue.Text = $"{profile.GyroBoostFactor}%";
+                }
+                // Smoothing: the profile wins when it carries a value, otherwise fall back to the global
+                // per-engine-mode store. A profile written before smoothing became per-game holds -1 and
+                // therefore keeps behaving exactly as it did.
+                if (profile.GyroSmoothing >= 0)
+                {
+                    if (LegionGyroSmoothingSlider != null) LegionGyroSmoothingSlider.Value = profile.GyroSmoothing;
+                    if (LegionGyroSmoothingValue != null) LegionGyroSmoothingValue.Text = profile.GyroSmoothing.ToString();
+                }
+                else
+                {
+                    LoadGyroSmoothingForMode(CurrentGyroEngineMode());
+                }
+
+                // Gravity-relative axes. Same rule: null means the profile never set it, so the global
+                // value stays untouched rather than being stamped with a default.
+                if (profile.GyroWorldSpace.HasValue && GyroWorldSpaceToggle != null)
+                    GyroWorldSpaceToggle.IsOn = profile.GyroWorldSpace.Value;
                 }
                 finally
                 {
                     XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount--;
                 }
 
-                // Apply stick deadzones
-                if (LegionLeftStickDeadzoneSlider != null)
+                // Apply stick deadzones. Gated like the vibration and gyro block above: both sliders
+                // are backed by helper properties (LegionLeftStickDeadzone / LegionRightStickDeadzone),
+                // so assigning them ungated made loading a profile push to the helper and trip the
+                // auto-save. They sat just past the end of the previous guard - the one case the block
+                // above was written for, and the one it did not cover. The values reach the helper once,
+                // via SendControllerSettingsToHelper(profile), like the rest of this method.
+                XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount++;
+                try
                 {
-                    LegionLeftStickDeadzoneSlider.Value = profile.LeftStickDeadzone;
-                    if (LegionLeftStickDeadzoneValue != null)
-                        LegionLeftStickDeadzoneValue.Text = $"{profile.LeftStickDeadzone}%";
+                    if (LegionLeftStickDeadzoneSlider != null)
+                    {
+                        LegionLeftStickDeadzoneSlider.Value = profile.LeftStickDeadzone;
+                        if (LegionLeftStickDeadzoneValue != null)
+                            LegionLeftStickDeadzoneValue.Text = $"{profile.LeftStickDeadzone}%";
+                    }
+                    if (LegionRightStickDeadzoneSlider != null)
+                    {
+                        LegionRightStickDeadzoneSlider.Value = profile.RightStickDeadzone;
+                        if (LegionRightStickDeadzoneValue != null)
+                            LegionRightStickDeadzoneValue.Text = $"{profile.RightStickDeadzone}%";
+                    }
                 }
-                if (LegionRightStickDeadzoneSlider != null)
+                finally
                 {
-                    LegionRightStickDeadzoneSlider.Value = profile.RightStickDeadzone;
-                    if (LegionRightStickDeadzoneValue != null)
-                        LegionRightStickDeadzoneValue.Text = $"{profile.RightStickDeadzone}%";
+                    XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount--;
                 }
 
                 // Apply trigger travel settings
@@ -2316,7 +2380,13 @@ namespace XboxGamingBar
                 GyroActivationMode = LegionGyroActivationModeComboBox?.SelectedIndex ?? 0,
                 GyroActivationButton = LegionGyroActivationButtonComboBox?.SelectedIndex ?? 0,
                 // Advanced gyro settings
-                GyroDeadzone = (int)(LegionGyroDeadzoneSlider?.Value ?? 1),
+                GyroDeadzone = (int)(LegionGyroDeadzoneSlider?.Value ?? 0),
+                GyroAntiDeadzone = (int)(LegionGyroAntiDeadzoneSlider?.Value ?? 20),
+                GyroBoostButton = LegionGyroBoostButtonComboBox?.SelectedIndex ?? 0,
+                GyroBoostFactor = (int)(LegionGyroBoostFactorSlider?.Value ?? 100),
+                // Captured from the live controls so these two behave like the four sliders next to them.
+                GyroSmoothing = (int)(LegionGyroSmoothingSlider?.Value ?? -1),
+                GyroWorldSpace = GyroWorldSpaceToggle?.IsOn,
                 // Stick deadzones
                 LeftStickDeadzone = (int)(LegionLeftStickDeadzoneSlider?.Value ?? 4),
                 RightStickDeadzone = (int)(LegionRightStickDeadzoneSlider?.Value ?? 4),
@@ -2493,11 +2563,31 @@ namespace XboxGamingBar
             // Update slider value displays
             UpdateControllerSliderDisplays(sender);
 
-            // STEP 4: Simplified guards. The helper no longer echoes controller values
-            // back to the widget (Track A removed), so we only need to guard against
-            // in-progress profile loads and switches — not against helper sync.
+            // Guard against in-progress profile loads and switches...
             if (isLoadingControllerProfile || isSwitchingControllerProfile || isUnloading)
                 return;
+
+            // ...AND against a helper-driven UI update. This guard was removed once, on the premise
+            // that "the helper no longer echoes controller values back to the widget". That premise is
+            // wrong: the helper still publishes its GLOBAL LegionLeftStickDeadzone /
+            // LegionRightStickDeadzone / LegionVibrationIntensity properties, and
+            // WidgetSliderProperty.NotifyPropertyChanged writes them straight into these sliders.
+            //
+            // The counter it raises while doing so only protects the property's OWN ValueChanged
+            // handler. This method is a SECOND subscriber to the same event, so it ran anyway and
+            // saved the whole profile from a UI the helper had just overwritten - turning a push of
+            // the global default into a permanent write. Measured 2026-08-09, 140 ms apart:
+            //   00:07:57.997  Property      Update LegionRightStickDeadzone slider value 4
+            //   00:07:58.136  GamingWidget  SaveControllerProfile: Global ...
+            // The user's vibration intensity and both stick deadzones were back at 100/4/4 after it.
+            //
+            // A save may only ever come from the user. HelperSyncCount is static and is also raised by
+            // WidgetToggleProperty, so this one check covers the toggle and combo pushes too.
+            if (XboxGamingBar.Data.WidgetSliderProperty.HelperSyncCount > 0)
+            {
+                Logger.Info("ControllerSettingChanged: ignoring helper-driven UI update (no profile save)");
+                return;
+            }
 
             // Skip if a profile was just applied (prevents duplicate sends from queued UI events)
             if ((DateTime.Now - lastProfileApplyTime).TotalMilliseconds < 2000)
@@ -2529,10 +2619,13 @@ namespace XboxGamingBar
                 {
                     gameControllerProfile.GyroSensitivityX = 70;
                     gameControllerProfile.GyroSensitivityY = 70;
-                    gameControllerProfile.GyroDeadzone = 1;
+                    gameControllerProfile.GyroDeadzone = 0;
+                    gameControllerProfile.GyroAntiDeadzone = 20;
+                    gameControllerProfile.GyroBoostButton = 0;
+                    gameControllerProfile.GyroBoostFactor = 100;
                     gameControllerProfile.GyroInvertX = false;
                     gameControllerProfile.GyroInvertY = false;
-                    gameControllerProfile.GyroMappingType = 0;
+                    gameControllerProfile.GyroMappingType = 2; // Precision (MA inspired) = default engine
                     gameControllerProfile.GyroActivationMode = 0;
                     gameControllerProfile.GyroActivationButton = 0;
                 }
@@ -2551,10 +2644,13 @@ namespace XboxGamingBar
                 {
                     globalControllerProfile.GyroSensitivityX = 70;
                     globalControllerProfile.GyroSensitivityY = 70;
-                    globalControllerProfile.GyroDeadzone = 1;
+                    globalControllerProfile.GyroDeadzone = 0;
+                    globalControllerProfile.GyroAntiDeadzone = 20;
+                    globalControllerProfile.GyroBoostButton = 0;
+                    globalControllerProfile.GyroBoostFactor = 100;
                     globalControllerProfile.GyroInvertX = false;
                     globalControllerProfile.GyroInvertY = false;
-                    globalControllerProfile.GyroMappingType = 0;
+                    globalControllerProfile.GyroMappingType = 2; // Precision (MA inspired) = default engine
                     globalControllerProfile.GyroActivationMode = 0;
                     globalControllerProfile.GyroActivationButton = 0;
                 }
@@ -2763,6 +2859,13 @@ namespace XboxGamingBar
                 legionGyroActivationMode?.SetValue(profile.GyroActivationMode);
                 legionGyroActivationButton?.SetValue(profile.GyroActivationButton);
                 legionGyroDeadzone?.SetValue(profile.GyroDeadzone);
+                legionGyroAntiDeadzone?.SetValue(profile.GyroAntiDeadzone);
+                legionGyroBoostButton?.SetValue(profile.GyroBoostButton);
+                legionGyroBoostFactor?.SetValue(profile.GyroBoostFactor);
+                // Smoothing: the profile's own value when it has one, else the global per-mode store.
+                legionGyroSmoothing?.SetValue(profile.GyroSmoothing >= 0
+                    ? profile.GyroSmoothing
+                    : GetStoredGyroSmoothing(CurrentGyroEngineMode()));
 
                 // Stick deadzone settings
                 legionLeftStickDeadzone?.SetValue(profile.LeftStickDeadzone);
@@ -2784,6 +2887,14 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// Renders the gyro gate slider value. The slider carries tenths of a degree/sec, so 0..100
+        /// reads as 0.0..10.0 °/s. Zero is spelled out as "off" — a gate of 0.0 lets everything
+        /// through, and "0.0°/s" reads like the opposite to most people.
+        /// </summary>
+        private static string FormatGyroGate(int tenths)
+            => tenths <= 0 ? "off" : $"{(tenths / 10.0):0.0}°/s";
+
+        /// <summary>
         /// Updates the display text for controller setting sliders
         /// </summary>
         private void UpdateControllerSliderDisplays(object sender)
@@ -2797,7 +2908,11 @@ namespace XboxGamingBar
                     LegionGyroSensitivityYValue.Text = ((int)LegionGyroSensitivityYSlider.Value).ToString();
                 // Advanced gyro sliders
                 else if (sender == LegionGyroDeadzoneSlider && LegionGyroDeadzoneValue != null)
-                    LegionGyroDeadzoneValue.Text = ((int)LegionGyroDeadzoneSlider.Value).ToString();
+                    LegionGyroDeadzoneValue.Text = FormatGyroGate((int)LegionGyroDeadzoneSlider.Value);
+                else if (sender == LegionGyroAntiDeadzoneSlider && LegionGyroAntiDeadzoneValue != null)
+                    LegionGyroAntiDeadzoneValue.Text = $"{(int)LegionGyroAntiDeadzoneSlider.Value}%";
+                else if (sender == LegionGyroBoostFactorSlider && LegionGyroBoostFactorValue != null)
+                    LegionGyroBoostFactorValue.Text = $"{(int)LegionGyroBoostFactorSlider.Value}%";
                 // Stick deadzone sliders
                 else if (sender == LegionLeftStickDeadzoneSlider && LegionLeftStickDeadzoneValue != null)
                     LegionLeftStickDeadzoneValue.Text = $"{(int)LegionLeftStickDeadzoneSlider.Value}%";

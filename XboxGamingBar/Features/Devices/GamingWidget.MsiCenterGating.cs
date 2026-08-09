@@ -15,7 +15,7 @@ namespace XboxGamingBar
     ///
     /// This file:
     ///   - Subscribes to msiCenterActive.PropertyChanged
-    ///   - Disables TDP controls (Mode, Slider, Boost, AutoTDP) when active
+    ///   - Disables TDP controls (Mode, Slider, Boost) when active
     ///   - Disables ControllerEmulationEnabledToggle when active
     ///   - Shows/hides amber warning banners in both sections
     ///   - Re-enables everything (via the normal state-update functions) when

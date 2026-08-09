@@ -32,6 +32,33 @@ namespace Shared.Data
         /// </summary>
         public string SystemFamily { get; set; } = "Unknown";
 
+        // ── Fallback identity fields ─────────────────────────────────────────────
+        // Model above comes from SMBIOS type 1, which RMA boards are shipped with unprogrammed
+        // ("Please change product name"). These four survive that, and ClawHardwareId identifies the
+        // device from them when Model cannot. See ClawHardwareId for the ladder.
+
+        /// <summary>
+        /// Board code, e.g. "MS-1T52" (Claw 8 AI+) / "MS-1T91" (Claw 8 EX).
+        /// From Win32_BaseBoard.Product (SMBIOS type 2).
+        /// </summary>
+        public string BaseBoardProduct { get; set; } = "Unknown";
+
+        /// <summary>
+        /// SKU number, e.g. "1T52.1". From Win32_ComputerSystem.SystemSKUNumber (SMBIOS type 1).
+        /// </summary>
+        public string SystemSku { get; set; } = "Unknown";
+
+        /// <summary>
+        /// CPU marketing name, e.g. "Intel(R) Core(TM) Ultra 7 258V". From Win32_Processor.Name.
+        /// </summary>
+        public string ProcessorName { get; set; } = "Unknown";
+
+        /// <summary>
+        /// CPUID string, e.g. "Intel64 Family 6 Model 189 Stepping 1". From Win32_Processor.Caption.
+        /// This is the reliable platform signal — the Claw 8 EX's marketing name is not.
+        /// </summary>
+        public string ProcessorCaption { get; set; } = "Unknown";
+
         /// <summary>
         /// Detected device type based on manufacturer and model matching
         /// </summary>
@@ -95,6 +122,14 @@ namespace Shared.Data
         /// little even on Lunar Lake, so the EX exposes the Boost toggle only.
         /// </summary>
         public bool SupportsCpuAdvanced { get; set; } = true;
+
+        /// <summary>
+        /// Starting value of the gyro's gravity-relative ("Accelerometer") axis toggle on a fresh
+        /// install — NOT a support flag, the toggle is always offered and a stored user choice always
+        /// wins. Default true. False on the Claw 8 EX: its accelerometer axes are not verified against
+        /// our A1M-derived remap and users report the gyro is only usable with the toggle off.
+        /// </summary>
+        public bool GyroWorldSpaceDefault { get; set; } = true;
 
         /// <summary>
         /// TDP power-limit ceiling for PL1 (sustained power). Also the base TDP slider maximum.

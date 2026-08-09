@@ -32,6 +32,16 @@ namespace XboxGamingBar
         private const int LeftMsiDcDefaultDelay = 220;
 
         private bool _leftMsiDcLoading;
+
+        // A plain bool guard is not enough here. Restoring the UI assigns ComboBox.SelectedIndex, and
+        // UWP can raise the resulting SelectionChanged AFTER the assigning method has returned - by
+        // which time _leftMsiDcLoading is false again and the handler happily pushes to the helper.
+        // That is what overwrote a restored 250 ms with a stale 220 on every open. Same deferred-event
+        // trap as the per-game gyro controls; the fix there is a time window, so it is a time window
+        // here too.
+        private DateTime _leftMsiDcSuppressUntil = DateTime.MinValue;
+        private static readonly TimeSpan LeftMsiDcSuppressWindow = TimeSpan.FromSeconds(2);
+
         private readonly List<int> _leftMsiDoubleKeys = new List<int>();
 
         private void InitializeLeftMsiDoubleClick()
@@ -39,6 +49,7 @@ namespace XboxGamingBar
             try
             {
                 _leftMsiDcLoading = true;
+                _leftMsiDcSuppressUntil = DateTime.UtcNow + LeftMsiDcSuppressWindow;
                 var s = ApplicationData.Current.LocalSettings.Values;
 
                 bool enabled = s.TryGetValue(LeftMsiDcEnabledKey, out var en) && en is bool b && b;
@@ -75,6 +86,62 @@ namespace XboxGamingBar
             }
             catch (Exception ex) { Logger.Debug($"InitializeLeftMsiDoubleClick: {ex.Message}"); }
             finally { _leftMsiDcLoading = false; }
+        }
+
+        /// <summary>
+        /// The helper pushed its restored double-click config on connect — it is authoritative. Mirrors
+        /// OnMsiFanState: update the UI and refresh the widget's cached keys (so a reopen before the
+        /// next push still shows the right thing), and do NOT echo anything back.
+        ///
+        /// Payload: "&lt;enabled 0|1&gt;|&lt;delayMs&gt;|&lt;action&gt;|&lt;param&gt;", param last so a
+        /// separator inside it cannot shift the other fields.
+        /// </summary>
+        internal void OnLeftMsiDoubleClickState(string payload)
+        {
+            if (string.IsNullOrEmpty(payload)) return;
+            var parts = payload.Split(new[] { '|' }, 4);
+            if (parts.Length < 3) return;
+            if (!int.TryParse(parts[1], out int delay) || delay <= 0) return;
+            if (!int.TryParse(parts[2], out int action)) return;
+            bool enabled = parts[0].Trim() == "1";
+            string param = parts.Length > 3 ? parts[3] : "";
+
+            // Keyboard mode is not a helper concept: the helper stores it as the built-in
+            // KeyboardShortcut action whose param is the token string. Derive the selector from that
+            // rather than carrying a second field that could disagree with the action.
+            bool keyboardMode = action == (int)TileActionType.KeyboardShortcut;
+            int mode = keyboardMode ? 0 : 1;
+
+            _leftMsiDcLoading = true;
+            _leftMsiDcSuppressUntil = DateTime.UtcNow + LeftMsiDcSuppressWindow;
+            try
+            {
+                var s = ApplicationData.Current.LocalSettings.Values;
+                s[LeftMsiDcEnabledKey] = enabled;
+                s[LeftMsiDcDelayKey] = delay;
+                s[LeftMsiDcModeKey] = mode;
+                // The action/param pair is only meaningful in Action mode. In Keyboard mode the stored
+                // key list stays as it is — the token string cannot be mapped back to HID codes without
+                // loss, so overwriting the tags from it would degrade them on every connect.
+                if (!keyboardMode)
+                {
+                    s[LeftMsiDcActionKey] = action;
+                    s[LeftMsiDcParamKey] = param;
+                }
+
+                if (LeftMsiDoubleClickToggle != null) LeftMsiDoubleClickToggle.IsOn = enabled;
+                if (LeftMsiDoubleClickPanel != null)
+                    LeftMsiDoubleClickPanel.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
+                if (LeftMsiDoubleDelaySlider != null) LeftMsiDoubleDelaySlider.Value = delay;
+                if (LeftMsiDoubleDelayValue != null) LeftMsiDoubleDelayValue.Text = $"{delay} ms";
+                if (LeftMsiDoubleTypeComboBox != null) LeftMsiDoubleTypeComboBox.SelectedIndex = mode;
+                ApplyDoubleModeVisibility(mode);
+                if (!keyboardMode) SelectDoubleActionInCombo((TileActionType)action, param);
+            }
+            catch (Exception ex) { Logger.Warn($"OnLeftMsiDoubleClickState: {ex.Message}"); }
+            finally { _leftMsiDcLoading = false; }
+
+            Logger.Info($"OnLeftMsiDoubleClickState applied: enabled={enabled} delay={delay} action={action} mode={mode}");
         }
 
         private void ApplyDoubleModeVisibility(int mode)
@@ -228,11 +295,20 @@ namespace XboxGamingBar
             }
         }
 
-        private async void SendLeftMsiDoubleClickToHelper()
+        private async void SendLeftMsiDoubleClickToHelper(
+            [System.Runtime.CompilerServices.CallerMemberName] string caller = "")
         {
             try
             {
                 if (!App.IsConnected) return;
+
+                // Only a real user edit may write to the helper. Anything inside the restore window is
+                // the UI settling, and the helper's value is the one that must survive.
+                if (DateTime.UtcNow < _leftMsiDcSuppressUntil)
+                {
+                    Logger.Info($"SendLeftMsiDoubleClickToHelper: suppressed (restore window, from {caller})");
+                    return;
+                }
                 var s = ApplicationData.Current.LocalSettings.Values;
                 bool enabled = s.TryGetValue(LeftMsiDcEnabledKey, out var en) && en is bool b && b;
                 int delay = LeftMsiDoubleDelaySlider != null ? (int)LeftMsiDoubleDelaySlider.Value : LeftMsiDcDefaultDelay;
@@ -256,7 +332,7 @@ namespace XboxGamingBar
                 string json = $"{{\"enabled\":{(enabled ? "true" : "false")},\"delayMs\":{delay},\"action\":{action},\"param\":\"{pj}\"}}";
                 var msg = new Windows.Foundation.Collections.ValueSet { { "LeftMsiDoubleClick", json } };
                 await App.SendMessageAsync(msg);
-                Logger.Info($"SendLeftMsiDoubleClickToHelper: {json}");
+                Logger.Info($"SendLeftMsiDoubleClickToHelper: {json} (from {caller})");
             }
             catch (Exception ex) { Logger.Warn($"SendLeftMsiDoubleClickToHelper: {ex.Message}"); }
         }

@@ -32,6 +32,8 @@ using Windows.Storage;
 using Windows.System;
 using Windows.UI.Xaml.Input;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Graphics.Imaging;
 using Windows.UI;
 using XboxGamingBar.Data;
 using XboxGamingBar.Event;
@@ -275,6 +277,72 @@ namespace XboxGamingBar
         }
 
         /// <summary>
+        /// A genuinely blurred copy of the current game's icon, for the card and tile backdrops.
+        /// Null when no game icon is available. Kept separate from the sharp icon the cards show at
+        /// 48px — that one must stay crisp.
+        /// </summary>
+        private ImageSource blurredGameArt;
+
+        /// <summary>
+        /// Blur radius, expressed as the size the icon is reduced to before being stretched back up.
+        /// This is the ONE number that controls how soft the backdrop is: smaller = blurrier.
+        /// 10 px keeps the game's colour composition recognisable while destroying all pixel structure.
+        /// </summary>
+        private const int BlurredArtSize = 10;
+
+        /// <summary>
+        /// Produces the blurred backdrop by DOWNSCALING the icon and letting XAML stretch it back up.
+        ///
+        /// This replaces an earlier attempt that simply zoomed the ImageBrush further into the icon, on
+        /// the assumption that "more upscale = more blur". That was wrong twice over: upscaling adds no
+        /// smoothing beyond the one interpolation step, so past a point it shows MORE pixel structure,
+        /// not less — and zooming into an already cropped square reduced the card to a flat patch of
+        /// whatever colour sat in the middle of the icon.
+        ///
+        /// Downscaling with Fant averages many source pixels into each destination pixel, which is a
+        /// real low-pass filter. Stretching a 10x10 image across the card then interpolates between
+        /// those averages, so the result is smooth colour, not blocks. No blur effect, no Win2D, and
+        /// unlike AcrylicBrush nothing that collapses to a flat tint under battery saver.
+        /// </summary>
+        private async Task<ImageSource> CreateBlurredArtAsync(StorageFile file)
+        {
+            try
+            {
+                using (var stream = await file.OpenAsync(FileAccessMode.Read))
+                {
+                    var decoder = await BitmapDecoder.CreateAsync(stream);
+                    var transform = new BitmapTransform
+                    {
+                        ScaledWidth = BlurredArtSize,
+                        ScaledHeight = BlurredArtSize,
+                        InterpolationMode = BitmapInterpolationMode.Fant
+                    };
+
+                    var pixelData = await decoder.GetPixelDataAsync(
+                        BitmapPixelFormat.Bgra8,
+                        BitmapAlphaMode.Premultiplied,
+                        transform,
+                        ExifOrientationMode.IgnoreExifOrientation,
+                        ColorManagementMode.DoNotColorManage);
+
+                    var pixels = pixelData.DetachPixelData();
+                    var bitmap = new WriteableBitmap(BlurredArtSize, BlurredArtSize);
+                    using (var pixelStream = bitmap.PixelBuffer.AsStream())
+                    {
+                        await pixelStream.WriteAsync(pixels, 0, pixels.Length);
+                    }
+                    bitmap.Invalidate();
+                    return bitmap;
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Info($"CreateBlurredArtAsync failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Loads the game icon for the current game and updates the UI.
         /// Uses helper-extracted icon if available, falls back to Steam lookup.
         /// Must be called from background thread - dispatches to UI thread.
@@ -285,6 +353,7 @@ namespace XboxGamingBar
         {
             if (string.IsNullOrEmpty(exePath))
             {
+                blurredGameArt = null;
                 await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     if (CurrentGameIcon != null)
@@ -302,6 +371,10 @@ namespace XboxGamingBar
                         PerGamePerformanceProfileGameIcon.Source = null;
                         PerGamePerformanceProfileGameIcon.Visibility = Visibility.Collapsed;
                     }
+                    // The per-game cards' art backdrop mirrors these icons — clear it with them,
+                    // otherwise the previous game's art stays on the card.
+                    blurredGameArt = null;
+                    UpdateProfileCardArt();
                 });
                 return;
             }
@@ -353,6 +426,8 @@ namespace XboxGamingBar
                             PerGamePerformanceProfileGameIcon.Source = null;
                             PerGamePerformanceProfileGameIcon.Visibility = Visibility.Collapsed;
                         }
+                        blurredGameArt = null;
+                        UpdateProfileCardArt();
                     });
                     return;
                 }
@@ -383,6 +458,8 @@ namespace XboxGamingBar
                                 PerGamePerformanceProfileGameIcon.Source = bitmapImage;
                                 PerGamePerformanceProfileGameIcon.Visibility = Visibility.Visible;
                             }
+                            blurredGameArt = await CreateBlurredArtAsync(file);
+                            UpdateProfileCardArt();
                             Logger.Info($"LoadCurrentGameIcon: Icon loaded successfully");
                         }
                     }
@@ -404,6 +481,8 @@ namespace XboxGamingBar
                             PerGamePerformanceProfileGameIcon.Source = null;
                             PerGamePerformanceProfileGameIcon.Visibility = Visibility.Collapsed;
                         }
+                        blurredGameArt = null;
+                        UpdateProfileCardArt();
                     }
                 });
             }

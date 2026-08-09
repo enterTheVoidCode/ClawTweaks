@@ -32,7 +32,11 @@ namespace XboxGamingBar
 
             autoStartRTSS = new AutoStartRTSSProperty(AutoStartRTSSToggle, this);
             onScreenDisplayProvider = new OnScreenDisplayProviderProperty(OnScreenDisplayProviderRadioButtons, this);
-            properties = new WidgetProperties(autoStartRTSS);
+            // BOTH properties, not just the first. WidgetProperties takes an explicit argument list, so
+            // constructing a property is not enough to make it sync - and one left out of this call is
+            // silently never read from or written to the helper. The OSD provider had exactly that
+            // problem: the control existed, the selection did nothing, and there was no error to find.
+            properties = new WidgetProperties(autoStartRTSS, onScreenDisplayProvider);
         }
 
         protected async override void OnNavigatedTo(NavigationEventArgs e)

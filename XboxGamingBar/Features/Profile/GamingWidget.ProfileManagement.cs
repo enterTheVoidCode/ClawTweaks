@@ -44,15 +44,13 @@ namespace XboxGamingBar
     public sealed partial class GamingWidget
     {
 
-        /// <summary>
-        /// Default PL1 (SPL) max TDP in watts for a brand-new per-game profile. The TDP slider drives
-        /// PL1; on the MSI Claw 8 AI+ (Intel Lunar Lake) the PL1 ceiling is 30W (PL2/SPPT then gets
-        /// the usual +1 → 31W). The tdpLimits "min,max" string reports the higher PL2/OverBoost
-        /// ceiling (e.g. 35/37), which is NOT the right PL1 default — so we use the fixed Lunar Lake
-        /// PL1 max here. Users tune DOWN from this; they can still raise the slider manually for
-        /// OverBoost.
-        /// </summary>
-        private double GetNewProfileDefaultTdp() => 30;
+        // GetNewProfileDefaultTdp is GONE with its only caller (plan §5.4). It returned the PL1 max
+        // (30 W on the Claw 8 AI+ / Lunar Lake — deliberately NOT the tdpLimits "max", which reports
+        // the higher PL2/OverBoost ceiling) as the starting TDP for a brand-new per-game profile, on
+        // the reasoning that users tune down more often than up. It only ever reached the widget's own
+        // copy, so the intent never took effect: the helper creates the per-game profile and seeds it
+        // from CurrentProfile. Recorded here rather than deleted silently — if the PL1-max start is
+        // wanted, it belongs in the helper's profile creation, not in a widget field.
 
         private void LoadOrCreateGameProfiles()
         {
@@ -97,13 +95,11 @@ namespace XboxGamingBar
                     LoadProfileFromStorage($"Game_{currentGameName}_DC", gameDCProfile);
                 }
 
-                Logger.Info($"Loaded game AC/DC profiles for {currentGameName}");
-                // Sync the per-state values down to the helper so it can apply them on
-                // AC/DC transitions without the widget being awake. Without this the
-                // helper would push its cached (current-state) TDP and the user would see
-                // the slider update but hardware lag (the bug surfaced in build 2070
-                // testing on 2026-04-25).
-                SendPowerSourceProfileValuesToHelper();
+                Logger.Info($"Loaded game per-power-state profiles for {currentGameName}");
+                // The push that stood here is gone with plan §5.4. It synced these containers down to
+                // the helper so it could apply them on a power-state change without the widget being
+                // awake — the helper does that from its own profile store now, so it no longer needs
+                // the widget to be awake at all, which was the point of the push in the first place.
             }
             else
             {
@@ -148,15 +144,14 @@ namespace XboxGamingBar
                     }
 
                     gameProfile = (seedProfile ?? globalProfile).Clone();
-                    if (seedProfile == null)
-                    {
-                        // Brand-new per-game profile (no prior per-game data): start TDP at the PL1
-                        // max (30W on the Claw). Users tune DOWN from max far more often than up, and
-                        // this avoids inheriting a possibly-low global TDP.
-                        gameProfile.TDP = GetNewProfileDefaultTdp();
-                    }
+                    // The TDP seed that stood here is GONE (plan §5.4). It wrote the PL1 max into the
+                    // WIDGET's copy, which no longer feeds anything — the helper creates its own
+                    // per-game profile and seeds it from CurrentProfile (ProfileManager). So the
+                    // "new per-game profile starts at PL1 max" intent was already not reaching the
+                    // hardware; removing the write does not change that, it only stops pretending.
+                    // If that intent should hold, it belongs in the helper's profile creation.
                     SaveProfileToStorage($"Game_{currentGameName}", gameProfile);
-                    Logger.Info($"Initialized game profile for {currentGameName} (seed={(seedProfile != null ? "active profile" : $"PL1 max {GetNewProfileDefaultTdp()}W")})");
+                    Logger.Info($"Initialized game profile UI state for {currentGameName} (seed={(seedProfile != null ? "active profile" : "global")})");
                 }
                 else
                 {

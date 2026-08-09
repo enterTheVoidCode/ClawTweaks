@@ -8,11 +8,14 @@ using Windows.UI.Xaml.Media.Animation;
 namespace XboxGamingBar
 {
     /// <summary>
-    /// Onboarding tab: a single button runs the proven prerequisite check/installer
-    /// (the embedded Setup-Tools.ps1, via the elevated helper) that detects + installs
-    /// all four required tools (ViGEm, HidHide, RTSS, PawnIO) in one pass. Read-only
-    /// status rows reflect the result; optional MSI Center M / controller-emulation hints
-    /// follow.
+    /// Onboarding tab: status rows for the required tools (ViGEm, HidHide, RTSS, PawnIO, usbip), with
+    /// optional MSI Center M / controller-emulation hints below them.
+    ///
+    /// INSTALLING IS NOT DONE HERE ANY MORE. The button used to have the elevated helper extract an
+    /// embedded PowerShell script and run it, which downloaded the vendor setups and started them.
+    /// That whole path is gone from the package — see ViGEmBusHelper.Install for the reasoning. The
+    /// button now only asks the helper to re-detect, so the rows catch up with what the user installed
+    /// through CTW Center, which runs unelevated and links to the vendors' own signed installers.
     ///
     /// The Quick Settings tiles are NOT locked. While not all four tools are installed the
     /// Onboarding nav item shows a badge; once all four are present the tab moves to the far
@@ -316,31 +319,31 @@ namespace XboxGamingBar
         private bool _onbSetupRunning;
         private int _onbSetupRunSeq;
 
-        // --- Step 1: run the proven tool check/installer for all four tools ---
+        // --- Step 1: re-detect the required tools (installing is CTW Center's job) ---
         private void OnbRunSetup_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                Logger.Info("Onboarding: running tool setup (Setup-Tools.ps1)");
+                Logger.Info("Onboarding: re-detecting the required tools");
                 _onbSetupRunning = true;
                 int seq = ++_onbSetupRunSeq;
 
                 if (OnbRunSetupBtn != null)
                 {
-                    OnbRunSetupBtn.Content = "Installing…";
+                    OnbRunSetupBtn.Content = "Checking…";
                     OnbRunSetupBtn.IsEnabled = false;
                 }
                 if (OnbSetupProgressPanel != null) OnbSetupProgressPanel.Visibility = Visibility.Visible;
                 if (OnbSetupSpinner != null) { OnbSetupSpinner.Visibility = Visibility.Visible; OnbSetupSpinner.IsActive = true; }
                 if (OnbSetupProgress != null)
                 {
-                    OnbSetupProgress.Text = "Checking and installing missing tools via winget — this can take a few minutes. The status lines below update when it's done.";
+                    OnbSetupProgress.Text = "Checking which tools are installed. Install the missing ones with CTW Center — it links to each vendor's own installer.";
                 }
                 runToolSetup?.Trigger("install");
 
-                // Fallback: if the helper never reports back (e.g. it died), stop the spinner after a
-                // generous timeout. Normal completion is driven by the *Installed pushes that arrive
-                // when the script finishes (see MaybeFinishOnbSetup).
+                // Fallback: if the helper never reports back (e.g. it died), stop the spinner. A pure
+                // re-detection is quick, so this no longer waits out an installer's runtime. Normal
+                // completion is driven by the *Installed pushes (see MaybeFinishOnbSetup).
                 _ = OnbSetupFallbackAsync(seq);
             }
             catch (Exception ex)
@@ -348,7 +351,7 @@ namespace XboxGamingBar
                 Logger.Warn($"Onboarding tool setup failed: {ex.Message}");
                 _onbSetupRunning = false;
                 if (OnbSetupSpinner != null) { OnbSetupSpinner.IsActive = false; OnbSetupSpinner.Visibility = Visibility.Collapsed; }
-                if (OnbRunSetupBtn != null) { OnbRunSetupBtn.Content = "Check & install tools"; OnbRunSetupBtn.IsEnabled = true; }
+                if (OnbRunSetupBtn != null) { OnbRunSetupBtn.Content = "Re-check tools"; OnbRunSetupBtn.IsEnabled = true; }
             }
         }
 
@@ -370,7 +373,7 @@ namespace XboxGamingBar
             {
                 OnbSetupProgress.Text = OnbAllToolsInstalled
                     ? "All required tools are installed. ✓"
-                    : "Setup finished. If a tool still shows „Not installed“, reboot once so its driver can activate, then tap „Re-check tools“.";
+                    : "Some tools are missing. Install them with CTW Center, then tap „Re-check tools“. After a driver install, reboot once so it can activate.";
             }
         }
 
@@ -378,14 +381,15 @@ namespace XboxGamingBar
         {
             try
             {
-                // The helper's own script timeout is 15 min; give it a little more before we give up.
-                await System.Threading.Tasks.Task.Delay(16 * 60 * 1000);
+                // A re-detection is a handful of registry and device lookups. It used to wait out the
+                // 15-minute installer timeout, which is meaningless now that nothing is installed here.
+                await System.Threading.Tasks.Task.Delay(30 * 1000);
                 if (!_onbSetupRunning || seq != _onbSetupRunSeq) return; // already finished / re-run
                 _onbSetupRunning = false;
                 if (OnbSetupSpinner != null) { OnbSetupSpinner.IsActive = false; OnbSetupSpinner.Visibility = Visibility.Collapsed; }
                 if (OnbRunSetupBtn != null)
                 {
-                    OnbRunSetupBtn.Content = OnbAllToolsInstalled ? "Re-check tools" : "Check & install tools";
+                    OnbRunSetupBtn.Content = "Re-check tools";
                     OnbRunSetupBtn.IsEnabled = true;
                 }
                 if (OnbSetupProgress != null && !OnbAllToolsInstalled)
@@ -396,16 +400,16 @@ namespace XboxGamingBar
             catch { }
         }
 
-        // --- usbip-win2 install (VIIPER prerequisite): triggers the bundled-MSI install on the helper ---
+        // --- usbip-win2 (VIIPER prerequisite): re-detect only; CTW Center installs it ---
         private void OnbUsbipInstall_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                Logger.Info("Onboarding: installing bundled usbip-win2");
-                if (OnbUsbipInstallBtn != null) { OnbUsbipInstallBtn.Content = "Installing…"; OnbUsbipInstallBtn.IsEnabled = false; }
+                Logger.Info("Onboarding: re-detecting usbip-win2");
+                if (OnbUsbipInstallBtn != null) { OnbUsbipInstallBtn.Content = "Checking…"; OnbUsbipInstallBtn.IsEnabled = false; }
                 installUsbip?.TriggerInstall();
             }
-            catch (Exception ex) { Logger.Warn($"Onboarding usbip install failed: {ex.Message}"); }
+            catch (Exception ex) { Logger.Warn($"Onboarding usbip re-detect failed: {ex.Message}"); }
         }
 
         // --- Step 2: disable MSI Center M (optional hint) ---

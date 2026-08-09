@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -80,18 +80,12 @@ namespace XboxGamingBar
                 // 1. On Legion Go in Custom mode (255) - system changes TDP, need to restore
                 // 2. Power Source Profile toggle is enabled - user wants different profiles per power state
                 // For Legion preset modes (Quiet=1, Balanced=2, Performance=3), let the system handle TDP
-                // Skip TDP reapply when DGP is active - DGP controls TDP regardless of power source
                 bool isLegionCustomMode = legionGoDetected?.Value == true && legionPerformanceMode?.Value == 255;
                 bool powerSourceProfileEnabled = GetPowerSourceProfileEnabledForCurrentContext();
-                bool dgpActive = defaultGameProfileEnabled?.Value == true;
 
-                if ((isLegionCustomMode || powerSourceProfileEnabled) && !dgpActive)
+                if (isLegionCustomMode || powerSourceProfileEnabled)
                 {
                     SchedulePowerSourceTdpReapply();
-                }
-                else if (dgpActive)
-                {
-                    Logger.Info("Power source change: Skipping TDP reapply - Default Game Profile is active");
                 }
             });
         }
@@ -116,13 +110,6 @@ namespace XboxGamingBar
                 powerSourceTdpReapplyTimer.Tick += async (s, args) =>
                 {
                     powerSourceTdpReapplyTimer.Stop();
-
-                    // Skip TDP reapply if DGP is active - DGP controls TDP regardless of power source
-                    if (defaultGameProfileEnabled?.Value == true)
-                    {
-                        Logger.Info("Power source change: Skipping TDP reapply - Default Game Profile is active");
-                        return;
-                    }
 
                     // Skip TDP reapply if not in Custom mode - preset modes manage TDP automatically
                     if (legionGoDetected?.Value == true && legionPerformanceMode?.Value != 255)

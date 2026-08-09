@@ -132,8 +132,12 @@
   </ItemGroup>
   <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
   <ItemGroup>
+    <!-- Widget only. The ClawTweaks background helper is a separate, private project and is not part
+         of this repository, so the package built here contains the Game Bar widget and nothing else.
+         It installs and the Game Bar will host it, but the UI stays empty: every value it shows
+         arrives from the helper over a named pipe. That is enough to work on layout, styling and
+         controller navigation, which is what this repository is for. -->
     <ProjectReference Include="..\XboxGamingBar\XboxGamingBar.csproj" />
-    <ProjectReference Include="..\XboxGamingBarHelper\XboxGamingBarHelper.csproj" />
   </ItemGroup>
   <!-- Auto-increment build number before build -->
   <Target Name="IncrementBuildNumber" BeforeTargets="Build">

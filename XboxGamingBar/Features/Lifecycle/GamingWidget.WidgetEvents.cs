@@ -113,6 +113,45 @@ namespace XboxGamingBar
             }
         }
 
+        /// <summary>Game Bar told us our home-bar favorite state changed (user added/removed CTW). Re-read
+        /// and report it so Center onboarding's "add CTW to the Game Bar" step updates live.</summary>
+        private void GamingWidget_FavoritedChanged(XboxGameBarWidget sender, object args)
+        {
+            ReportGameBarFavorited();
+        }
+
+        /// <summary>Read <c>XboxGameBarWidget.Favorited</c> (is CTW in the Game Bar home bar?) and push it
+        /// to the helper. The ONLY reliable presence signal — the Game Bar profile files don't persist it
+        /// (see reverse_engineered/RE_GameBar_WidgetBar_Order.md). The exact slot is not obtainable.</summary>
+        private void ReportGameBarFavorited()
+        {
+            try
+            {
+                bool fav = widget?.Favorited ?? false;
+                gameBarWidgetFavorited?.SetValue(fav);
+
+                // Send DIRECTLY too: WidgetProperty only pushes on a value *change* while connected, and
+                // the first read usually happens before the pipe connects — so the value would otherwise
+                // never reach the helper (it stays True locally and never "changes" again). A direct,
+                // idempotent Set guarantees delivery. Also re-sent on pipe connect (see OnPipeConnectedAsync).
+                if (App.IsConnected)
+                {
+                    var msg = new Windows.Foundation.Collections.ValueSet
+                    {
+                        { "Command", (int)Shared.Enums.Command.Set },
+                        { "Function", (int)Shared.Enums.Function.GameBarWidgetFavorited },
+                        { "Content", fav ? "true" : "false" },
+                    };
+                    _ = App.SendMessageAsync(msg);
+                }
+                Logger.Info($"[GameBarFavorited] widget.Favorited = {fav} → reported to helper (connected={App.IsConnected})");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[GameBarFavorited] read/report failed: {ex.Message}");
+            }
+        }
+
         private void UpdateGameBarForegroundSignal(string source)
         {
             try

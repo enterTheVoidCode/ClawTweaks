@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -58,7 +58,6 @@ namespace XboxGamingBar
                 _saveCPUState = settings.Values.ContainsKey("ProfileSaveCPUState") ? (bool)settings.Values["ProfileSaveCPUState"] : true;
                 _saveAMDFeatures = settings.Values.ContainsKey("ProfileSaveAMDFeatures") ? (bool)settings.Values["ProfileSaveAMDFeatures"] : false;
                 _saveFPSLimit = settings.Values.ContainsKey("ProfileSaveFPSLimit") ? (bool)settings.Values["ProfileSaveFPSLimit"] : true;
-                _saveAutoTDP = settings.Values.ContainsKey("ProfileSaveAutoTDP") ? (bool)settings.Values["ProfileSaveAutoTDP"] : true;
                 _saveOSPowerMode = settings.Values.ContainsKey("ProfileSaveOSPowerMode") ? (bool)settings.Values["ProfileSaveOSPowerMode"] : true;
                 // HDR and Resolution - check for new separate settings first, fall back to combined setting for migration
                 if (settings.Values.ContainsKey("ProfileSaveHDR"))
@@ -88,7 +87,6 @@ namespace XboxGamingBar
                 }
 
                 _saveRefreshRate = settings.Values.ContainsKey("ProfileSaveRefreshRate") ? (bool)settings.Values["ProfileSaveRefreshRate"] : false;
-                _saveStickyTDP = settings.Values.ContainsKey("ProfileSaveStickyTDP") ? (bool)settings.Values["ProfileSaveStickyTDP"] : false;
                 _saveOverlayLevel = settings.Values.ContainsKey("ProfileSaveOverlayLevel") ? (bool)settings.Values["ProfileSaveOverlayLevel"] : false;
                 _saveCPUAffinity = settings.Values.ContainsKey("ProfileSaveCPUAffinity") ? (bool)settings.Values["ProfileSaveCPUAffinity"] : false;
                 // MSI Claw: NintendoLayout + ButtonMappings always forced true (UI hidden, cannot be changed by user)
@@ -96,6 +94,7 @@ namespace XboxGamingBar
                 _saveVibration = settings.Values.ContainsKey("ProfileSaveVibration") ? (bool)settings.Values["ProfileSaveVibration"] : false;
                 _saveLighting = settings.Values.ContainsKey("ProfileSaveLighting") ? (bool)settings.Values["ProfileSaveLighting"] : false;
                 _saveButtonMappings = true;
+                _saveFan = settings.Values.ContainsKey("ProfileSaveFan") ? (bool)settings.Values["ProfileSaveFan"] : false;
 
                 // Update UI checkboxes
                 if (ProfileSaveTDPCheckBox != null) ProfileSaveTDPCheckBox.IsChecked = _saveTDP;
@@ -104,18 +103,17 @@ namespace XboxGamingBar
                 if (ProfileSaveCPUStateCheckBox != null) ProfileSaveCPUStateCheckBox.IsChecked = _saveCPUState;
                 if (ProfileSaveAMDFeaturesCheckBox != null) ProfileSaveAMDFeaturesCheckBox.IsChecked = _saveAMDFeatures;
                 if (ProfileSaveFPSLimitCheckBox != null) ProfileSaveFPSLimitCheckBox.IsChecked = _saveFPSLimit;
-                if (ProfileSaveAutoTDPCheckBox != null) ProfileSaveAutoTDPCheckBox.IsChecked = _saveAutoTDP;
                 if (ProfileSaveOSPowerModeCheckBox != null) ProfileSaveOSPowerModeCheckBox.IsChecked = _saveOSPowerMode;
                 if (ProfileSaveHDRCheckBox != null) ProfileSaveHDRCheckBox.IsChecked = _saveHDR;
                 if (ProfileSaveResolutionCheckBox != null) ProfileSaveResolutionCheckBox.IsChecked = _saveResolution;
                 if (ProfileSaveRefreshRateCheckBox != null) ProfileSaveRefreshRateCheckBox.IsChecked = _saveRefreshRate;
-                if (ProfileSaveStickyTDPCheckBox != null) ProfileSaveStickyTDPCheckBox.IsChecked = _saveStickyTDP;
                 if (ProfileSaveOverlayLevelCheckBox != null) ProfileSaveOverlayLevelCheckBox.IsChecked = _saveOverlayLevel;
                 if (ProfileSaveCPUAffinityCheckBox != null) ProfileSaveCPUAffinityCheckBox.IsChecked = _saveCPUAffinity;
                 if (ProfileSaveNintendoLayoutCheckBox != null) ProfileSaveNintendoLayoutCheckBox.IsChecked = _saveNintendoLayout;
                 if (ProfileSaveVibrationCheckBox != null) ProfileSaveVibrationCheckBox.IsChecked = _saveVibration;
                 if (ProfileSaveLightingCheckBox != null) ProfileSaveLightingCheckBox.IsChecked = _saveLighting;
                 if (ProfileSaveButtonMappingsCheckBox != null) ProfileSaveButtonMappingsCheckBox.IsChecked = _saveButtonMappings;
+                if (ProfileSaveFanCheckBox != null) ProfileSaveFanCheckBox.IsChecked = _saveFan;
             }
             finally
             {
@@ -134,18 +132,17 @@ namespace XboxGamingBar
             settings.Values["ProfileSaveCPUState"] = ProfileSaveCPUStateCheckBox?.IsChecked ?? true;
             settings.Values["ProfileSaveAMDFeatures"] = ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveFPSLimit"] = ProfileSaveFPSLimitCheckBox?.IsChecked ?? true;
-            settings.Values["ProfileSaveAutoTDP"] = ProfileSaveAutoTDPCheckBox?.IsChecked ?? true;
             settings.Values["ProfileSaveOSPowerMode"] = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? true;
             settings.Values["ProfileSaveHDR"] = ProfileSaveHDRCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveResolution"] = ProfileSaveResolutionCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveRefreshRate"] = ProfileSaveRefreshRateCheckBox?.IsChecked ?? false;
-            settings.Values["ProfileSaveStickyTDP"] = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveOverlayLevel"] = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveCPUAffinity"] = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveNintendoLayout"] = true;  // MSI Claw: always forced
             settings.Values["ProfileSaveVibration"] = ProfileSaveVibrationCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveLighting"] = ProfileSaveLightingCheckBox?.IsChecked ?? false;
             settings.Values["ProfileSaveButtonMappings"] = true;  // MSI Claw: always forced
+            settings.Values["ProfileSaveFan"] = ProfileSaveFanCheckBox?.IsChecked ?? false;
         }
 
         private void ProfileSettingCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -156,6 +153,9 @@ namespace XboxGamingBar
             SyncProfileSettingsBackingFields();
             SaveProfileCustomizationSettings();
             SendProfileSaveFlagsToHelper();
+            // The Fan flag is half of the fan card's Apply target, so the caption has to follow it
+            // immediately - the helper's own push only carries the other half.
+            UpdateFanApplyScopeLabel();
             Logger.Info($"Profile customization settings updated");
         }
 
@@ -167,6 +167,9 @@ namespace XboxGamingBar
             SyncProfileSettingsBackingFields();
             SaveProfileCustomizationSettings();
             SendProfileSaveFlagsToHelper();
+            // The Fan flag is half of the fan card's Apply target, so the caption has to follow it
+            // immediately - the helper's own push only carries the other half.
+            UpdateFanApplyScopeLabel();
             Logger.Info($"Profile customization settings updated");
         }
 
@@ -174,7 +177,7 @@ namespace XboxGamingBar
         /// Pushes the current per-setting save flags to the helper so it can route writes:
         /// true => write to CurrentProfile (per-game if active, else global), false => write to
         /// GlobalProfile regardless of the active profile. Sent on startup and on any checkbox
-        /// change. Helper stores a snapshot and consults it from AutoTDP / Legion save handlers.
+        /// change. Helper stores a snapshot and consults it from the Legion save handlers.
         /// </summary>
         internal void SendProfileSaveFlagsToHelper()
         {
@@ -189,18 +192,17 @@ namespace XboxGamingBar
                 jsonObj["CPUState"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveCPUState);
                 jsonObj["AMDFeatures"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveAMDFeatures);
                 jsonObj["FPSLimit"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveFPSLimit);
-                jsonObj["AutoTDP"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveAutoTDP);
                 jsonObj["OSPowerMode"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveOSPowerMode);
                 jsonObj["HDR"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveHDR);
                 jsonObj["Resolution"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveResolution);
                 jsonObj["RefreshRate"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveRefreshRate);
-                jsonObj["StickyTDP"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveStickyTDP);
                 jsonObj["OverlayLevel"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveOverlayLevel);
                 jsonObj["CPUAffinity"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveCPUAffinity);
                 jsonObj["NintendoLayout"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveNintendoLayout);
                 jsonObj["Vibration"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveVibration);
                 jsonObj["Lighting"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveLighting);
                 jsonObj["ButtonMappings"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveButtonMappings);
+                jsonObj["Fan"] = Windows.Data.Json.JsonValue.CreateBooleanValue(_saveFan);
 
                 var request = new Windows.Foundation.Collections.ValueSet
                 {
@@ -229,18 +231,17 @@ namespace XboxGamingBar
             _saveCPUState = ProfileSaveCPUStateCheckBox?.IsChecked ?? true;
             _saveAMDFeatures = ProfileSaveAMDFeaturesCheckBox?.IsChecked ?? false;
             _saveFPSLimit = ProfileSaveFPSLimitCheckBox?.IsChecked ?? true;
-            _saveAutoTDP = ProfileSaveAutoTDPCheckBox?.IsChecked ?? true;
             _saveOSPowerMode = ProfileSaveOSPowerModeCheckBox?.IsChecked ?? true;
             _saveHDR = ProfileSaveHDRCheckBox?.IsChecked ?? false;
             _saveResolution = ProfileSaveResolutionCheckBox?.IsChecked ?? false;
             _saveRefreshRate = ProfileSaveRefreshRateCheckBox?.IsChecked ?? false;
-            _saveStickyTDP = ProfileSaveStickyTDPCheckBox?.IsChecked ?? false;
             _saveOverlayLevel = ProfileSaveOverlayLevelCheckBox?.IsChecked ?? false;
             _saveCPUAffinity = ProfileSaveCPUAffinityCheckBox?.IsChecked ?? false;
             _saveNintendoLayout = true;  // MSI Claw: always forced (UI hidden)
             _saveVibration = ProfileSaveVibrationCheckBox?.IsChecked ?? false;
             _saveLighting = ProfileSaveLightingCheckBox?.IsChecked ?? false;
             _saveButtonMappings = true;  // MSI Claw: always forced (UI hidden)
+            _saveFan = ProfileSaveFanCheckBox?.IsChecked ?? false;
         }
 
     }

@@ -166,10 +166,11 @@
         LegionGyroInvertY,              // bool
         LegionGyroMappingType,          // int - 0=Instant, 1=Continuous
         LegionGyroActivationMode,       // int - 0=Hold, 1=Toggle
-        LegionGyroActivationButton,     // int - 0-8 (None, LB, LT, RB, RT, Y1, Y2, M2, M3)
+        LegionGyroActivationButton,     // int - 0-6 (None, LB, LT, RB, RT, M1, M2) on the Claw
 
         // Legion Go Advanced Gyro Settings (per-game profile)
         LegionGyroDeadzone,             // int - 1-100 (suppresses small motions near center)
+        LegionGyroSmoothing,            // int - 0-100 (One-Euro min-cutoff amount; per engine mode; Adaptive+MA only)
 
         // Legion Go Stick Deadzones (per-game profile)
         LegionLeftStickDeadzone,        // int - 0-50 (percent)
@@ -237,18 +238,27 @@
         ControllerVidPid,               // string - detected controller VID:PID (e.g., "17EF:6182")
         ControllerDeviceStatus,         // string - JSON snapshot of LegionGoStatus (FW, RGB, brightness, mode, speed, vibration, touchpad)
 
-        // AutoTDP functions
-        AutoTDPEnabled,             // bool - enable/disable AutoTDP
-        AutoTDPTargetFPS,           // int - target FPS (30-144)
-        AutoTDPCurrentFPS,          // int - current FPS reading (read-only)
-        AutoTDPMinTDP,              // int - minimum TDP for AutoTDP range (4-85)
-        AutoTDPMaxTDP,              // int - maximum TDP for AutoTDP range (4-85)
-        AutoTDPUseMLMode,           // bool - DEPRECATED: use AutoTDPControllerType instead
-        AutoTDPMLStatus,            // string - ML mode status (read-only: "Updates: N | Exploration: X%")
-        AutoTDPResetML,             // bool - trigger to reset ML learning data (write true to trigger)
-        AutoTDPPauseWhenUnfocused,  // bool - pause AutoTDP when game window is not focused (default: true)
-        AutoTDPControllerType,      // int - controller type (0=PID, 1=Q-Learning, 2=SARSA)
-        AutoTDPLearnedGameData,     // string - JSON bundle for learned TDP + heatmap for current game
+        // ── RESERVED: the removed AutoTDP block ────────────────────────────────────────────────
+        // AutoTDP was deleted in full (GoTweaks legacy, user decision 2026-07-31 — see
+        // Doku/PLAN_Performance_SingleStore.md §5.0). These eleven members MUST STAY.
+        //
+        // This enum is serialised BY ORDINAL over the pipe. Deleting a member shifts every value
+        // after it by one, so a widget and a helper of different versions would silently interpret
+        // each other's messages as entirely different functions — the worst possible failure mode,
+        // because nothing throws. Renaming them to Reserved_* keeps the numbering intact and makes
+        // it obvious that nothing may be inserted here. Never reuse a slot for a new function
+        // either: an old peer would map its old meaning onto it. New members go at the END.
+        Reserved_AutoTDP01,
+        Reserved_AutoTDP02,
+        Reserved_AutoTDP03,
+        Reserved_AutoTDP04,
+        Reserved_AutoTDP05,
+        Reserved_AutoTDP06,
+        Reserved_AutoTDP07,
+        Reserved_AutoTDP08,
+        Reserved_AutoTDP09,
+        Reserved_AutoTDP10,
+        Reserved_AutoTDP11,
 
         // OSD Customization
         OSDConfig,                  // string - OSD configuration per level (L1:items;L2:items;L3:items)
@@ -259,8 +269,11 @@
         // FPS Limiter (RTSS)
         FPSLimit,                   // int - FPS limit (0 = unlimited)
 
-        // Intel Endurance Gaming FPS tier (IGCL)
-        IntelFpsTier,               // int - 0=Off, 1=Performance(60fps), 2=Balanced(40fps), 3=Efficiency(30fps)
+        // Intel FPS cap (IGCL FRAME_LIMIT). ARBITRARY fps, 0 = off. The name is historical: this was
+        // a 0..3 Endurance Gaming tier. Legacy stored 1/2/3 are migrated to 60/40/30 on read
+        // (IntelGpuManager.MigrateTierToFps / the widget's MigrateIntelFps). Never renamed — the
+        // enum is ordinal-serialized and APPEND-ONLY.
+        IntelFpsTier,               // int - fps target (0 = off)
         FpsCapMode,                 // int - active FPS-cap source: 0=RTSS, 1=Intel (mutual exclusion enforced by helper)
 
         // Device TDP Limits
@@ -283,11 +296,23 @@
         // System Actions
         RefreshDisplaySettings,     // Action: re-query display resolution, refresh rate, HDR status
 
-        // Default Game Profile (Microsoft Gaming Services profiles)
-        DefaultGameProfileAvailable,    // bool - whether current game has a default profile
-        DefaultGameProfileData,         // string - serialized DefaultGameProfile XML
-        DefaultGameProfileEnabled,      // bool - user's toggle state for current game
-        ForceDefaultGameProfile,        // bool - force DGP feature on non-Z1/Z2 Extreme devices
+        // RETIRED 2026-08-02 — Default Game Profiles removed entirely. The four names stay because
+        // this enum is ordinal-serialized and APPEND-ONLY: deleting them would renumber everything
+        // below and make an older widget talk nonsense to a newer helper. Nothing sends or handles
+        // them any more; an old widget that still does gets the unknown-function path, which is
+        // harmless. Do not reuse these slots for something else.
+        //
+        // Why the feature went: the profiles came from Windows' Gaming Services, and every one of the
+        // 78 tuned entries was contributed by ASUS (provider=ArmouryCrate) for the two Legion Go
+        // variants (hardwareModels OMNI/HORSEM4N). The Claw is not among them — CpuDetector only knew
+        // LegionGoVariant and resolved to Unknown, after which the lookup fell through to OMNI and
+        // would have driven an AMD handheld's wattage on Intel silicon. A recommendation computed for
+        // a different device is worse than none, and per-game profiles now cover the same ground
+        // properly (power-state split, one store, visible in the cards, carried in backups).
+        DefaultGameProfileAvailable_Retired,
+        DefaultGameProfileData_Retired,
+        DefaultGameProfileEnabled_Retired,
+        ForceDefaultGameProfile_Retired,
 
         // Profile Detection Settings
         ProfileMatchByExe,              // bool - match profiles by exe path instead of window title
@@ -336,14 +361,19 @@
 
         // Debug/Development
         CheckLocalUpdate,               // Trigger: check for local AppPackages update (Debug)
-        InstallUpdate,                  // Trigger: download and install update (Content = URL or local path)
+        InstallUpdate,                  // RESERVED — the helper's download-and-install handler is gone (CTW Center installs)
 
-        // In-app update (Onboarding tab): list recent GitHub releases + install a chosen one.
-        // AV-clean: helper downloads the signed .msixbundle via HttpClient and installs it with the
-        // WinRT PackageManager (no PowerShell, no Process.Start, no runas) — per-user, no UAC.
-        ListAppReleases,                // Query (Get): returns Content = JSON array of the latest releases
-        InstallAppRelease,              // Set: Content = msixbundle browser_download_url to download + install
-        AppInstallStatus,               // Query (Get): returns Content = JSON {phase, percent, message} of the in-flight install
+        // Onboarding tab: what's-new information about STABLE releases. The widget shows it and links
+        // to CTW Center; it does not download or install anything.
+        ListAppReleases,                // Query (Get): returns Content = JSON array of recent STABLE releases
+        // RESERVED — do not reuse these two slots and do not renumber around them. They were
+        // InstallAppRelease (Set: asset URL to download + install) and AppInstallStatus (Get: install
+        // progress). Both are unhandled now: the widget's download-and-install path was removed because
+        // fetching a package and getting it launched is the shape antivirus heuristics score, and
+        // installing belongs to Center. Function is a wire protocol serialised by ORDINAL, so deleting
+        // the members would shift every later value and break against any mismatched build.
+        InstallAppRelease_Removed,
+        AppInstallStatus_Removed,
 
         // System Restore (for clean uninstall)
         PrepareForUninstall,            // Trigger: restore original system values and remove scheduled task
@@ -495,10 +525,11 @@
         // Appended at the end to preserve all existing enum ordinal values.
         LegionVibrationIntensity,    // int - 0-100 (percent), default 100
 
-        // Onboarding: run the proven prerequisite check/installer (embedded Setup-Tools.ps1) that
-        // detects + installs all four required tools (PawnIO, ViGEmBus, HidHide, RTSS) in one pass.
-        // Write "install" to trigger; the helper runs it elevated and pushes each *Installed status.
-        RunToolSetup,                // string - trigger to run the tool setup script (write "install")
+        // Onboarding: RE-DETECT the required tools (PawnIO, ViGEmBus, HidHide, RTSS, usbip) and push
+        // each *Installed status. It used to INSTALL them as well, through an embedded PowerShell
+        // script the elevated helper extracted and ran; that is gone, and Center owns installing now.
+        // The verb keeps its name and ordinal (this enum is append-only) and still takes "install".
+        RunToolSetup,                // string - trigger a tool re-detection (write "install")
 
         // Controller: fire a short test rumble pulse on the physical MSI Claw at the current
         // vibration intensity (lets the user feel the setting without launching a game).
@@ -602,5 +633,101 @@
         // Intel gaming 3D features (IGCL, per-game). Appended to preserve prior enum ordinals.
         IntelLowLatency,            // int - 0=Off, 1=On, 2=On+Boost (CTL_3D_FEATURE_LOW_LATENCY)
         IntelFrameSync,             // int - 0=App default, 1=VSync off, 2=VSync on, 3=Smooth Sync, 4=Speed Sync (gaming flip mode)
+
+        // ClawTweaks Center onboarding: structured HW-controller health result, helper → Center only
+        // (in response to the CenterRequestHealth pipe request). Content is a compact key=value;… payload
+        // (present, openable, mode, verdict, detail) so Center's onboarding can gate the chain on a
+        // genuinely mountable physical controller — including the rare "HID held by another process" case.
+        ControllerHwHealth,         // string - "present=..;openable=..;mode=..;verdict=..;detail=.."
+
+        // Whether the ClawTweaks widget is currently favorited into the Game Bar home bar. Read live
+        // from the Game Bar SDK (XboxGameBarWidget.Favorited + FavoritedChanged) — the ONLY reliable
+        // signal for "is CTW in the bar" (the profile files don't persist it; see
+        // reverse_engineered/RE_GameBar_WidgetBar_Order.md). Widget → helper; helper mirrors it into the
+        // Center status snapshot so onboarding's "add CTW to the Game Bar" step auto-completes when the
+        // user favorites it. The exact slot POSITION is not obtainable — deliberately not modeled here.
+        GameBarWidgetFavorited,     // bool - true = CTW is in the Game Bar home bar
+
+        // ClawTweaks Center Reset/Backup/Restore results, helper → Center only (in response to the
+        // FactoryReset / BackupCreate / BackupRestore pipe requests). Content is a compact key=value;…
+        // payload the Center parses without a JSON dependency (same style as ControllerHwHealth):
+        //   CenterResetResult:   "ok=1"                       | "ok=0;error=…"
+        //   CenterBackupResult:  "ok=1;path=…;stores=N"       | "ok=0;error=…"
+        //   CenterRestoreResult: "ok=1;restored=N;pre=…"      | "ok=0;error=…"
+        // See Doku/PLAN_Backup_Restore.md + Doku/RESET_StoreMap_and_FactoryReset_Gaps.md.
+        CenterResetResult,          // string - "ok=1" | "ok=0;error=.."
+        CenterBackupResult,         // string - "ok=1;path=..;stores=N" | "ok=0;error=.."
+        CenterRestoreResult,        // string - "ok=1;restored=N;pre=.." | "ok=0;error=.."
+
+        // Is CTW Center installed, and where would the user get it? Answered by the helper, because
+        // resolving it means reading HKCU/HKLM uninstall entries — the widget is a sandboxed UWP
+        // process and cannot read those at all. The download location comes from the curated
+        // setup-manifest, so it can be repointed without shipping a new widget.
+        // Content = "installed=0|1;url=…". APPEND-ONLY: Function is serialised by ordinal, so new
+        // members go at the END and nothing above may be reordered.
+        ClawTweaksCenterStatus,     // string - "installed=0;url=https://…"
+
+        // Device capability: the STARTING value of the gyro's gravity-relative ("Accelerometer")
+        // toggle on a fresh install (helper → widget, read-only). Not a support flag — the toggle is
+        // always offered and a value the user has already stored always wins. True everywhere except
+        // the Claw 8 EX. See DeviceInfo.GyroWorldSpaceDefault.
+        // APPEND-ONLY: Function is serialised by ordinal — new members go at the END.
+        DeviceGyroWorldSpaceDefault, // bool - true = "Accelerometer" toggle starts on
+
+        // The helper's performance-profile truth, pushed read-only to the widget (plan §5.3). Content
+        // is the compact XML of a List<GameProfile> — the global profile plus every per-game profile.
+        // It carries GameProfile ITSELF, deliberately not a parallel DTO: a new performance setting is
+        // added to GameProfile and is then automatically persisted, in this snapshot, available in the
+        // widget and part of backup/export. A mirror type would have to be extended in six places per
+        // field, which is exactly how the "two truths" bug (task #43) came about. `Path` and `Cache`
+        // are [XmlIgnore] and therefore already excluded.
+        // The widget must never write these values — it sends user-initiated sets and displays what
+        // comes back (plan §4.1, invariant 1).
+        // APPEND-ONLY: Function is serialised by ordinal — new members go at the END.
+        ProfileSnapshot,            // string - compact XML of List<GameProfile>
+
+        // Whether the ACTIVE profile keeps separate values for mains and battery ("Plugged in" /
+        // "On battery" in the UI; the trigger is the power source, not a dock). Scope needs no
+        // parameter: the helper applies it to CurrentProfile, which is the per-game profile while a
+        // game runs and the global profile otherwise — exactly the scope the toggle shows.
+        // The widget only SENDS this; the state it displays comes back through ProfileSnapshot.
+        PowerSourceSplit,           // bool - GameProfile.PowerSourceSplit of the active profile
+
+        // Per-game gyro tuning beyond sensitivity and smoothing, because stick movement differs far
+        // more between games than a single sensitivity can express. All three live in the CONTROLLER
+        // profile (widget LocalSettings, container ControllerProfile_<name>) like every other gyro
+        // setting — not in the helper's performance store.
+        // APPEND-ONLY: Function is serialised by ordinal — new members go at the END.
+        LegionGyroAntiDeadzone,     // int - 0-50 % of full deflection; MA's Settings.DeadZone (0.2 → 20)
+        LegionGyroBoostButton,      // int - 0=None, 1=LB, 2=LT, 3=RB, 4=RT; MA's GainButton
+        LegionGyroBoostFactor,      // int - 10-300 % of normal sensitivity while held; MA's GainRate ×100
+
+        // Two Intel features the shipped IGCL_Wrapper.dll cannot reach — they go through a direct
+        // binding to Intel's own ControlLib.dll (see Intel/IgclDirect.cs). Stored per game in the
+        // performance profile like the Color Remaster settings, global value in the global profile.
+        // APPEND-ONLY: Function is serialised by ordinal — new members go at the END.
+        IntelFrameGeneration,       // int - 0=App choice, 1=2X, 2=3X, 3=4X (IGCL FRAME_GENERATION)
+        IntelVrr,                   // int - 0=off, 1=on (Intel Arc Sync; int, not bool, to match the others)
+
+        // Intel Graphics Software keeps VRR as TWO controls, and so do we: the on/off above is the
+        // Arc Sync profile of the display, this is the mode that decides which presentations it
+        // applies to. Values ARE the IGCL enum (ctl_3d_vrr_windowed_blt_reserved_t) so the stored
+        // number and the number on the wire are the same thing — no mapping table to get wrong.
+        // APPEND-ONLY: Function is serialised by ordinal — new members go at the END.
+        IntelVrrMode,               // int - 0=Auto, 1=Windowed and fullscreen, 2=Fullscreen only
+
+        // Scaling, mirroring Intel's two dropdowns. Mode picks the GROUP, Method the entry inside it —
+        // and the groups reach different APIs (display/GPU scaling is per output, retro scaling is per
+        // adapter with its own Enable), so the two values only mean something together.
+        // APPEND-ONLY: Function is serialised by ordinal — new members go at the END.
+        IntelScalingMode,           // int - 0=Display, 1=GPU, 2=Retro
+        IntelScalingMethod,         // int - within Display: 0=Maintain; GPU: 0=Centered,1=Stretch,2=Preserve Aspect; Retro: 0=Integer,1=Nearest Neighbour
+
+        // Where the built-in overlay anchors itself. The six values ARE MSI's
+        // RealtimeMonitorPosition (MCMOSDInfo), numbering included, so the number we store means what
+        // Center M's number means. Applies to the built-in renderer only - RTSS has its own position
+        // setting and does not take instructions from us about it.
+        // APPEND-ONLY: Function is serialised by ordinal — new members go at the END.
+        Settings_OnScreenDisplayPosition, // int - 1=UpperLeft, 2=UpperMiddle, 3=UpperRight, 4=BottomLeft, 5=BottomMiddle, 6=BottomRight
     }
 }

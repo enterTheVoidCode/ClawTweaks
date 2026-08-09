@@ -231,6 +231,17 @@ namespace XboxGamingBar
             ApplyThemeToVisualTree(ScalingScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
             ApplyThemeToVisualTree(LegionScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
             ApplyThemeToVisualTree(SystemScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            // Display, Fan and Tiny Center M were missing from this list, and a tab that is never walked
+            // keeps the raw XAML card colour (#30343A) while every other tab follows the theme. That is
+            // the whole reason the Intel cards looked grey next to the Performance tab's - not a
+            // different style, just a tab the theme never reached. Null-checked because these three are
+            // device-gated and may not exist in the tree at all.
+            if (DisplayScrollViewer != null)
+                ApplyThemeToVisualTree(DisplayScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            if (FanScrollViewer != null)
+                ApplyThemeToVisualTree(FanScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
+            if (TinyCenterMScrollViewer != null)
+                ApplyThemeToVisualTree(TinyCenterMScrollViewer, theme, cardBgBrush, cardBorderBrush, accentBrush, textSecondaryBrush);
         }
 
         // Trigger-press edge tracking for tab navigation. Holding LT/RT would otherwise
@@ -318,7 +329,10 @@ namespace XboxGamingBar
                 }
                 else if (focusedElement is Windows.UI.Xaml.Controls.Slider sliderDown)
                 {
-                    if (FocusXYTarget(sliderDown.XYFocusDown))
+                    // ENGAGED slider: the D-pad belongs to the value, not to navigation. Without this
+                    // check the interception below fires for every focused slider whether it is being
+                    // adjusted or not — see the Up branch, where it cost a week.
+                    if (!sliderDown.IsFocusEngaged && FocusXYTarget(sliderDown.XYFocusDown))
                         e.Handled = true;
                 }
                 // else: do NOT handle — let the per-control bubbling KeyDown move focus.
@@ -331,18 +345,54 @@ namespace XboxGamingBar
                 var focusedElement = FocusManager.GetFocusedElement() as FrameworkElement;
                 if (focusedElement is Windows.UI.Xaml.Controls.Slider sliderUp)
                 {
+                    // 0) ENGAGED: leave the key to the slider so it raises the value. THIS IS THE BUG
+                    //    that made every rail-slider attempt fail and that kept the PL1 slider flinging
+                    //    focus at the tab bar. Traced 2026-08-06: Down adjusted the value only because
+                    //    the branch above bails when XYFocusDown is null, while Up always found
+                    //    SOMETHING above through FocusNearestFocusableAbove and therefore always
+                    //    navigated. That asymmetry was never in the Slider or in the Game Bar — it was
+                    //    here, in our own tunneling handler, which intercepted every focused slider
+                    //    regardless of whether the user was adjusting it.
+                    if (sliderUp.IsFocusEngaged)
+                    {
+                        // not handled: the Slider gets it
+                    }
                     // 1) Explicit XYFocusUp (deterministic) wins.
-                    if (FocusXYTarget(sliderUp.XYFocusUp))
+                    else if (FocusXYTarget(sliderUp.XYFocusUp))
+                        e.Handled = true;
+                    // 1b) THE SAFETY NET. XYFocusUp on TDPSlider is written from FOUR places
+                    //     (UpdatePerformanceTabXYFocus twice, UpdatePerformanceTabXYNavigation, and the
+                    //     Slider-mode restore), and two of them name controls that are Collapsed on the
+                    //     Claw — FPSLimitToggle and TDPModeComboBox, both dead stubs kept for
+                    //     compilation. Whoever writes last wins, so fixing them one at a time was
+                    //     whack-a-mole: three rounds, three different names in the log, same symptom.
+                    //     This resolver states the INTENT and cannot be overwritten by a fifth writer.
+                    else if (FocusXYTarget(ResolveSpineUpTarget(sliderUp)))
                         e.Handled = true;
                     // 2) No/disabled XYFocusUp: DON'T jump straight to the tabs (the old bug — a
                     //    slider mid-content would fling focus all the way up to the nav bar). Instead
                     //    find the nearest focusable element ABOVE, mirroring how Down already relies on
-                    //    UWP's own navigation. Only if there is genuinely nothing above do we escape to
-                    //    the nav bar.
+                    //    UWP's own navigation.
                     else if (FocusNearestFocusableAbove(sliderUp))
                         e.Handled = true;
                     else
-                        { FocusActiveTab(); e.Handled = true; }
+                    {
+                        // 3) NOTHING ABOVE COULD BE FOCUSED — and the answer is to stay put, not to
+                        //    fling focus at the tab bar.
+                        //
+                        //    FocusActiveTab() used to sit here, and it is what "Up jumps straight to
+                        //    the top" actually was: not a navigation that overshot, but the LAST-RESORT
+                        //    branch firing because steps 1 and 2 both silently returned false. On the
+                        //    PL1 slider both do: FocusXYTarget bails on a null or disabled target, and
+                        //    FocusNearestFocusableAbove refuses anything in the navigation area. So a
+                        //    single missing link turned one step up into a jump to the tabs — twice as
+                        //    confusing as simply not moving.
+                        //
+                        //    Y is how you reach the tab bar on purpose. This is not.
+                        Logger.Warn($"[SpineUp] {sliderUp.Name}: no focus target above " +
+                                    $"(XYFocusUp={(sliderUp.XYFocusUp as FrameworkElement)?.Name ?? "null"}) — staying put");
+                        e.Handled = true;
+                    }
                 }
                 // else: do NOT handle — per-control KeyDown handles it.
             }
@@ -395,10 +445,37 @@ namespace XboxGamingBar
         /// Returns true only if a focusable, enabled Control target was actually focused.
         /// This is the reliable mechanism on-device — TryMoveFocus does not navigate correctly here.
         /// </summary>
+        /// <summary>
+        /// What sits above a given slider in the Performance spine, by intent rather than by whatever
+        /// last wrote XYFocusUp. Used only when the property itself turned out unusable.
+        ///
+        /// Returns null for sliders that are not part of the spine, so the caller falls through to its
+        /// spatial search as before.
+        /// </summary>
+        private Control ResolveSpineUpTarget(Windows.UI.Xaml.Controls.Slider slider)
+        {
+            if (slider == null) return null;
+            if (ReferenceEquals(slider, TDPSlider)) return FPSStateCycleButton;
+            if (ReferenceEquals(slider, TDPBoostFPPTSliderCard)) return TDPBoostToggle;
+            if (ReferenceEquals(slider, FPSLimitSlider)) return PerGameProfileToggle;
+            return null;
+        }
+
         private bool FocusXYTarget(DependencyObject xyTarget)
         {
             var ctrl = xyTarget as Control;
             if (ctrl == null || !ctrl.IsEnabled) return false;
+
+            // Collapsed counts as "not a target". IsEnabled stays TRUE on a hidden control, so the
+            // check above waved through XYFocus targets that point at collapsed stubs — Focus() then
+            // returned false and the caller silently fell through to its last resort. That is the
+            // whole mechanism behind the recurring "Up jumps to the tabs / Up does nothing" reports,
+            // and it is worth failing loudly here rather than quietly two layers up.
+            if (ctrl.Visibility != Visibility.Visible)
+            {
+                Logger.Warn($"[XYFocus] target '{ctrl.Name}' is Collapsed — not a usable focus target");
+                return false;
+            }
             return ctrl.Focus(FocusState.Keyboard);
         }
 
@@ -578,6 +655,14 @@ namespace XboxGamingBar
                     target = FPSStateCycleButton; // always enabled — first real spine element
                 // else: fall through to FindFirstFocusableElement
             }
+            else if (QuickSettingsScrollViewer?.Visibility == Visibility.Visible)
+            {
+                // The FIRST TILE, explicitly. Without this the Quick tab fell through to
+                // FindFirstFocusableElement, which walks the tree in declaration order — and the media
+                // rail is declared before the tile grid, so every entry into the tab landed on the
+                // brightness slider. The rail is meant to be reached sideways, not stumbled into.
+                target = _firstQuickTile as Control;
+            }
             else if (SystemScrollViewer?.Visibility == Visibility.Visible)
             {
                 // Tab Settings (collapsible) is the first card on the System tab.
@@ -609,6 +694,15 @@ namespace XboxGamingBar
             // Generic fallback: FindFirstFocusableElement for tabs without an explicit mapping
             // (Quick, Display, Fan, Profiles, GPD, Scaling fallback)
             var first = FocusManager.FindFirstFocusableElement(viewer) as Control;
+            // This walks the tree in DECLARATION order, which is why reaching it at all is worth a line:
+            // on the Quick tab the media rail is declared before the tile grid, so the fallback lands on
+            // the brightness slider and looks to the user like the D-pad jumped somewhere random. That
+            // was the 2026-08-08 hardware-controller report — the anchor tile was IsEnabled=false, and a
+            // disabled Button is not a focus candidate. The anchor state is logged with it because
+            // "which tab" alone never explained it.
+            Logger.Warn($"[TabEntry] no explicit first element - fell back to " +
+                        $"{(first == null ? "null" : first.GetType().Name + ":" + first.Name)} " +
+                        $"(anchor: {(_firstQuickTile == null ? "null" : "enabled=" + (_firstQuickTile as Control)?.IsEnabled)})");
             if (first != null)
                 first.Focus(FocusState.Keyboard);
             else

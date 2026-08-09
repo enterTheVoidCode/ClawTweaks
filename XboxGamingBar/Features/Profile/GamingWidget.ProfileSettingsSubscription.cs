@@ -1,4 +1,4 @@
-using Microsoft.Gaming.XboxGameBar;
+﻿using Microsoft.Gaming.XboxGameBar;
 using Microsoft.Gaming.XboxGameBar.Input;
 using Microsoft.UI.Xaml.Controls;
 using NLog;
@@ -47,13 +47,29 @@ namespace XboxGamingBar
         private void SubscribeToSettingsChanges()
         {
             // Performance settings
-            TDPSlider.ValueChanged += SettingChanged;
+            // Sliders save on the COMMIT boundary, not per step - see GamingWidget.SliderCommit.cs.
+            WireSliderProfileCommit(TDPSlider);
             CPUBoostToggle.Toggled += SettingChanged;
-            CPUEPPSlider.ValueChanged += SettingChanged;
+            WireSliderProfileCommit(CPUEPPSlider);
             MinCPUStateComboBox.SelectionChanged += SettingChanged;
             MaxCPUStateComboBox.SelectionChanged += SettingChanged;
             FPSLimitToggle.Toggled += FPSLimitToggle_Toggled;
             FPSLimitSlider.ValueChanged += FPSLimitSlider_ValueChanged;
+            // ...and the same commit boundary for its profile save (the handler above only marks it).
+            FPSLimitSlider.FocusDisengaged += SliderProfile_FocusDisengaged;
+            FPSLimitSlider.PointerCaptureLost += SliderProfile_PointerCaptureLost;
+            FPSLimitSlider.LostFocus += SliderProfile_LostFocus;
+
+            // PL2/Overboost, same deal: TDPBoostFPPTSlider_ValueChanged marks it, these commit it.
+            // Both instances — the card slider and the one in the settings panel — mirror each other's
+            // value, so either can be the one the user was holding.
+            foreach (var pl2 in new[] { TDPBoostFPPTSliderCard, TDPBoostFPPTSlider })
+            {
+                if (pl2 == null) continue;
+                pl2.FocusDisengaged += SliderProfile_FocusDisengaged;
+                pl2.PointerCaptureLost += SliderProfile_PointerCaptureLost;
+                pl2.LostFocus += SliderProfile_LostFocus;
+            }
 
             // Graphics settings (HDR and Resolution for profile feature)
             HDRToggle.Toggled += SettingChanged;
@@ -61,30 +77,35 @@ namespace XboxGamingBar
 
             // Intel Display (IGCL) sliders — persist into the performance & display profile so
             // their values appear in the global / per-game cards. (Skipped during helper sync.)
-            if (DisplaySaturationSlider != null) DisplaySaturationSlider.ValueChanged += SettingChanged;
-            if (DisplayHueSlider != null) DisplayHueSlider.ValueChanged += SettingChanged;
-            if (DisplayContrastSlider != null) DisplayContrastSlider.ValueChanged += SettingChanged;
-            if (DisplayBrightnessSlider != null) DisplayBrightnessSlider.ValueChanged += SettingChanged;
-            if (DisplayGammaSlider != null) DisplayGammaSlider.ValueChanged += SettingChanged;
-            if (DisplaySharpnessSlider != null) DisplaySharpnessSlider.ValueChanged += SettingChanged;
+            WireSliderProfileCommit(DisplaySaturationSlider);
+            WireSliderProfileCommit(DisplayHueSlider);
+            WireSliderProfileCommit(DisplayContrastSlider);
+            WireSliderProfileCommit(DisplayBrightnessSlider);
+            WireSliderProfileCommit(DisplayGammaSlider);
+            WireSliderProfileCommit(DisplaySharpnessSlider);
 
             // Intel gaming (IGCL) combos — persist into the widget profile copy (helper is authoritative
             // for apply; the CpuIntComboProperty ignores this until the first helper sync).
             if (IntelLowLatencyComboBox != null) IntelLowLatencyComboBox.SelectionChanged += SettingChanged;
+            if (IntelFrameGenerationComboBox != null) IntelFrameGenerationComboBox.SelectionChanged += SettingChanged;
+            if (IntelVrrComboBox != null) IntelVrrComboBox.SelectionChanged += SettingChanged;
+            if (IntelVrrModeComboBox != null) IntelVrrModeComboBox.SelectionChanged += SettingChanged;
+            if (IntelScalingModeComboBox != null) IntelScalingModeComboBox.SelectionChanged += SettingChanged;
+            if (IntelScalingMethodComboBox != null) IntelScalingMethodComboBox.SelectionChanged += SettingChanged;
             if (IntelFrameSyncComboBox != null) IntelFrameSyncComboBox.SelectionChanged += SettingChanged;
 
             // AMD settings
             AMDFluidMotionFrameToggle.Toggled += SettingChanged;
             AMDRadeonSuperResolutionToggle.Toggled += AMDRadeonSuperResolutionToggle_Toggled;
-            AMDRadeonSuperResolutionSharpnessSlider.ValueChanged += SettingChanged;
+            WireSliderProfileCommit(AMDRadeonSuperResolutionSharpnessSlider);
             AMDImageSharpeningToggle.Toggled += AMDImageSharpeningToggle_Toggled;
-            AMDImageSharpeningSlider.ValueChanged += SettingChanged;
+            WireSliderProfileCommit(AMDImageSharpeningSlider);
             AMDRadeonAntiLagToggle.Toggled += AMDRadeonAntiLagToggle_Toggled;
             AMDRadeonBoostToggle.Toggled += AMDRadeonBoostToggle_Toggled;
-            AMDRadeonBoostResolutionSlider.ValueChanged += SettingChanged;
+            WireSliderProfileCommit(AMDRadeonBoostResolutionSlider);
             AMDRadeonChillToggle.Toggled += AMDRadeonChillToggle_Toggled;
-            AMDRadeonChillMinFPSSlider.ValueChanged += SettingChanged;
-            AMDRadeonChillMaxFPSSlider.ValueChanged += SettingChanged;
+            WireSliderProfileCommit(AMDRadeonChillMinFPSSlider);
+            WireSliderProfileCommit(AMDRadeonChillMaxFPSSlider);
 
             // Legion controller button mapping settings
             InitializeButtonMappingEvents("Y1");
@@ -131,6 +152,16 @@ namespace XboxGamingBar
             // Advanced gyro settings (per-game profile)
             if (LegionGyroDeadzoneSlider != null)
                 LegionGyroDeadzoneSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionGyroAntiDeadzoneSlider != null)
+                LegionGyroAntiDeadzoneSlider.ValueChanged += ControllerSettingChanged;
+            if (LegionGyroBoostButtonComboBox != null)
+                LegionGyroBoostButtonComboBox.SelectionChanged += ControllerSettingChanged;
+            if (LegionGyroBoostFactorSlider != null)
+                LegionGyroBoostFactorSlider.ValueChanged += ControllerSettingChanged;
+            // Smoothing is stored per engine mode (LocalSettings), not in the controller profile — its own
+            // handler persists + relabels; the legionGyroSmoothing property pushes the value to the helper.
+            if (LegionGyroSmoothingSlider != null)
+                LegionGyroSmoothingSlider.ValueChanged += LegionGyroSmoothingSlider_ValueChanged;
 
             // Stick deadzones (per-game profile)
             if (LegionLeftStickDeadzoneSlider != null)
@@ -198,25 +229,17 @@ namespace XboxGamingBar
 
         private void SettingChanged(object sender, object e)
         {
-            // Update Sticky TDP target if TDP slider changed and Sticky TDP is enabled
-            // But ONLY if the change is from the user, not from helper sync/updates
-            if (sender == TDPSlider && StickyTDPToggle?.IsOn == true && !isApplyingHelperUpdate)
-            {
-                targetTDPLimit = TDPSlider.Value;
-                Logger.Info($"Sticky TDP target updated to: {targetTDPLimit}W (user change)");
-            }
-
             // Don't save during profile loading, switching, initial sync, when helper is updating values,
             // when any property is syncing from helper pipe, or when Default Game Profile is active
             if (isLoadingProfile || isSwitchingProfile || isApplyingHelperUpdate || isInitialSync
-                || WidgetSliderProperty.HelperSyncCount > 0 || defaultGameProfileEnabled?.Value == true)
+                || WidgetSliderProperty.HelperSyncCount > 0)
             {
-                Logger.Debug($"Skipping auto-save during profile operation (loading={isLoadingProfile}, switching={isSwitchingProfile}, helperUpdate={isApplyingHelperUpdate}, initialSync={isInitialSync}, defaultGameProfile={defaultGameProfileEnabled?.Value})");
+                Logger.Debug($"Skipping auto-save during profile operation (loading={isLoadingProfile}, switching={isSwitchingProfile}, helperUpdate={isApplyingHelperUpdate}, initialSync={isInitialSync})");
                 return;
             }
 
             // Auto-save to current profile
-            SaveCurrentSettingsToProfile(currentProfileName);
+            SaveWidgetUiStateToProfile(currentProfileName);
         }
 
     }

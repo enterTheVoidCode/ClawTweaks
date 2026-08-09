@@ -103,11 +103,10 @@ namespace XboxGamingBar
                     }
 
                     gameNames.Add(gameName);
-                } else
-                {
-                    Logger.Info("Found no profile that starts with Profile_Game_");
-                    Logger.Info(containerName);
                 }
+                // No log line for the non-matches. This enumeration walks EVERY container, so the old
+                // two lines per miss produced 24 of the 77 lines a single slider step used to write —
+                // pure noise that buried the real entries and cost file I/O on the UI thread.
             }
 
             return gameNames.OrderBy(name => name).ToList();
@@ -155,8 +154,10 @@ namespace XboxGamingBar
                 }
             }
 
-            // Clear existing game profile cards
+            // Clear existing game profile cards. The focus-routing list is rebuilt with them — a stale
+            // entry here would hand the D-pad a control that is no longer in the tree.
             AllGameProfilesContainer.Children.Clear();
+            _profileGroupExpanders.Clear();
 
             var savedGames = GetAllSavedGameProfiles();
 
@@ -530,17 +531,16 @@ namespace XboxGamingBar
             }
             if (!string.IsNullOrEmpty(groupExePath))
             {
-                string iconPath = TryResolveCachedIconPath(groupExePath);
-                if (!string.IsNullOrEmpty(iconPath))
+                var groupIcon = new Image
                 {
-                    headerStack.Children.Add(new Image
-                    {
-                        Width = 24,
-                        Height = 24,
-                        VerticalAlignment = VerticalAlignment.Center,
-                        Source = new BitmapImage(new Uri(iconPath))
-                    });
-                }
+                    Width = 24,
+                    Height = 24,
+                    Stretch = Stretch.UniformToFill,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Visibility = Visibility.Collapsed,
+                };
+                headerStack.Children.Add(groupIcon);
+                FillGameIconAsync(groupIcon, groupExePath);
             }
 
             headerStack.Children.Add(new TextBlock
@@ -571,14 +571,84 @@ namespace XboxGamingBar
                 Content = inner,
                 IsExpanded = false,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                // Controller reachability. These cards are built in code, so they were never part of
+                // the tab's hand-written focus chain and could only be opened by touching the screen —
+                // on a handheld whose whole point is the controller (user, 2026-08-02). Making the
+                // Expander itself the tab stop is what lets the chain below address it; the D-pad
+                // routing lives in ProfileGroupExpander_KeyDown because the surrounding cards use
+                // explicit KeyDown routing too, and mixing that with XYFocus hints is what already
+                // stranded the power-split toggle.
+                IsTabStop = true,
+                UseSystemFocusVisuals = true,
+                XYFocusKeyboardNavigation = XYFocusKeyboardNavigationMode.Enabled
             };
+            expander.KeyDown += ProfileGroupExpander_KeyDown;
+            _profileGroupExpanders.Add(expander);
 
             return new Border
             {
                 Margin = new Thickness(0, 0, 0, 8),
                 Child = expander
             };
+        }
+
+        // The group expanders in display order, rebuilt with the list. Used only for D-pad routing —
+        // the visual tree stays the source of truth for everything else.
+        private readonly List<Microsoft.UI.Xaml.Controls.Expander> _profileGroupExpanders
+            = new List<Microsoft.UI.Xaml.Controls.Expander>();
+
+        /// <summary>First saved-profile group, for the sort dropdown's Down target. Null when the list
+        /// is empty or collapsed, in which case the caller falls through to the next card.</summary>
+        private Control FirstGameProfileFocusTarget()
+        {
+            if (PerfSavedProfilesContent?.Visibility != Visibility.Visible) return null;
+            return _profileGroupExpanders.Count > 0 ? _profileGroupExpanders[0] : null;
+        }
+
+        /// <summary>
+        /// D-pad routing inside the saved-profile list: Up/Down walk the groups, A/Space/Enter opens and
+        /// closes one. Leaving the list at either end rejoins the tab's fixed chain (sort dropdown above,
+        /// power-split toggle below).
+        ///
+        /// Expanding does NOT descend into the group's child cards — those are read-only summaries with
+        /// nothing to activate, so stepping through them would just be a long corridor of dead stops.
+        /// </summary>
+        private void ProfileGroupExpander_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            var self = sender as Microsoft.UI.Xaml.Controls.Expander;
+            if (self == null) return;
+
+            int idx = _profileGroupExpanders.IndexOf(self);
+            if (idx < 0) return;
+
+            switch (e.Key)
+            {
+                case VirtualKey.GamepadDPadUp:
+                case VirtualKey.GamepadLeftThumbstickUp:
+                case VirtualKey.Up:
+                    Control up = idx > 0 ? (Control)_profileGroupExpanders[idx - 1] : ProfileSortComboBox;
+                    try { up?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+
+                case VirtualKey.GamepadDPadDown:
+                case VirtualKey.GamepadLeftThumbstickDown:
+                case VirtualKey.Down:
+                    Control down = idx < _profileGroupExpanders.Count - 1
+                        ? (Control)_profileGroupExpanders[idx + 1]
+                        : PowerSourceProfileToggle;
+                    try { down?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+
+                case VirtualKey.GamepadA:
+                case VirtualKey.Space:
+                case VirtualKey.Enter:
+                    self.IsExpanded = !self.IsExpanded;
+                    e.Handled = true;
+                    break;
+            }
         }
 
         /// <summary>
@@ -618,26 +688,23 @@ namespace XboxGamingBar
                 titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 titleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                // Try to surface the helper-cached exe icon next to the title.
-                // GameIconHelper writes to LocalCache/icons/<basename>_<hash>.png; both
-                // widget and helper share the same package so the widget can read it.
+                // The exe icon next to the title, same source and same look as the saved CONTROLLER
+                // profiles list - that one has shown it all along, this one never did.
                 string exePathForIcon = TryGetExePathForGame(gameName);
                 if (!string.IsNullOrEmpty(exePathForIcon))
                 {
-                    string iconPath = TryResolveCachedIconPath(exePathForIcon);
-                    if (!string.IsNullOrEmpty(iconPath))
+                    var icon = new Image
                     {
-                        var icon = new Image
-                        {
-                            Width = 24,
-                            Height = 24,
-                            Margin = new Thickness(0, 0, 8, 0),
-                            VerticalAlignment = VerticalAlignment.Center,
-                            Source = new BitmapImage(new Uri(iconPath))
-                        };
-                        Grid.SetColumn(icon, 0);
-                        titleGrid.Children.Add(icon);
-                    }
+                        Width = 28,
+                        Height = 28,
+                        Margin = new Thickness(0, 0, 10, 0),
+                        Stretch = Stretch.UniformToFill,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Visibility = Visibility.Collapsed,
+                    };
+                    Grid.SetColumn(icon, 0);
+                    titleGrid.Children.Add(icon);
+                    FillGameIconAsync(icon, exePathForIcon);
                 }
 
                 // Title + last-modified subtitle stacked vertically.
@@ -696,13 +763,24 @@ namespace XboxGamingBar
                 stackPanel.Children.Add(titleGrid);
                 stackPanel.Children.Add(new TextBlock
                 {
-                    Text = $"AC/DC split: {(gamePowerSourceSplit ? "On" : "Off")}",
+                    Text = gamePowerSourceSplit
+                        ? $"Separate values: plugged in {PluggedGlyph} / on battery {BatteryGlyph}"
+                        : "One value for both power states",
                     FontSize = 11,
                     Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 180, 180, 180)),
                     Margin = new Thickness(0, 0, 0, 6)
                 });
 
-                if (gamePowerSourceSplit && hasACDC)
+                // The helper's profile for this card — one profile feeds BOTH columns now, resolved per
+                // power source via GameProfile.Effective* (plan §5.3/§7.1). The two widget containers
+                // below still supply group-C values (the preset combo index).
+                var snapCard = profileSnapshot?.GetByName(gameName);
+
+                // Decided by the profile's own split flag alone. It used to also require two widget
+                // containers to exist (hasACDC) — a second answer to the same question, and the wrong
+                // one now: the two columns are rendered from ONE helper profile and its *_DC overrides,
+                // so whether the widget ever created a _AC/_DC container says nothing about it.
+                if (gamePowerSourceSplit)
                 {
                     // Load AC/DC profiles
                     var gameAC = new PerformanceProfile();
@@ -737,39 +815,54 @@ namespace XboxGamingBar
                     int rowIndex = 0;
 
                     // Headers
-                    AddTextBlock(acDcGrid, rowIndex, 1, "AC", 10, "#FFD700", horizontalAlignment: HorizontalAlignment.Center);
-                    AddTextBlock(acDcGrid, rowIndex, 2, "DC", 10, "#FF6B6B", horizontalAlignment: HorizontalAlignment.Center);
+                    // Short forms: the card's value columns are narrow, and the scope line above the
+                    // grid already spells the two states out.
+                    AddTextBlock(acDcGrid, rowIndex, 1, $"Plugged {PluggedGlyph}", 10, "#FFD700", horizontalAlignment: HorizontalAlignment.Center);
+                    AddTextBlock(acDcGrid, rowIndex, 2, $"Battery {BatteryGlyph}", 10, "#FF6B6B", horizontalAlignment: HorizontalAlignment.Center);
                     rowIndex++;
 
                     // TDP Mode (Legion only)
                     if (legionGoDetected?.Value == true && SaveTDP)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, GetProfileTDPModeName(gameAC), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, GetProfileTDPModeName(gameDC), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, GetProfileTDPModeName(gameAC.TDPModeIndex, snapCard?.LegionPerformanceMode ?? 2), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, GetProfileTDPModeName(gameDC.TDPModeIndex, snapCard?.LegionPerformanceMode ?? 2), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
 
+                    // From here on the values come from the HELPER's profile (plan §5.3), resolved per
+                    // power source with GameProfile.Effective*. There is ONE profile behind both
+                    // columns — the AC/DC difference lives in its *_DC overrides, not in two separate
+                    // stores. The widget containers loaded above stay for group C only (the preset combo
+                    // index) and for the AMD block, which has no helper counterpart.
+                    //
+                    // Rows fed by the snapshot are skipped entirely while it is absent, rather than
+                    // printed as zeros — plan §6.
+                    if (snapCard != null)
+                    {
                     // TDP
                     if (SaveTDP)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "TDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, $"{gameAC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, $"{gameDC.TDP}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, $"{snapCard.EffectiveTDP(onBattery: false)}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, $"{snapCard.EffectiveTDP(onBattery: true)}W", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
 
-                        // TDP Boost (saved with TDP)
+                        // Overboost and PL2 resolve per power state now, so the two columns can differ.
+                        bool acBoost = snapCard.EffectiveTDPBoostEnabled(onBattery: false);
+                        bool dcBoost = snapCard.EffectiveTDPBoostEnabled(onBattery: true);
                         AddTextBlock(acDcGrid, rowIndex, 0, "TDP Overboost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.TDPBoostEnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, acBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, dcBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
 
-                        // PL2 overboost value — sub-row shown when either profile has Overboost on.
-                        if (gameAC.TDPBoostEnabled || gameDC.TDPBoostEnabled)
+                        // PL2 target — sub-row whenever either side has Overboost on; "-" on the side
+                        // that does not, so the column stays readable.
+                        if (acBoost || dcBoost)
                         {
                             AddTextBlock(acDcGrid, rowIndex, 0, "PL2 Overboost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                            AddTextBlock(acDcGrid, rowIndex, 1, gameAC.TDPBoostEnabled ? $"{gameAC.TDPBoostFPPTWatts}W" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                            AddTextBlock(acDcGrid, rowIndex, 2, gameDC.TDPBoostEnabled ? $"{gameDC.TDPBoostFPPTWatts}W" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 1, acBoost ? $"{snapCard.EffectiveTDPBoostFPPTWatts(onBattery: false)}W" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, dcBoost ? $"{snapCard.EffectiveTDPBoostFPPTWatts(onBattery: true)}W" : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                             rowIndex++;
                         }
                     }
@@ -778,75 +871,127 @@ namespace XboxGamingBar
                     if (SaveCPUBoost)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Boost", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.CPUBoost ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, snapCard.EffectiveCPUBoost(onBattery: false) ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, snapCard.EffectiveCPUBoost(onBattery: true) ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
 
-                        // CPU advanced (ToothNClaw port) — only when set on either profile.
-                        if (gameAC.ProcessorSchedulingPolicy >= 0 || gameDC.ProcessorSchedulingPolicy >= 0)
+                        // CPU advanced (ToothNClaw port) — no DC override, so one value in both columns.
+                        string schedName = GetSchedulingPolicyName(snapCard.ProcessorSchedulingPolicy);
+                        if (snapCard.ProcessorSchedulingPolicy >= 0 && schedName != null)
                         {
                             AddTextBlock(acDcGrid, rowIndex, 0, "Scheduling", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                            AddTextBlock(acDcGrid, rowIndex, 1, GetSchedulingPolicyName(gameAC.ProcessorSchedulingPolicy) ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                            AddTextBlock(acDcGrid, rowIndex, 2, GetSchedulingPolicyName(gameDC.ProcessorSchedulingPolicy) ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 1, schedName, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, schedName, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                             rowIndex++;
                         }
-                        if (gameAC.MaxPCoreFreqMHz > 0 || gameDC.MaxPCoreFreqMHz > 0)
+                        if (snapCard.MaxPCoreFreqMHz > 0)
                         {
                             AddTextBlock(acDcGrid, rowIndex, 0, "P-Core Max", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                            AddTextBlock(acDcGrid, rowIndex, 1, GetFreqLabel(gameAC.MaxPCoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                            AddTextBlock(acDcGrid, rowIndex, 2, GetFreqLabel(gameDC.MaxPCoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 1, GetFreqLabel(snapCard.MaxPCoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, GetFreqLabel(snapCard.MaxPCoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                             rowIndex++;
                         }
-                        if (gameAC.MaxECoreFreqMHz > 0 || gameDC.MaxECoreFreqMHz > 0)
+                        if (snapCard.MaxECoreFreqMHz > 0)
                         {
                             AddTextBlock(acDcGrid, rowIndex, 0, "E-Core Max", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                            AddTextBlock(acDcGrid, rowIndex, 1, GetFreqLabel(gameAC.MaxECoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                            AddTextBlock(acDcGrid, rowIndex, 2, GetFreqLabel(gameDC.MaxECoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 1, GetFreqLabel(snapCard.MaxECoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, GetFreqLabel(snapCard.MaxECoreFreqMHz), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                             rowIndex++;
                         }
                     }
 
-                    // Intel Display (IGCL) — show channels that differ from neutral on either profile.
-                    if (gameAC.IntelColorSaturation != 50 || gameDC.IntelColorSaturation != 50)
+                    // Intel Display (IGCL) — non-neutral channels only. No DC override exists for these,
+                    // so both columns carry the one stored value. Nullable in the helper's store: null
+                    // means "never captured", resolves to neutral and therefore prints nothing.
+                    int acdcSaturation = snapCard.IntelColorSaturation ?? 50;
+                    int acdcHue        = snapCard.IntelColorHue ?? 0;
+                    int acdcContrast   = snapCard.IntelDisplayContrast ?? 50;
+                    int acdcBrightness = snapCard.IntelDisplayBrightness ?? 50;
+                    int acdcGammaX100  = snapCard.IntelDisplayGamma ?? 100;   // same ×100 encoding, different element name
+                    int acdcSharpness  = snapCard.IntelAdaptiveSharpness ?? 0;
+
+                    if (acdcSaturation != 50)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Saturation", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelColorSaturation.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelColorSaturation.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, acdcSaturation.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, acdcSaturation.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
-                    if (gameAC.IntelColorHue != 0 || gameDC.IntelColorHue != 0)
+                    if (acdcHue != 0)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Hue", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelColorHue.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelColorHue.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, acdcHue.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, acdcHue.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
-                    if (gameAC.IntelDisplayContrast != 50 || gameDC.IntelDisplayContrast != 50)
+                    if (acdcContrast != 50)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Contrast", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelDisplayContrast.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelDisplayContrast.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, acdcContrast.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, acdcContrast.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
-                    if (gameAC.IntelDisplayBrightness != 50 || gameDC.IntelDisplayBrightness != 50)
+                    if (acdcBrightness != 50)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Brightness", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelDisplayBrightness.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelDisplayBrightness.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, acdcBrightness.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, acdcBrightness.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
-                    if (gameAC.IntelDisplayGammaX100 != 100 || gameDC.IntelDisplayGammaX100 != 100)
+                    if (acdcGammaX100 != 100)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Gamma", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, (gameAC.IntelDisplayGammaX100 / 100.0).ToString("0.00"), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, (gameDC.IntelDisplayGammaX100 / 100.0).ToString("0.00"), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, (acdcGammaX100 / 100.0).ToString("0.00"), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, (acdcGammaX100 / 100.0).ToString("0.00"), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
-                    if (gameAC.IntelAdaptiveSharpness > 0 || gameDC.IntelAdaptiveSharpness > 0)
+                    if (acdcSharpness > 0)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Sharpness", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.IntelAdaptiveSharpness > 0 ? gameAC.IntelAdaptiveSharpness.ToString() : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.IntelAdaptiveSharpness > 0 ? gameDC.IntelAdaptiveSharpness.ToString() : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, acdcSharpness.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, acdcSharpness.ToString(), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+
+                    // Frame generation and VRR — same "only when the profile sets something" rule as the
+                    // colour rows above. Their neutral values differ: app choice (0) for frame generation,
+                    // on (1) for VRR, so a card stays quiet unless the profile really overrides one.
+                    int acdcFrameGen = snapCard.IntelFrameGeneration ?? 0;
+                    if (acdcFrameGen > 0)
+                    {
+                        string fg = FormatFrameGeneration(acdcFrameGen);
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Frame Gen", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, fg, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, fg, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+                    if ((snapCard.IntelVrr ?? 1) == 0)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "VRR", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+
+                    // Fan name and curve. This one genuinely has a per-power-state override, so the two
+                    // columns can differ — unlike the colour rows, which carry the single stored value twice.
+                    string acFanCsv = snapCard.EffectiveMsiFanCurve(onBattery: false);
+                    string dcFanCsv = snapCard.EffectiveMsiFanCurve(onBattery: true);
+                    string acFanName = DescribeFanCurve(acFanCsv), dcFanName = DescribeFanCurve(dcFanCsv);
+                    if (acFanName != null || dcFanName != null)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Fan", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, acFanName ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, dcFanName ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        rowIndex++;
+                    }
+                    string acFan = FormatFanCurveShort(acFanCsv);
+                    string dcFan = FormatFanCurveShort(dcFanCsv);
+                    if (acFan != null || dcFan != null)
+                    {
+                        AddTextBlock(acDcGrid, rowIndex, 0, "Curve", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, acFan ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, dcFan ?? "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
 
@@ -868,38 +1013,37 @@ namespace XboxGamingBar
                     //    rowIndex++;
                     //}
 
-                    // FPS Limit (if enabled)
+                    // FPS Limit (if enabled). The limiter is named in brackets after the number, and the
+                    // separate "FPS Mode" row is gone — same shape as the single-profile card.
                     if (SaveFPSLimit)
                     {
-                        AddTextBlock(acDcGrid, rowIndex, 0, "FPS Lim", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, GetFpsValueLabel(gameAC), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, GetFpsValueLabel(gameDC), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        rowIndex++;
+                        string acFps = GetFpsValueLabel(snapCard, onBattery: false);
+                        string dcFps = GetFpsValueLabel(snapCard, onBattery: true);
+                        // The limiter is per power state too, so each column names its own.
+                        if (acFps != "Off") acFps += (snapCard.EffectiveFpsCapMode(onBattery: false) == 1) ? " (Intel)" : " (RTSS)";
+                        if (dcFps != "Off") dcFps += (snapCard.EffectiveFpsCapMode(onBattery: true) == 1) ? " (Intel)" : " (RTSS)";
 
-                        // FPS Limiter Mode — plain mode name (RTSS / Intel) to match Now Playing
-                        AddTextBlock(acDcGrid, rowIndex, 0, "FPS Mode", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, (gameAC.FpsCapMode == 1) ? "Intel" : "RTSS", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, (gameDC.FpsCapMode == 1) ? "Intel" : "RTSS", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 0, "FPS Lim", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                        AddTextBlock(acDcGrid, rowIndex, 1, acFps, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, dcFps, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
 
-                    // AutoTDP (if enabled)
-                    //if (SaveAutoTDP)
-                    //{
-                    //    AddTextBlock(acDcGrid, rowIndex, 0, "AutoTDP", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                    //    AddTextBlock(acDcGrid, rowIndex, 1, gameAC.AutoTDPEnabled ? $"{gameAC.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    //    AddTextBlock(acDcGrid, rowIndex, 2, gameDC.AutoTDPEnabled ? $"{gameDC.AutoTDPTargetFPS}fps" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                    //    rowIndex++;
-                    //}
-
-                    // Power Mode (if enabled)
+                    // Power Mode — nullable per side ("profile configures no mode"), so the row is absent
+                    // when neither side sets one, exactly like the single-profile card.
                     if (SaveOSPowerMode)
                     {
-                        AddTextBlock(acDcGrid, rowIndex, 0, "Power", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, GetPowerModeShortName(gameAC.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, GetPowerModeShortName(gameDC.OSPowerMode), 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        rowIndex++;
+                        int? acMode = snapCard.EffectiveOSPowerMode(onBattery: false);
+                        int? dcMode = snapCard.EffectiveOSPowerMode(onBattery: true);
+                        if (acMode.HasValue || dcMode.HasValue)
+                        {
+                            AddTextBlock(acDcGrid, rowIndex, 0, "Power", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
+                            AddTextBlock(acDcGrid, rowIndex, 1, acMode.HasValue ? GetPowerModeShortName(acMode.Value) : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            AddTextBlock(acDcGrid, rowIndex, 2, dcMode.HasValue ? GetPowerModeShortName(dcMode.Value) : "-", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                            rowIndex++;
+                        }
                     }
+                    } // end of the snapshot-fed rows
 
                     // AMD Features (if enabled)
                     if (SaveAMDFeatures)
@@ -917,34 +1061,25 @@ namespace XboxGamingBar
                         }
                     }
 
-                    // HDR (if enabled)
-                    if (SaveHDR)
-                    {
-                        AddTextBlock(acDcGrid, rowIndex, 0, "HDR", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.HDREnabled ? "On" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        rowIndex++;
-                    }
-
-                    // Resolution (if enabled)
-                    if (SaveResolution && (!string.IsNullOrEmpty(gameAC.Resolution) || !string.IsNullOrEmpty(gameDC.Resolution)))
+                    // Resolution (if enabled) — helper-owned since §5.5, no DC override, so one value in
+                    // both columns. Short form, same as everywhere else the resolution is displayed.
+                    string acdcResolution = GetResolutionShortLabel(snapCard?.Resolution);
+                    if (SaveResolution && acdcResolution != null)
                     {
                         AddTextBlock(acDcGrid, rowIndex, 0, "Res", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, string.IsNullOrEmpty(gameAC.Resolution) ? "-" : gameAC.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, string.IsNullOrEmpty(gameDC.Resolution) ? "-" : gameDC.Resolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        rowIndex++;
-                    }
-
-                    // Sticky TDP (if enabled)
-                    if (SaveStickyTDP)
-                    {
-                        AddTextBlock(acDcGrid, rowIndex, 0, "Sticky", 10, "#AAAAAA", margin: new Thickness(0, 3, 8, 0));
-                        AddTextBlock(acDcGrid, rowIndex, 1, gameAC.StickyTDPEnabled ? $"{gameAC.StickyTDPInterval}s" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
-                        AddTextBlock(acDcGrid, rowIndex, 2, gameDC.StickyTDPEnabled ? $"{gameDC.StickyTDPInterval}s" : "Off", 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 1, acdcResolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
+                        AddTextBlock(acDcGrid, rowIndex, 2, acdcResolution, 10, "#FFFFFF", margin: new Thickness(0, 3, 0, 0), horizontalAlignment: HorizontalAlignment.Center);
                         rowIndex++;
                     }
 
                     stackPanel.Children.Add(acDcGrid);
+
+                    // Same treatment as the live split cards: only the differences stay in the table,
+                    // the agreed values go underneath as pairs. This grid is rebuilt from scratch on
+                    // every render, so it needs no restore pass.
+                    var sharedPanel = new StackPanel { Margin = new Thickness(0, 4, 0, 0) };
+                    stackPanel.Children.Add(sharedPanel);
+                    CollapseIdenticalSplitRows(acDcGrid, sharedPanel);
                 }
                 else
                 {
@@ -970,7 +1105,8 @@ namespace XboxGamingBar
 
                     // Collect label/value pairs, then render across two columns (shared builder
                     // — same content/layout as the live Global & Now Playing cards).
-                    stackPanel.Children.Add(RenderPairsGrid(BuildProfileCardPairs(game)));
+                    stackPanel.Children.Add(RenderPairsGrid(BuildProfileCardPairs(
+                        game, profileSnapshot?.GetByName(gameName), Data.ProfileSnapshotProperty.IsOnBattery)));
                 }
 
                 return profileCard;
@@ -1014,38 +1150,44 @@ namespace XboxGamingBar
         }
 
         /// <summary>
-        /// Returns the path to the helper's cached icon for an exe, if it exists. Mirrors
-        /// XboxGamingBarHelper.Icons.GameIconHelper.GetCachedIconPath naming exactly so
-        /// the widget can read what the helper wrote (both paths land at the package's
-        /// LocalCache/icons folder).
+        /// Fills a card's icon slot from the same source the saved CONTROLLER profiles use, and shows
+        /// the element only once a bitmap actually arrived.
+        ///
+        /// WHY THIS EXISTS AT ALL. These cards asked for the icon before and never showed one, for two
+        /// independent reasons. First, they built the image as
+        /// <c>new BitmapImage(new Uri(@"C:\…\LocalCache\icons\x.png"))</c> — a UWP BitmapImage does not
+        /// load a plain filesystem path; it takes ms-appx / ms-appdata / http, and anything else fails
+        /// silently, which is why the slot stayed empty rather than throwing. Second, they only ever
+        /// consulted the helper's icon cache, so a game the helper had not extracted an icon for had no
+        /// second chance. LoadSavedProfileIconAsync does both properly: cache first, Steam artwork
+        /// after, loaded through a StorageFile stream.
+        ///
+        /// Fire and forget on purpose — the card renders now, the icon arrives when it arrives, and a
+        /// missing one leaves a collapsed element rather than a hole in the layout.
         /// </summary>
-        private string TryResolveCachedIconPath(string exePath)
+        private async void FillGameIconAsync(Image target, string exePath)
         {
-            if (string.IsNullOrEmpty(exePath)) return null;
+            if (target == null || string.IsNullOrEmpty(exePath)) return;
             try
             {
-                string iconsFolder = Path.Combine(ApplicationData.Current.LocalCacheFolder.Path, "icons");
-                if (!Directory.Exists(iconsFolder)) return null;
+                var bitmap = await LoadSavedProfileIconAsync(exePath);
+                if (bitmap == null) return;
 
-                string fileName;
-                using (var md5 = System.Security.Cryptography.MD5.Create())
-                {
-                    var hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(exePath.ToLowerInvariant()));
-                    var hashString = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-                    var exeName = Path.GetFileNameWithoutExtension(exePath);
-                    foreach (var c in Path.GetInvalidFileNameChars()) exeName = exeName.Replace(c, '_');
-                    if (exeName.Length > 32) exeName = exeName.Substring(0, 32);
-                    fileName = $"{exeName}_{hashString.Substring(0, 8)}.png";
-                }
-                string fullPath = Path.Combine(iconsFolder, fileName);
-                return File.Exists(fullPath) ? fullPath : null;
+                target.Source = bitmap;
+                target.Visibility = Visibility.Visible;
             }
             catch (Exception ex)
             {
-                Logger.Debug($"TryResolveCachedIconPath({exePath}) failed: {ex.Message}");
-                return null;
+                // An icon is decoration; a card that renders without one is still correct. This runs on
+                // an async void, so an escaping exception would take the widget down with it.
+                Logger.Debug($"FillGameIconAsync({exePath}) failed: {ex.Message}");
             }
         }
+
+        // TryResolveCachedIconPath lived here and is gone: it was a second copy of
+        // GetCachedIconPath (GamingWidget.SteamGameIcons.cs) that knew only the helper's cache and no
+        // Steam fallback. Two implementations of "where is this game's icon" is how the cards came to
+        // show a different answer than the controller list. One is enough.
 
         /// <summary>
         /// Returns the most recent LastModifiedUtc across the single/_AC/_DC containers
@@ -1130,72 +1272,446 @@ namespace XboxGamingBar
         /// honoring the Save* flags. Shared by the saved-profile cards and the live Global /
         /// Now Playing cards so they all use the same two-column layout and content.
         /// </summary>
-        private List<(string Label, string Value)> BuildProfileCardPairs(PerformanceProfile game)
+        /// <param name="ui">
+        /// The widget's own UI state. Only group-C values may be read from here — currently the preset
+        /// ComboBox index and the AMD block (dead on the Claw). Everything else has moved to
+        /// <paramref name="perf"/>.
+        /// </param>
+        /// <param name="perf">
+        /// The helper's profile for this card (plan §5.3), or null when no snapshot has arrived yet or
+        /// the game has no per-game profile. Null renders the group A/B rows as absent rather than as
+        /// zeros (plan §6).
+        /// </param>
+        /// <param name="onBattery">Which power state to resolve — base value when true, plugged-in override when false. See GameProfile.Effective*.</param>
+        /// <summary>Frame-generation override as the widget names it: 1 = 2X, 2 = 3X, 3 = 4X.</summary>
+        private static string FormatFrameGeneration(int mode) => $"{mode + 1}X";
+
+        /// <summary>
+        /// Windowed-VRR mode, in the dropdown's own words. "Disabled" is not among them: it was dropped
+        /// on 2026-08-06 because the driver never accepted it, and a stored 2 is folded to Fullscreen on
+        /// apply (IgclDirect.NormalizeVrrMode) - so a card naming it would describe a state the machine
+        /// is not in.
+        /// </summary>
+        private static string FormatVrrMode(int mode) => mode == 1 ? "Full + Windowed" : "Fullscreen";
+
+        /// <summary>
+        /// The saved scaling setting as one string ("GPU / Stretch"), or null when the profile carries
+        /// none. Group and method are one setting split the way Intel splits it, so naming only one half
+        /// says nothing: "Stretch" belongs to a different API under Retro than under GPU.
+        /// </summary>
+        private static string FormatScaling(int? mode, int? method)
+        {
+            if (!mode.HasValue && !method.HasValue) return null;
+
+            int m = mode ?? 1;
+            string group = m == 2 ? "Retro" : m == 0 ? "Display" : "GPU";
+
+            string[] entries = ScalingMethodNames(m);
+            int i = method ?? 0;
+            return i >= 0 && i < entries.Length ? $"{group} / {entries[i]}" : group;
+        }
+
+        /// <summary>
+        /// The Intel gaming rows both card builders share: frame generation, VRR, its sub-mode and
+        /// scaling. One place, because the saved card and the split card drifted apart before - the
+        /// split card is the one people compare against, and a row missing on one side reads as
+        /// "this power state does not set it".
+        ///
+        /// Frame generation prints nothing at "app choice" and the sub-mode nothing at Fullscreen: those
+        /// are what the driver does anyway. VRR is different and NOT treated as neutral-when-on - see
+        /// below.
+        /// </summary>
+        private static void AddIntelGamingPairs(List<(string Label, string Value)> pairs, Shared.Data.GameProfile perf)
+        {
+            int frameGen = perf.IntelFrameGeneration ?? 0;
+            if (frameGen > 0) pairs.Add(("Frame Gen", FormatFrameGeneration(frameGen)));
+
+            // Shown whenever the profile STORES a value, in both directions - not only when off.
+            // Treating "on" as neutral made a game that deliberately switches VRR back on against a
+            // global that has it off show no VRR row at all (reported on Silksong, 2026-08-06): the one
+            // card where the setting mattered most was the one that stayed silent about it. Null still
+            // prints nothing, because null means the profile never captured VRR and overrides nothing.
+            if (perf.IntelVrr.HasValue) pairs.Add(("VRR", perf.IntelVrr.Value == 0 ? "Off" : "On"));
+
+            // Only meaningful while VRR is on - the sub-mode decides where VRR applies, so naming it
+            // next to "VRR Off" would state a rule for something that is not running.
+            int vrrMode = perf.IntelVrrMode ?? 0;
+            if (vrrMode != 0 && (perf.IntelVrr ?? 1) != 0) pairs.Add(("VRR Mode", FormatVrrMode(vrrMode)));
+
+            string scaling = FormatScaling(perf.IntelScalingMode, perf.IntelScalingMethod);
+            if (scaling != null) pairs.Add(("Scaling", scaling));
+        }
+
+        /// <summary>
+        /// The six duty values of a stored fan curve, or null when the profile carries no curve.
+        ///
+        /// Null and empty both mean "no override" here — a profile that never captured a curve must read
+        /// as absent, not as a curve of zeros, because a fan row claiming 0% would look like an instruction
+        /// to stop the fan. Only the CPU side is printed unless the two fans differ, in which case both are
+        /// named: the card is a summary, and two identical rows would just be noise.
+        ///
+        /// Deliberately no preset name in front. The store keeps the curve and nothing else, because an
+        /// earlier version kept a preset index where 0 ("MSI Default") could not be told apart from
+        /// "nothing captured" — and every game without a fan setting then wrote the factory curve over the
+        /// user's global one. There is no preset here to show.
+        /// </summary>
+        private static string FormatFanCurveShort(string curve)
+        {
+            if (string.IsNullOrWhiteSpace(curve)) return null;
+
+            // "sync|cpuD0..D5|gpuD0..D5"
+            string[] parts = curve.Split('|');
+            if (parts.Length < 2) return null;
+
+            string cpu = parts[1].Replace(",", "/");
+            if (string.IsNullOrWhiteSpace(cpu)) return null;
+
+            bool synced = parts[0] == "1";
+            if (synced || parts.Length < 3 || string.IsNullOrWhiteSpace(parts[2])) return cpu;
+
+            string gpu = parts[2].Replace(",", "/");
+            return cpu == gpu ? cpu : $"{cpu} / {gpu}";
+        }
+
+        /// <summary>
+        /// The two fan rows for a card: the curve's NAME ("Quiet Idle", "Custom", …) and the six duty
+        /// values under it. Both or neither — a name without the numbers is the thing that made people ask
+        /// what "Custom" actually is, and numbers without the name lose the preset the user picked.
+        ///
+        /// <paramref name="globalFanCurve"/> is the helper-published global curve and wins when set: the
+        /// global fan lives in the helper's LocalSettings, so for the global card there is nothing in the
+        /// profile to read (see GameProfile.MsiFanCurve). For a per-game card it stays null and the
+        /// profile's own override is used — still behind the Fan save flag, because a stored curve that
+        /// the flag stops the helper from applying must not be presented as if it were running.
+        /// </summary>
+        private void AddFanPairs(List<(string Label, string Value)> pairs, Shared.Data.GameProfile perf,
+                                 bool onBattery, string globalFanCurve)
+        {
+            string csv = globalFanCurve;
+            if (csv == null)
+            {
+                if (!SaveFan || perf == null) return;
+                csv = perf.EffectiveMsiFanCurve(onBattery);
+            }
+
+            string name = DescribeFanCurve(csv);
+            string values = FormatFanCurveShort(csv);
+            if (name != null) pairs.Add(("Fan", name));
+            if (values != null) pairs.Add(("Curve", values));
+        }
+
+        private List<(string Label, string Value)> BuildProfileCardPairs(
+            PerformanceProfile ui, Shared.Data.GameProfile perf, bool onBattery, string globalFanCurve = null)
         {
             var pairs = new List<(string Label, string Value)>();
 
-            if (legionGoDetected?.Value == true && SaveTDP)
-                pairs.Add(("TDP Mode", GetProfileTDPModeName(game)));
-
-            if (SaveTDP)
+            // No snapshot / no per-game profile: show only what the widget legitimately owns. Adding
+            // "0 W" here would be the exact bug plan §6 warns about.
+            if (perf != null)
             {
-                pairs.Add(("TDP", $"{game.TDP}W"));
-                pairs.Add(("TDP Overboost", game.TDPBoostEnabled ? "On" : "Off"));
-                if (game.TDPBoostEnabled)
-                    pairs.Add(("PL2 Overboost", $"{game.TDPBoostFPPTWatts}W"));
+                // "TDP Mode" and "TDP Overboost" were dropped from this card (user, 2026-08-01): every
+                // TDP value is set with the slider, so the mode name adds nothing, and the Overboost
+                // On/Off is already implied by the PL2 row next to it.
+                if (SaveTDP)
+                {
+                    pairs.Add(("TDP", $"{perf.EffectiveTDP(onBattery)}W"));
+                    // Resolved, like the TDP above it: the raw fields are the unplugged base values, so
+                    // a card read plugged in was quoting the battery overboost next to plugged watts.
+                    if (perf.EffectiveTDPBoostEnabled(onBattery))
+                        pairs.Add(("PL2 Overboost", $"{perf.EffectiveTDPBoostFPPTWatts(onBattery)}W"));
+                }
+
+                if (SaveCPUBoost)
+                {
+                    pairs.Add(("CPU Boost", perf.EffectiveCPUBoost(onBattery) ? "On" : "Off"));
+                    string schedName = GetSchedulingPolicyName(perf.ProcessorSchedulingPolicy);
+                    if (perf.ProcessorSchedulingPolicy >= 0 && schedName != null)
+                        pairs.Add(("Scheduling", schedName));
+                    if (perf.MaxPCoreFreqMHz > 0)
+                        pairs.Add(("P-Core Max", GetFreqLabel(perf.MaxPCoreFreqMHz)));
+                    if (perf.MaxECoreFreqMHz > 0)
+                        pairs.Add(("E-Core Max", GetFreqLabel(perf.MaxECoreFreqMHz)));
+                }
+
+                // Intel Display (IGCL) — only show non-neutral channels. Nullable in the helper's store:
+                // null means "never captured", which resolves to neutral and therefore prints nothing.
+                int saturation = perf.IntelColorSaturation ?? 50;
+                int hue        = perf.IntelColorHue ?? 0;
+                int contrast   = perf.IntelDisplayContrast ?? 50;
+                int brightness = perf.IntelDisplayBrightness ?? 50;
+                int gammaX100  = perf.IntelDisplayGamma ?? 100;   // same ×100 encoding, different element name
+                int sharpness  = perf.IntelAdaptiveSharpness ?? 0;
+
+                if (saturation != 50) pairs.Add(("Saturation", saturation.ToString()));
+                if (hue != 0) pairs.Add(("Hue", hue.ToString()));
+                if (contrast != 50) pairs.Add(("Contrast", contrast.ToString()));
+                if (brightness != 50) pairs.Add(("Brightness", brightness.ToString()));
+                if (gammaX100 != 100) pairs.Add(("Gamma", (gammaX100 / 100.0).ToString("0.00")));
+                if (sharpness > 0) pairs.Add(("Sharpness", sharpness.ToString()));
+
+                // Frame generation, VRR, VRR sub-mode and scaling — shown only when the profile
+                // overrides the neutral value, same rule as the colour rows above.
+                AddIntelGamingPairs(pairs, perf);
+
+                // Fan name + curve. Both rows come from one place now — they used to sit at opposite ends
+                // of this method, which is why the card showed "Fan Custom" and "Fan 0/0/40/…" as two rows
+                // with the same label and the values above the name they belong to.
+                AddFanPairs(pairs, perf, onBattery, globalFanCurve);
+
+                if (SaveFPSLimit)
+                {
+                    // The separate "FPS Mode" row is gone (user, 2026-08-01): the limiter is named in
+                    // brackets after the number instead. No suffix when there is no cap — "Off (Intel)"
+                    // would name a limiter that is not limiting anything.
+                    string fpsValue = GetFpsValueLabel(perf, onBattery);
+                    if (fpsValue != "Off")
+                        fpsValue += (perf.EffectiveFpsCapMode(onBattery) == 1) ? " (Intel)" : " (RTSS)";
+                    pairs.Add(("FPS Limit", fpsValue));
+                }
+
+                // Power Mode from the HELPER's store. It used to read the widget's frozen copy, which
+                // is why every card said "Balanced" no matter what the OS was actually set to — the
+                // widget stopped writing that field, while OSPowerMode became a real helper-owned
+                // int? with commit 35ee315. Absent when the profile configures no mode, like the
+                // Intel rows above: the card states what the profile sets, and an unset profile sets
+                // nothing (the mode from before the game simply carries on).
+                if (SaveOSPowerMode)
+                {
+                    int? powerMode = perf.EffectiveOSPowerMode(onBattery);
+                    if (powerMode.HasValue)
+                        pairs.Add(("Power Mode", GetPowerModeShortName(powerMode.Value)));
+                }
+
+                // Resolution, short form ("1200p"). Full "WxH" would not fit the narrow card column.
+                if (SaveResolution)
+                {
+                    string resolutionLabel = GetResolutionShortLabel(perf.Resolution);
+                    if (resolutionLabel != null)
+                        pairs.Add(("Resolution", resolutionLabel));
+                }
+
             }
 
-            if (SaveCPUBoost)
-            {
-                pairs.Add(("CPU Boost", game.CPUBoost ? "On" : "Off"));
-                string schedName = GetSchedulingPolicyName(game.ProcessorSchedulingPolicy);
-                if (game.ProcessorSchedulingPolicy >= 0 && schedName != null)
-                    pairs.Add(("Scheduling", schedName));
-                if (game.MaxPCoreFreqMHz > 0)
-                    pairs.Add(("P-Core Max", GetFreqLabel(game.MaxPCoreFreqMHz)));
-                if (game.MaxECoreFreqMHz > 0)
-                    pairs.Add(("E-Core Max", GetFreqLabel(game.MaxECoreFreqMHz)));
-            }
-
-            // Intel Display (IGCL) — only show non-neutral channels.
-            if (game.IntelColorSaturation != 50)
-                pairs.Add(("Saturation", game.IntelColorSaturation.ToString()));
-            if (game.IntelColorHue != 0)
-                pairs.Add(("Hue", game.IntelColorHue.ToString()));
-            if (game.IntelDisplayContrast != 50)
-                pairs.Add(("Contrast", game.IntelDisplayContrast.ToString()));
-            if (game.IntelDisplayBrightness != 50)
-                pairs.Add(("Brightness", game.IntelDisplayBrightness.ToString()));
-            if (game.IntelDisplayGammaX100 != 100)
-                pairs.Add(("Gamma", (game.IntelDisplayGammaX100 / 100.0).ToString("0.00")));
-            if (game.IntelAdaptiveSharpness > 0)
-                pairs.Add(("Sharpness", game.IntelAdaptiveSharpness.ToString()));
-
-            if (SaveFPSLimit)
-            {
-                pairs.Add(("FPS Limit", GetFpsValueLabel(game)));
-                pairs.Add(("FPS Mode", (game.FpsCapMode == 1) ? "Intel" : "RTSS"));
-            }
-
-            if (SaveOSPowerMode)
-                pairs.Add(("Power Mode", GetPowerModeShortName(game.OSPowerMode)));
-
+            // Group C: AMD is dead on the Claw and has no helper counterpart — stays in the widget.
             if (SaveAMDFeatures)
             {
-                var amdFeatures = GetAMDFeaturesShortString(game);
+                var amdFeatures = GetAMDFeaturesShortString(ui);
                 pairs.Add(("AMD", string.IsNullOrEmpty(amdFeatures) ? "Off" : amdFeatures));
             }
 
-            if (SaveHDR)
-                pairs.Add(("HDR", game.HDREnabled ? "On" : "Off"));
-
-            if (SaveResolution && !string.IsNullOrEmpty(game.Resolution))
-                pairs.Add(("Resolution", game.Resolution));
-
-            if (SaveStickyTDP)
-                pairs.Add(("Sticky TDP", game.StickyTDPEnabled ? $"{game.StickyTDPInterval}s" : "Off"));
+            // The HDR row is gone (user, 2026-08-02): no Claw model has an HDR panel, so it stated a
+            // capability the hardware does not have — and it was the last reason the widget's profile
+            // copy carried a hardware field at all.
 
             return pairs;
+        }
+
+        // Marks the rows this code appended to a XAML-declared split grid, so a refresh can take exactly
+        // those back out again and leave the fixed rows alone.
+        private const string SplitExtraRowTag = "SplitExtraRow";
+
+        // How many RowDefinitions each split grid was born with. Captured on first use — trimming back to
+        // a hardcoded number would break the moment someone adds a row in the XAML.
+        private readonly Dictionary<Grid, int> _splitGridBaseRowCount = new Dictionary<Grid, int>();
+
+        /// <summary>
+        /// The rows the two AC/DC grids do NOT already carry in XAML, for one power state. Kept in the same
+        /// order as the saved-profile card so the live card and the saved one read alike — the point of the
+        /// exercise is comparing them while tweaking (user, 2026-08-04).
+        ///
+        /// Every row is conditional on the profile actually setting something. A card that lists a value the
+        /// profile does not set is worse than a missing row: it claims an override that is not there.
+        /// </summary>
+        private List<(string Label, string Value)> BuildSplitExtraPairs(
+            Shared.Data.GameProfile perf, bool onBattery, string globalFanCurve)
+        {
+            var pairs = new List<(string Label, string Value)>();
+            if (perf == null && globalFanCurve == null) return pairs;
+
+            if (perf != null)
+            {
+                if (SaveCPUBoost)
+                {
+                    string schedName = GetSchedulingPolicyName(perf.ProcessorSchedulingPolicy);
+                    if (perf.ProcessorSchedulingPolicy >= 0 && schedName != null)
+                        pairs.Add(("Scheduling", schedName));
+                    if (perf.MaxPCoreFreqMHz > 0) pairs.Add(("P-Core Max", GetFreqLabel(perf.MaxPCoreFreqMHz)));
+                    if (perf.MaxECoreFreqMHz > 0) pairs.Add(("E-Core Max", GetFreqLabel(perf.MaxECoreFreqMHz)));
+                }
+
+                // Intel display channels — neutral values print nothing, same rule as the saved card.
+                int saturation = perf.IntelColorSaturation ?? 50;
+                int hue        = perf.IntelColorHue ?? 0;
+                int contrast   = perf.IntelDisplayContrast ?? 50;
+                int brightness = perf.IntelDisplayBrightness ?? 50;
+                int gammaX100  = perf.IntelDisplayGamma ?? 100;
+                int sharpness  = perf.IntelAdaptiveSharpness ?? 0;
+
+                if (saturation != 50) pairs.Add(("Saturation", saturation.ToString()));
+                if (hue != 0) pairs.Add(("Hue", hue.ToString()));
+                if (contrast != 50) pairs.Add(("Contrast", contrast.ToString()));
+                if (brightness != 50) pairs.Add(("Brightness", brightness.ToString()));
+                if (gammaX100 != 100) pairs.Add(("Gamma", (gammaX100 / 100.0).ToString("0.00")));
+                if (sharpness > 0) pairs.Add(("Sharpness", sharpness.ToString()));
+
+                AddIntelGamingPairs(pairs, perf);
+            }
+
+            AddFanPairs(pairs, perf, onBattery, globalFanCurve);
+            return pairs;
+        }
+
+        /// <summary>
+        /// Appends the extra rows to a XAML-declared AC/DC grid, one row per label, plugged value in
+        /// column 1 and battery value in column 2.
+        ///
+        /// They go INTO the existing grid rather than into a second one below it. A separate grid would
+        /// have its own Auto-sized label column, so its centred value columns would sit a few pixels off
+        /// from the rows above — visible straight away in a table that exists to be read column-wise.
+        /// </summary>
+        private void RenderSplitExtraRows(Grid grid,
+                                          List<(string Label, string Value)> plugged,
+                                          List<(string Label, string Value)> battery)
+        {
+            if (grid == null) return;
+
+            if (!_splitGridBaseRowCount.TryGetValue(grid, out int baseRows))
+            {
+                baseRows = grid.RowDefinitions.Count;
+                _splitGridBaseRowCount[grid] = baseRows;
+            }
+
+            for (int i = grid.Children.Count - 1; i >= 0; i--)
+                if (grid.Children[i] is FrameworkElement fe && (fe.Tag as string) == SplitExtraRowTag)
+                    grid.Children.RemoveAt(i);
+            while (grid.RowDefinitions.Count > baseRows)
+                grid.RowDefinitions.RemoveAt(grid.RowDefinitions.Count - 1);
+
+            // Union of both states in plugged-first order: a value set on only one side still deserves a
+            // row, with a dash opposite it rather than a silently missing line.
+            var labels = new List<string>();
+            foreach (var p in plugged) if (!labels.Contains(p.Label)) labels.Add(p.Label);
+            foreach (var b in battery) if (!labels.Contains(b.Label)) labels.Add(b.Label);
+            if (labels.Count == 0) return;
+
+            int row = baseRows;
+            foreach (string label in labels)
+            {
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                string ac = plugged.FirstOrDefault(p => p.Label == label).Value ?? "-";
+                string dc = battery.FirstOrDefault(b => b.Label == label).Value ?? "-";
+
+                AddSplitExtraText(grid, row, 0, label, "#AAAAAA", HorizontalAlignment.Left);
+                AddSplitExtraText(grid, row, 1, ac, "#FFFFFF", HorizontalAlignment.Center);
+                AddSplitExtraText(grid, row, 2, dc, "#FFFFFF", HorizontalAlignment.Center);
+                row++;
+            }
+        }
+
+        // The cells CollapseIdenticalSplitRows hid, per grid, so RestoreCollapsedSplitRows can put them
+        // back before the next refresh decides their visibility itself.
+        private readonly Dictionary<Grid, List<UIElement>> _splitRowsWeHid = new Dictionary<Grid, List<UIElement>>();
+
+        /// <summary>
+        /// Un-hides everything the previous collapse pass hid. MUST run BEFORE a refresh assigns row
+        /// visibilities, never after: the refresh is the authority on which rows exist at all, and
+        /// restoring on top of its decisions would resurrect rows it had just switched off. Restoring
+        /// first and letting it overwrite us costs nothing and cannot fight it.
+        /// </summary>
+        private void RestoreCollapsedSplitRows(Grid grid)
+        {
+            if (grid == null || !_splitRowsWeHid.TryGetValue(grid, out var hidden)) return;
+            foreach (var element in hidden) element.Visibility = Visibility.Visible;
+            hidden.Clear();
+        }
+
+        /// <summary>
+        /// Takes every row whose two power states carry the SAME value out of the split table and
+        /// re-renders it as a compact label/value pair below.
+        ///
+        /// WHY. A split card is read to answer one question: what does the split actually change? In a
+        /// measured case (user, 2026-08-06) nine of fourteen rows held the identical value twice, so the
+        /// table spent two thirds of its height restating what the two states agree on and the handful
+        /// of real differences was buried among them. Now the table shows only the differences, and the
+        /// agreed values sit underneath in the same two-pairs-per-line grid the unsplit card uses.
+        ///
+        /// Rows the refresh has hidden are left alone — an absent setting is not an agreement.
+        /// </summary>
+        private void CollapseIdenticalSplitRows(Grid grid, Panel sharedTarget)
+        {
+            if (grid == null || sharedTarget == null) return;
+
+            try
+            {
+                sharedTarget.Children.Clear();
+                if (!_splitRowsWeHid.TryGetValue(grid, out var hidden))
+                    _splitRowsWeHid[grid] = hidden = new List<UIElement>();
+
+                // Row 0 is the "Plugged in / On battery" header and has no label to move.
+                var byRow = new Dictionary<int, TextBlock[]>();
+                foreach (var child in grid.Children)
+                {
+                    if (!(child is TextBlock block)) continue;
+                    int row = Grid.GetRow(block), column = Grid.GetColumn(block);
+                    if (row <= 0 || column < 0 || column > 2) continue;
+
+                    if (!byRow.TryGetValue(row, out var cells)) byRow[row] = cells = new TextBlock[3];
+                    cells[column] = block;
+                }
+
+                var shared = new List<(string Label, string Value)>();
+                foreach (var entry in byRow.OrderBy(e => e.Key))
+                {
+                    var cells = entry.Value;
+                    TextBlock label = cells[0], plugged = cells[1], battery = cells[2];
+                    if (label == null || plugged == null || battery == null) continue;
+
+                    // All three must be on screen: a half-hidden row is one the refresh is in the middle
+                    // of switching off, not one the two states agree on.
+                    if (label.Visibility != Visibility.Visible
+                        || plugged.Visibility != Visibility.Visible
+                        || battery.Visibility != Visibility.Visible) continue;
+
+                    if (string.IsNullOrWhiteSpace(label.Text)) continue;
+                    if (!string.Equals(plugged.Text, battery.Text, StringComparison.Ordinal)) continue;
+                    if (string.IsNullOrWhiteSpace(plugged.Text)) continue;
+
+                    shared.Add((label.Text, plugged.Text));
+                    foreach (var cell in cells)
+                    {
+                        if (cell == null) continue;
+                        cell.Visibility = Visibility.Collapsed;
+                        hidden.Add(cell);
+                    }
+                }
+
+                if (shared.Count > 0) sharedTarget.Children.Add(RenderPairsGrid(shared));
+            }
+            catch (Exception ex)
+            {
+                // Purely presentational. A card that stays tall is still a correct card.
+                Logger.Warn($"CollapseIdenticalSplitRows failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>One cell of an appended split row — same font, colour and margins as the XAML rows,
+        /// plus the tag that lets the next refresh find it again.</summary>
+        private void AddSplitExtraText(Grid grid, int row, int column, string text, string colorHex,
+                                       HorizontalAlignment alignment)
+        {
+            var block = new TextBlock
+            {
+                Text = text,
+                FontSize = 11,
+                Foreground = new SolidColorBrush(ParseColor(colorHex)),
+                Margin = column == 0 ? new Thickness(0, 3, 8, 0) : new Thickness(0, 3, 0, 0),
+                HorizontalAlignment = alignment,
+                Tag = SplitExtraRowTag
+            };
+            Grid.SetRow(block, row);
+            Grid.SetColumn(block, column);
+            grid.Children.Add(block);
         }
 
         /// <summary>

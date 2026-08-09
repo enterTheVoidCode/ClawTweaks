@@ -141,9 +141,11 @@
     <Compile Include="Data\InstallUsbipProperty.cs" />
     <Compile Include="Data\ToolTriggerProperty.cs" />
     <Compile Include="Data\CPUBoostProperty.cs" />
+    <Compile Include="Data\PerformanceProperties.cs" />
     <Compile Include="Data\CpuAdvancedProperties.cs" />
     <Compile Include="Data\IsForegroundProperty.cs" />
     <Compile Include="Data\GameBarWidgetPositionProperty.cs" />
+    <Compile Include="Data\GameBarWidgetFavoritedProperty.cs" />
     <Compile Include="Data\MaxCPUStateProperty.cs" />
     <Compile Include="Data\MinCPUStateProperty.cs" />
     <!-- GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1) -->
@@ -236,7 +238,11 @@
     <Compile Include="Data\Legion\LegionGyroMappingTypeProperty.cs" />
     <Compile Include="Data\Legion\LegionGyroActivationModeProperty.cs" />
     <Compile Include="Data\Legion\LegionGyroActivationButtonProperty.cs" />
+    <Compile Include="Data\Legion\LegionGyroAntiDeadzoneProperty.cs" />
+    <Compile Include="Data\Legion\LegionGyroBoostButtonProperty.cs" />
+    <Compile Include="Data\Legion\LegionGyroBoostFactorProperty.cs" />
     <Compile Include="Data\Legion\LegionGyroDeadzoneProperty.cs" />
+    <Compile Include="Data\Legion\LegionGyroSmoothingProperty.cs" />
     <Compile Include="Data\Legion\LegionLeftStickDeadzoneProperty.cs" />
     <Compile Include="Data\Legion\LegionRightStickDeadzoneProperty.cs" />
     <Compile Include="Data\Legion\LegionLeftTriggerStartProperty.cs" />
@@ -263,16 +269,14 @@
     <Compile Include="Data\Device\DeviceSupportsFirmwareKeyboardRemapProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsFanControlProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsCpuAdvancedProperty.cs" />
+    <Compile Include="Data\Device\DeviceGyroWorldSpaceDefaultProperty.cs" />
     <Compile Include="Data\Device\DeviceSupportsDriverManagementProperty.cs" />
     <Compile Include="Data\Device\DeviceMaxPL1Property.cs" />
     <Compile Include="Data\Device\DeviceMaxPL2Property.cs" />
     <Compile Include="Data\Device\DeviceHasScrollWheelProperty.cs" />
     <Compile Include="Data\Device\DeviceHasDetachableControllersProperty.cs" />
     <Compile Include="Data\Device\DeviceHasTouchpadProperty.cs" />
-    <Compile Include="Data\Profile\DefaultGameProfileAvailableProperty.cs" />
-    <Compile Include="Data\Profile\DefaultGameProfileDataProperty.cs" />
-    <Compile Include="Data\Profile\DefaultGameProfileEnabledProperty.cs" />
-    <Compile Include="Data\AutoTDP\AutoTDPProperties.cs" />
+    <Compile Include="Data\Profile\ProfileSnapshotProperty.cs" />
     <Compile Include="Data\OnScreenDisplayProviderProperty.cs" />
     <Compile Include="Data\PerGameProfileProperty.cs" />
     <Compile Include="Data\HwControllerExceptionProperty.cs" />
@@ -358,6 +362,9 @@
     <Compile Include="Features\Profile\GamingWidget.ProfileCards.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Profile\GamingWidget.SliderCommit.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Profile\GamingWidget.ProfileCustomization.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
@@ -365,9 +372,6 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Performance\GamingWidget.PowerSource.cs">
-      <DependentUpon>GamingWidget.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Features\Performance\GamingWidget.StickyTDP.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Performance\GamingWidget.PowerSourceEvents.cs">
@@ -514,6 +518,9 @@
     <Compile Include="Features\Controller\GamingWidget.ControllerState.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Features\Controller\GamingWidget.GyroSmoothing.cs">
+      <DependentUpon>GamingWidget.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Features\Devices\GamingWidget.LegionGo.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
@@ -539,9 +546,6 @@
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\Labs\GamingWidget.Labs.cs">
-      <DependentUpon>GamingWidget.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="Features\Performance\GamingWidget.AutoTDP.cs">
       <DependentUpon>GamingWidget.xaml</DependentUpon>
     </Compile>
     <Compile Include="Features\QuickSettings\GamingWidget.QuickSettings.cs">
@@ -587,117 +591,15 @@
     <Content Include="Assets\ColorReference2.png" />
     <Content Include="Assets\ColorReference3.png" />
     <Content Include="Assets\kofi-qr.png" />
-    <Content Include="Assets\ButtonIcons\controller_xboxseries.png" />
-    <Content Include="Assets\ButtonIcons\tiny_center_m.png" />
-    <Content Include="Assets\ButtonIcons\xbox_button_color_a.png" />
-    <Content Include="Assets\ButtonIcons\xbox_button_color_b.png" />
-    <Content Include="Assets\ButtonIcons\xbox_button_color_x.png" />
-    <Content Include="Assets\ButtonIcons\xbox_button_color_y.png" />
-    <Content Include="Assets\ButtonIcons\xbox_button_menu.png" />
-    <Content Include="Assets\ButtonIcons\xbox_button_start.png" />
-    <Content Include="Assets\ButtonIcons\xbox_button_view.png" />
-    <Content Include="Assets\ButtonIcons\xbox_dpad_down_outline.png" />
-    <Content Include="Assets\ButtonIcons\xbox_dpad_left_outline.png" />
-    <Content Include="Assets\ButtonIcons\xbox_dpad_right_outline.png" />
-    <Content Include="Assets\ButtonIcons\xbox_dpad_up_outline.png" />
-    <Content Include="Assets\ButtonIcons\xbox_guide.png" />
-    <Content Include="Assets\ButtonIcons\xbox_lb.png" />
-    <Content Include="Assets\ButtonIcons\xbox_lt.png" />
-    <Content Include="Assets\ButtonIcons\xbox_rb.png" />
-    <Content Include="Assets\ButtonIcons\xbox_rt.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_click_l.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_click_r.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_l.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_r.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_l_down.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_l_left.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_l_right.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_l_up.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_r_down.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_r_left.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_r_right.png" />
-    <Content Include="Assets\ButtonIcons\xbox_stick_r_up.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_0.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_1.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_2.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_3.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_4.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_5.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_6.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_7.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_8.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_9.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_a.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_alt.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_apostrophe.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_arrow_down.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_arrow_left.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_arrow_right.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_arrow_up.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_b.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_backspace.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_bracket_close.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_bracket_open.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_c.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_capslock.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_comma.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_ctrl.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_d.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_delete.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_e.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_end.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_enter.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_equals.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_escape.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f1.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f10.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f11.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f12.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f2.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f3.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f4.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f5.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f6.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f7.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f8.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_f9.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_g.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_h.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_home.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_i.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_insert.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_j.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_k.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_l.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_m.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_minus.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_n.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_o.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_p.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_page_down.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_page_up.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_pause.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_period.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_printscreen.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_q.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_r.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_s.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_semicolon.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_shift.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_slash_back.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_slash_forward.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_space.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_t.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_tab.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_tilde.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_u.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_v.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_w.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_win.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_x.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_y.png" />
-    <Content Include="Assets\ButtonIcons\keyboard_z.png" />
+    <!-- Glob, not 112 explicit entries. These icons are tracked in the private repository, but the
+         public mirror does not carry them, and listing every file by name made the project
+         unbuildable wherever one was missing: MSBuild fails with MSB3030 per absent Content item.
+         As a wildcard the set is simply empty when the folder is not there, the build succeeds, and
+         the glyphs are the only thing lost. Nothing here resolves at compile time - the icons load
+         at runtime by URI (ms-appx:///Assets/ButtonIcons/...), so an absent file degrades to a
+         blank icon rather than an error. A new icon dropped into the folder is picked up with no
+         project-file edit. -->
+    <Content Include="Assets\ButtonIcons\*.png" />
     <Content Include="Assets\Icons\icon.light.targetsize-16.png" />
     <Content Include="Assets\Icons\icon.light.targetsize-20.png" />
     <Content Include="Assets\Icons\icon.light.targetsize-24.png" />

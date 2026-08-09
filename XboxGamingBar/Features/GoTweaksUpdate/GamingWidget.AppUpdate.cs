@@ -10,14 +10,18 @@ using Windows.UI.Xaml.Media;
 namespace XboxGamingBar
 {
     /// <summary>
-    /// In-app update UI (Onboarding tab, top collapsible section). Lists the latest and previous
-    /// GitHub release as cards — each with its changelog and an install button — so the user can
-    /// jump forward to the newest build or roll back to the prior one.
+    /// "What's new" UI (Onboarding tab, top collapsible section). Lists recent STABLE releases as
+    /// cards with their changelog, and a badge on the Setup tab when a newer stable build exists.
     ///
-    /// The heavy lifting lives in the signed, elevated helper: it fetches the releases feed
-    /// (Function.ListAppReleases) and installs a chosen .msixbundle via the WinRT PackageManager
-    /// (Function.InstallAppRelease) — no PowerShell, no Process.Start, no UAC. This file only
-    /// renders the result and forwards the chosen download URL.
+    /// ── Information only ─────────────────────────────────────────────────────────────────────────
+    /// There used to be a "Download &amp; install" button per card, which had the helper fetch the
+    /// release asset and get the package launched. That path is deleted end to end (widget, pipe verbs,
+    /// helper service). Downloading a payload and arranging for it to run is what antivirus heuristics
+    /// score, and this project has been bitten by exactly that before. Installing is CTW Center's job —
+    /// the cards now carry a button that opens Center via the existing "@ClawTweaksCenter" launch path.
+    ///
+    /// Prereleases never reach here: the helper filters them out (see GoTweaksUpdateService), so an
+    /// experimental tag can no longer turn into an update prompt for every user.
     /// </summary>
     public sealed partial class GamingWidget
     {
@@ -94,6 +98,93 @@ namespace XboxGamingBar
             finally
             {
                 _appUpdateCheckInFlight = false;
+            }
+        }
+
+        /// <summary>
+        /// The single entry point behind every "open CTW Center" button in the widget. If Center is
+        /// installed it is launched (helper-side, via the "@ClawTweaksCenter" token). If it is NOT, the
+        /// user gets an explanation and — on confirmation — the download page in their browser.
+        ///
+        /// Without this the button was a silent dead end: the helper's LaunchClawTweaksCenter() logs
+        /// "not installed" and returns, so from the user's side nothing at all happened.
+        ///
+        /// ── Why opening a browser is safe here ───────────────────────────────────────────────────
+        /// Nothing is fetched, written or executed by us, and the destination is the release PAGE, not
+        /// a direct .exe link — so nothing downloads on its own either. The user picks the file, the
+        /// browser applies its own reputation checks, and the user runs it deliberately. That is a
+        /// categorically different shape from the download-and-launch path this file used to contain,
+        /// which is the one antivirus heuristics score. Same approach Center takes for driver tools.
+        ///
+        /// ── The URL is opened HERE, not by the helper ────────────────────────────────────────────
+        /// Launcher.LaunchUriAsync from this sandboxed UWP widget runs at the user's own level. Routing
+        /// it through the helper looked tidier but produced nothing at all: the helper is elevated, and
+        /// the explorer.exe hand-off it used to de-elevate just flashes and exits when the caller is
+        /// elevated (measured 2026-07-30). This is also the same mechanism the "Open release page"
+        /// HyperlinkButton on each card already uses, so it is a proven path in this process.
+        /// </summary>
+        internal async Task OpenCenterOrOfferInstallAsync()
+        {
+            bool installed = true;              // assume present: launching is harmless if it isn't
+            string downloadUrl = null;
+            try
+            {
+                if (App.IsConnected)
+                {
+                    await clawTweaksCenterStatus.Sync();
+                    string payload = clawTweaksCenterStatus?.Value ?? "";
+                    // "installed=0|1;url=…" — the URL may itself contain '=' and ';' is not legal in a
+                    // query-less GitHub release URL, so split the key off once rather than on every ';'.
+                    foreach (var part in payload.Split(';'))
+                    {
+                        if (part.StartsWith("installed=", StringComparison.OrdinalIgnoreCase))
+                            installed = part.Substring("installed=".Length).Trim() == "1";
+                        else if (part.StartsWith("url=", StringComparison.OrdinalIgnoreCase))
+                            downloadUrl = part.Substring("url=".Length).Trim();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Helper unreachable / malformed answer: fall through and just try to launch. Showing a
+                // "Center is missing" dialog to someone who has it installed would be worse than a
+                // launch attempt that quietly does nothing.
+                Logger.Warn($"OpenCenterOrOfferInstallAsync: status query failed: {ex.Message}");
+            }
+
+            if (installed)
+            {
+                await LaunchProgramViaHelper("@ClawTweaksCenter", closeGameBar: true);
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = "CTW Center is not installed",
+                Content = "CTW Center is the desktop app that installs and updates ClawTweaks. "
+                        + "It also provides backups and restore, onboarding, and the driver and "
+                        + "prerequisite checks.\n\nIt's recommended, but ClawTweaks works without it.\n\n"
+                        + "Open the download page in your browser?",
+                PrimaryButtonText = "Open download page",
+                CloseButtonText = "Not now",
+                DefaultButton = ContentDialogButton.Primary,
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            if (string.IsNullOrWhiteSpace(downloadUrl))
+                downloadUrl = "https://github.com/enterTheVoidCode/ClawTweaks/releases";
+
+            try
+            {
+                bool opened = await Windows.System.Launcher.LaunchUriAsync(new Uri(downloadUrl));
+                Logger.Info($"CTW Center not installed — opened download page {downloadUrl} (ok={opened})");
+                // The Game Bar is deliberately NOT closed first. Sending Win+G can suspend this widget
+                // before the launch runs, and the browser taking focus dismisses the overlay anyway.
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Opening the Center download page failed: {ex.Message}");
             }
         }
 
@@ -228,25 +319,11 @@ namespace XboxGamingBar
             string name = JsonStr(rel, "name");
             string body = JsonStr(rel, "body");
             string published = FormatDate(JsonStr(rel, "publishedAt"));
-            string downloadUrl = JsonStr(rel, "downloadUrl");
             string pageUrl = JsonStr(rel, "releasePageUrl");
-            bool prerelease = rel.TryGetValue("isPrerelease", out var pv)
-                              && pv.ValueType == JsonValueType.Boolean && pv.GetBoolean();
 
             var panel = new StackPanel();
 
-            // Experimental (GitHub pre-release) builds are clearly flagged as test builds.
-            if (prerelease)
-            {
-                panel.Children.Add(new TextBlock
-                {
-                    Text = "EXPERIMENTAL BUILD",
-                    FontSize = 10,
-                    FontWeight = FontWeights.SemiBold,
-                    Foreground = OnbAmberBrush,
-                    Margin = new Thickness(0, 0, 0, 2),
-                });
-            }
+            // No prerelease badge: the helper only ever sends stable releases now.
 
             // Header: "Version 0.1.5  ·  latest" + date
             string tag = isLatest ? "  ·  latest" : "";
@@ -292,12 +369,13 @@ namespace XboxGamingBar
             };
             panel.Children.Add(bodyScroll);
 
-            // Install button (or a note + link when no msixbundle asset is attached)
-            if (!string.IsNullOrWhiteSpace(downloadUrl))
+            // Installing happens in CTW Center. Only the newest card carries the button — repeating it
+            // on every card would suggest each one installs "its" version, which Center decides.
+            if (isLatest)
             {
                 var btn = new Button
                 {
-                    Content = prerelease ? "Download & install (experimental)" : "Download & install",
+                    Content = "Install with CTW Center",
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Center,
                     FontSize = 12,
@@ -305,32 +383,20 @@ namespace XboxGamingBar
                     Margin = new Thickness(0, 8, 0, 0),
                 };
                 TryApplyModernButtonStyle(btn);
-                string urlCapture = downloadUrl;
-                string verCapture = version;
-                btn.Click += (s, e) => OnInstallReleaseClick(btn, verCapture, urlCapture);
+                btn.Click += async (s, e) => await OpenCenterOrOfferInstallAsync();
                 panel.Children.Add(btn);
             }
-            else
+
+            if (!string.IsNullOrWhiteSpace(pageUrl))
             {
-                panel.Children.Add(new TextBlock
+                var link = new HyperlinkButton
                 {
-                    Text = "No installable package attached to this release.",
-                    FontSize = 10,
-                    Foreground = AppUpdSubBrush,
-                    TextWrapping = TextWrapping.Wrap,
-                    Margin = new Thickness(0, 8, 0, 0),
-                });
-                if (!string.IsNullOrWhiteSpace(pageUrl))
-                {
-                    var link = new HyperlinkButton
-                    {
-                        Content = "Open release page",
-                        NavigateUri = SafeUri(pageUrl),
-                        FontSize = 11,
-                        Padding = new Thickness(0, 2, 0, 0),
-                    };
-                    panel.Children.Add(link);
-                }
+                    Content = "Open release page",
+                    NavigateUri = SafeUri(pageUrl),
+                    FontSize = 11,
+                    Padding = new Thickness(0, 2, 0, 0),
+                };
+                panel.Children.Add(link);
             }
 
             var card = new Border
@@ -342,90 +408,6 @@ namespace XboxGamingBar
                 Child = panel,
             };
             AppReleasesContainer.Children.Add(card);
-        }
-
-        private void OnInstallReleaseClick(Button btn, string version, string downloadUrl)
-        {
-            try
-            {
-                if (!App.IsConnected)
-                {
-                    ShowAppUpdateProgress(true, "Helper not connected — can't install right now.", spinning: false);
-                    return;
-                }
-                if (btn != null)
-                {
-                    btn.Content = "Downloading…";
-                    btn.IsEnabled = false;
-                }
-                ShowAppUpdateProgress(true,
-                    $"Starting download of version {version}… This runs in the background — you can keep using ClawTweaks. When it's done, the Windows App Installer opens (it may pop up behind this window) — bring it to the front and click Install/Update to finish.");
-                Logger.Info($"AppUpdate: installing release {version} from {downloadUrl}");
-                installAppRelease?.Trigger(downloadUrl);
-                _ = PollInstallStatusAsync();
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"OnInstallReleaseClick failed: {ex.Message}");
-                if (btn != null) { btn.Content = "Download & install this version"; btn.IsEnabled = true; }
-                ShowAppUpdateProgress(true, $"Install failed to start: {ex.Message}", spinning: false);
-            }
-        }
-
-        // Polls the helper for live download progress (download %, phase) so the card shows
-        // "Downloading 45%…". When the helper signals phase "launch" the download is finished and the
-        // package sits in LocalState\update; the widget then opens it with the OS App Installer.
-        private bool _installPolling;
-        private async Task PollInstallStatusAsync()
-        {
-            if (_installPolling) return;
-            _installPolling = true;
-            try
-            {
-                for (int i = 0; i < 600; i++) // ~20 min ceiling at 2s cadence
-                {
-                    await Task.Delay(2000);
-                    if (!App.IsConnected) continue;
-                    try { await appInstallStatus.Sync(); } catch { continue; }
-
-                    string json = appInstallStatus?.Value ?? "";
-                    if (string.IsNullOrEmpty(json) || !JsonObject.TryParse(json, out var o)) continue;
-
-                    string phase = JsonStr(o, "phase");
-                    int percent = (int)o.GetNamedNumber("percent", -1);
-                    string msg = JsonStr(o, "message");
-
-                    switch (phase)
-                    {
-                        case "downloading":
-                            ShowAppUpdateProgress(true, percent >= 0
-                                ? $"Downloading update… {percent}%"
-                                : "Downloading update…");
-                            break;
-                        case "launch":
-                            // Helper opened the OS App Installer — the user clicks Install/Update there.
-                            ShowAppUpdateProgress(true,
-                                "The Windows App Installer is opening — click Install/Update to finish. ClawTweaks reloads once it's done.",
-                                spinning: false);
-                            return;
-                        case "installing":
-                            // Fallback path: the helper is doing a silent install (App Installer couldn't open).
-                            ShowAppUpdateProgress(true, "Installing the update… ClawTweaks will reload shortly.");
-                            break;
-                        case "done":
-                            ShowAppUpdateProgress(true, "Update installed — reloading…");
-                            return;
-                        case "failed":
-                            ShowAppUpdateProgress(true, string.IsNullOrWhiteSpace(msg) ? "Install failed." : $"Install failed: {msg}", spinning: false);
-                            return;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"PollInstallStatusAsync failed: {ex.Message}");
-            }
-            finally { _installPolling = false; }
         }
 
         // Renders the GitHub release body into the given panel as readable "What's new" content:

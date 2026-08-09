@@ -76,7 +76,12 @@ namespace XboxGamingBar
         /// Builds a compact one-line CPU advanced summary for the live profile cards
         /// (e.g. "Aggressive · Prefer P · P4800 · E2400"). Returns null when nothing is set.
         /// </summary>
-        private string BuildCpuAdvancedSummary(PerformanceProfile p)
+        /// <summary>
+        /// CPU-advanced summary, read from the HELPER's profile (plan §5.3). Group-A fields: the helper
+        /// applies them to the OS and re-enforces them every 3 s, so its value is the only one that
+        /// describes what is actually running.
+        /// </summary>
+        private string BuildCpuAdvancedSummary(Shared.Data.GameProfile p)
         {
             if (p == null) return null;
             var parts = new System.Collections.Generic.List<string>();
@@ -259,7 +264,8 @@ namespace XboxGamingBar
         }
 
         /// <summary>Saved Profiles card header. Up → CPU content (last combo) when CPU is expanded, else
-        /// the CPU card header. Down → Profile Settings header.</summary>
+        /// the CPU card header. Down → the sort dropdown when this card is expanded, else the power-split
+        /// toggle.</summary>
         private void PerfSavedProfilesExpandButton_KeyDown(object sender, KeyRoutedEventArgs e)
         {
             switch (e.Key)
@@ -275,18 +281,76 @@ namespace XboxGamingBar
                 case VirtualKey.GamepadDPadDown:
                 case VirtualKey.GamepadLeftThumbstickDown:
                 case VirtualKey.Down:
+                    bool savedExpanded = PerfSavedProfilesContent?.Visibility == Visibility.Visible;
+                    Control down = (savedExpanded && ProfileSortComboBox != null)
+                        ? (Control)ProfileSortComboBox
+                        : PowerSourceProfileToggle;
+                    try { down?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// The power-split toggle. It had no handler at all and carried XYFocus hints instead, one of
+        /// which pointed at the nav rail — meanwhile the cards above and below routed their Up/Down past
+        /// it to each other, so the D-pad could never land on it (user, 2026-08-02). It is a plain link
+        /// in the same explicit chain as its neighbours now.
+        /// </summary>
+        private void PowerSourceProfileToggle_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case VirtualKey.GamepadDPadUp:
+                case VirtualKey.GamepadLeftThumbstickUp:
+                case VirtualKey.Up:
+                    bool savedExpanded = PerfSavedProfilesContent?.Visibility == Visibility.Visible;
+                    Control up = (savedExpanded && ProfileSortComboBox != null)
+                        ? (Control)ProfileSortComboBox
+                        : PerfSavedProfilesExpandButton;
+                    try { up?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+                case VirtualKey.GamepadDPadDown:
+                case VirtualKey.GamepadLeftThumbstickDown:
+                case VirtualKey.Down:
                     try { ProfileSettingsExpandToggle?.Focus(FocusState.Keyboard); } catch { }
                     e.Handled = true;
                     break;
             }
         }
 
-        /// <summary>Profile Settings card header (last card on the tab). Up → Saved Profiles header.</summary>
+        /// <summary>
+        /// Sort dropdown inside the expanded Saved Profiles card. Up → the card header, Down → the first
+        /// game card when there is one, else the power-split toggle. A ComboBox swallows Up/Down while
+        /// its list is open, so this only fires on the closed control — which is the behaviour we want.
+        /// </summary>
+        private void ProfileSortComboBox_KeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            switch (e.Key)
+            {
+                case VirtualKey.GamepadDPadUp:
+                case VirtualKey.GamepadLeftThumbstickUp:
+                case VirtualKey.Up:
+                    try { PerfSavedProfilesExpandButton?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+                case VirtualKey.GamepadDPadDown:
+                case VirtualKey.GamepadLeftThumbstickDown:
+                case VirtualKey.Down:
+                    Control down = FirstGameProfileFocusTarget() ?? PowerSourceProfileToggle;
+                    try { down?.Focus(FocusState.Keyboard); } catch { }
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        /// <summary>Profile Settings card header (last card on the tab). Up → the power-split toggle.</summary>
         private void ProfileSettingsExpandToggle_KeyDown(object sender, KeyRoutedEventArgs e)
         {
             if (e.Key == VirtualKey.GamepadDPadUp || e.Key == VirtualKey.GamepadLeftThumbstickUp || e.Key == VirtualKey.Up)
             {
-                try { PerfSavedProfilesExpandButton?.Focus(FocusState.Keyboard); } catch { }
+                try { PowerSourceProfileToggle?.Focus(FocusState.Keyboard); } catch { }
                 e.Handled = true;
             }
         }

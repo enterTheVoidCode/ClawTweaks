@@ -103,8 +103,10 @@ namespace XboxGamingBar.Data
                     // Update detected game text on Performance tab
                     if (detectedGameText != null)
                     {
+                        // Bare name, no "Detected: " prefix — it sits in a white badge next to a
+                        // status badge that already says what is being edited (2026-08-02).
                         detectedGameText.Text = Value.IsValid()
-                            ? $"Detected: {Value.GameId.Name}"
+                            ? Value.GameId.Name
                             : "No app/game detected";
                     }
 

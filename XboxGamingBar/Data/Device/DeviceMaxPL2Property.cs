@@ -9,6 +9,10 @@ namespace XboxGamingBar.Data
     /// Read-only capability pushed by the helper: PL2 (boost) TDP power-limit ceiling in watts.
     /// Per-model on the MSI Claw (A2VM = 37W, Claw 8 EX = 45W). Drives the TDP Boost slider maximum.
     /// Mirrors DeviceSupportsFanControlProperty.
+    ///
+    /// Starts at 0 = "the helper has not reported yet" — same reasoning as DeviceMaxPL1Property,
+    /// and the same defect: the old 37 default is the A2VM's ceiling and would cap a Claw 8 EX's
+    /// legitimate 45W PL2 during the window before the capabilities arrive.
     /// </summary>
     internal class DeviceMaxPL2Property : WidgetProperty<int>
     {
@@ -16,7 +20,7 @@ namespace XboxGamingBar.Data
         private Action<int> valueCallback;
 
         public DeviceMaxPL2Property(Page inOwner)
-            : base(37, null, Function.DeviceMaxPL2)
+            : base(0, null, Function.DeviceMaxPL2)
         {
             owner = inOwner;
         }

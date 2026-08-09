@@ -46,13 +46,26 @@ namespace XboxGamingBar
     /// <summary>
     /// Profile settings storage
     /// </summary>
+    /// <summary>
+    /// The widget's OWN profile state — group C in plan §5.4, and nothing else.
+    ///
+    /// Every hardware and OS value that used to live here (TDP, Overboost/PL2, CPU boost/EPP/state,
+    /// P-/E-core caps, the Intel display and gaming block, the FPS cap, OS power mode, resolution,
+    /// refresh rate, HDR, CPU affinity) is owned and persisted by the HELPER and reaches the widget
+    /// read-only through ProfileSnapshot. Those fields are gone from here, not merely unused: a copy
+    /// kept "just in case" is precisely how the two-truths divergences this rebuild removes came about.
+    ///
+    /// What is left has no hardware counterpart in the helper:
+    ///  - the preset ComboBox index and its Legion-mode encoding (widget UI state),
+    ///  - the MSI fan capture, which is stored per profile but deliberately not applied yet,
+    ///  - the overlay level,
+    ///  - the AMD block, which is dead on the Claw and kept only until the AMD device work happens.
+    ///
+    /// RULE for anything added later: a new performance setting goes into Shared.Data.GameProfile and
+    /// is applied by the helper. It does NOT get a copy here.
+    /// </summary>
     public class PerformanceProfile
     {
-        public double TDP { get; set; } = 30;   // fallback default; new per-game profiles seed at the device max (GetDeviceMaxTdp)
-        public bool CPUBoost { get; set; } = false;
-        public double CPUEPP { get; set; } = 0;
-        public int MaxCPUState { get; set; } = 100;
-        public int MinCPUState { get; set; } = 5;
         public bool FluidMotionFrames { get; set; } = false;
         public bool RadeonSuperResolution { get; set; } = false;
         public double RadeonSuperResolutionSharpness { get; set; } = 80;
@@ -64,72 +77,25 @@ namespace XboxGamingBar
         public bool RadeonChill { get; set; } = false;
         public double RadeonChillMinFPS { get; set; } = 30;
         public double RadeonChillMaxFPS { get; set; } = 60;
-        // FPS Limit settings
-        public bool FPSLimitEnabled { get; set; } = false;
-        public int FPSLimitValue { get; set; } = 60;         // RTSS limit (fps)
-        public int FpsCapMode { get; set; } = 0;              // 0=RTSS, 1=Intel
-        public int IntelFpsTier { get; set; } = 0;            // 0=Off,1=P60,2=B40,3=E30
-        // AutoTDP settings
-        public bool AutoTDPEnabled { get; set; } = false;
-        public int AutoTDPTargetFPS { get; set; } = 60;
-        public int AutoTDPMinTDP { get; set; } = 8;
-        public int AutoTDPMaxTDP { get; set; } = 30;
-        public bool AutoTDPUseMLMode { get; set; } = false;
-        public int AutoTDPControllerType { get; set; } = 0;  // 0=PID, 1=Q-Learning, 2=SARSA
-        // OS Power Mode (0=Best Power Efficiency, 1=Balanced, 2=Best Performance)
-        public int OSPowerMode { get; set; } = 1;
-        // Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom)
+        // Legion Performance Mode (1=Quiet, 2=Balanced, 3=Performance, 255=Custom). Kept because it is
+        // DERIVED FROM THE WIDGET'S OWN preset ComboBox (GetCurrentPresetLegionMode), not captured from
+        // a helper push — effectively a second encoding of TDPModeIndex below.
         public int LegionPerformanceMode { get; set; } = 2;
-        // TDP Mode Index in the TDPModeComboBox (for user-made presets)
-        // -1 means use LegionPerformanceMode to determine index (backwards compatibility)
+        // TDP Mode Index in the TDPModeComboBox (for user-made presets). -1 = none saved.
         public int TDPModeIndex { get; set; } = -1;
-        // TDP Boost toggle state and PL2-Overboost watt value (per-profile)
-        public bool TDPBoostEnabled { get; set; } = false;
-        public int TDPBoostFPPTWatts { get; set; } = 0; // 0 = not set (use device default)
-        // HDR and Resolution settings (per-profile)
-        public bool HDREnabled { get; set; } = false;
-        public string Resolution { get; set; } = "";
-        public int? RefreshRate { get; set; } = null;
-        // Sticky TDP settings (per-profile)
-        public bool StickyTDPEnabled { get; set; } = true;
-        public int StickyTDPInterval { get; set; } = 5;
         // Overlay Level (0=Off, 1-4 for RTSS/AMD)
         public int OverlayLevel { get; set; } = 0;
-        // CPU Affinity as "pCores,eCores" string
-        public string CPUAffinity { get; set; } = "";
-        // CPU advanced (ToothNClaw port). -1 = unset; for freq 0 = unlimited.
-        public int ProcessorSchedulingPolicy { get; set; } = -1;
-        public int MaxPCoreFreqMHz { get; set; } = 0;
-        public int MaxECoreFreqMHz { get; set; } = 0;
-        // Intel Display (IGCL) — TnC Color Remaster units. Neutral defaults.
-        public int IntelAdaptiveSharpness { get; set; } = 0;    // 0 = off, 1..100
-        public int IntelColorSaturation { get; set; } = 50;     // 0..100, 50 = neutral
-        public int IntelColorHue { get; set; } = 0;             // -180..180, 0 = neutral
-        public int IntelDisplayContrast { get; set; } = 50;     // 0..100, 50 = neutral
-        public int IntelDisplayBrightness { get; set; } = 50;   // 0..100, 50 = neutral
-        public int IntelDisplayGammaX100 { get; set; } = 100;   // ×100, 100 = 1.0 neutral
-        // Intel gaming 3D features (IGCL). Neutral defaults (off / app-default).
-        public int IntelLowLatency { get; set; } = 0;           // 0=Off, 1=On, 2=On+Boost
-        public int IntelFrameSync { get; set; } = 0;            // 0=App default,1=VSync off,2=VSync on,3=Smooth,4=Speed
 
-        // ===== MSI Claw fan (captured per profile; NOT applied yet) =====
-        // Both the preset AND the raw duty values are stored, not just the preset: preset 3 (Custom)
-        // has no meaning without its curve, and even for a named preset we want the exact values the
-        // user saw, so the editor can offer them back verbatim instead of re-deriving them.
-        // -1 = this profile has no fan settings captured (never leave it at a real preset by default,
-        // or every profile would claim to own a curve it never configured).
-        public int MsiFanPreset { get; set; } = -1;             // -1=not captured, 0=Default 1=Quiet Idle 2=Cooling 3=Custom
-        public string MsiFanCurve { get; set; } = "";           // "t1,..,t5;d1,..,d5" — empty when not captured
+        // The MSI Claw fan fields (MsiFanPreset / MsiFanCurve) were REMOVED here on 2026-08-02. The
+        // per-game curve is a helper-owned GameProfile field now, like TDP, and reaches the widget through
+        // the profile snapshot. Keeping a widget copy would be a second store for one value, which is the
+        // failure this codebase has hit repeatedly. Old values in settings.dat are simply ignored — they
+        // stored a preset index, and preset 0 could not be told apart from "no fan setting captured".
 
         public PerformanceProfile Clone()
         {
             return new PerformanceProfile
             {
-                TDP = this.TDP,
-                CPUBoost = this.CPUBoost,
-                CPUEPP = this.CPUEPP,
-                MaxCPUState = this.MaxCPUState,
-                MinCPUState = this.MinCPUState,
                 FluidMotionFrames = this.FluidMotionFrames,
                 RadeonSuperResolution = this.RadeonSuperResolution,
                 RadeonSuperResolutionSharpness = this.RadeonSuperResolutionSharpness,
@@ -141,41 +107,9 @@ namespace XboxGamingBar
                 RadeonChill = this.RadeonChill,
                 RadeonChillMinFPS = this.RadeonChillMinFPS,
                 RadeonChillMaxFPS = this.RadeonChillMaxFPS,
-                FPSLimitEnabled = this.FPSLimitEnabled,
-                FPSLimitValue = this.FPSLimitValue,
-                FpsCapMode = this.FpsCapMode,
-                IntelFpsTier = this.IntelFpsTier,
-                AutoTDPEnabled = this.AutoTDPEnabled,
-                AutoTDPTargetFPS = this.AutoTDPTargetFPS,
-                AutoTDPMinTDP = this.AutoTDPMinTDP,
-                AutoTDPMaxTDP = this.AutoTDPMaxTDP,
-                AutoTDPUseMLMode = this.AutoTDPUseMLMode,
-                AutoTDPControllerType = this.AutoTDPControllerType,
-                OSPowerMode = this.OSPowerMode,
                 LegionPerformanceMode = this.LegionPerformanceMode,
                 TDPModeIndex = this.TDPModeIndex,
-                TDPBoostEnabled = this.TDPBoostEnabled,
-                TDPBoostFPPTWatts = this.TDPBoostFPPTWatts,
-                HDREnabled = this.HDREnabled,
-                Resolution = this.Resolution,
-                RefreshRate = this.RefreshRate,
-                StickyTDPEnabled = this.StickyTDPEnabled,
-                StickyTDPInterval = this.StickyTDPInterval,
-                OverlayLevel = this.OverlayLevel,
-                CPUAffinity = this.CPUAffinity,
-                ProcessorSchedulingPolicy = this.ProcessorSchedulingPolicy,
-                MaxPCoreFreqMHz = this.MaxPCoreFreqMHz,
-                MaxECoreFreqMHz = this.MaxECoreFreqMHz,
-                IntelAdaptiveSharpness = this.IntelAdaptiveSharpness,
-                IntelColorSaturation = this.IntelColorSaturation,
-                IntelColorHue = this.IntelColorHue,
-                IntelDisplayContrast = this.IntelDisplayContrast,
-                IntelDisplayBrightness = this.IntelDisplayBrightness,
-                IntelDisplayGammaX100 = this.IntelDisplayGammaX100,
-                IntelLowLatency = this.IntelLowLatency,
-                IntelFrameSync = this.IntelFrameSync,
-                MsiFanPreset = this.MsiFanPreset,
-                MsiFanCurve = this.MsiFanCurve
+                OverlayLevel = this.OverlayLevel
             };
         }
     }
@@ -276,8 +210,22 @@ namespace XboxGamingBar
     /// </summary>
     public class OSDItemViewModel : INotifyPropertyChanged
     {
-        public string Id { get; set; }
-        public string DisplayName { get; set; }
+        // Id and DisplayName notify because reordering SWAPS the payload of two neighbouring view
+        // models instead of moving them in the collection (see MoveOsdItem) — the containers stay
+        // put, so the bindings are what has to change.
+        private string _id;
+        public string Id
+        {
+            get => _id;
+            set { _id = value; OnPropertyChanged(); }
+        }
+
+        private string _displayName;
+        public string DisplayName
+        {
+            get => _displayName;
+            set { _displayName = value; OnPropertyChanged(); }
+        }
 
         private bool _isEnabled;
         public bool IsEnabled
@@ -622,12 +570,28 @@ namespace XboxGamingBar
         public int GyroSensitivityY { get; set; } = 70;
         public bool GyroInvertX { get; set; } = false;
         public bool GyroInvertY { get; set; } = false;
-        public int GyroMappingType { get; set; } = 0;      // Instant
+        public int GyroMappingType { get; set; } = 2;      // Gyro engine: 0=Adaptive, 1=Linear, 2=Precision (MA inspired, default)
         public int GyroActivationMode { get; set; } = 0;   // Hold
         public int GyroActivationButton { get; set; } = 0; // None
 
         // Advanced gyro settings (per-game profile)
-        public int GyroDeadzone { get; set; } = 1;          // 1-100 (tuned default)
+        // Input gate in TENTHS of a degree/sec (0-100 → 0.0-10.0 °/s). Default 0 = nothing gated;
+        // older profiles stored whole °/s here and therefore end up gating a tenth of what they did,
+        // which only ever lets more of the slow range through.
+        public int GyroDeadzone { get; set; } = 0;
+        public int GyroAntiDeadzone { get; set; } = 20;     // % of full deflection (MA DeadZone 0.2)
+        public int GyroBoostButton { get; set; } = 0;       // 0=None, 1=LB, 2=LT, 3=RB, 4=RT
+        public int GyroBoostFactor { get; set; } = 100;     // % of normal sensitivity while held
+
+        // Smoothing and the gravity-relative ("Accelerometer") toggle joined the profile on request
+        // (2026-08-03). Both used to be single global values, which put them in the same column as four
+        // per-game sliders while behaving differently — the accelerometer in particular reads as a
+        // per-game control and was reported as "not saving".
+        //
+        // -1 and null mean "this profile has no opinion": an older profile then keeps following the
+        // global value instead of stamping a default over a setting the user never touched here.
+        public int GyroSmoothing { get; set; } = -1;
+        public bool? GyroWorldSpace { get; set; } = null;
 
         // Stick deadzones (per-game profile)
         public int LeftStickDeadzone { get; set; } = 4;    // Default 4%
@@ -687,6 +651,9 @@ namespace XboxGamingBar
                 GyroActivationButton = this.GyroActivationButton,
                 // Advanced gyro settings
                 GyroDeadzone = this.GyroDeadzone,
+                GyroAntiDeadzone = this.GyroAntiDeadzone,
+                GyroBoostButton = this.GyroBoostButton,
+                GyroBoostFactor = this.GyroBoostFactor,
                 // Stick deadzones
                 LeftStickDeadzone = this.LeftStickDeadzone,
                 RightStickDeadzone = this.RightStickDeadzone,
@@ -1200,10 +1167,7 @@ namespace XboxGamingBar
         private bool isUnloading = false;
 
         // Sticky TDP monitoring
-        private DispatcherTimer stickyTDPTimer = null;
         private double targetTDPLimit = 15; // Stores the TDP limit we want to maintain
-        private int stickyTDPCheckIntervalSeconds = 5;
-        private bool isStickyTDPReapplying = false; // Prevents slider flicker during reapply
 
         // Power source change TDP reapply timer
         private DispatcherTimer powerSourceTdpReapplyTimer = null;
@@ -1284,6 +1248,11 @@ namespace XboxGamingBar
         // Game Bar auto-jump: ClawTweaks widget-bar slot (→ helper taps RB position-1 times on open)
         private readonly GameBarWidgetPositionProperty gameBarWidgetPosition;
         private const string GameBarWidgetPositionKey = "GameBarWidgetPosition";
+
+        // Whether CTW is favorited into the Game Bar home bar (XboxGameBarWidget.Favorited) — the only
+        // reliable presence signal (see reverse_engineered/RE_GameBar_WidgetBar_Order.md). Reported to
+        // the helper so Center onboarding's "add CTW to the Game Bar" step auto-completes on favorite.
+        private readonly GameBarWidgetFavoritedProperty gameBarWidgetFavorited;
 
         // AMD properties
         private readonly AMDRadeonSuperResolutionEnabledProperty amdRadeonSuperResolutionEnabled;
@@ -1406,6 +1375,15 @@ namespace XboxGamingBar
 
         // Advanced gyro properties
         private readonly LegionGyroDeadzoneProperty legionGyroDeadzone;
+        private readonly LegionGyroSmoothingProperty legionGyroSmoothing;
+        // Per-game gyro tuning. Deliberately NOT in the WidgetProperties batch-sync list below: the
+        // helper does not persist these (they live in the controller profile), so syncing them FROM
+        // the helper would overwrite a loaded profile with the helper's construction default — the
+        // failure mode the NeverSyncFromHelper comment in WidgetProperties describes. Same handling
+        // as legionGyroSmoothing.
+        private readonly LegionGyroAntiDeadzoneProperty legionGyroAntiDeadzone;
+        private readonly LegionGyroBoostButtonProperty legionGyroBoostButton;
+        private readonly LegionGyroBoostFactorProperty legionGyroBoostFactor;
 
         // Stick deadzone properties
         private readonly LegionLeftStickDeadzoneProperty legionLeftStickDeadzone;
@@ -1536,10 +1514,11 @@ namespace XboxGamingBar
         private readonly GPDFanCurveVisibleProperty gpdFanCurveVisible;
         private readonly GPDFanCurveEnabledProperty gpdFanCurveEnabled;
 
+        // The helper's profile store, read-only (plan §5.3). Source for DISPLAYING profile values;
+        // the widget never writes into it.
+        private readonly ProfileSnapshotProperty profileSnapshot;
+
         // Default Game Profile properties (Microsoft Gaming Services profiles)
-        private readonly DefaultGameProfileAvailableProperty defaultGameProfileAvailable;
-        private readonly DefaultGameProfileDataProperty defaultGameProfileData;
-        private readonly DefaultGameProfileEnabledProperty defaultGameProfileEnabled;
 
         // Settings properties
         private readonly TdpMethodProperty tdpMethod;
@@ -1579,43 +1558,21 @@ namespace XboxGamingBar
         private readonly ToolTriggerProperty uninstallPawnIO;
         private readonly ToolTriggerProperty uninstallUsbip;
         private readonly ToolTriggerProperty runToolSetup;
-        // In-app update (Onboarding): query the latest releases (Get) + install a chosen one (Set).
+        // Onboarding "what's new": query recent STABLE releases (Get). Read-only — the widget does not
+        // install; the install-a-release and install-progress properties were removed with that path.
         private readonly WidgetProperty<string> appReleases;
-        private readonly ToolTriggerProperty installAppRelease;
-        private readonly WidgetProperty<string> appInstallStatus;
+        // "installed=0|1;url=…" — is CTW Center present, and where to get it if not.
+        private readonly WidgetProperty<string> clawTweaksCenterStatus;
         private readonly ToolTriggerProperty testControllerVibration;
         // "Xbox Button" app action → momentary Guide tap on the virtual ViGEm controller (helper-side)
         private readonly ToolTriggerProperty emulateXboxGuide;
         private readonly AutoHibernateEnabledProperty autoHibernateEnabled;
         private readonly AutoHibernateIdleMinutesProperty autoHibernateIdleMinutes;
-
-        // AutoTDP properties
-        private readonly AutoTDPEnabledProperty autoTDPEnabled;
-        private readonly AutoTDPTargetFPSProperty autoTDPTargetFPS;
-        private readonly AutoTDPCurrentFPSProperty autoTDPCurrentFPS;
-        private readonly AutoTDPMinTDPProperty autoTDPMinTDP;
-        private readonly AutoTDPMaxTDPProperty autoTDPMaxTDP;
-        private readonly AutoTDPUseMLModeProperty autoTDPUseMLMode;  // DEPRECATED: use autoTDPControllerType
-        private readonly AutoTDPControllerTypeProperty autoTDPControllerType;  // 0=PID, 1=Q-Learning, 2=SARSA
-        private readonly AutoTDPMLStatusProperty autoTDPMLStatus;
-        private readonly AutoTDPLearnedGameDataProperty autoTDPLearnedGameData;
-        private readonly AutoTDPResetMLProperty autoTDPResetML;
-        private readonly AutoTDPPauseWhenUnfocusedProperty autoTDPPauseWhenUnfocused;
         private readonly TDPLimitsProperty tdpLimits;
-
-        // AutoTDP slider debounce timers (delay sending to helper until user stops sliding)
-        private DispatcherTimer autoTDPTargetFPSDebounceTimer;
-        private DispatcherTimer autoTDPMinDebounceTimer;
-        private DispatcherTimer autoTDPMaxDebounceTimer;
-        private int pendingAutoTDPTargetFPS;
-        private int pendingAutoTDPMinTDP;
-        private int pendingAutoTDPMaxTDP;
-
         private readonly CPUCoreConfigProperty cpuCoreConfig;
         private readonly CPUCoreActiveConfigProperty cpuCoreActiveConfig;
         private readonly CoreParkingPercentProperty coreParkingPercent;
         private readonly ForceParkModeProperty forceParkMode;
-        private readonly ForceDefaultGameProfileProperty forceDefaultGameProfile;
 
         // TDP Boost properties
         private readonly TDPBoostEnabledProperty tdpBoostEnabled;
@@ -1623,7 +1580,6 @@ namespace XboxGamingBar
         private readonly TDPBoostFPPTProperty tdpBoostFPPT;
         private bool isTDPBoostExpanded = false;
         private bool isLoadingTDPBoostSettings = false;
-        private bool isLoadingStickyTDPSettings = false;
         private bool isUpdatingTDPMode = false; // Prevents saving toggle states during mode changes
 
         // OS Power Mode
@@ -1660,6 +1616,8 @@ namespace XboxGamingBar
         // Per-model Drivers-tab capability (default on; off on the Claw 8 EX / AMD A8 for now)
         private readonly DeviceSupportsDriverManagementProperty deviceSupportsDriverManagement;
         private readonly DeviceSupportsCpuAdvancedProperty deviceSupportsCpuAdvanced;
+        // Per-model starting value of the gyro's "Accelerometer" toggle (off on the Claw 8 EX)
+        private readonly DeviceGyroWorldSpaceDefaultProperty deviceGyroWorldSpaceDefault;
         // Per-model TDP power-limit ceilings (A2VM: 30W/37W; Claw 8 EX: 35W/45W) — drive slider maxima
         private readonly DeviceMaxPL1Property deviceMaxPL1;
         private readonly DeviceMaxPL2Property deviceMaxPL2;
@@ -1670,9 +1628,9 @@ namespace XboxGamingBar
         private PerformanceProfile globalProfile = new PerformanceProfile();
         private PerformanceProfile acProfile = new PerformanceProfile();
         private PerformanceProfile dcProfile = new PerformanceProfile();
-        // True once the Global/AC/DC profiles have been loaded from storage. Until then their TDP
-        // is the constructor default (25) and must not be pushed to the helper as PowerSourceProfileValues.
-        private bool powerSourceProfilesLoaded = false;
+        // powerSourceProfilesLoaded is gone with the value push it guarded (plan §5.4): it existed so a
+        // pipe-connect send could not race ahead of the profile load and push the constructor default
+        // TDP. Nothing pushes those values any more — the helper reads its own store.
         private PerformanceProfile gameProfile = new PerformanceProfile();
         private PerformanceProfile gameACProfile = new PerformanceProfile();
         private PerformanceProfile gameDCProfile = new PerformanceProfile();
@@ -1755,18 +1713,32 @@ namespace XboxGamingBar
             return HasGameSingleProfile(gameName) || HasGamePowerSplitProfiles(gameName);
         }
 
+        /// <summary>
+        /// Whether the GLOBAL profile keeps separate values for mains and battery.
+        ///
+        /// Read from the helper's snapshot, because the flag lives in the profile now
+        /// (GameProfile.PowerSourceSplit) — the widget displays what the store says and never keeps its
+        /// own copy. False while no snapshot has arrived: an unconfigured split is the safe reading.
+        ///
+        /// This used to return a hard false. The global split had been removed because a stale global
+        /// per-state value out of the widget's SECOND store clobbered the real global TDP on every
+        /// plug/unplug. With one store that failure mode is gone, and the user asked for the split back
+        /// (2026-08-02) — including for the global profile.
+        /// </summary>
         private bool GetGlobalPowerSourceProfileEnabled()
         {
-            // AC/DC split removed for the GLOBAL profile: there is exactly one global profile,
-            // never a power-source-dependent value. (Per-game profiles keep their AC/DC split via
-            // GetPerGamePowerSourceProfileEnabled.) Forcing false means SendPowerSourceProfileValues
-            // ToHelper always sends globalProfile for both AC and DC, so a stale AC/DC sub-value can
-            // never clobber the real global TDP on a plug/unplug or helper restart. The saved key is
-            // intentionally ignored so existing users with the old global split enabled are migrated
-            // to no-split automatically.
-            return false;
+            return profileSnapshot?.GetGlobal()?.PowerSourceSplit == true;
         }
 
+        /// <summary>
+        /// Whether this game's profile keeps separate values for mains and battery.
+        ///
+        /// From the helper's snapshot, same as the global one. The widget's own LocalSettings key and
+        /// the "guess it from which container shapes exist" fallback are gone: they were how the widget
+        /// decided this while it still owned a profile store, and a second answer to the same question
+        /// is the shape of bug this rebuild removes. A game the helper has no profile for reports the
+        /// global setting, which is what a fresh per-game profile inherits.
+        /// </summary>
         private bool GetPerGamePowerSourceProfileEnabled(string gameName)
         {
             if (!HasValidGame(gameName))
@@ -1774,29 +1746,8 @@ namespace XboxGamingBar
                 return GetGlobalPowerSourceProfileEnabled();
             }
 
-            var settings = ApplicationData.Current.LocalSettings;
-            string settingKey = GetPerGamePowerSourceProfileSettingKey(gameName);
-            if (settings.Values.TryGetValue(settingKey, out object val) && val is bool enabled)
-            {
-                return enabled;
-            }
-
-            bool hasSplitProfiles = HasGamePowerSplitProfiles(gameName);
-            bool hasSingleProfile = HasGameSingleProfile(gameName);
-
-            // Prefer single-profile mode when both profile shapes exist and no explicit
-            // per-game split setting has been saved yet.
-            if (hasSingleProfile)
-            {
-                return false;
-            }
-
-            if (hasSplitProfiles)
-            {
-                return true;
-            }
-
-            return GetGlobalPowerSourceProfileEnabled();
+            var snapGame = profileSnapshot?.GetByName(gameName);
+            return snapGame != null ? snapGame.PowerSourceSplit : GetGlobalPowerSourceProfileEnabled();
         }
 
         private void SavePerGamePowerSourceProfileSetting(string gameName, bool enabled)
@@ -1819,6 +1770,35 @@ namespace XboxGamingBar
             }
 
             return GetGlobalPowerSourceProfileEnabled();
+        }
+
+        /// <summary>
+        /// A new profile snapshot arrived — redraw everything that renders from it.
+        ///
+        /// This is what makes the cards agree with the store. Every path that CHANGES a profile value
+        /// goes widget → pipe → helper → store → snapshot, and the snapshot only comes back on the
+        /// helper's next 1 s tick. The handlers that trigger a change refresh the UI immediately, i.e.
+        /// while the widget still holds the pre-change snapshot, so without this the card showed the
+        /// state before the last edit until some unrelated interaction refreshed it again.
+        ///
+        /// Runs on the pipe thread, hence the dispatch. TryRunOnDispatcher, not Dispatcher.RunAsync:
+        /// on a torn-down instance the dispatcher throws a separated-RCW and an unhandled one here
+        /// would take the process down (see GamingWidget.DispatcherHealth).
+        /// </summary>
+        private void OnProfileSnapshotChanged()
+        {
+            TryRunOnDispatcher(() =>
+            {
+                UpdateProfileDisplay();
+                UpdateGlobalProfileDisplayMode();
+                UpdatePowerSourceProfileScopeText();
+                SyncPowerSourceProfileToggleForCurrentContext();
+                UpdateActiveProfileIndicator();
+                // The fan card deliberately does NOT follow the snapshot. It follows the helper's
+                // MsiFanActiveScope push (OnHelperFanScope), because the snapshot says what every
+                // profile HOLDS while only the helper knows which one the EC is currently running —
+                // and the two differ for up to 25 s by design, for the whole settle time.
+            }, "ProfileSnapshot");
         }
 
         private void UpdateGlobalProfileDisplayMode()
@@ -1847,11 +1827,12 @@ namespace XboxGamingBar
             bool hasGame = HasValidGame(currentGameName);
             bool perGameContext = PerGameProfileToggle?.IsOn == true && hasGame;
 
-            // AC/DC split is removed for the global profile, so the Power-Source-Profile card is
-            // only relevant — and only shown — while a per-game profile is active.
+            // Always visible now: the global profile can keep separate values per power state again,
+            // so the card is relevant in both scopes. While it was per-game-only it was effectively
+            // unfindable — the user reported never having seen this setting at all.
             if (PowerSourceProfileCard != null)
             {
-                PowerSourceProfileCard.Visibility = perGameContext ? Visibility.Visible : Visibility.Collapsed;
+                PowerSourceProfileCard.Visibility = Visibility.Visible;
             }
 
             if (PowerSourceProfileScopeText == null)
@@ -1859,15 +1840,15 @@ namespace XboxGamingBar
                 return;
             }
 
+            // Scope only — what the switch DOES is stated once under the title. Repeating it here in
+            // two variants made the card three paragraphs tall for a single toggle (user, 2026-08-02).
             if (perGameContext)
             {
-                bool splitEnabled = GetPerGamePowerSourceProfileEnabled(currentGameName);
-                PowerSourceProfileScopeText.Text = $"Scope: {currentGameName} (per-game). AC/DC split: {(splitEnabled ? "On" : "Off")} (auto-saved).";
+                PowerSourceProfileScopeText.Text = $"Scope: {currentGameName} (per-game)";
             }
             else
             {
-                bool splitEnabled = GetGlobalPowerSourceProfileEnabled();
-                PowerSourceProfileScopeText.Text = $"Scope: Global profiles. AC/DC split: {(splitEnabled ? "On" : "Off")}. Enable Per-Game Profile to set this per game.";
+                PowerSourceProfileScopeText.Text = "Scope: Global profile";
             }
         }
 
@@ -1904,12 +1885,10 @@ namespace XboxGamingBar
         private bool _saveCPUState = true;
         private bool _saveAMDFeatures = false;
         private bool _saveFPSLimit = true;
-        private bool _saveAutoTDP = true;
         private bool _saveOSPowerMode = true;
         private bool _saveHDR = false;
         private bool _saveResolution = false;
         private bool _saveRefreshRate = false;
-        private bool _saveStickyTDP = false;
         private bool _saveOverlayLevel = false;
         private bool _saveCPUAffinity = false;
         // Legion device-wide settings default to false so they behave as global device
@@ -1919,6 +1898,10 @@ namespace XboxGamingBar
         private bool _saveVibration = false;
         private bool _saveLighting = false;
         private bool _saveButtonMappings = false;
+        // Fan curve: off by default. A per-game fan curve is optional by design, and the fan is the one
+        // setting written by an explicit Apply — a default of true would file a curve under whichever game
+        // happened to be running the first time the user pressed it.
+        private bool _saveFan = false;
 
         private bool SaveTDP => _saveTDP;
         private bool SaveCPUBoost => _saveCPUBoost;
@@ -1926,18 +1909,17 @@ namespace XboxGamingBar
         private bool SaveCPUState => _saveCPUState;
         private bool SaveAMDFeatures => _saveAMDFeatures;
         private bool SaveFPSLimit => _saveFPSLimit;
-        private bool SaveAutoTDP => _saveAutoTDP;
         private bool SaveOSPowerMode => _saveOSPowerMode;
         private bool SaveHDR => _saveHDR;
         private bool SaveResolution => _saveResolution;
         private bool SaveRefreshRate => _saveRefreshRate;
-        private bool SaveStickyTDP => _saveStickyTDP;
         private bool SaveOverlayLevel => _saveOverlayLevel;
         private bool SaveCPUAffinity => _saveCPUAffinity;
         private bool SaveNintendoLayout => _saveNintendoLayout;
         private bool SaveVibration => _saveVibration;
         private bool SaveLighting => _saveLighting;
         private bool SaveButtonMappings => _saveButtonMappings;
+        private bool SaveFan => _saveFan;
 
         private bool isLoadingProfileSettings = false;
 
@@ -2021,18 +2003,17 @@ namespace XboxGamingBar
 
             var propertiesTimer = Stopwatch.StartNew();
             tdp = new TDPProperty(4, TDPSlider, this);
+            // The UserInput hook that used to mark "a real drag may write TDP into the widget store"
+            // is gone with the store itself (plan §5.4): the widget no longer persists TDP anywhere,
+            // so there is nothing left to gate. WidgetSliderProperty.UserInput stays as a mechanism —
+            // it is the proven user-exclusive signal the unified send path (§5.5) builds on.
             currentTdp = new CurrentTDPProperty(CurrentTDPValueText, this);
             osd = new OSDProperty(0, PerformanceOverlaySlider, this);
             runningGame = new RunningGameProperty(RunningGameText, PerGameProfileToggle, DetectedGameText, this);
-            // Callback fires after RunningGameProperty updates DetectedGameText.Text on the
-            // UI thread. Re-evaluate the marquee scroll so long window titles (e.g. Windows
-            // Terminal showing the current task) scroll instead of truncating. Also keeps
-            // the existing XY-navigation refresh for game-detection state changes.
-            runningGame.SetGameDetectionCallback(() =>
-            {
-                UpdatePerformanceTabXYNavigation();
-                UpdateDetectedGameScrollAnimation();
-            });
+            // Fires after RunningGameProperty updates DetectedGameText.Text on the UI thread.
+            // Refreshes XY navigation for the game-detection state change. (It also used to kick a
+            // marquee re-evaluation; that marquee is gone — see the note above AddTextBlock.)
+            runningGame.SetGameDetectionCallback(UpdatePerformanceTabXYNavigation);
             perGameProfile = new PerGameProfileProperty(PerGameProfileToggle, this);
             cpuBoost = new CPUBoostProperty(CPUBoostToggle, this);
             cpuEPP = new CPUEPPProperty(80, CPUEPPSlider, this);
@@ -2052,6 +2033,27 @@ namespace XboxGamingBar
             // Intel gaming 3D features (IGCL) — helper-authoritative combos (pushed on open).
             intelLowLatency = new XboxGamingBar.Data.CpuIntComboProperty(0, Shared.Enums.Function.IntelLowLatency, IntelLowLatencyComboBox, this);
             intelFrameSync  = new XboxGamingBar.Data.CpuIntComboProperty(0, Shared.Enums.Function.IntelFrameSync, IntelFrameSyncComboBox, this);
+            // VRR defaults to 1 (on) — see the ApplyIntelDisplayFromProfile comment: an unconfigured
+            // profile must never be the thing that turns variable refresh off.
+            // Which renderer draws the OSD: 0 = RTSS, 1 = the built-in overlay. Same helper value the
+            // Game Bar settings page uses, so both controls always show the same thing.
+            osdRenderer          = new XboxGamingBar.Data.CpuIntComboProperty(0, Shared.Enums.Function.Settings_OnScreenDisplayProvider, OsdRendererComboBox, this);
+            // 1 = top left, the position the overlay has always had, so an unconfigured install does
+            // not move it.
+            osdPosition          = new XboxGamingBar.Data.CpuIntComboProperty(1, Shared.Enums.Function.Settings_OnScreenDisplayPosition, OsdPositionComboBox, this);
+            intelFrameGeneration = new XboxGamingBar.Data.CpuIntComboProperty(0, Shared.Enums.Function.IntelFrameGeneration, IntelFrameGenerationComboBox, this);
+            intelVrr             = new XboxGamingBar.Data.CpuIntComboProperty(1, Shared.Enums.Function.IntelVrr, IntelVrrComboBox, this);
+            intelVrrMode         = new XboxGamingBar.Data.CpuIntComboProperty(0, Shared.Enums.Function.IntelVrrMode, IntelVrrModeComboBox, this);
+            // The method list has to exist before its property binds to the box, otherwise the first
+            // helper sync selects an index into an empty ComboBox.
+            FillScalingMethods(GpuScalingMode, 0);
+            // GPU (1), not 0. Mode 0 was "Display Scaling", which the driver never actually applied and
+            // which is no longer in the list - a property still defaulting to it would leave the box
+            // unpainted, because the sync selects by Tag and no item carries Tag="0" any more.
+            intelScalingMode     = new XboxGamingBar.Data.CpuIntComboProperty(GpuScalingMode, Shared.Enums.Function.IntelScalingMode, IntelScalingModeComboBox, this);
+            intelScalingMethod   = new XboxGamingBar.Data.CpuIntComboProperty(0, Shared.Enums.Function.IntelScalingMethod, IntelScalingMethodComboBox, this);
+            if (IntelScalingModeComboBox != null)
+                IntelScalingModeComboBox.SelectionChanged += IntelScalingMode_SelectionChanged;
             InitializeDisplayTab();
             maxCPUState = new MaxCPUStateProperty();
             minCPUState = new MinCPUStateProperty();
@@ -2074,6 +2076,7 @@ namespace XboxGamingBar
             rtssInstalled.SetAdditionalCallback(OnRtssInstalledChanged);
             isForeground = new IsForegroundProperty();
             gameBarWidgetPosition = new GameBarWidgetPositionProperty();
+            gameBarWidgetFavorited = new GameBarWidgetFavoritedProperty();
             amdRadeonSuperResolutionEnabled = new AMDRadeonSuperResolutionEnabledProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSupported = new AMDRadeonSuperResolutionSupportedProperty(AMDRadeonSuperResolutionToggle, this);
             amdRadeonSuperResolutionSharpness = new AMDRadeonSuperResolutionSharpnessProperty(AMDRadeonSuperResolutionSharpnessSlider, this);
@@ -2211,6 +2214,10 @@ namespace XboxGamingBar
 
             // Advanced gyro properties
             legionGyroDeadzone = new LegionGyroDeadzoneProperty(LegionGyroDeadzoneSlider, this);
+            legionGyroSmoothing = new LegionGyroSmoothingProperty(LegionGyroSmoothingSlider, this);
+            legionGyroAntiDeadzone = new LegionGyroAntiDeadzoneProperty(LegionGyroAntiDeadzoneSlider, this);
+            legionGyroBoostButton = new LegionGyroBoostButtonProperty(LegionGyroBoostButtonComboBox, this);
+            legionGyroBoostFactor = new LegionGyroBoostFactorProperty(LegionGyroBoostFactorSlider, this);
 
             // Stick deadzone properties
             legionLeftStickDeadzone = new LegionLeftStickDeadzoneProperty(LegionLeftStickDeadzoneSlider, this);
@@ -2340,16 +2347,15 @@ namespace XboxGamingBar
             gpdFanCurveVisible = new GPDFanCurveVisibleProperty();
             gpdFanCurveEnabled = new GPDFanCurveEnabledProperty(this);
 
+            profileSnapshot = new ProfileSnapshotProperty();
+            // The helper's store is the only source for the profile cards, so the cards have to redraw
+            // when it changes. Fires on the pipe thread — hop to the UI thread here, once, rather than
+            // in the property.
+            profileSnapshot.SnapshotChanged += OnProfileSnapshotChanged;
+
             // Default Game Profile properties
-            defaultGameProfileAvailable = new DefaultGameProfileAvailableProperty(this);
-            defaultGameProfileData = new DefaultGameProfileDataProperty(this);
-            defaultGameProfileEnabled = new DefaultGameProfileEnabledProperty(this);
 
             // Set up Default Game Profile callbacks
-            defaultGameProfileAvailable.SetVisibilityCallback(SetDefaultProfileCardVisibility);
-            defaultGameProfileData.SetDataCallback(UpdateDefaultProfileDisplay);
-            defaultGameProfileEnabled.BindToggle(DefaultProfileToggle);
-            defaultGameProfileEnabled.SetEnabledCallback(OnDefaultProfileEnabledChanged);
 
             // Settings properties
             tdpMethod = new TdpMethodProperty(TdpMethodComboBox, this);
@@ -2395,6 +2401,9 @@ namespace XboxGamingBar
             // Show Steam sub-device picker only when a Steam device type is selected
             viiperDeviceType.PropertyChanged += (s, e) => RunOnUiThread(() => { UpdateViiperConfigVisibility(); UpdateQuickSettingsTileStates(); UpdateViiperStickGyroSectionVisibility(); });
             controllerEmulationMode.PropertyChanged += (s, e) => RunOnUiThread(() => UpdateQuickSettingsTileStates());
+            // NOTE: the helper's auto-jump slot arrives as a direct "GameBarWidgetPositionPush" message
+            // (see GamingWidget.PipeClient), NOT through this property. WidgetProperty re-sends a Set on
+            // every value change, so adopting a helper push via the property would bounce straight back.
             winRing0Available = new WinRing0AvailableProperty(this);
             pawnIOAvailable = new PawnIOAvailableProperty();
             pawnIOInstalled = new PawnIOInstalledProperty(this);
@@ -2413,8 +2422,7 @@ namespace XboxGamingBar
             uninstallUsbip = new ToolTriggerProperty(this, Function.UninstallUsbip);
             runToolSetup = new ToolTriggerProperty(this, Function.RunToolSetup);
             appReleases = new WidgetProperty<string>("", null, Function.ListAppReleases);
-            installAppRelease = new ToolTriggerProperty(this, Function.InstallAppRelease);
-            appInstallStatus = new WidgetProperty<string>("", null, Function.AppInstallStatus);
+            clawTweaksCenterStatus = new WidgetProperty<string>("", null, Function.ClawTweaksCenterStatus);
             testControllerVibration = new ToolTriggerProperty(this, Function.TestControllerVibration);
             emulateXboxGuide = new ToolTriggerProperty(this, Function.EmulateXboxGuide);
             autoHibernateEnabled = new AutoHibernateEnabledProperty(AutoHibernateToggle, this);
@@ -2426,30 +2434,20 @@ namespace XboxGamingBar
             vigemBusInstalled.SetInstalledCallback(UpdateViGEmBusInstalledUI);
             hidHideInstalled.SetInstalledCallback(UpdateHidHideInstalledUI);
             steamXboxDriverDetected.SetDetectedCallback(UpdateSteamXboxDriverUI);
-
-            // AutoTDP properties
-            autoTDPEnabled = new AutoTDPEnabledProperty(false);
-            autoTDPTargetFPS = new AutoTDPTargetFPSProperty(60);
-            autoTDPCurrentFPS = new AutoTDPCurrentFPSProperty(0);
-            autoTDPMinTDP = new AutoTDPMinTDPProperty(8);
-            autoTDPMaxTDP = new AutoTDPMaxTDPProperty(30);
-            autoTDPUseMLMode = new AutoTDPUseMLModeProperty(false);
-            autoTDPControllerType = new AutoTDPControllerTypeProperty(0);  // 0=PID
-            autoTDPMLStatus = new AutoTDPMLStatusProperty("");
-            autoTDPLearnedGameData = new AutoTDPLearnedGameDataProperty("");
-            autoTDPResetML = new AutoTDPResetMLProperty(false);
-            autoTDPPauseWhenUnfocused = new AutoTDPPauseWhenUnfocusedProperty(true); // Default: enabled
             tdpLimits = new TDPLimitsProperty("4,35");
             cpuCoreConfig = new CPUCoreConfigProperty("");
             cpuCoreActiveConfig = new CPUCoreActiveConfigProperty("");
             coreParkingPercent = new CoreParkingPercentProperty(100); // 100% = all cores active
             forceParkMode = new ForceParkModeProperty(false);
-            forceDefaultGameProfile = new ForceDefaultGameProfileProperty(false);
 
             // TDP Boost properties (defaults: enabled=false, SPPT=1W, FPPT=3W)
             tdpBoostEnabled = new TDPBoostEnabledProperty(false);
             tdpBoostSPPT = new TDPBoostSPPTProperty(1);
             tdpBoostFPPT = new TDPBoostFPPTProperty(3);
+            // PL2 is the one power value with no control bound to its property, so it needs an explicit
+            // reader or the slider never learns what the helper is running — see
+            // TdpBoostFPPT_HelperValueChanged for the measurement that exposed it.
+            tdpBoostFPPT.PropertyChanged += TdpBoostFPPT_HelperValueChanged;
 
             // OS Power Mode property
             osPowerMode = new OSPowerModeProperty();
@@ -2476,6 +2474,7 @@ namespace XboxGamingBar
             deviceSupportsFanControl = new DeviceSupportsFanControlProperty(this);
             deviceSupportsDriverManagement = new DeviceSupportsDriverManagementProperty(this);
             deviceSupportsCpuAdvanced = new DeviceSupportsCpuAdvancedProperty(this);
+            deviceGyroWorldSpaceDefault = new DeviceGyroWorldSpaceDefaultProperty(this);
             deviceMaxPL1 = new DeviceMaxPL1Property(this);
             deviceMaxPL2 = new DeviceMaxPL2Property(this);
             // MSI Claw — External Gamepad Mode Quick Settings tile (hide all handheld controllers)
@@ -2512,6 +2511,8 @@ namespace XboxGamingBar
             deviceSupportsDriverManagement.SetVisibilityCallback(SetDriverTabVisibility);
             // Advanced CPU controls are per-model — the EX keeps the Boost toggle but cannot expand.
             deviceSupportsCpuAdvanced.SetVisibilityCallback(SetCpuAdvancedAvailability);
+            // Gyro "Accelerometer" toggle starts per-model (off on the EX) until the user sets it.
+            deviceGyroWorldSpaceDefault.SetValueCallback(ApplyClawGyroWorldSpaceDeviceDefault);
             // TDP slider maxima are per-model on the Claw — re-run bounds whenever either arrives.
             deviceMaxPL1.SetValueCallback(_ => UpdateTDPSliderBounds());
             deviceMaxPL2.SetValueCallback(_ => UpdateTDPSliderBounds());
@@ -2538,9 +2539,12 @@ namespace XboxGamingBar
             var widgetPropsTimer = Stopwatch.StartNew();
             properties = new WidgetProperties(
                 osd,
+                osdRenderer,
+                osdPosition,
                 tdp,
                 runningGame,
                 perGameProfile,
+                profileSnapshot,
                 cpuBoost,
                 cpuEPP,
                 schedulingPolicy,
@@ -2554,6 +2558,11 @@ namespace XboxGamingBar
                 intelSharpness,
                 intelLowLatency,
                 intelFrameSync,
+                intelFrameGeneration,
+                intelVrr,
+                intelVrrMode,
+                intelScalingMode,
+                intelScalingMethod,
                 maxCPUState,
                 minCPUState,
                 // GPU Clock - DISABLED: Not supported by RyzenAdj on this hardware (returns error -1)
@@ -2724,19 +2733,9 @@ namespace XboxGamingBar
                 testControllerVibration,
                 emulateXboxGuide,
                 gameBarWidgetPosition,
+                gameBarWidgetFavorited,
                 autoHibernateEnabled,
                 autoHibernateIdleMinutes,
-                autoTDPEnabled,
-                autoTDPTargetFPS,
-                autoTDPCurrentFPS,
-                autoTDPMinTDP,
-                autoTDPMaxTDP,
-                autoTDPUseMLMode,
-                autoTDPControllerType,
-                autoTDPPauseWhenUnfocused,
-                autoTDPMLStatus,
-                autoTDPLearnedGameData,
-                autoTDPResetML,
                 fpsLimit,
                 intelFpsTier,
                 fpsCapMode,
@@ -2747,6 +2746,7 @@ namespace XboxGamingBar
                 deviceSupportsFanControl,
                 deviceSupportsDriverManagement,
                 deviceSupportsCpuAdvanced,
+                deviceGyroWorldSpaceDefault,
                 deviceMaxPL1,
                 deviceMaxPL2,
                 externalGamepadMode,
@@ -2856,10 +2856,6 @@ namespace XboxGamingBar
                 gpdCPUTemp,
                 gpdFanCurveVisible,
                 gpdFanCurveEnabled,
-                defaultGameProfileAvailable,
-                defaultGameProfileData,
-                defaultGameProfileEnabled,
-                forceDefaultGameProfile,
                 // Profile Detection Settings
                 profileMatchByExe,
                 profileGamesOnly
@@ -2914,11 +2910,6 @@ namespace XboxGamingBar
             LoadProfileFromStorage("Global", globalProfile);
             LoadProfileFromStorage("AC", acProfile);
             LoadProfileFromStorage("DC", dcProfile);
-
-            // From here on globalProfile holds the user's real TDP (not the constructor default
-            // of 25). Guards SendPowerSourceProfileValuesToHelper from pushing that stale 25 to the
-            // helper if a pipe-connect send races ahead of this load.
-            powerSourceProfilesLoaded = true;
 
             // Load global controller profile from storage
             LoadControllerProfileFromStorage("Global", globalControllerProfile);
@@ -2989,32 +2980,10 @@ namespace XboxGamingBar
             UpdateProfileDisplay();
             UpdateGameProfileCardVisibility();
 
-            // Load Device TDP limits (must be before AutoTDP settings)
+            // Load the configured PL1 slider range
             LoadTDPLimitsFromStorage();
-
-            // Load AutoTDP settings and subscribe to current FPS updates
-            LoadAutoTDPSettings();
-            if (autoTDPCurrentFPS != null)
-                autoTDPCurrentFPS.PropertyChanged += AutoTDPCurrentFPS_PropertyChanged;
-            if (autoTDPMLStatus != null)
-                autoTDPMLStatus.PropertyChanged += AutoTDPMLStatus_PropertyChanged;
-            if (autoTDPLearnedGameData != null)
-                autoTDPLearnedGameData.PropertyChanged += AutoTDPLearnedGameData_PropertyChanged;
-            if (autoTDPUseMLMode != null)
-                autoTDPUseMLMode.PropertyChanged += AutoTDPUseMLMode_PropertyChanged;
-            if (autoTDPControllerType != null)
-                autoTDPControllerType.PropertyChanged += AutoTDPControllerType_PropertyChanged;
-            if (autoTDPEnabled != null)
-                autoTDPEnabled.PropertyChanged += AutoTDPEnabled_PropertyChanged;
-            if (autoTDPTargetFPS != null)
-                autoTDPTargetFPS.PropertyChanged += AutoTDPTargetFPS_PropertyChanged;
-
             // Load TDP Boost settings (SPPT/FPPT from LocalSettings)
             LoadTDPBoostSettings();
-
-            // Load Sticky TDP settings (defaults to enabled on new installs)
-            LoadStickyTDPSettings();
-
             // Subscribe to TDP Boost property changes from helper (profile sync)
             if (tdpBoostEnabled != null)
                 tdpBoostEnabled.PropertyChanged += TDPBoostEnabled_PropertyChanged;
@@ -3027,7 +2996,9 @@ namespace XboxGamingBar
 
             // Load OSD customization settings
             LoadOSDConfigFromStorage();
-            LoadOSDOptionsForLevel(4); // "Items to Display" edits the Full overlay (levels 1-3 are fixed presets)
+            // The editor opens on Vertical Custom (level 4); the preset picker switches it to Horizontal
+            // Custom (level 3). Must match OSDCustomizeLevelComboBox's IsSelected item in the XAML.
+            LoadOSDOptionsForLevel(4);
 
             // Load Display and OSD settings
             LoadDisplayOSDSettingsFromStorage();
@@ -3035,11 +3006,14 @@ namespace XboxGamingBar
             // Load Performance Overlay setting
             LoadPerformanceOverlaySetting();
 
+            // ...then point the item editor at whichever preset that turned out to be (needs the
+            // overlay ComboBox to be populated, so it can't move up next to LoadOSDOptionsForLevel).
+            SyncOsdCustomizeLevelToActiveOverlay();
+
             // Load Power Plan settings
             LoadPowerPlanSettings();
 
             // Load Force Default Game Profile setting
-            LoadForceDefaultGameProfileSetting();
 
             // Send OSD config to helper on startup
             SendOSDConfigToHelper();
@@ -3052,18 +3026,6 @@ namespace XboxGamingBar
             // Must run after all UI elements are ready so that XYFocusUp/Down
             // on TDPSlider, PerGameProfileToggle etc. are set from the start.
             UpdatePerformanceTabXYNavigation();
-        }
-
-        private void AutoTDPCurrentFPS_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
-        {
-            _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-            {
-                if (AutoTDPCurrentFPSValue != null && autoTDPCurrentFPS != null)
-                {
-                    int fps = autoTDPCurrentFPS.Value;
-                    AutoTDPCurrentFPSValue.Text = fps > 0 ? $"{fps} FPS" : "-- FPS";
-                }
-            });
         }
 
         private void SubscribeToQuickSettingsPropertyChanges()
@@ -3084,7 +3046,7 @@ namespace XboxGamingBar
             if (intelFpsTier != null)
             {
                 intelFpsTier.PropertyChanged += QuickSettingsProperty_Changed;
-                // Also sync the Performance-tab IntelFpsTierComboBox when tier changes from helper
+                // Also refresh the Performance-tab FPS section when the Intel cap changes in the helper
                 intelFpsTier.PropertyChanged += (s, e) => UpdateFPSLimitControls();
             }
             if (fpsCapMode != null)
@@ -3148,8 +3110,6 @@ namespace XboxGamingBar
                 amdRadeonChillEnabled.PropertyChanged += QuickSettingsProperty_Changed;
             if (amdRadeonBoostEnabled != null)
                 amdRadeonBoostEnabled.PropertyChanged += QuickSettingsProperty_Changed;
-            if (autoTDPEnabled != null)
-                autoTDPEnabled.PropertyChanged += QuickSettingsProperty_Changed;
 
             // Controller battery properties - update tile when battery status changes
             if (controllerBatteryLeft != null)
@@ -3785,35 +3745,84 @@ namespace XboxGamingBar
                     // 🟢 Game profile — green
                     title = $"\U0001F7E2 Game: {gameName}";
 
-                    if (gameProf != null && globalProfile != null)
+                    // The diff is built from the HELPER's store (ProfileSnapshot), not from the widget's
+                    // PerformanceProfile copies. This was a §5.3 consumer that got missed: once §5.4
+                    // step 2 stopped the widget writing TDP / CPU boost / Overboost / FPS into its own
+                    // store, those copies froze at whatever they held before the update — and the
+                    // notification kept announcing "Boost On" for a game whose CPU boost had long been
+                    // turned off, while the profile cards (already on the snapshot) were correct.
+                    // Reported 2026-08-01.
+                    var snapGame = profileSnapshot?.GetByName(gameName);
+                    var snapGlobal = profileSnapshot?.GetGlobal();
+                    bool onBattery = Data.ProfileSnapshotProperty.IsOnBattery;
+
+                    if (snapGame != null && snapGlobal != null)
                     {
                         // Build diff: only show settings that differ from global
                         var diffs = new System.Collections.Generic.List<string>();
 
                         // TDP diff — show preset name when applicable (e.g. "Super Battery 8W")
-                        if (Math.Abs(gameProf.TDP - globalProfile.TDP) > 0.5)
+                        int gameTdp = snapGame.EffectiveTDP(onBattery);
+                        int globalTdp = snapGlobal.EffectiveTDP(onBattery);
+                        if (gameTdp != globalTdp)
                         {
-                            string tdpModeName = TdpPreset.GetPresetNameByWatts((int)gameProf.TDP);
+                            string tdpModeName = TdpPreset.GetPresetNameByWatts(gameTdp);
                             diffs.Add(tdpModeName != null
-                                ? $"{tdpModeName} {(int)gameProf.TDP}W"
-                                : $"TDP {(int)gameProf.TDP}W");
+                                ? $"{tdpModeName} {gameTdp}W"
+                                : $"TDP {gameTdp}W");
+                        }
+
+                        // PL2 / Overboost diff. Added once the helper became the owner of PL2 — until
+                        // then PL2 was not a properly managed per-game value, so the notification could
+                        // report "no changes vs global" for a game whose only difference WAS its PL2
+                        // (observed on Lies of P: per-game 17W/19W against a 17W global, nothing shown).
+                        // A stored 0 means "not set" — the helper resolves it against the global target
+                        // (ResolvePl2Boost) — so it is reported as a plain On rather than "PL2 0W".
+                        //
+                        // Resolved per power state, like every other row here. Read raw, these two
+                        // reported the BATTERY overboost while plugged in (2026-08-06) - the raw field
+                        // is the unplugged base value, the plugged one lives in *_Plugged.
+                        bool gameBoost = snapGame.EffectiveTDPBoostEnabled(onBattery);
+                        bool globalBoost = snapGlobal.EffectiveTDPBoostEnabled(onBattery);
+                        int gamePl2 = snapGame.EffectiveTDPBoostFPPTWatts(onBattery);
+                        int globalPl2 = snapGlobal.EffectiveTDPBoostFPPTWatts(onBattery);
+                        if (gameBoost != globalBoost)
+                        {
+                            diffs.Add(gameBoost
+                                ? (gamePl2 > 0 ? $"Overboost {gamePl2}W" : "Overboost On")
+                                : "Overboost Off");
+                        }
+                        else if (gameBoost && gamePl2 != globalPl2)
+                        {
+                            diffs.Add(gamePl2 > 0 ? $"PL2 {gamePl2}W" : "PL2 default");
                         }
 
                         // CPU Boost diff
-                        if (gameProf.CPUBoost != globalProfile.CPUBoost)
-                            diffs.Add(gameProf.CPUBoost ? "Boost On" : "Boost Off");
+                        bool gameCpuBoost = snapGame.EffectiveCPUBoost(onBattery);
+                        if (gameCpuBoost != snapGlobal.EffectiveCPUBoost(onBattery))
+                            diffs.Add(gameCpuBoost ? "Boost On" : "Boost Off");
 
-                        // FPS Limit diff — use stored mode/tier so the notification is correct
-                        // even before the UI has fully synced to the live helper values.
-                        bool gameIntel = gameProf.FpsCapMode == 1 && gameProf.IntelFpsTier > 0;
-                        bool globalIntel = globalProfile.FpsCapMode == 1 && globalProfile.IntelFpsTier > 0;
-                        bool gameFpsActive = gameProf.FPSLimitEnabled || gameIntel;
-                        bool globalFpsActive = globalProfile.FPSLimitEnabled || globalIntel;
+                        // FPS Limit diff. Note the two encoding differences from the widget's old copy:
+                        // the helper stores the RTSS cap in FPSLimit (0 = off, so there is no separate
+                        // "enabled" flag), and IntelFpsTier holds a real fps, never a 0..3 tier.
+                        // Also per power state: the limiter and the Intel cap both have plugged-in
+                        // overrides, and mixing a resolved RTSS value with a raw mode is how this row
+                        // named the wrong limiter.
+                        int gameCapMode = snapGame.EffectiveFpsCapMode(onBattery);
+                        int globalCapMode = snapGlobal.EffectiveFpsCapMode(onBattery);
+                        int gameIntelFps = snapGame.EffectiveIntelFpsTier(onBattery);
+                        int globalIntelFps = snapGlobal.EffectiveIntelFpsTier(onBattery);
+                        bool gameIntel = gameCapMode == 1 && gameIntelFps > 0;
+                        bool globalIntel = globalCapMode == 1 && globalIntelFps > 0;
+                        int gameRtss = snapGame.EffectiveFPSLimit(onBattery);
+                        int globalRtss = snapGlobal.EffectiveFPSLimit(onBattery);
+                        bool gameFpsActive = gameRtss > 0 || gameIntel;
+                        bool globalFpsActive = globalRtss > 0 || globalIntel;
 
                         bool fpsChanged = gameFpsActive != globalFpsActive
-                            || gameProf.FpsCapMode != globalProfile.FpsCapMode
-                            || gameProf.IntelFpsTier != globalProfile.IntelFpsTier
-                            || (gameFpsActive && !gameIntel && gameProf.FPSLimitValue != globalProfile.FPSLimitValue);
+                            || gameCapMode != globalCapMode
+                            || gameIntelFps != globalIntelFps
+                            || (gameFpsActive && !gameIntel && gameRtss != globalRtss);
 
                         if (fpsChanged)
                         {
@@ -3821,13 +3830,13 @@ namespace XboxGamingBar
                             {
                                 if (gameIntel)
                                 {
-                                    // IntelFpsTier now carries a real fps (legacy 1/2/3 migrated to 60/40/30).
-                                    int intelFps = MigrateIntelFps(gameProf.IntelFpsTier);
+                                    // IntelFpsTier carries a real fps (legacy 1/2/3 migrated to 60/40/30).
+                                    int intelFps = MigrateIntelFps(gameIntelFps);
                                     diffs.Add(intelFps > 0 ? $"Intel {intelFps} FPS" : "Intel Off");
                                 }
                                 else
                                 {
-                                    diffs.Add($"RTSS {gameProf.FPSLimitValue} FPS");
+                                    diffs.Add($"RTSS {gameRtss} FPS");
                                 }
                             }
                             else
@@ -3835,6 +3844,59 @@ namespace XboxGamingBar
                                 diffs.Add("FPS Off");
                             }
                         }
+
+                        // OS power mode diff. Both sides are nullable ("profile configures no mode"),
+                        // so compare the resolved values and announce only a mode the game actually
+                        // sets — an unset per-game mode changes nothing and must not be reported.
+                        int? gamePowerMode = snapGame.EffectiveOSPowerMode(onBattery);
+                        if (gamePowerMode.HasValue && gamePowerMode != snapGlobal.EffectiveOSPowerMode(onBattery))
+                            diffs.Add(GetPowerModeShortName(gamePowerMode.Value));
+
+                        // Display mode diff (§5.5). Short form, same as the profile cards.
+                        if (!string.IsNullOrEmpty(snapGame.Resolution)
+                            && !string.Equals(snapGame.Resolution, snapGlobal.Resolution, StringComparison.OrdinalIgnoreCase))
+                            diffs.Add(GetResolutionShortLabel(snapGame.Resolution));
+
+                        if (snapGame.RefreshRate.HasValue && snapGame.RefreshRate != snapGlobal.RefreshRate)
+                            diffs.Add($"{snapGame.RefreshRate.Value} Hz");
+
+                        // Fan curve diff. Only when the game actually carries a curve AND it differs from
+                        // what the global setting would run — a game that inherits the global fan changes
+                        // nothing and must not claim to. Named when the duties match a preset, "Cust. Fan"
+                        // otherwise, which is the short form the user asked for.
+                        string gameFan = snapGame.EffectiveMsiFanCurve(onBattery);
+                        if (!string.IsNullOrEmpty(gameFan)
+                            && !string.Equals(gameFan, snapGlobal.EffectiveMsiFanCurve(onBattery), StringComparison.Ordinal))
+                        {
+                            string fanName = DescribeFanCurve(gameFan);
+                            if (fanName != null)
+                                diffs.Add(fanName == "Custom" ? "Cust. Fan" : $"Fan: {fanName}");
+                        }
+
+                        // Intel gaming settings (§ the Display tab's own card). These were missing
+                        // entirely: a game whose only difference from global was its VRR or its scaling
+                        // announced "no changes vs global" while the driver was in fact reconfigured.
+                        // Compared against the global profile like every row above, so a game that
+                        // merely inherits them still says nothing.
+                        int gameFrameGen = snapGame.IntelFrameGeneration ?? 0;
+                        if (gameFrameGen != (snapGlobal.IntelFrameGeneration ?? 0))
+                            diffs.Add(gameFrameGen > 0 ? $"Frame Gen {FormatFrameGeneration(gameFrameGen)}" : "Frame Gen off");
+
+                        int gameVrr = snapGame.IntelVrr ?? 1;
+                        if (gameVrr != (snapGlobal.IntelVrr ?? 1))
+                            diffs.Add(gameVrr == 0 ? "VRR Off" : "VRR On");
+
+                        // Only while VRR is on for this game — see AddIntelGamingPairs.
+                        int gameVrrMode = snapGame.IntelVrrMode ?? 0;
+                        if (gameVrr != 0 && gameVrrMode != (snapGlobal.IntelVrrMode ?? 0))
+                            diffs.Add($"VRR {FormatVrrMode(gameVrrMode)}");
+
+                        string gameScaling = FormatScaling(snapGame.IntelScalingMode, snapGame.IntelScalingMethod);
+                        if (gameScaling != null
+                            && !string.Equals(gameScaling,
+                                              FormatScaling(snapGlobal.IntelScalingMode, snapGlobal.IntelScalingMethod),
+                                              StringComparison.Ordinal))
+                            diffs.Add($"Scaling {gameScaling}");
 
                         // Custom controller mapping — only show when user explicitly enabled per-game controller profile
                         if (LegionControllerProfileToggle?.IsOn == true
@@ -3951,10 +4013,10 @@ namespace XboxGamingBar
         {
             bool gameActive = HasValidGame(newGameName);
 
-            // Update subtitle: same "Detected: X" / "No app/game detected" wording as the
-            // Performance tab's Per Game performance & display profile card (DetectedGameText).
+            // Same wording as the Performance tab's card (DetectedGameText): the bare game name,
+            // shown in the white badge next to the status badge.
             if (LegionControllerProfileGameText != null)
-                LegionControllerProfileGameText.Text = gameActive ? $"Detected: {newGameName}" : "No app/game detected";
+                LegionControllerProfileGameText.Text = gameActive ? newGameName : "No app/game detected";
 
             if (LegionControllerProfileToggle == null)
             {
@@ -4048,14 +4110,15 @@ namespace XboxGamingBar
 
         /// <summary>
         /// Toggles the per-game controller card's hint text to match state.
-        /// gameActive=false → "start a game" hint; hasProfile=true → locked-toggle hint pointing to Saved Profiles.
+        /// gameActive=false → "start a game" hint. The second hint ("this game has its own controller
+        /// profile …") was removed with the game-art backdrop; hasProfile is kept in the signature
+        /// because the callers compute it anyway and it still gates the backdrop.
         /// </summary>
         private void SetControllerProfileHints(bool gameActive, bool hasProfile)
         {
             if (PerGameProfileHelpText != null)
                 PerGameProfileHelpText.Visibility = gameActive ? Visibility.Collapsed : Visibility.Visible;
-            if (LegionControllerProfileLockHint != null)
-                LegionControllerProfileLockHint.Visibility = (gameActive && hasProfile) ? Visibility.Visible : Visibility.Collapsed;
+            UpdateProfileCardArt();
         }
 
         // Shared profile-status colours: per-game active = GREEN, global = ORANGE.
@@ -4067,6 +4130,32 @@ namespace XboxGamingBar
         private static readonly Windows.UI.Color ProfileOrangeText   = Windows.UI.Color.FromArgb(255, 255, 170, 70);
         private static readonly Windows.UI.Color ProfileOrangeBg     = Windows.UI.Color.FromArgb(255, 55, 38, 12);
         private static readonly Windows.UI.Color ProfileOrangeBorder = Windows.UI.Color.FromArgb(255, 160, 110, 40);
+
+        /// <summary>
+        /// "Plugged in" / "On battery" for the badge suffix — the agreed wording (2026-08-02). Not
+        /// "AC"/"DC", which several people did not read as a power state, and not "docked/undocked",
+        /// which would claim a dock: the trigger is PowerSupplyStatus, i.e. whether a charger is
+        /// attached. A monitor on USB-C without charging current stays "On battery".
+        ///
+        /// The icon carries the state at a glance; the words stay, because the two symbols alone are
+        /// small at this font size and the badge is read in passing.
+        /// </summary>
+        private static string CurrentPowerStateLabel()
+            => PowerManager.PowerSupplyStatus != PowerSupplyStatus.NotPresent
+                ? PowerStatePluggedLabel
+                : PowerStateBatteryLabel;
+
+        // One definition for every surface that names a power state: badges, profile cards, the split
+        // grids and the game-start notification.
+        //
+        // High voltage, NOT the plug emoji (2026-08-06): the plug renders almost entirely black in
+        // Segoe UI Emoji and vanished against the dark card on the handheld panel. This one is yellow,
+        // which is also the colour the plugged-in column already carries. Anything picked here has to
+        // survive being read at arm's length on a small dark screen - that is the whole test.
+        internal const string PluggedGlyph = "⚡";        // high voltage
+        internal const string BatteryGlyph = "\U0001F50B";   // battery
+        internal const string PowerStatePluggedLabel = "Plugged in " + PluggedGlyph;
+        internal const string PowerStateBatteryLabel = "On battery " + BatteryGlyph;
 
         /// <summary>Applies the green (per-game) / orange (global) status colours to a badge.</summary>
         private void ApplyProfileStatusBadge(Windows.UI.Xaml.Controls.Border badge, Windows.UI.Xaml.Controls.TextBlock text,
@@ -4089,44 +4178,93 @@ namespace XboxGamingBar
             if (ControllerProfileModeText == null || ControllerProfileModeBadge == null) return;
 
             bool isPerGame = LegionControllerProfileToggle?.IsOn == true && HasValidGame(currentGameName);
-            // Per-game active = green; global = orange.
+            // Per-game active = green; global = orange. Deliberately WITHOUT the "(Plugged in)" suffix
+            // the performance badge carries: the power-state split stores performance values, and a
+            // controller profile has no per-power-state side to edit. Same look, one honest difference.
             ApplyProfileStatusBadge(ControllerProfileModeBadge, ControllerProfileModeText, isPerGame,
-                isPerGame ? "Editing Game Profile" : "Editing Global Profile");
+                isPerGame ? "Game Profile" : "Global Profile");
+        }
+
+        /// <summary>
+        /// Shows the running game's art as a full-width backdrop on the two per-game cards — but only
+        /// while that card's own toggle is ON. The backdrop means "a per-game profile is active", so it
+        /// must not appear for a game that is merely detected; the two cards are gated separately
+        /// because their toggles are independent.
+        ///
+        /// The blur is the upscale itself: the source is the same ~48px cached icon the card already
+        /// shows, stretched across the full card width, which smears it heavily. No blur effect and no
+        /// extra dependency — deliberately, since neither Win2D nor AcrylicBrush is used in this app and
+        /// acrylic would silently collapse to a flat colour whenever transparency effects or battery
+        /// saver are on, which on a handheld is the common case.
+        ///
+        /// Reads the Source straight off the two Image controls so the icon still has exactly one
+        /// loading path (LoadCurrentGameIcon); this method only mirrors it.
+        /// </summary>
+        // The game name used to switch colour here — green while a per-game profile was active, grey
+        // otherwise — because it was loose text over the game art and needed the contrast. Since
+        // 2026-08-02 it sits on an opaque WHITE badge, so both colours were unreadable on it (light
+        // green and light grey on white) and the state signal is redundant: the status badge right
+        // next to it already says Game Profile / Global Profile in green/orange. The name is plain
+        // black from XAML now and nothing overrides it.
+
+        private void UpdateProfileCardArt()
+        {
+            try
+            {
+                // The blurred copy, not the sharp 48px icon the cards show next to the title.
+                var perfArt = blurredGameArt;
+                bool perfOn = (PerGameProfileToggle?.IsOn == true) && perfArt != null;
+                if (ActiveProfileCardArtBrush != null)
+                    ActiveProfileCardArtBrush.ImageSource = perfOn ? perfArt : null;
+                if (ActiveProfileCardArt != null)
+                    ActiveProfileCardArt.Opacity = perfOn ? 1 : 0;
+
+                var ctrlArt = blurredGameArt;
+                bool ctrlOn = (LegionControllerProfileToggle?.IsOn == true) && ctrlArt != null;
+                if (ControllerProfileCardArtBrush != null)
+                    ControllerProfileCardArtBrush.ImageSource = ctrlOn ? ctrlArt : null;
+                if (ControllerProfileCardArt != null)
+                    ControllerProfileCardArt.Opacity = ctrlOn ? 1 : 0;
+
+                // The Quick Settings Profile tile is driven from here as well, not only from
+                // UpdateTileStates. The icon loads asynchronously, so a tile-state pass that ran before
+                // the bitmap arrived would leave the tile blank until some unrelated state change
+                // happened to refresh it — which is why the art did not show up on the tile at all.
+                if (qsTileMap != null && qsTileMap.TryGetValue("Profile", out var profileTile))
+                    SetTileArt(profileTile, perfOn ? perfArt : null);
+            }
+            catch (Exception ex)
+            {
+                Logger.Info($"UpdateProfileCardArt failed: {ex.Message}");
+            }
         }
 
         private void UpdateActiveProfileIndicator()
         {
             bool hasGame = HasValidGame(currentGameName);
             bool perGameEnabled = PerGameProfileToggle?.IsOn ?? false;
+            UpdateProfileCardArt();
 
-            // Build the status label. Per-game active = green "Per-Game: <game>"; global =
-            // orange "Global Profile active". Keep an AC/DC suffix when the power-source split
-            // is on so the user still sees which sub-profile is in effect.
+            // Build the status label. Per-game active = green, global = orange. The power-state
+            // suffix appears only when that profile keeps separate values, so the user can see which
+            // side is being edited.
+            //
+            // "Editing " was dropped from the front on 2026-08-02: the badge sits under a heading that
+            // already says what the card edits, so the word only ate width that the game name next to
+            // it needs. Same reason "Detected: " is gone from the game badge.
             bool perGameActive = perGameEnabled && hasGame;
             string label;
             if (perGameActive)
             {
-                if (GetPerGamePowerSourceProfileEnabled(currentGameName))
-                {
-                    bool isOnAC = PowerManager.PowerSupplyStatus != PowerSupplyStatus.NotPresent;
-                    label = $"Editing Game Profile ({(isOnAC ? "AC" : "DC")})";
-                }
-                else
-                {
-                    label = "Editing Game Profile";
-                }
+                label = GetPerGamePowerSourceProfileEnabled(currentGameName)
+                    ? $"Game Profile ({CurrentPowerStateLabel()})"
+                    : "Game Profile";
             }
             else
             {
-                if (!GetGlobalPowerSourceProfileEnabled())
-                {
-                    label = "Editing Global Profile";
-                }
-                else
-                {
-                    bool isOnAC = PowerManager.PowerSupplyStatus != PowerSupplyStatus.NotPresent;
-                    label = $"Editing Global Profile ({(isOnAC ? "AC" : "DC")})";
-                }
+                label = GetGlobalPowerSourceProfileEnabled()
+                    ? $"Global Profile ({CurrentPowerStateLabel()})"
+                    : "Global Profile";
             }
 
             // Apply text + green/orange colours to the badge (consistent with the controller
@@ -4140,132 +4278,12 @@ namespace XboxGamingBar
             SwitchProfile();
         }
 
-        // Marquee storyboards for header text fields. Cached so successive calls can
-        // stop the previous animation cleanly before starting a new one (text changed /
-        // canvas resized). Keyed by Canvas so multiple call sites (active profile name,
-        // detected-game name) can share the helper without trampling each other.
-        private readonly Dictionary<Canvas, Storyboard> activeMarqueeStoryboards = new Dictionary<Canvas, Storyboard>();
-        // Tracks which canvases we've already wired SizeChanged on so we don't
-        // double-subscribe across repeated Update calls.
-        private readonly HashSet<Canvas> marqueeSizeChangedHooked = new HashSet<Canvas>();
-
-        /// <summary>
-        /// Marquee-scrolls a TextBlock inside a Canvas when the rendered text width
-        /// exceeds the canvas slot width. Mirrors the Quick Settings tile scroll
-        /// behavior at GamingWidget.QuickSettings.TileStates.cs:206 — same keyframe
-        /// shape, NaN guards, and 30 px/sec speed. When the text fits, just
-        /// left-aligns it. Idempotent: safe to call repeatedly when the text or
-        /// canvas size changes.
-        /// </summary>
-        private void UpdateMarqueeScrollAnimation(TextBlock text, Canvas canvas, TranslateTransform transform)
-        {
-            if (text == null || canvas == null || transform == null) return;
-
-            // First call wires SizeChanged so the clip rect tracks the laid-out
-            // canvas width and the marquee re-evaluates when the column changes.
-            if (!marqueeSizeChangedHooked.Contains(canvas))
-            {
-                marqueeSizeChangedHooked.Add(canvas);
-                canvas.SizeChanged += (s, e) =>
-                {
-                    if (e.NewSize.Width > 0 && canvas != null)
-                    {
-                        canvas.Clip = new Windows.UI.Xaml.Media.RectangleGeometry
-                        {
-                            Rect = new Windows.Foundation.Rect(0, 0, e.NewSize.Width, canvas.Height)
-                        };
-                        UpdateMarqueeScrollAnimation(text, canvas, transform);
-                    }
-                };
-            }
-
-            // Stop any existing animation for this canvas before recomputing.
-            if (activeMarqueeStoryboards.TryGetValue(canvas, out var existing) && existing != null)
-            {
-                existing.Stop();
-                activeMarqueeStoryboards.Remove(canvas);
-            }
-            transform.X = 0;
-
-            // Measure text at its natural size.
-            text.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
-            double textWidth = text.DesiredSize.Width;
-
-            // Prefer ActualWidth, fall back to declared Width. Both can be NaN
-            // (XAML default) before first layout, so use `!(x > 0)` to reject NaN
-            // — the same guard pattern from build 2061 that fixed the TimeSpan-NaN
-            // throw in UpdateTileScrollAnimation.
-            double canvasWidth = canvas.ActualWidth;
-            if (!(canvasWidth > 0)) canvasWidth = canvas.Width;
-            if (!(canvasWidth > 0)) return;
-            if (!(textWidth >= 0) || double.IsInfinity(textWidth)) return;
-
-            // Fits: just left-align (matches the original TextBlock layout).
-            if (textWidth <= canvasWidth)
-            {
-                Canvas.SetLeft(text, 0);
-                return;
-            }
-
-            // Doesn't fit: scroll left → pause → scroll right → pause → repeat.
-            Canvas.SetLeft(text, 0);
-            double scrollDistance = textWidth - canvasWidth + 10;
-            const double scrollSpeed = 30; // pixels per second
-            double scrollDuration = scrollDistance / scrollSpeed;
-
-            var storyboard = new Storyboard();
-            var animation = new DoubleAnimationUsingKeyFrames
-            {
-                RepeatBehavior = RepeatBehavior.Forever
-            };
-            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
-            {
-                KeyTime = KeyTime.FromTimeSpan(TimeSpan.Zero),
-                Value = 0
-            });
-            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
-            {
-                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.5)),
-                Value = 0
-            });
-            animation.KeyFrames.Add(new LinearDoubleKeyFrame
-            {
-                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(1.5 + scrollDuration)),
-                Value = -scrollDistance
-            });
-            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
-            {
-                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3 + scrollDuration)),
-                Value = -scrollDistance
-            });
-            animation.KeyFrames.Add(new LinearDoubleKeyFrame
-            {
-                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(3 + scrollDuration * 2)),
-                Value = 0
-            });
-            animation.KeyFrames.Add(new DiscreteDoubleKeyFrame
-            {
-                KeyTime = KeyTime.FromTimeSpan(TimeSpan.FromSeconds(4.5 + scrollDuration * 2)),
-                Value = 0
-            });
-            Storyboard.SetTarget(animation, transform);
-            Storyboard.SetTargetProperty(animation, "X");
-            storyboard.Children.Add(animation);
-
-            activeMarqueeStoryboards[canvas] = storyboard;
-            storyboard.Begin();
-        }
-
-
-        /// <summary>
-        /// Marquees the detected-game name shown next to the per-game-profile toggle on
-        /// the Performance tab. Called from the RunningGameProperty's game-detection
-        /// callback so the scroll evaluates whenever the displayed game name changes.
-        /// </summary>
-        private void UpdateDetectedGameScrollAnimation()
-        {
-            UpdateMarqueeScrollAnimation(DetectedGameText, DetectedGameTextCanvas, DetectedGameTextTransform);
-        }
+        // The marquee that scrolled the detected-game name was removed on 2026-08-02. It could never
+        // run: it lived in a Canvas, a Canvas returns (0,0) from MeasureOverride, so the helper's own
+        // `if (!(canvasWidth > 0)) return;` guard fired on every call and the only thing limiting long
+        // names was a static 200px clip. The name is a trimmed TextBlock in a white badge now. If a
+        // marquee is ever wanted again, give the scrolling element a real width — do not put it in a
+        // bare Canvas and expect one.
 
         private void AddTextBlock(Grid grid, int row, int column, string text, int fontSize, string colorHex,
             Thickness? margin = null, HorizontalAlignment horizontalAlignment = HorizontalAlignment.Left)
@@ -4354,7 +4372,12 @@ namespace XboxGamingBar
                 widget.SettingsClicked += GamingWidget_SettingsClicked;
                 widget.VisibleChanged += GamingWidget_VisibleChanged;
                 widget.GameBarDisplayModeChanged += GamingWidget_GameBarDisplayModeChanged;
+                widget.FavoritedChanged += GamingWidget_FavoritedChanged;
                 Logger.Info("Widget event handlers registered.");
+
+                // Report the current favorited state so Center onboarding knows whether CTW is in the
+                // Game Bar home bar. FavoritedChanged keeps it live if the user adds/removes it while open.
+                ReportGameBarFavorited();
 
                 UpdateGameBarForegroundSignal("OnNavigatedTo");
 
@@ -4491,9 +4514,14 @@ namespace XboxGamingBar
                             // ForceSetValue is required: if the helper already caches 25W (its own init default),
                             // SetValue would be a no-op and SetMsiAcpiTDP would never be called,
                             // leaving intelLastPL1 = -1 → UpdateCurrentTDP shows "-- W" indefinitely.
-                            double defaultTDP = globalProfile.TDP;
-                            Logger.Info($"Clean install: force-pushing default TDP {defaultTDP}W to helper (helper reported {helperTDP}W)");
-                            tdp.ForceSetValue((int)defaultTDP);
+                            // The number is the HELPER's own value, not the widget's profile copy
+                            // (plan §5.4). What this line is actually for is the FORCE: on a clean
+                            // install the helper already holds its seeded default, so a plain SetValue
+                            // would dedup and SetMsiAcpiTDP would never run, leaving intelLastPL1 = -1
+                            // and "-- W" on screen. Forcing the helper's own value fires the write
+                            // without the widget claiming to own the number.
+                            Logger.Info($"Clean install: force-pushing TDP {helperTDP}W to make the helper write it to hardware");
+                            tdp.ForceSetValue((int)helperTDP);
                             // Slider already shows defaultTDP — no update needed
                         }
                         else if (Math.Abs(TDPSlider.Value - helperTDP) > 0.5)
@@ -4956,7 +4984,6 @@ namespace XboxGamingBar
                 SendSidebarMenuEnabledToHelper();
                 SendProfileSaveFlagsToHelper();
                 SendPowerSourceProfileConfigToHelper();
-                SendPowerSourceProfileValuesToHelper();
                 // Without this, the helper's ControllerHotkeyMonitor only learns the
                 // widget's View+ABXY / Menu+DPad bindings on the next dropdown change.
                 // Before that, helper-side detection sits at the default-all-disabled
@@ -4994,13 +5021,16 @@ namespace XboxGamingBar
                         var profile = GetProfile(currentProfileName);
                         if (profile != null && legionPerformanceMode != null)
                         {
+                            // The TDP half of this mirror is GONE (plan §5.4): copying the helper's
+                            // watts into the widget store is the "widget persists a helper push"
+                            // pattern that Task #43 removed, and nothing reads that field any more —
+                            // every card resolves TDP from the snapshot. Only the preset mode is still
+                            // widget state, so only it is still synced.
                             int helperMode = legionPerformanceMode.Value;
-                            double helperTDP = tdp.Value;
-                            if (profile.LegionPerformanceMode != helperMode || Math.Abs(profile.TDP - helperTDP) > 0.5)
+                            if (profile.LegionPerformanceMode != helperMode)
                             {
-                                Logger.Info($"[PIPE] Syncing global profile '{currentProfileName}' with helper: TDP {profile.TDP}→{helperTDP}W, Mode {profile.LegionPerformanceMode}→{helperMode}");
+                                Logger.Info($"[PIPE] Syncing global profile '{currentProfileName}' preset mode with helper: {profile.LegionPerformanceMode}→{helperMode}");
                                 profile.LegionPerformanceMode = helperMode;
-                                profile.TDP = helperTDP;
                                 SaveProfileToStorage(currentProfileName, profile);
                             }
                         }
@@ -5031,6 +5061,11 @@ namespace XboxGamingBar
                     // helper can drive its startup LED indicator (red → green-on-ready → saved color)
                     // on the next boot without the widget being open. No-op if no custom color saved.
                     ResendMsiLedColorToHelper();
+
+                    // Report whether CTW is favorited into the Game Bar home bar now the pipe is up — the
+                    // first read on load usually happens before the pipe connects, so this connect-time
+                    // resend is what actually delivers it to the helper for Center onboarding.
+                    ReportGameBarFavorited();
 
                     // Re-read current brightness/volume into the media-slider tile. The VisibleChanged
                     // refresh can run before the pipe reconnects (Game Bar close disconnects it), so it

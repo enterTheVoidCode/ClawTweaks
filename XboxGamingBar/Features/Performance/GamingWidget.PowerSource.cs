@@ -61,16 +61,17 @@ namespace XboxGamingBar
             bool enabled = PowerSourceProfileToggle.IsOn;
             bool perGameContext = PerGameProfileToggle?.IsOn == true && HasValidGame(currentGameName);
 
+            // One send, no scope parameter: the helper writes it to CurrentProfile, which IS the
+            // per-game profile while a game runs and the global profile otherwise — the same scope
+            // this toggle shows. The widget no longer stores the flag itself; it lives in the profile
+            // (GameProfile.PowerSourceSplit) and comes back through the snapshot.
+            SendPowerSourceSplitToHelper(enabled);
+            Logger.Info($"PowerSourceProfileToggle toggled to {enabled} "
+                + $"(scope: {(perGameContext ? $"game '{currentGameName}'" : "global")})");
+
             if (perGameContext)
             {
-                SavePerGamePowerSourceProfileSetting(currentGameName, enabled);
-                Logger.Info($"PowerSourceProfileToggle toggled for game '{currentGameName}' to: {enabled}");
                 LoadOrCreateGameProfiles();
-            }
-            else
-            {
-                Logger.Info($"PowerSourceProfileToggle toggled globally to: {enabled}");
-                SavePowerSourceProfileSetting(enabled);
             }
 
             UpdateGlobalProfileDisplayMode();
@@ -79,17 +80,40 @@ namespace XboxGamingBar
             UpdateProfileDisplay();
         }
 
+        /// <summary>
+        /// Sends the split flag for the ACTIVE profile to the helper, which owns and persists it.
+        /// </summary>
+        private void SendPowerSourceSplitToHelper(bool enabled)
+        {
+            try
+            {
+                if (!App.IsConnected) return;
+                var request = new Windows.Foundation.Collections.ValueSet
+                {
+                    { "Command", (int)Shared.Enums.Command.Set },
+                    { "Function", (int)Shared.Enums.Function.PowerSourceSplit },
+                    { "Content", enabled ? "true" : "false" },
+                };
+                App.PipeClient?.SendValueSet(request);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sending PowerSourceSplit: {ex.Message}");
+            }
+        }
+
         private void LoadPowerSourceProfileSetting()
         {
             try
             {
                 if (PowerSourceProfileToggle == null) return;
-                var settings = ApplicationData.Current.LocalSettings;
-                bool enabled = false;
-                if (settings.Values.TryGetValue(GlobalPowerSourceProfileSettingKey, out object val) && val is bool saved)
-                {
-                    enabled = saved;
-                }
+
+                // From the helper's store via the snapshot, resolved for whichever scope the card is
+                // showing. The widget's own LocalSettings key is gone with the flag moving into the
+                // profile — reading it here would be the second answer this rebuild removes.
+                bool enabled = (PerGameProfileToggle?.IsOn == true && HasValidGame(currentGameName))
+                    ? GetPerGamePowerSourceProfileEnabled(currentGameName)
+                    : GetGlobalPowerSourceProfileEnabled();
 
                 isUpdatingPowerSourceProfileToggle = true;
                 try

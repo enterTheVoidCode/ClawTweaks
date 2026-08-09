@@ -27,9 +27,13 @@
                 <ToggleSwitch x:Name="AutoStartRTSSToggle" IsEnabled="False" OffContent="Disabled" OnContent="Enabled"
                     FlowDirection="RightToLeft" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Right" />
 
+                <!-- The order IS the stored value: 0 = RTSS, 1 = native. Do not reorder these.
+                     The second entry used to read "AMD Software: Adrenaline Edition" and selected a
+                     manager that only ever existed commented out - picking it turned the OSD off and
+                     looked like a bug. It is the built-in renderer now (Doku/PLAN_Native_OSD.md). -->
                 <controls:RadioButtons x:Name="OnScreenDisplayProviderRadioButtons" Header="OSD Method" FontWeight="SemiBold" FontSize="18" Grid.Row="2">
                     <RadioButton Content="Rivatuner Statistics Server" IsChecked="True"/>
-                    <RadioButton Content="AMD Software: Adrenaline Edition" IsChecked="False" />
+                    <RadioButton Content="ClawTweaks overlay (no game needed)" IsChecked="False" />
                 </controls:RadioButtons>
             </Grid>
         </Grid>

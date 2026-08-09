@@ -56,11 +56,9 @@ namespace XboxGamingBar
             var settings = ApplicationData.Current.LocalSettings;
             var container = settings.CreateContainer($"Profile_{profileName}", ApplicationDataCreateDisposition.Always);
 
-            container.Values["TDP"] = profile.TDP;
-            container.Values["CPUBoost"] = profile.CPUBoost;
-            container.Values["CPUEPP"] = profile.CPUEPP;
-            container.Values["MaxCPUState"] = profile.MaxCPUState;
-            container.Values["MinCPUState"] = profile.MinCPUState;
+            // Group C only (plan §5.4). The hardware and OS values that used to be written here belong
+            // to the helper's profile store; a copy would only be a second truth to drift. Leftover
+            // keys from older builds are simply never read again — see LoadProfileFromStorage.
             container.Values["FluidMotionFrames"] = profile.FluidMotionFrames;
             container.Values["RadeonSuperResolution"] = profile.RadeonSuperResolution;
             container.Values["RadeonSuperResolutionSharpness"] = profile.RadeonSuperResolutionSharpness;
@@ -72,45 +70,12 @@ namespace XboxGamingBar
             container.Values["RadeonChill"] = profile.RadeonChill;
             container.Values["RadeonChillMinFPS"] = profile.RadeonChillMinFPS;
             container.Values["RadeonChillMaxFPS"] = profile.RadeonChillMaxFPS;
-            container.Values["FPSLimitEnabled"] = profile.FPSLimitEnabled;
-            container.Values["FPSLimitValue"] = profile.FPSLimitValue;
-            container.Values["FpsCapMode"] = profile.FpsCapMode;
-            container.Values["IntelFpsTier"] = profile.IntelFpsTier;
-            container.Values["AutoTDPEnabled"] = profile.AutoTDPEnabled;
-            container.Values["AutoTDPTargetFPS"] = profile.AutoTDPTargetFPS;
-            container.Values["AutoTDPMinTDP"] = profile.AutoTDPMinTDP;
-            container.Values["AutoTDPMaxTDP"] = profile.AutoTDPMaxTDP;
-            container.Values["AutoTDPUseMLMode"] = profile.AutoTDPUseMLMode;
-            container.Values["AutoTDPControllerType"] = profile.AutoTDPControllerType;
-            container.Values["OSPowerMode"] = profile.OSPowerMode;
             container.Values["LegionPerformanceMode"] = profile.LegionPerformanceMode;
             container.Values["TDPModeIndex"] = profile.TDPModeIndex;
-            container.Values["TDPBoostEnabled"] = profile.TDPBoostEnabled;
-            container.Values["TDPBoostFPPTWatts"] = profile.TDPBoostFPPTWatts;
-            container.Values["HDREnabled"] = profile.HDREnabled;
-            container.Values["Resolution"] = profile.Resolution;
-            if (profile.RefreshRate.HasValue)
-                container.Values["RefreshRate"] = profile.RefreshRate.Value;
-            else
-                container.Values.Remove("RefreshRate");
-            container.Values["StickyTDPEnabled"] = profile.StickyTDPEnabled;
-            container.Values["StickyTDPInterval"] = profile.StickyTDPInterval;
             container.Values["OverlayLevel"] = profile.OverlayLevel;
-            container.Values["CPUAffinity"] = profile.CPUAffinity;
-            container.Values["ProcessorSchedulingPolicy"] = profile.ProcessorSchedulingPolicy;
-            container.Values["MaxPCoreFreqMHz"] = profile.MaxPCoreFreqMHz;
-            container.Values["MaxECoreFreqMHz"] = profile.MaxECoreFreqMHz;
-            container.Values["IntelAdaptiveSharpness"] = profile.IntelAdaptiveSharpness;
-            container.Values["IntelColorSaturation"] = profile.IntelColorSaturation;
-            container.Values["IntelColorHue"] = profile.IntelColorHue;
-            container.Values["IntelDisplayContrast"] = profile.IntelDisplayContrast;
-            container.Values["IntelDisplayBrightness"] = profile.IntelDisplayBrightness;
-            container.Values["IntelDisplayGammaX100"] = profile.IntelDisplayGammaX100;
-            container.Values["IntelLowLatency"] = profile.IntelLowLatency;
-            container.Values["IntelFrameSync"] = profile.IntelFrameSync;
-            // MSI Claw fan — captured per profile, not applied yet (see SaveCurrentSettingsToProfile).
-            container.Values["MsiFanPreset"] = profile.MsiFanPreset;
-            container.Values["MsiFanCurve"] = profile.MsiFanCurve ?? "";
+            // The MsiFanPreset / MsiFanCurve keys are no longer written (2026-08-02): the per-game fan
+            // curve belongs to the helper's GameProfile now, like TDP. Existing containers keep their old
+            // keys and are simply never read, the same way the group-A/B keys were left behind in §5.4.
             // Last-saved timestamp drives the "modified Nm/h/d ago" line on the profile
             // card and the "Last Modified" sort option in the Profiles tab. Stored as
             // UTC ticks so it survives timezone changes.
@@ -124,16 +89,9 @@ namespace XboxGamingBar
             {
                 var container = settings.Containers[$"Profile_{profileName}"];
 
-                // When the widget-side Profile_* LocalSettings container doesn't have a TDP
-                // entry, fall back to the helper's current TDP (authoritative across reboots
-                // via global.xml) rather than a hardcoded 15 W — otherwise non-Legion devices
-                // reset TDP to 15 on every cold start (issues #74, #79).
-                profile.TDP = container.Values.ContainsKey("TDP") ? (double)container.Values["TDP"] : (tdp?.Value ?? 15);
-                // Use current system values as defaults for EPP and CPU Boost (synced from helper)
-                profile.CPUBoost = container.Values.ContainsKey("CPUBoost") ? (bool)container.Values["CPUBoost"] : (cpuBoost?.Value ?? false);
-                profile.CPUEPP = container.Values.ContainsKey("CPUEPP") ? (double)container.Values["CPUEPP"] : (cpuEPP?.Value ?? 80);
-                profile.MaxCPUState = container.Values.ContainsKey("MaxCPUState") ? (int)container.Values["MaxCPUState"] : 100;
-                profile.MinCPUState = container.Values.ContainsKey("MinCPUState") ? (int)container.Values["MinCPUState"] : 5;
+                // Group C only (plan §5.4). The TDP, CPU, Intel-display, FPS, power-mode and HDR keys
+                // that used to be read here belong to the helper's store and reach the widget through
+                // ProfileSnapshot. Old containers still carry those keys; they are simply never read.
                 profile.FluidMotionFrames = container.Values.ContainsKey("FluidMotionFrames") ? (bool)container.Values["FluidMotionFrames"] : false;
                 profile.RadeonSuperResolution = container.Values.ContainsKey("RadeonSuperResolution") ? (bool)container.Values["RadeonSuperResolution"] : false;
                 profile.RadeonSuperResolutionSharpness = container.Values.ContainsKey("RadeonSuperResolutionSharpness") ? (double)container.Values["RadeonSuperResolutionSharpness"] : 80;
@@ -145,17 +103,6 @@ namespace XboxGamingBar
                 profile.RadeonChill = container.Values.ContainsKey("RadeonChill") ? (bool)container.Values["RadeonChill"] : false;
                 profile.RadeonChillMinFPS = container.Values.ContainsKey("RadeonChillMinFPS") ? (double)container.Values["RadeonChillMinFPS"] : 30;
                 profile.RadeonChillMaxFPS = container.Values.ContainsKey("RadeonChillMaxFPS") ? (double)container.Values["RadeonChillMaxFPS"] : 60;
-                profile.FPSLimitEnabled = container.Values.ContainsKey("FPSLimitEnabled") ? (bool)container.Values["FPSLimitEnabled"] : false;
-                profile.FPSLimitValue = container.Values.ContainsKey("FPSLimitValue") ? (int)container.Values["FPSLimitValue"] : 60;
-                profile.FpsCapMode = container.Values.ContainsKey("FpsCapMode") ? (int)container.Values["FpsCapMode"] : 0;
-                profile.IntelFpsTier = container.Values.ContainsKey("IntelFpsTier") ? (int)container.Values["IntelFpsTier"] : 0;
-                profile.AutoTDPEnabled = container.Values.ContainsKey("AutoTDPEnabled") ? (bool)container.Values["AutoTDPEnabled"] : false;
-                profile.AutoTDPTargetFPS = container.Values.ContainsKey("AutoTDPTargetFPS") ? (int)container.Values["AutoTDPTargetFPS"] : 60;
-                profile.AutoTDPMinTDP = container.Values.ContainsKey("AutoTDPMinTDP") ? (int)container.Values["AutoTDPMinTDP"] : 8;
-                profile.AutoTDPMaxTDP = container.Values.ContainsKey("AutoTDPMaxTDP") ? (int)container.Values["AutoTDPMaxTDP"] : 30;
-                profile.AutoTDPUseMLMode = container.Values.ContainsKey("AutoTDPUseMLMode") ? (bool)container.Values["AutoTDPUseMLMode"] : false;
-                profile.AutoTDPControllerType = container.Values.ContainsKey("AutoTDPControllerType") ? (int)container.Values["AutoTDPControllerType"] : 0;
-                profile.OSPowerMode = container.Values.ContainsKey("OSPowerMode") ? (int)container.Values["OSPowerMode"] : 1;
                 // Only load LegionPerformanceMode if it exists in storage - keep profile's existing value otherwise
                 // This preserves the default (Balanced=2) for new profiles but doesn't override if storage key is missing
                 if (container.Values.ContainsKey("LegionPerformanceMode"))
@@ -164,29 +111,7 @@ namespace XboxGamingBar
                 }
                 // Load TDPModeIndex for custom presets (-1 means use LegionPerformanceMode to determine index)
                 profile.TDPModeIndex = container.Values.ContainsKey("TDPModeIndex") ? (int)container.Values["TDPModeIndex"] : -1;
-                profile.TDPBoostEnabled = container.Values.ContainsKey("TDPBoostEnabled") ? (bool)container.Values["TDPBoostEnabled"] : false;
-                profile.TDPBoostFPPTWatts = container.Values.ContainsKey("TDPBoostFPPTWatts") ? (int)container.Values["TDPBoostFPPTWatts"] : -1;
-                profile.HDREnabled = container.Values.ContainsKey("HDREnabled") ? (bool)container.Values["HDREnabled"] : false;
-                profile.Resolution = container.Values.ContainsKey("Resolution") ? (string)container.Values["Resolution"] : "";
-                profile.RefreshRate = container.Values.ContainsKey("RefreshRate") ? (int?)container.Values["RefreshRate"] : null;
-                profile.StickyTDPEnabled = container.Values.ContainsKey("StickyTDPEnabled") ? (bool)container.Values["StickyTDPEnabled"] : true;
-                profile.StickyTDPInterval = container.Values.ContainsKey("StickyTDPInterval") ? (int)container.Values["StickyTDPInterval"] : 5;
                 profile.OverlayLevel = container.Values.ContainsKey("OverlayLevel") ? (int)container.Values["OverlayLevel"] : 0;
-                profile.CPUAffinity = container.Values.ContainsKey("CPUAffinity") ? (string)container.Values["CPUAffinity"] : "";
-                profile.ProcessorSchedulingPolicy = container.Values.ContainsKey("ProcessorSchedulingPolicy") ? (int)container.Values["ProcessorSchedulingPolicy"] : -1;
-                profile.MaxPCoreFreqMHz = container.Values.ContainsKey("MaxPCoreFreqMHz") ? (int)container.Values["MaxPCoreFreqMHz"] : 0;
-                profile.MaxECoreFreqMHz = container.Values.ContainsKey("MaxECoreFreqMHz") ? (int)container.Values["MaxECoreFreqMHz"] : 0;
-                profile.IntelAdaptiveSharpness = container.Values.ContainsKey("IntelAdaptiveSharpness") ? (int)container.Values["IntelAdaptiveSharpness"] : 0;
-                profile.IntelColorSaturation = container.Values.ContainsKey("IntelColorSaturation") ? (int)container.Values["IntelColorSaturation"] : 50;
-                profile.IntelColorHue = container.Values.ContainsKey("IntelColorHue") ? (int)container.Values["IntelColorHue"] : 0;
-                profile.IntelDisplayContrast = container.Values.ContainsKey("IntelDisplayContrast") ? (int)container.Values["IntelDisplayContrast"] : 50;
-                profile.IntelDisplayBrightness = container.Values.ContainsKey("IntelDisplayBrightness") ? (int)container.Values["IntelDisplayBrightness"] : 50;
-                profile.IntelDisplayGammaX100 = container.Values.ContainsKey("IntelDisplayGammaX100") ? (int)container.Values["IntelDisplayGammaX100"] : 100;
-                profile.IntelLowLatency = container.Values.ContainsKey("IntelLowLatency") ? (int)container.Values["IntelLowLatency"] : 0;
-                profile.IntelFrameSync = container.Values.ContainsKey("IntelFrameSync") ? (int)container.Values["IntelFrameSync"] : 0;
-                // -1 / "" means this profile predates per-game fan capture, or never had the fan touched.
-                profile.MsiFanPreset = container.Values.ContainsKey("MsiFanPreset") ? (int)container.Values["MsiFanPreset"] : -1;
-                profile.MsiFanCurve = container.Values.ContainsKey("MsiFanCurve") ? (container.Values["MsiFanCurve"] as string ?? "") : "";
 
                 Logger.Info($"Loaded {profileName} profile from storage");
             }
