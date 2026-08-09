@@ -1,16 +1,16 @@
 {
-  "_readme": "Curated manifest for ClawTweaksSetup.exe ('ClawTweaks Center'). Fetched from the master branch via raw.githubusercontent on every Center launch (Core/SetupVersionCheck.cs). Offline-safe: if unreachable, Center runs normally and offers no update. NOTE: this file is only live once pushed to the PUBLIC repo's master branch - pushing it to the private dev remote changes nothing.",
+  "_readme": "Curated manifest for CTW Center. It stays in THIS repo (the public ClawTweaks app repo) even though Center itself moved to enterTheVoidCode/ClawTweaksCenter on 2026-08-09 - the fetch URL is baked into shipped builds in the field, so it cannot follow the source. TWO consumers read it: (1) Center on every launch (Core/SetupVersionCheck.cs, in the Center repo), and (2) the ClawTweaks HELPER, which serves latestSetupPage to the widget's 'CTW Center is not installed' dialog (GoTweaksUpdateService.GetCenterDownloadUrlAsync). Offline-safe for both. NOTE: this file is only live once pushed to the PUBLIC repo's master branch - pushing it to the private dev remote changes nothing.",
 
-  "_readme_floor": "minimumSetupVersion is a FLOOR, not the latest version. Center shows an 'outdated build' warning when its own <Version> (ClawTweaksSetup.csproj - NOT the same number as the ClawTweaks app version) is below it. Only bump it when an older Center build is known broken, e.g. a fixed install-routine bug, so already-downloaded builds get flagged. Do NOT bump it on every release.",
+  "_readme_floor": "minimumSetupVersion is a FLOOR, not the latest version. Center shows an 'outdated build' warning when its own <Version> (ClawTweaksCenter/ClawTweaksCenter.csproj in the Center repo - NOT the same number as the ClawTweaks app version) is below it. Only bump it when an older Center build is known broken, e.g. a fixed install-routine bug, so already-downloaded builds get flagged. Do NOT bump it on every release.",
 
   "_readme_update": "TWO DIFFERENT AUDIENCES READ THE latestSetup* FIELDS, AND THEY NEED DIFFERENT THINGS. Center 0.1.9.0+ only shows a notice and opens a page: it reads latestSetupVersion and prefers latestSetupPage, falling back to latestSetupUrl. It never downloads anything and IGNORES latestSetupSha256. Center 0.1.8.x and older self-updated, and their SetupVersionCheck offers an update ONLY when latestSetupVersion AND latestSetupUrl AND latestSetupSha256 are all present and valid, with the URL ending in .exe. So dropping the url/sha fields would silence every old Center in the field - those users would never learn a new version exists, on the exact release that is supposed to migrate them off the machine-wide install. KEEP ALL FOUR FIELDS until old Centers are gone.",
 
   "_readme_app_floor": "minimumClawTweaksVersion is a SECOND, UNRELATED floor: it applies to the ClawTweaks APP builds Center offers for download (GitHub releases, test builds, Drive nightlies), NOT to Center itself. Anything below it is listed but greyed out and cannot be installed. This is the global kill switch for builds whose INSTALL ROUTINE is obsolete - a user installing one would land on the old machine-wide layout and have to be migrated all over again. It is deliberately curated by hand: raise it when a release makes older installers unwanted, and it takes effect on every Center out there at the next launch, with no rebuild. Center fails OPEN - offline, or on a manifest without this field, every build stays installable, because locking people out of installing anything at all is worse than letting an old build through.",
 
-  "_readme_release":"Release procedure: (1) bump <Version> in ClawTweaksSetup.csproj, (2) dotnet publish -c Release, (3) upload ClawTweaksSetup\\PortableExe\\CTW_Center_<version>_Setup.exe as a GitHub release asset, (4) Get-FileHash -Algorithm SHA256 on THAT EXACT UPLOADED FILE, (5) fill the fields below and push to public master. The hash is the trap: every rebuild changes it, including a comment-only edit, so take it after the final build and from the uploaded artifact. latestSetupUrl must be https on github.com / objects.githubusercontent.com / release-assets.githubusercontent.com and end in .exe - old Centers' SanitizeUrl rejects anything else, and it is a string they download an executable from.",
+  "_readme_release":"Release procedure - steps 1-3 happen in the enterTheVoidCode/ClawTweaksCenter repo, step 5 lands here: (1) bump <Version> in ClawTweaksCenter/ClawTweaksCenter.csproj, (2) dotnet publish -c Release, (3) upload the resulting CTW_Center_<version>_Setup.exe as an asset on a GitHub release of THIS repo (Center has no releases of its own; 0.1.9.15 rode along on the app's 0.2.0 tag), (4) Get-FileHash -Algorithm SHA256 on THAT EXACT UPLOADED FILE, (5) fill the fields below and push to public master. The hash is the trap: every rebuild changes it, including a comment-only edit, so take it after the final build and from the uploaded artifact. latestSetupUrl must be https on github.com / objects.githubusercontent.com / release-assets.githubusercontent.com and end in .exe - old Centers' SanitizeUrl rejects anything else, and it is a string they download an executable from.",
 
   "schemaVersion": 3,
-  "updatedUtc": "2026-08-04",
+  "updatedUtc": "2026-08-09",
 
   "minimumSetupVersion": "0.1.9.12",
   "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub.",
@@ -18,8 +18,8 @@
   "minimumClawTweaksVersion": "0.1.8.51",
   "clawTweaksVersionMessage": "Outdated version — install 0.1.8.51 or newer",
 
-  "latestSetupVersion": "0.1.9.12",
+  "latestSetupVersion": "0.1.9.15",
   "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaks/releases",
-  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.1.8.52/CTW_Center_0.1.9.12_Setup.exe",
-  "latestSetupSha256": "7339b414fc3b10f85b6551bb7a220f2628209c5910c1fa6e8b8ff0d11cc402b7"
+  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.2.0/CTW_Center_0.1.9.15_Setup.exe",
+  "latestSetupSha256": "e31bc9613bce1671e1a884cb9167fadf152cbede51bb6088d3d317b9dd2de9f4"
 }
