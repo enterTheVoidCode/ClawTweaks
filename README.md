@@ -68,17 +68,30 @@ A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [
 ---
 ## Feature Showcase
 
+<p align="left">
+  <img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/release/v0.3.98.0/Doku/Releases/0.3.0/01-cleaner-interface.png" width="320" alt="Overview — Tiles"><br>
+  <em>Quick setting — Tiles</em>
+</p>
+
+
+<p align="left">
+  <img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/release/v0.3.98.0/Doku/Releases/0.3.0/02-tiles-right-stick.png" width="320" alt="Overview — Tiles"><br>
+  <em>Global - or per game performance settings</em>
+</p>
+
+
+<p align="left">
+  <img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/release/v0.3.98.0/Doku/Releases/0.3.0/03-controller-tiles.png" width="320" alt="Overview — Tiles"><br>
+  <em>Global - or per game controller settings</em>
+</p>
+
+
 ### Quick Settings
 Customizable dashboard with quick-access tiles for  most-used settings.
 
 - Gamebar widget settings for TDP, FPS Limit, Overlay, Profile, Charge Limiter and more
 - **Controller ↔ Mouse mode** — switch input mode quickly via tile ore controller shortcut
 - Custom keyboard shortcut tiles, predefined and user created action tiles (Brightness, Volume, Desktop,Launch Apps and own EXE (even Powershell), Gyro, Media: Play, Next Track etc.)
-
-<p align="center">
-  <img src="Doku/Homepage/1_Overview_Tiles.png" width="320" alt="Overview — Tiles"><br>
-  <em>Overview — Tiles</em>
-</p>
 
 **Controller shortcut support for every tile an in App-Actions:**
  You can adjust TDP, brightness, FPS cap, overlay level, or trigger any custom action mid-game using only the controller — no interruption to gameplay.
