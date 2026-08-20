@@ -2,7 +2,7 @@
   "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks - SCHEMA 2 (modell-gefiltert). Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. MSI-Eintraege (Firmware, BIOS, MSI-spezifisch): action=install laedt von download.msi.com (Whitelist). Intel-Eintraege (providerScope=intel): liefern die NEUESTE (WHQL-)Version fuer die automatisch erkannte Intel-Zeile - der Helper vergleicht installiert (PnP) vs. diese 'version' und meldet 'Update verfuegbar' (Update-Kachel). 'version' bei neuem WHQL-Release aktualisieren (~1x/Monat); action=deeplink (oeffnet die Intel-Seite). .zip-Dateien werden heruntergeladen aber NIE automatisch gestartet (nur .exe/.msi) - fuer Firmware/BIOS sicher.",
   "_v2Comment": "WARUM ES DIESE DATEI GIBT: claw-drivers.json (v1) MUSS unveraendert bleiben - sie ist die URL, die in JEDER alten ClawTweaks-Binary einkompiliert ist. Bis 0.1.7.94 war ModelCode immer leer (der Board-Code wurde aus Win32_ComputerSystemProduct.Name gelesen, wo er nicht steht - er lebt in Win32_BaseBoard.Product). Der models[]-Filter greift aber nur bei nicht-leerem ModelCode, d.h. alte Clients ignorieren ihn und wuerden JEDEN device-Block anzeigen. Ein zweiter Block in v1 haette Claw-8-AI-Usern das BIOS des Claw 8 EX als Update angeboten. Alte Builds kennen diese v2-URL nicht und koennen sie nie laden - deshalb ist die Trennung dicht. v1 bleibt gepflegt, solange es alte Installationen gibt.",
   "schemaVersion": 2,
-  "updatedUtc": "2026-08-07",
+  "updatedUtc": "2026-08-20",
   "_moddedWifiComment": "Optional: Drittanbieter-Modded-WiFi-Treiber (theboss619). url = aktueller TechPowerUp-Anhang (aendert sich pro Release; im ersten Post des Threads). Wird nur genutzt, wenn der User den Toggle 'Use modded Wi-Fi driver' aktiviert. Bei neuem Release nur 'url' (und optional 'version') aktualisieren. Geraeteunabhaengig (Top-Level, kein device-Block).",
   "moddedWifi": {
     "name": "Intel Ultra Killer Wi-Fi (modded, theboss619)",
@@ -14,8 +14,8 @@
   "devices": [
     {
       "deviceType": 40,
-      "_deviceComment": "40 = MSIClaw. Claw 8 AI+ / A2VM (Lunar Lake, Arc 140V) - Boards MS-1T52 / MS-1T42 / MS-1T41.",
-      "models": ["MS-1T52", "MS-1T42", "MS-1T41"],
+      "_deviceComment": "40 = MSIClaw. Claw 8 AI+ / A2VM (Lunar Lake, Arc 140V) - Boards MS-1T52 / MS-1T42. MS-1T41 (Claw A1M) stand hier bis 2026-08-20 mit drin und war schlicht falsch: der A1M haette damit das BIOS eines FREMDEN Boards angeboten bekommen (E1T52IMS statt E1T41IMS) sowie die Controller-FW 2.29 statt seiner 1.72. Er hat jetzt einen eigenen Block weiter unten.",
+      "models": ["MS-1T52", "MS-1T42"],
       "drivers": [
         {
           "name": "BIOS / UEFI",
@@ -116,6 +116,66 @@
           "deviceIdMatch": "",
           "action": "deeplink",
           "_comment": "Bewusst dupliziert statt geerbt: Bloecke vererben nichts, ohne diese Zeile haette der EX keine GPU-Zeile im Treiber-Tab. Der EX (Arc B390, Xe3) laeuft laut Tester-Report auf demselben WHQL-Build wie der A2VM und dieselbe Arc-Downloadseite (ID 785597) deckt beide ab -> bei neuem WHQL BEIDE Bloecke aktualisieren. Die restlichen Intel-Treiber (WiFi/Chipsatz/GPU-Detection) laufen ohnehin dynamisch ueber den Intel-DSA-Katalog (IntelDsaCatalogService); VEN_8086&DEV_B080 (Arc B390) ist dort bereits enthalten - hier nichts weiter pflegen."
+        }
+      ]
+    },
+    {
+      "deviceType": 40,
+      "_deviceComment": "40 = MSIClaw. Claw A1M (Meteor Lake, Core Ultra 100H) - Board MS-1T41. Erste Generation. Der Block existiert seit 2026-08-20; davor war MS-1T41 im A2VM-Block gelistet und haette dem Geraet ein fremdes BIOS angeboten. WICHTIG: ClawTweaks steuert den A1M derzeit gar nicht an (MSIClawModelSpec.Supported = false), dieser Block wird also erst sichtbar, wenn das Geraet freigeschaltet ist - er steht hier, damit er dann stimmt und nicht erst gesucht werden muss.",
+      "models": ["MS-1T41"],
+      "drivers": [
+        {
+          "name": "BIOS / UEFI",
+          "category": "BIOS/UEFI",
+          "providerScope": "msi",
+          "version": "E1T41IMS.10F",
+          "releaseDate": "2025-09-26",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T41IMS.10F.zip",
+          "severity": "recommended",
+          "pnpMatchHints": [],
+          "deviceIdMatch": "",
+          "action": "install",
+          "_comment": "System-BIOS (MS-1T41), von MSIs A1M-Supportseite. Die Suffixe sind HEXADEZIMAL - .10F folgt auf .10E und ist NEUER als .109; nicht dezimal lesen (derselbe Stolperstein wie beim EX). Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen)."
+        },
+        {
+          "name": "MSI Controller-Firmware",
+          "category": "Firmware",
+          "providerScope": "msi",
+          "version": "1.72",
+          "releaseDate": "2025-09-11",
+          "downloadUrl": "https://download.msi.com/archive/frm_exe/nb/MSI%20Controller%20FW%20Updater_2509_0401.zip",
+          "severity": "recommended",
+          "pnpMatchHints": ["claw", "controller", "gamepad"],
+          "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
+          "action": "install",
+          "_comment": "Eigener Download-Stand: der A1M steht auf 1.72 (2025-09-11), der A2VM auf 2.29 - beides sind eigene FW-Zweige, nicht Versionen derselben Datei. Installierte Version wird aus dem HID-Descriptor gelesen (bcdDevice, 0x172 -> '1.72'). .zip -> Download ohne Auto-Start (Firmware nie auto-flashen)."
+        },
+        {
+          "name": "MSI Center M",
+          "category": "Software",
+          "providerScope": "msi",
+          "version": "2.0.2605.1501",
+          "releaseDate": "2026-05-29",
+          "downloadUrl": "https://download.msi.com/uti_exe/nb/MSI%20Center%20M%20Installer_2.0.2605.1501_2.0.2605.1501_0x88a161f2.zip",
+          "severity": "optional",
+          "pnpMatchHints": ["center"],
+          "deviceIdMatch": "",
+          "installedRegistry": { "path": "HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M", "value": "Package_Version" },
+          "action": "install",
+          "_comment": "Identisch zum A2VM (Center M 2.x, bestaetigt vom Geraeteeigner) - nur der EX faehrt 3.x. Bewusst dupliziert statt geerbt, weil Bloecke nichts vererben: bei einem neuen 2.x-Release BEIDE Bloecke aktualisieren."
+        },
+        {
+          "name": "Intel Arc Grafik",
+          "category": "Graphics",
+          "providerScope": "intel",
+          "version": "32.0.101.8826",
+          "releaseDate": "2026-06-03",
+          "downloadUrl": "https://www.intel.com/content/www/us/en/download/785597/intel-arc-graphics-windows.html",
+          "severity": "recommended",
+          "pnpMatchHints": ["graphics", "arc"],
+          "deviceIdMatch": "",
+          "action": "deeplink",
+          "_comment": "UNGEPRUEFT fuer Meteor Lake. Die anderen beiden Bloecke fuehren dieselbe Seite (ID 785597) und dieselbe WHQL-Version, und Intel liefert fuer Core Ultra 100H dasselbe vereinheitlichte Arc-Paket - nachgemessen hat das auf einem A1M aber niemand. Die Zeile steht trotzdem hier, weil Bloecke nichts vererben und der A1M sonst gar keine GPU-Zeile haette; action=deeplink macht den Schaden klein (der Knopf oeffnet die Downloadseite, die ohnehin das Richtige listet). Meldet ein A1M-Nutzer eine unsinnige Versionsdiagnose, ist DIESE Zeile die Ursache."
         }
       ]
     }
