@@ -18,8 +18,8 @@
   "minimumClawTweaksVersion": "0.1.8.51",
   "clawTweaksVersionMessage": "Outdated version — install 0.1.8.51 or newer",
 
-  "latestSetupVersion": "0.1.9.17",
+  "latestSetupVersion": "0.1.9.18",
   "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases",
-  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/download/0.1.9.17/CTW_Center_0.1.9.17_Setup.exe",
-  "latestSetupSha256": "618e42fc60be316180e4aff9e7711026b40b03e7483c6680753d7b537f988058"
+  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/download/0.1.9.18/CTW_Center_0.1.9.18_Setup.exe",
+  "latestSetupSha256": "552d3aeb590e8db4f1407b4b8c3da27428d959bc75d9b8cb1c6a59dd5bbdc534"
 }
