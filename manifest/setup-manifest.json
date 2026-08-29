@@ -10,7 +10,7 @@
   "_readme_release":"Release procedure - steps 1-4 happen in the enterTheVoidCode/ClawTweaksCenter repo, step 5 lands here: (1) bump <Version> in ClawTweaksCenter/ClawTweaksCenter.csproj, (2) dotnet publish -c Release, (3) create a GitHub release IN THE CENTER REPO, tag = the bare version (no leading v), and attach the resulting CTW_Center_<version>_Setup.exe, (4) gh release download that tag and Get-FileHash -Algorithm SHA256 the DOWNLOADED file, (5) fill the fields below and push to public master. Two traps. The hash: every rebuild changes it, including a comment-only edit, so take it after the final build and from the uploaded artifact, not from bin. And step 5 is the one that gets forgotten - 0.1.9.16 was released without it, so no Center in the field ever learned the version existed. Until 0.1.9.16 Center had no releases of its own and rode along on the app repo's tags (0.1.9.15 sat on the app's 0.2.0 tag); that is history now, but old latestSetupUrl values still point there. latestSetupUrl must be https on github.com / objects.githubusercontent.com / release-assets.githubusercontent.com and end in .exe - old Centers' SanitizeUrl rejects anything else, and it is a string they download an executable from.",
 
   "schemaVersion": 3,
-  "updatedUtc": "2026-08-22",
+  "updatedUtc": "2026-08-29",
 
   "minimumSetupVersion": "0.1.9.12",
   "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub.",
@@ -18,8 +18,8 @@
   "minimumClawTweaksVersion": "0.1.8.51",
   "clawTweaksVersionMessage": "Outdated version — install 0.1.8.51 or newer",
 
-  "latestSetupVersion": "0.1.9.18",
+  "latestSetupVersion": "0.2.8.16",
   "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases",
-  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/download/0.1.9.18/CTW_Center_0.1.9.18_Setup.exe",
-  "latestSetupSha256": "552d3aeb590e8db4f1407b4b8c3da27428d959bc75d9b8cb1c6a59dd5bbdc534"
+  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/download/0.2.8.16/CTW_Center_0.2.8.16_Setup.exe",
+  "latestSetupSha256": "f5111e1ab7399617cc1d9f541f7306932f7603a5c15c1742d8a03ba86a84a395"
 }
