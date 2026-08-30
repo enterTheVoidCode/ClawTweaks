@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-30T18:00:19Z",
+  "presets": [
+    {
+      "schemaVersion": "1",
+      "presetId": "KKDFQ850TTS8M4PQ393DCZSRCW",
+      "createdAt": "2026-08-30T17:10:05Z",
+      "nonce": "A0G7TR",
+      "authorId": "TTMHKXTYFV0C3TCZ",
+      "author": "test1",
+      "device": "a2vm8",
+      "gameStore": "local",
+      "gameId": "hollow knight silksong.exe",
+      "gameTitle": "Hollow Knight Silksong",
+      "fpsNative": "120",
+      "tdpW": "15",
+      "powerState": "plugged",
+      "resolution": "1920x1200",
+      "graphicsPreset": "high",
+      "upscaler": "off",
+      "upscalerPreset": "-",
+      "upscalerSource": "-",
+      "frameGen": "off",
+      "frameGenFactor": "-",
+      "pl2W": "-",
+      "boostMode": "1",
+      "osPowerMode": "-",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "-",
+      "shadows": "-",
+      "aniso": "-",
+      "lighting": "-",
+      "viewDistance": "-",
+      "characters": "-",
+      "threadId": "1543669163791351902",
+      "url": "https://discord.com/channels/1513953677390512329/1543669163791351902",
+      "code": "CTW-ZPH5X0NM-C"
+    }
+  ]
+}
