@@ -18,6 +18,40 @@
   "minimumClawTweaksVersion": "0.1.8.51",
   "clawTweaksVersionMessage": "Outdated version — install 0.1.8.51 or newer",
 
+  "_readme_tools": "toolRequirements is read by the ClawTweaks INSTALLER (Inno) at install time, and by nothing else - Center and the helper ignore it. Per tool: minimum is the floor (below it the tool is installed or replaced), maximum is an OPTIONAL ceiling, and knownBad names single bad releases. NO MAXIMUM MEANS NEWEST WINS: that is the default and it is deliberate, because the normal case is that a new vendor release works. A ceiling exists only where a release is known to break us. THE INSTALLER NEVER DOWNGRADES: finding a version above maximum or in knownBad, it refuses that step, shows unsupportedMessage and asks the user to remove the tool and run setup again. Uninstalling a foreign driver behind the user's back would cost two reboots and is not ours to do. Like every other check here it FAILS OPEN: offline, field missing, or a version that does not parse means the tool counts as good. And it only takes effect once pushed to PUBLIC master. signerAny is the Authenticode subject pin checked BEFORE the downloaded installer is executed - the URL alone is not the guarantee, the signature is.",
+
+  "_readme_tools_usbip": "usbip is the one tool with a ceiling. 0.9.7.8 does not mount the virtual controller under ClawTweaks - libviiper attaches through an IOCTL whose struct grew a serial field in that release, and driving the usbip CLI instead was tried (XboxGamingBarHelper UsbipClient.cs, commit 'Fix VIIPER virtual controller not mounting on current usbip-win2') and did NOT fix it. It is also reported to cost CPU. The failure is silent: the mount reports success in about 7 ms instead of 2 s and no pad reaches the bus. Raise maximum here the day a later release is verified on a device - that lifts the cap for everyone with no new installer.",
+
+  "toolRequirements": {
+    "usbip": {
+      "minimum": "0.9.7.7",
+      "maximum": "0.9.7.7",
+      "pinned": "0.9.7.7",
+      "url": "https://github.com/vadimgrn/usbip-win2/releases/download/v.0.9.7.7/USBip-0.9.7.7-x64.exe",
+      "signerAny": ["Scheibling", "Cloudyne"],
+      "unsupportedMessage": "usbip {found} is not supported. Remove it, then run this setup again."
+    },
+    "hidhide": {
+      "minimum": "1.5.230",
+      "latestFrom": "github:nefarius/HidHide",
+      "signerAny": ["Nefarius"],
+      "unsupportedMessage": "HidHide {found} is not supported. Remove it, then run this setup again."
+    },
+    "pawnio": {
+      "minimum": "2.2.0.0",
+      "latestFrom": "github:namazso/PawnIO.Setup",
+      "signerAny": [],
+      "unsupportedMessage": "PawnIO {found} is not supported. Remove it, then run this setup again."
+    },
+    "rtss": {
+      "minimum": "7.3.7",
+      "latestFrom": "manifest",
+      "url": "",
+      "signerAny": [],
+      "unsupportedMessage": "RivaTuner Statistics Server {found} is not supported. Remove it, then run this setup again."
+    }
+  },
+
   "latestSetupVersion": "0.2.8.16",
   "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases",
   "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/download/0.2.8.16/CTW_Center_0.2.8.16_Setup.exe",
