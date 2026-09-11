@@ -10,13 +10,19 @@
   "_readme_release":"Release procedure - steps 1-4 happen in the enterTheVoidCode/ClawTweaksCenter repo, step 5 lands here: (1) bump <Version> in ClawTweaksCenter/ClawTweaksCenter.csproj, (2) dotnet publish -c Release, (3) create a GitHub release IN THE CENTER REPO, tag = the bare version (no leading v), and attach the resulting CTW_Center_<version>_Setup.exe, (4) gh release download that tag and Get-FileHash -Algorithm SHA256 the DOWNLOADED file, (5) fill the fields below and push to public master. Two traps. The hash: every rebuild changes it, including a comment-only edit, so take it after the final build and from the uploaded artifact, not from bin. And step 5 is the one that gets forgotten - 0.1.9.16 was released without it, so no Center in the field ever learned the version existed. Until 0.1.9.16 Center had no releases of its own and rode along on the app repo's tags (0.1.9.15 sat on the app's 0.2.0 tag); that is history now, but old latestSetupUrl values still point there. latestSetupUrl must be https on github.com / objects.githubusercontent.com / release-assets.githubusercontent.com and end in .exe - old Centers' SanitizeUrl rejects anything else, and it is a string they download an executable from.",
 
   "schemaVersion": 3,
-  "updatedUtc": "2026-08-29",
+  "updatedUtc": "2026-09-11",
 
-  "minimumSetupVersion": "0.1.9.12",
-  "message": "This ClawTweaks Center build is outdated and known to have issues. Please download the latest build from GitHub.",
+  "_readme_transition": "MOVE TO THE INNO SETUP (2026-09-11, Doku/PLAN_User_Version_Transition_Velopack.md in the private repo). Center 0.2.39+ is installed ONLY by ClawTweaks_<ver>_Setup.exe from the app repo and updates itself through Velopack; it reads widget builds from the Center repo as MSIX. Older Centers read this file and the app repo's _Installer.zip releases. This manifest therefore (1) raises minimumSetupVersion/latestSetupVersion to the setup's Center, so every older Center shows the outdated warning and a notice, (2) points latestSetupPage at the APP repo, where the setup lives, and (3) raises minimumClawTweaksVersion one step above the transition release so older Centers list it greyed out instead of installing it. Newer Centers read minimumClawTweaksVersionV2 instead and are not locked. OPEN before pushing: latestSetupUrl/latestSetupSha256 still name the 0.2.8.16 Center exe - Center 0.1.8.x downloads and RUNS that URL, and whether it should run the Inno setup instead is untested. Push only together with the transition release: the app floor would otherwise lock every older Center out of every build before the setup exists.",
 
-  "minimumClawTweaksVersion": "0.1.8.51",
-  "clawTweaksVersionMessage": "Outdated version — install 0.1.8.51 or newer",
+  "minimumSetupVersion": "0.2.40",
+  "message": "Download the new ClawTweaks Setup from GitHub.",
+
+  "minimumClawTweaksVersion": "0.3.2.1",
+  "clawTweaksVersionMessage": "Install this version with the ClawTweaks Setup from GitHub.",
+
+  "_readme_app_floor_v2": "minimumClawTweaksVersionV2 / clawTweaksVersionMessageV2 are the app floor for Center 0.2.39 and later, which read these two INSTEAD of the pair above; older Centers do not know them. When the V2 key is present it wins outright - even an unparseable value means 'no floor' there rather than falling back to the old key, because during the move to the Inno setup the old key is exactly the value that would lock newer Centers out. Remove the V2 pair only if both generations should share one floor again.",
+  "minimumClawTweaksVersionV2": "0.1.8.51",
+  "clawTweaksVersionMessageV2": "Outdated version — install 0.1.8.51 or newer",
 
   "_readme_tools": "toolRequirements is read by the ClawTweaks INSTALLER (Inno) at install time, and by nothing else - Center and the helper ignore it. Per tool: minimum is the floor (below it the tool is installed or replaced), maximum is an OPTIONAL ceiling, and knownBad names single bad releases. NO MAXIMUM MEANS NEWEST WINS: that is the default and it is deliberate, because the normal case is that a new vendor release works. A ceiling exists only where a release is known to break us. THE INSTALLER NEVER DOWNGRADES: finding a version above maximum or in knownBad, it refuses that step, shows unsupportedMessage and asks the user to remove the tool and run setup again. Uninstalling a foreign driver behind the user's back would cost two reboots and is not ours to do. Like every other check here it FAILS OPEN: offline, field missing, or a version that does not parse means the tool counts as good. And it only takes effect once pushed to PUBLIC master. signerAny is the Authenticode subject pin checked BEFORE the downloaded installer is executed - the URL alone is not the guarantee, the signature is.",
 
@@ -52,8 +58,8 @@
     }
   },
 
-  "latestSetupVersion": "0.2.8.16",
-  "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases",
+  "latestSetupVersion": "0.2.40",
+  "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaks/releases",
   "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/download/0.2.8.16/CTW_Center_0.2.8.16_Setup.exe",
   "latestSetupSha256": "f5111e1ab7399617cc1d9f541f7306932f7603a5c15c1742d8a03ba86a84a395"
 }
