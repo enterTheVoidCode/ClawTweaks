@@ -17,7 +17,16 @@
   "minimumSetupVersion": "0.2.40",
   "message": "Download the new ClawTweaks Setup from GitHub.",
 
-  "minimumClawTweaksVersion": "0.3.2.1",
+  "_readme_announcements": "Messages posted ONCE into Center's notification list (Center 0.2.55+; older Centers ignore the field). id is the duplicate key - change it to re-post, edit the text to update silently. maxAppVersion is a ceiling: the message stops appearing once the INSTALLED ClawTweaks widget is above it, which is what makes 'install the new setup' go away for everyone who did. Text only - Center opens no URL from here and takes no action.",
+  "announcements": [
+    {
+      "id": "setup-0.4.0",
+      "title": "ClawTweaks 0.4.0: install the new Setup",
+      "detail": "Download ClawTweaks_0.4.0.0_Setup.exe from the GitHub releases page and run it once. It migrates your installation and turns on self-updates. The old in-app update path is retired.",
+      "maxAppVersion": "0.4.0.0"
+    }
+  ],
+  "minimumClawTweaksVersion": "0.4.0.1",
   "clawTweaksVersionMessage": "Install this version with the ClawTweaks Setup from GitHub.",
 
   "_readme_app_floor_v2": "minimumClawTweaksVersionV2 / clawTweaksVersionMessageV2 are the app floor for Center 0.2.39 and later, which read these two INSTEAD of the pair above; older Centers do not know them. When the V2 key is present it wins outright - even an unparseable value means 'no floor' there rather than falling back to the old key, because during the move to the Inno setup the old key is exactly the value that would lock newer Centers out. Remove the V2 pair only if both generations should share one floor again.",
