@@ -67,8 +67,8 @@
     }
   },
 
-  "latestSetupVersion": "0.2.40",
+  "latestSetupVersion": "0.4.1",
   "latestSetupPage": "https://github.com/enterTheVoidCode/ClawTweaks/releases",
-  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/download/0.2.8.16/CTW_Center_0.2.8.16_Setup.exe",
-  "latestSetupSha256": "f5111e1ab7399617cc1d9f541f7306932f7603a5c15c1742d8a03ba86a84a395"
+  "latestSetupUrl": "https://github.com/enterTheVoidCode/ClawTweaks/releases/download/0.4.0/ClawTweaks_0.4.0.0_Setup.exe",
+  "latestSetupSha256": "74a5060c2aefd87ae2010d7550d0edd91791b3a6718032543a31cf374dbd4c2d"
 }
