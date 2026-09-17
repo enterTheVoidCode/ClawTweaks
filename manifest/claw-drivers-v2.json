@@ -2,7 +2,7 @@
   "_readme": "Kuratiertes Treiber-/Firmware-Manifest fuer ClawTweaks - SCHEMA 2 (modell-gefiltert). Wird vom Helper (MsiClawDriverCheckService) von der master-Branch via raw.githubusercontent geladen. MSI-Eintraege (Firmware, BIOS, MSI-spezifisch): action=install laedt von download.msi.com (Whitelist). Intel-Eintraege (providerScope=intel): liefern die NEUESTE (WHQL-)Version fuer die automatisch erkannte Intel-Zeile - der Helper vergleicht installiert (PnP) vs. diese 'version' und meldet 'Update verfuegbar' (Update-Kachel). 'version' bei neuem WHQL-Release aktualisieren (~1x/Monat); action=deeplink (oeffnet die Intel-Seite). .zip-Dateien werden heruntergeladen aber NIE automatisch gestartet (nur .exe/.msi) - fuer Firmware/BIOS sicher.",
   "_v2Comment": "WARUM ES DIESE DATEI GIBT: claw-drivers.json (v1) MUSS unveraendert bleiben - sie ist die URL, die in JEDER alten ClawTweaks-Binary einkompiliert ist. Bis 0.1.7.94 war ModelCode immer leer (der Board-Code wurde aus Win32_ComputerSystemProduct.Name gelesen, wo er nicht steht - er lebt in Win32_BaseBoard.Product). Der models[]-Filter greift aber nur bei nicht-leerem ModelCode, d.h. alte Clients ignorieren ihn und wuerden JEDEN device-Block anzeigen. Ein zweiter Block in v1 haette Claw-8-AI-Usern das BIOS des Claw 8 EX als Update angeboten. Alte Builds kennen diese v2-URL nicht und koennen sie nie laden - deshalb ist die Trennung dicht. v1 bleibt gepflegt, solange es alte Installationen gibt.",
   "schemaVersion": 2,
-  "updatedUtc": "2026-08-20",
+  "updatedUtc": "2026-09-17",
   "_moddedWifiComment": "Optional: Drittanbieter-Modded-WiFi-Treiber (theboss619). url = aktueller TechPowerUp-Anhang (aendert sich pro Release; im ersten Post des Threads). Wird nur genutzt, wenn der User den Toggle 'Use modded Wi-Fi driver' aktiviert. Bei neuem Release nur 'url' (und optional 'version') aktualisieren. Geraeteunabhaengig (Top-Level, kein device-Block).",
   "moddedWifi": {
     "name": "Intel Ultra Killer Wi-Fi (modded, theboss619)",
@@ -34,14 +34,14 @@
           "name": "MSI Controller-Firmware",
           "category": "Firmware",
           "providerScope": "msi",
-          "version": "2.29",
-          "releaseDate": "2026-04-21",
-          "downloadUrl": "https://download.msi.com/archive/frm_exe/nb/MSI%20Controller%20FW%20Updater_2604_1601.zip",
+          "version": "2.30",
+          "releaseDate": "2026-09-15",
+          "downloadUrl": "https://download.msi.com/archive/frm_exe/nb/MSI%20Controller%20FW%20Updater_2608_3101.zip",
           "severity": "recommended",
           "pnpMatchHints": ["claw", "controller", "gamepad"],
           "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
           "action": "install",
-          "_comment": "Nur A2VM: fuer den Claw 8 EX bietet MSI keinen separaten Controller-FW-Download mehr an (kommt ueber Center M), deshalb fehlt der Eintrag im MS-1T91-Block. Installierte Controller-FW-Version wird automatisch aus dem HID-Descriptor (bcdDevice, z.B. 0x229 -> '2.29') gelesen (MsiClawLedController.TryGetControllerFirmwareVersion, portiert aus HC). Vergleich gegen 'version' (neueste FW) ergibt den Update-Status. .zip -> Download ohne Auto-Start (Firmware nie auto-flashen)."
+          "_comment": "Seit 2026-09-15 liefert MSI EINEN Updater fuer A2VM und EX (Updater_2608_3101: A2VM 2.30, EX 4.19 - dieselbe ZIP, die Zeile im MS-1T91-Block traegt dieselbe URL mit der EX-Version). Davor stand hier 'nur A2VM, der EX bekommt die FW ueber Center M' - das galt bis zu diesem Release. Installierte Controller-FW-Version wird automatisch aus dem HID-Descriptor (bcdDevice, z.B. 0x229 -> '2.29') gelesen (MsiClawLedController.TryGetControllerFirmwareVersion, portiert aus HC). Vergleich gegen 'version' (neueste FW) ergibt den Update-Status. .zip -> Download ohne Auto-Start (Firmware nie auto-flashen)."
         },
         {
           "name": "MSI Center M",
@@ -74,21 +74,38 @@
     },
     {
       "deviceType": 40,
-      "_deviceComment": "40 = MSIClaw. Claw 8 EX AI+ CG3EM (Panther Lake, Arc B390) - Board MS-1T91. Bewusst OHNE Controller-Firmware-Eintrag: MSI bietet dafuer keinen separaten Download mehr an, die FW kommt ueber Center M.",
+      "_deviceComment": "40 = MSIClaw. Claw 8 EX AI+ CG3EM (Panther Lake, Arc B390) - Board MS-1T91. Bis 2026-09-17 bewusst OHNE Controller-Firmware-Eintrag (MSI bot keinen separaten Download an, die FW kam ueber Center M); seit dem Updater_2608_3101 vom 2026-09-15 gibt es ihn wieder, siehe die Firmware-Zeile.",
       "models": ["MS-1T91"],
       "drivers": [
         {
           "name": "BIOS / UEFI",
           "category": "BIOS/UEFI",
           "providerScope": "msi",
-          "version": "E1T91IMS.10A",
-          "releaseDate": "2026-08-07",
-          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T91IMS.10A.zip",
+          "version": "E1T91IMS.10D",
+          "releaseDate": "2026-09-16",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T91IMS.10D.zip",
           "severity": "recommended",
           "pnpMatchHints": [],
           "deviceIdMatch": "",
           "action": "install",
-          "_comment": "System-BIOS (MS-1T91). Download am 2026-08-07 per HEAD geprueft: HTTP 200, application/zip, 11.69 MiB. Ersetzt .105 (2026-06-11), das nach dem Rueckzug von .109 (2026-07-17) laengere Zeit die einzige offiziell angebotene Version war. Die Suffixe sind HEXADEZIMAL: 10A folgt auf 109, ist also NEUER als .105 - keine Zahl, die man dezimal lesen darf. Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. Wer .109 geflasht hatte, war bis hierhin faelschlich als 'veraltet' markiert und ist mit .10A wieder sauber. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T91IMS.10B), aber erst pruefen ob MSI es nicht wieder zurueckzieht."
+          "_comment": "System-BIOS (MS-1T91). .10D vom 2026-09-16 (11.97 MB laut MSI-Seite), ersetzt .10A (2026-08-07, per HEAD geprueft: HTTP 200, application/zip, 11.69 MiB). .10A ersetzte .105 (2026-06-11), das nach dem Rueckzug von .109 (2026-07-17) laengere Zeit die einzige offiziell angebotene Version war. Die Suffixe sind HEXADEZIMAL: 10A folgt auf 109, ist also NEUER als .105 - keine Zahl, die man dezimal lesen darf. Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. Wer .109 geflasht hatte, war bis hierhin faelschlich als 'veraltet' markiert und ist mit .10A wieder sauber. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T91IMS.10B), aber erst pruefen ob MSI es nicht wieder zurueckzieht."
+        },
+        {
+          "name": "MSI Controller-Firmware",
+          "category": "Firmware",
+          "providerScope": "msi",
+          "version": "4.19",
+          "releaseDate": "2026-09-15",
+          "downloadUrl": "https://download.msi.com/archive/frm_exe/nb/MSI%20Controller%20FW%20Updater_2608_3101.zip",
+          "severity": "recommended",
+          "pnpMatchHints": [
+            "claw",
+            "controller",
+            "gamepad"
+          ],
+          "deviceIdMatch": "HID\\VID_0DB0&PID_1902",
+          "action": "install",
+          "_comment": "Neu seit 2026-09-17: MSI listet fuer den EX wieder eine Controller-FW (4.19, 2026-09-15). Es ist DIESELBE ZIP wie beim A2VM (Updater_2608_3101) - der Updater erkennt das Geraet selbst; nur die Versionsnummer ist je Modell eine andere (A2VM 2.30). Der EX-FW-Zweig ist 4.x, kein Nachfolger der 2.x des A2VM. Installierte Version wird aus dem HID-Descriptor gelesen (bcdDevice, 0x419 -> '4.19'). .zip -> Download ohne Auto-Start (Firmware nie auto-flashen)."
         },
         {
           "name": "MSI Center M",
