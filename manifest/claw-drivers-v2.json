@@ -21,14 +21,14 @@
           "name": "BIOS / UEFI",
           "category": "BIOS/UEFI",
           "providerScope": "msi",
-          "version": "E1T52IMS.112",
-          "releaseDate": "",
-          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T52IMS.112.zip",
+          "version": "E1T52IMS.114",
+          "releaseDate": "2026-09-17",
+          "downloadUrl": "https://download.msi.com/bos_exe/nb/E1T52IMS.114.zip",
           "severity": "recommended",
           "pnpMatchHints": [],
           "deviceIdMatch": "",
           "action": "install",
-          "_comment": "System-BIOS (MS-1T52). Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. 'version' bei neuem BIOS aktualisieren (z.B. E1T52IMS.113)."
+          "_comment": "System-BIOS (MS-1T52). Installierte Version wird gegen Win32_BIOS verglichen; bei exakter Uebereinstimmung 'aktuell'. .zip -> wird heruntergeladen, NICHT auto-gestartet (BIOS niemals automatisch flashen) - manuell entpacken/flashen. .114 vom 2026-09-17 (9.64 MB laut MSI-Seite, per HEAD geprueft: HTTP 200, application/zip, 9.866.762 Bytes), ersetzt .112. Suffixe sind HEXADEZIMAL. 'version' bei neuem BIOS aktualisieren (z.B. E1T52IMS.115)."
         },
         {
           "name": "MSI Controller-Firmware",
@@ -47,15 +47,15 @@
           "name": "MSI Center M",
           "category": "Software",
           "providerScope": "msi",
-          "version": "2.0.2605.1501",
-          "releaseDate": "2026-05-29",
-          "downloadUrl": "https://download.msi.com/uti_exe/nb/MSI%20Center%20M%20Installer_2.0.2605.1501_2.0.2605.1501_0x88a161f2.zip",
+          "version": "3.0.2608.3101",
+          "releaseDate": "2026-09-17",
+          "downloadUrl": "https://download.msi.com/uti_exe/nb/MSI%20Center%20M%20Installer_3.0.2608.3101_3.0.2608.3101_0xaa40fad2.zip",
           "severity": "optional",
           "pnpMatchHints": ["center"],
           "deviceIdMatch": "",
           "installedRegistry": { "path": "HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M", "value": "Package_Version" },
           "action": "install",
-          "_comment": "Der Claw 8 AI+ faehrt Center M 2.x (der EX 3.x - eigener Eintrag im MS-1T91-Block). Installierte Version aus der Registry (MSI Center M legt sie unter HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M : Package_Version ab; zuverlaessiger als Uninstall-Fuzzy-Match). .zip -> Download, danach manuell entpacken/installieren."
+          "_comment": "Seit 2026-09-17 bietet MSI auch fuer den Claw 8 AI+ Center M 3.x an (3.0.2608.3101, 206.39 MB laut MSI-Seite, per HEAD geprueft: HTTP 200, 211.348.340 Bytes); davor 2.0.2605.1501. Der EX hat weiter einen eigenen Eintrag im MS-1T91-Block, der A1M-Block bleibt auf 2.x. Installierte Version aus der Registry (MSI Center M legt sie unter HKLM\\SOFTWARE\\WOW6432Node\\MSI\\MSI Center M : Package_Version ab; zuverlaessiger als Uninstall-Fuzzy-Match). .zip -> Download, danach manuell entpacken/installieren."
         },
         {
           "name": "Intel Arc Grafik",
