@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-01T06:54:57Z",
+  "generatedAt": "2026-10-01T08:06:07Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -260,7 +260,17 @@
       "lighting": "-",
       "viewDistance": "-",
       "characters": "-",
-      "seenMessageCount": 0,
+      "ratingAvg": 4.0,
+      "ratingCount": 1,
+      "ratingBreakdown": "fbAdoption=asIs:1,fbPerf=slightlyLower:1,fbTdp=asStated:1,fbVisuals=good:1",
+      "ratingComments": [
+        {
+          "author": "billy",
+          "stars": 4,
+          "text": "test"
+        }
+      ],
+      "seenMessageCount": 1,
       "threadId": "1552061608774336524",
       "url": "https://discord.com/channels/1513953677390512329/1552061608774336524",
       "code": "CTW-739M62M7-2"
@@ -301,6 +311,43 @@
       "threadId": "1554313327386173491",
       "url": "https://discord.com/channels/1513953677390512329/1554313327386173491",
       "code": "CTW-HQKWRCNM-K"
+    },
+    {
+      "schemaVersion": "1",
+      "presetId": "WQGG6KSJPAY1DWK44Y7WTCS0CW",
+      "createdAt": "2026-10-01T07:42:37Z",
+      "nonce": "CD2PEP",
+      "authorId": "TTMHKXTYFV0C3TCZ",
+      "author": "billy",
+      "device": "a2vm8",
+      "gameStore": "steam",
+      "gameId": "292030",
+      "gameTitle": "The Witcher 3: Wild Hunt — Remastered",
+      "fpsNative": "50",
+      "tdpW": "17",
+      "powerState": "battery",
+      "resolution": "1920x1200",
+      "graphicsPreset": "medium",
+      "upscaler": "xess",
+      "upscalerPreset": "performance",
+      "upscalerSource": "ingame",
+      "frameGen": "off",
+      "frameGenFactor": "-",
+      "pl2W": "-",
+      "cpuBoostMode": "-",
+      "osPowerMode": "-",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "ultra",
+      "shadows": "medium",
+      "aniso": "8x",
+      "lighting": "medium",
+      "viewDistance": "medium",
+      "characters": "medium",
+      "seenMessageCount": 0,
+      "threadId": "1555122767534497804",
+      "url": "https://discord.com/channels/1513953677390512329/1555122767534497804",
+      "code": "CTW-9QEF605B-R"
     }
   ]
 }
