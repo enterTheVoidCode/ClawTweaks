@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-29T16:28:28Z",
+  "generatedAt": "2026-10-01T06:54:57Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -219,7 +219,11 @@
       "lighting": "-",
       "viewDistance": "-",
       "characters": "-",
-      "seenMessageCount": 0,
+      "ratingAvg": 4.0,
+      "ratingCount": 1,
+      "ratingBreakdown": "fbPerf=muchLower:1,fbStability=clean:1",
+      "ratingComments": [],
+      "seenMessageCount": 1,
       "threadId": "1552006364740583551",
       "url": "https://discord.com/channels/1513953677390512329/1552006364740583551",
       "code": "CTW-DK4X2V5R-M"
