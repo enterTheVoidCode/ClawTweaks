@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-02T11:39:35Z",
+  "generatedAt": "2026-10-02T20:22:31Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -765,6 +765,44 @@
       "threadId": "1555542860349181963",
       "url": "https://discord.com/channels/1513953677390512329/1555542860349181963",
       "code": "CTW-87DW143W-7"
+    },
+    {
+      "schemaVersion": "1",
+      "presetId": "2YPZJF85RWH6F3BHGNJRSBNBD0",
+      "createdAt": "2026-10-02T19:44:53Z",
+      "nonce": "SBSDKB",
+      "authorId": "24JQDJFACCD215S0",
+      "author": "12122",
+      "device": "a1m",
+      "gameStore": "local",
+      "gameId": "f8f552b82ca74f18a7c3e8a303815e09",
+      "gameTitle": "FC27",
+      "fpsNative": "60",
+      "tdpW": "20",
+      "powerState": "battery",
+      "resolution": "1920x1080",
+      "graphicsPreset": "low",
+      "upscaler": "off",
+      "upscalerPreset": "-",
+      "upscalerSource": "-",
+      "frameGen": "off",
+      "frameGenFactor": "-",
+      "pl2W": "-",
+      "cpuBoostMode": "0",
+      "osPowerMode": "-",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "-",
+      "shadows": "-",
+      "aniso": "-",
+      "lighting": "-",
+      "viewDistance": "-",
+      "characters": "-",
+      "fpsCapMode": "-",
+      "seenMessageCount": 0,
+      "threadId": "1555666910803263570",
+      "url": "https://discord.com/channels/1513953677390512329/1555666910803263570",
+      "code": "CTW-8QV45WGD-R"
     }
   ]
 }
