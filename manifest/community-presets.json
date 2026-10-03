@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-03T06:46:13Z",
+  "generatedAt": "2026-10-03T13:10:02Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -917,6 +917,44 @@
       "threadId": "1555827040257572898",
       "url": "https://discord.com/channels/1513953677390512329/1555827040257572898",
       "code": "CTW-J1SPM6KP-2"
+    },
+    {
+      "schemaVersion": "1",
+      "presetId": "00MM4BCYKDW83D6FEKGDZCVJYG",
+      "createdAt": "2026-10-03T09:26:27Z",
+      "nonce": "GZ450Y",
+      "authorId": "CABB8H1RYC6JDJHG",
+      "author": "baldo",
+      "device": "ex",
+      "gameStore": "steam",
+      "gameId": "1693980",
+      "gameTitle": "Dead Space",
+      "fpsNative": "40",
+      "tdpW": "25",
+      "powerState": "battery",
+      "resolution": "1920x1200",
+      "graphicsPreset": "medium",
+      "upscaler": "off",
+      "upscalerPreset": "-",
+      "upscalerSource": "-",
+      "frameGen": "off",
+      "frameGenFactor": "-",
+      "pl2W": "-",
+      "cpuBoostMode": "-",
+      "osPowerMode": "-",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "-",
+      "shadows": "-",
+      "aniso": "-",
+      "lighting": "-",
+      "viewDistance": "-",
+      "characters": "-",
+      "fpsCapMode": "-",
+      "seenMessageCount": 0,
+      "threadId": "1555903867311624233",
+      "url": "https://discord.com/channels/1513953677390512329/1555903867311624233",
+      "code": "CTW-1KVQMM8H-A"
     }
   ]
 }
