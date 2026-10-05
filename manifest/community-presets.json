@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-04T19:30:51Z",
+  "generatedAt": "2026-10-05T07:11:48Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -1069,6 +1069,44 @@
       "threadId": "1556309588905824317",
       "url": "https://discord.com/channels/1513953677390512329/1556309588905824317",
       "code": "CTW-D17CZCT3-B"
+    },
+    {
+      "schemaVersion": "2",
+      "presetId": "BAAV1E2HP1PBDMB1KG1827R37R",
+      "createdAt": "2026-10-05T04:29:54Z",
+      "nonce": "2ZSTYM",
+      "authorId": "N2WVJXPVP6SF0TYT",
+      "author": "thygod",
+      "device": "a2vm8",
+      "gameStore": "local",
+      "gameId": "client-win64-shipping.exe",
+      "gameTitle": "Wuthering Waves",
+      "fpsNative": "22",
+      "tdpW": "30",
+      "powerState": "plugged",
+      "resolution": "2560x1600",
+      "graphicsPreset": "high",
+      "upscaler": "xess",
+      "upscalerPreset": "ultraquality",
+      "upscalerSource": "ingame",
+      "frameGen": "on",
+      "frameGenFactor": "2",
+      "pl2W": "-",
+      "cpuBoostMode": "0",
+      "osPowerMode": "performance",
+      "fpsLimit": "-",
+      "fanCurve": "0,0,40,49,58,128,150,0,40,49,58,128,75",
+      "texture": "high",
+      "shadows": "high",
+      "aniso": "16x",
+      "lighting": "high",
+      "viewDistance": "low",
+      "characters": "high",
+      "fpsCapMode": "-",
+      "seenMessageCount": 1,
+      "threadId": "1556523976333729944",
+      "url": "https://discord.com/channels/1513953677390512329/1556523976333729944",
+      "code": "CTW-VNKHHC08-5"
     }
   ]
 }
