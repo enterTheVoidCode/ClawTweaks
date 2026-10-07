@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-06T09:09:33Z",
+  "generatedAt": "2026-10-07T17:36:05Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -1183,6 +1183,44 @@
       "threadId": "1556800321953595444",
       "url": "https://discord.com/channels/1513953677390512329/1556800321953595444",
       "code": "CTW-C5XXQWG4-R"
+    },
+    {
+      "schemaVersion": "2",
+      "presetId": "ZK3VA44S05ETMWJ4DJX701PBBG",
+      "createdAt": "2026-10-07T15:53:10Z",
+      "nonce": "88E1PM",
+      "authorId": "1YJ612NSF0SC4REA",
+      "author": "cropdeck",
+      "device": "a2vm8",
+      "gameStore": "steam",
+      "gameId": "3500680",
+      "gameTitle": "Cropdeck",
+      "fpsNative": "60",
+      "tdpW": "8",
+      "powerState": "battery",
+      "resolution": "1920x1200",
+      "graphicsPreset": "high",
+      "upscaler": "off",
+      "upscalerPreset": "-",
+      "upscalerSource": "-",
+      "frameGen": "off",
+      "frameGenFactor": "-",
+      "pl2W": "-",
+      "cpuBoostMode": "1",
+      "osPowerMode": "-",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "high",
+      "shadows": "high",
+      "aniso": "8x",
+      "lighting": "high",
+      "viewDistance": "high",
+      "characters": "high",
+      "fpsCapMode": "-",
+      "seenMessageCount": 0,
+      "threadId": "1557420578921517210",
+      "url": "https://discord.com/channels/1513953677390512329/1557420578921517210",
+      "code": "CTW-NT8R7VEN-8"
     }
   ]
 }
