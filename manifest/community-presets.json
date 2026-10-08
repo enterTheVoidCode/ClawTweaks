@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-07T17:36:05Z",
+  "generatedAt": "2026-10-08T05:21:52Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -1221,6 +1221,44 @@
       "threadId": "1557420578921517210",
       "url": "https://discord.com/channels/1513953677390512329/1557420578921517210",
       "code": "CTW-NT8R7VEN-8"
+    },
+    {
+      "schemaVersion": "1",
+      "presetId": "4V7DEJ238TEC158VSP9M1EDDFC",
+      "createdAt": "2026-10-07T20:52:45Z",
+      "nonce": "MH7MNA",
+      "authorId": "RWPG62ZZGCMX161B",
+      "author": "DrToxicity101",
+      "device": "a2vm8",
+      "gameStore": "local",
+      "gameId": "totclient-win64-shipping.exe",
+      "gameTitle": "The Outlast Trials",
+      "fpsNative": "60",
+      "tdpW": "30",
+      "powerState": "plugged",
+      "resolution": "1280x720",
+      "graphicsPreset": "low",
+      "upscaler": "off",
+      "upscalerPreset": "-",
+      "upscalerSource": "-",
+      "frameGen": "off",
+      "frameGenFactor": "-",
+      "pl2W": "-",
+      "cpuBoostMode": "1",
+      "osPowerMode": "-",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "-",
+      "shadows": "-",
+      "aniso": "-",
+      "lighting": "-",
+      "viewDistance": "-",
+      "characters": "-",
+      "fpsCapMode": "-",
+      "seenMessageCount": 0,
+      "threadId": "1557496123654938808",
+      "url": "https://discord.com/channels/1513953677390512329/1557496123654938808",
+      "code": "CTW-6Q7HJJ4P-1"
     }
   ]
 }
