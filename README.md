@@ -246,86 +246,12 @@ Cap the battery charge level to extend long-term battery lifespan.
 </p>
 
 ---
-
-## Installation
-
-### 🟢 Already running ClawTweaks? → just update (no certificate step)
-
-The certificate is **already trusted** on your device, so you only need the **`XboxGamingBarPackage_…_x64.msix`** asset from the release — **not** the full ZIP.
-
-Download just that `.msix`, double-click it → **Install**.
-
-> You can also update straight from inside the app via the in-app updater.
-
----
-
-### 🟠 First time on this device? → full install
-
-New users install the signing certificate **once**, then the app manually. No PowerShell, no typing — just a couple of double-clicks.
-
-1. **Extract the whole ZIP** to a folder (right-click the ZIP → **Extract All…**). Keep all the files together.
-2. **Trust the certificate — first install only, once per device:** double-click **`XboxGamingBarPackage_…_x64.cer`** → **Install Certificate…** → choose **Local Machine** → **Next** (approve the admin prompt) → **Place all certificates in the following store** → **Browse…** → **Trusted People** → **OK** → **Next** → **Finish**. You'll see *"The import was successful."*
-3. **Install the app:** double-click **`XboxGamingBarPackage_…_x64.msix`** → the Windows **App Installer** window opens → click **Install**. *(If Windows offers to fetch required framework components, let it.)*
-4. **Wait until the Game Bar opens** on its own, and approve the background **UAC** prompt if it appears.
-
-<details>
-<summary><b>Alternative: one-shot installer script</b> — use this only if the double-click install above complains about missing framework packages</summary>
-
-<br>
-
-`Install.ps1` installs the certificate **and** every framework dependency in one go:
-
-1. In the extracted folder, open a terminal **in that folder**: right-click an empty spot → **Open in Terminal** (or open **Windows PowerShell** from the Start menu).
-2. Paste this line and press **Enter**:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\Install.ps1
-   ```
-   *The `-ExecutionPolicy Bypass` part only applies to this one run and changes nothing permanently.*
-
-</details>
-
-### Enable the Widget
-
-1. Open Xbox Game Bar (`Win + G`)
-2. Click the **Widgets** menu
-3. Find and enable **"Gaming"**
-4. Confirm UAC so that CTW can launch as admin after reboot
----
-
-## Requirements
-
-- Windows 11
-- Xbox Game Bar
-- **For controller emulation:** [ViGEmBus](https://github.com/nefarius/ViGEmBus) + [HidHide](https://github.com/nefarius/HidHide)
-- **Optional:**
-  - [RivaTuner Statistics Server](https://www.guru3d.com/download/rtss-rivatuner-statistics-server-download/) — required for OSD overlay and RTSS FPS limiter
-  - [PawnIO](https://github.com/SuporteTI/PawnIO) — required for extended sensors (fan speed, GPU power draw on some devices)
-  - Lossless Scaling — for scaling integration
----
-
-## Known Limitations
-
-- **Only supports MSI Claw 7/8 AI+ A2VM (Lunar Lake)**. The A1M (Meteor Lake) and other variants are not supported — installation will be blocked on unsupported hardware.
-- This is beta software — expect rough edges and report issues.
-
----
-
-## Technology
-
-100% free and open source. Built with C#.
-
 **Libraries used:**
 - **LibreHardwareMonitor** — hardware sensors
 - **RTSSSharedMemoryNET** — OSD overlay with frametime graph support
-- **ViGEmBus / HidHide** — virtual controller and HID suppression
+- **USB/IP win 2 / HidHide** — virtual controller and HID suppression
 
 ---
-
-## Credits
-
-Based on [GoTweaks](https://github.com/corando98/GoTweaks) by [namquang93](https://github.com/namquang93) / [corando98](https://github.com/corando98).
-
-Some Controller emulation and gyro implementation parts adapted from [Handheld Companion](https://github.com/Valkirie/HandheldCompanion).
 
 ## License
 
