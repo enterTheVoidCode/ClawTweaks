@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-16T09:19:51Z",
+  "generatedAt": "2026-10-17T17:25:37Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -1943,6 +1943,44 @@
       "threadId": "1560408684939714691",
       "url": "https://discord.com/channels/1513953677390512329/1560408684939714691",
       "code": "CTW-1F4BCKXQ-M"
+    },
+    {
+      "schemaVersion": "2",
+      "presetId": "CEHKD5M0M53H4KGDKAZARK4WVR",
+      "createdAt": "2026-10-17T15:27:24Z",
+      "nonce": "KYA2XE",
+      "authorId": "W7VKT44Q7W6SR3X2",
+      "author": "SoulH",
+      "device": "a2vm8",
+      "gameStore": "steam",
+      "gameId": "2982610",
+      "gameTitle": "Stonemachia",
+      "fpsNative": "60",
+      "tdpW": "25",
+      "powerState": "battery",
+      "resolution": "1600x1000",
+      "graphicsPreset": "high",
+      "upscaler": "off",
+      "upscalerPreset": "-",
+      "upscalerSource": "-",
+      "frameGen": "off",
+      "frameGenFactor": "-",
+      "pl2W": "-",
+      "cpuBoostMode": "1",
+      "osPowerMode": "-",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "-",
+      "shadows": "-",
+      "aniso": "-",
+      "lighting": "-",
+      "viewDistance": "-",
+      "characters": "-",
+      "fpsCapMode": "-",
+      "seenMessageCount": 0,
+      "threadId": "1561037953915027609",
+      "url": "https://discord.com/channels/1513953677390512329/1561037953915027609",
+      "code": "CTW-T0Z2CTVT-8"
     }
   ]
 }
