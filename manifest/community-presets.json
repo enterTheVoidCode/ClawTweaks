@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-30T06:22:09Z",
+  "generatedAt": "2026-10-30T21:18:16Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -2513,6 +2513,44 @@
       "threadId": "1565454968402743317",
       "url": "https://discord.com/channels/1513953677390512329/1565454968402743317",
       "code": "CTW-X0AYNTX5-F"
+    },
+    {
+      "schemaVersion": "2",
+      "presetId": "643M8ZDBE7NR0BKX49D7C5PFH4",
+      "createdAt": "2026-10-30T19:45:03Z",
+      "nonce": "SD3S26",
+      "authorId": "Z7S4RJTXGQ6D0D4M",
+      "author": "profet",
+      "device": "a2vm8",
+      "gameStore": "steam",
+      "gameId": "2622380",
+      "gameTitle": "ELDEN RING NIGHTREIGN",
+      "fpsNative": "40",
+      "tdpW": "25",
+      "powerState": "battery",
+      "resolution": "1920x1080",
+      "graphicsPreset": "low",
+      "upscaler": "other",
+      "upscalerPreset": "performance",
+      "upscalerSource": "ingame",
+      "frameGen": "off",
+      "frameGenFactor": "-",
+      "pl2W": "-",
+      "cpuBoostMode": "1",
+      "osPowerMode": "performance",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "-",
+      "shadows": "-",
+      "aniso": "-",
+      "lighting": "-",
+      "viewDistance": "-",
+      "characters": "-",
+      "fpsCapMode": "-",
+      "seenMessageCount": 0,
+      "threadId": "1565813966997815431",
+      "url": "https://discord.com/channels/1513953677390512329/1565813966997815431",
+      "code": "CTW-VPJR0BMD-D"
     }
   ]
 }
