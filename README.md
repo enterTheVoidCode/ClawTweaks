@@ -13,6 +13,7 @@
 - **Optional virtual controller:** use gyro with smoothing and anti-deadzone
 - **Live in game:** set TDP, performance modes, CPU boost and Intel settings in the Game Bar or in our own Quick Access Menu, down to colour settings per channel, contrast and XeSS MFG
 - **Performance overlays:** far more presets, and you can customize their values
+- **Optional library:** CyanNova comes with the setup and installs if you choose it. It can update ClawTweaks automatically and tells you about new updates
 
 The setup asks in detail what you want:
 
