@@ -154,6 +154,15 @@ CyanNova is optimized for ClawTweaks:
 
 Uses [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor), RTSS, [HidHide](https://github.com/nefarius/HidHide), [usbip-win2](https://github.com/vadimgrn/usbip-win2) and [VIIPER](https://github.com/Alia5/VIIPER).
 
+Thanks to [onehoon](https://github.com/onehoon) for providing the [VIIPER fork](https://github.com/onehoon/VIIPER) optimized especially for MSI Claw.
+
+## Disclaimer
+
+- **Independent project:** ClawTweaks is not affiliated with or endorsed by MSI. MSI and Claw are trademarks of their owners.
+- **Testing:** changes are tested for several days with test users on Discord before each release.
+- **Developer and AI:** ClawTweaks is made by one developer with over 10 years of experience in application and web development. AI assistance is used in parts of the development, and code from AI is reviewed.
+- **Your own risk:** ClawTweaks changes power limits and fan curves and can install drivers. It comes without warranty, and we accept no liability for damage to your device or loss of data.
+
 ## License
 
 [AGPLv3](LICENSE). Some parts stay under [MIT](LICENSE.MIT). See [LICENSING.md](LICENSING.md).
