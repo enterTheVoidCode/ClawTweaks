@@ -7,6 +7,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-F59E0B" alt="License: AGPLv3"></a>
 </p>
 
+<p align="center">
+  <img src="Doku/Readme/ctw-logo.jpg" width="600" alt="ClawTweaks">
+</p>
+
 **ClawTweaks replaces the OEM software on MSI Claw handhelds and extends it a lot.** Many Intel features are built in.
 
 - **Per-game profiles:** remap buttons and adjust deadzones, even with the Claw's hardware controller
