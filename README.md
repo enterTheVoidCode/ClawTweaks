@@ -15,10 +15,16 @@
 
 Use it in the Quick Access Menu or the Xbox Game Bar.
 
+The setup asks in detail what you want:
+
+- **Essential:** hardware controller only, no extra drivers
+- **Virtual controller:** smooth gyro with smoothing and anti-deadzone, powerful mouse remapping and keyboard shortcuts, everything MSI Center M cannot do
+
+See [Install Info](#install-info).
+
 ## Install
 
-1. Install MSI Center M.
-2. Download `ClawTweaks_<version>_Setup.exe` from the [latest release](https://github.com/enterTheVoidCode/ClawTweaks/releases/latest) and run it.
+Download `ClawTweaks_<version>_Setup.exe` from the [latest release](https://github.com/enterTheVoidCode/ClawTweaks/releases/latest) and run it.
 
 | Device | Status |
 |---|---|
@@ -96,10 +102,25 @@ Use the Quick Access Menu, the Game Bar or both. Both save to the same profiles.
 - **Device:** charge limit, LED and battery calibration
 - **Library:** optional [CyanNova](https://github.com/enterTheVoidCode/ClawTweaksCenter) game library
 
+## Install Info
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><img src="Doku/Readme/edition-essential.png" alt="ClawTweaks Essential"></td>
+    <td width="33%" valign="top"><img src="Doku/Readme/edition-full.png" alt="ClawTweaks Full"></td>
+    <td width="33%" valign="top"><img src="Doku/Readme/edition-custom.png" alt="ClawTweaks Custom"></td>
+  </tr>
+  <tr>
+    <td valign="top"><strong>Essential</strong><br>No extra drivers.<br>Hardware controller.<br>Per-game button remaps and macros in hardware.<br>Built-in overlay.<br>Intel FPS limiter (does not work in every game).</td>
+    <td valign="top"><strong>Full</strong><br>Everything in Essential.<br>Virtual controller: gyro, mouse mode, custom shortcuts.<br>RTSS overlay and RTSS FPS limiter. RTSS helps in some games, stutters or crashes in others.</td>
+    <td valign="top"><strong>Custom</strong><br>You choose: virtual or hardware controller, with or without RTSS.</td>
+  </tr>
+</table>
+
 ## Credits
 
-Built on [GoTweaks](https://github.com/corando98/GoTweaks). Uses [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor), RTSS, [HidHide](https://github.com/nefarius/HidHide), [usbip-win2](https://github.com/vadimgrn/usbip-win2) and [VIIPER](https://github.com/Alia5/VIIPER).
+Uses [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor), RTSS, [HidHide](https://github.com/nefarius/HidHide), [usbip-win2](https://github.com/vadimgrn/usbip-win2) and [VIIPER](https://github.com/Alia5/VIIPER).
 
 ## License
 
-[AGPLv3](LICENSE). Parts from GoTweaks and the Microsoft Game Bar sample stay under [MIT](LICENSE.MIT). See [LICENSING.md](LICENSING.md).
+[AGPLv3](LICENSE). Some parts stay under [MIT](LICENSE.MIT). See [LICENSING.md](LICENSING.md).
