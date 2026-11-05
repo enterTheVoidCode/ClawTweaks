@@ -114,6 +114,12 @@ Use the Quick Access Menu, the Game Bar or both. Both save to the same profiles.
 
 Steam, Epic, Xbox, Ubisoft, EA, Battle.net and GOG, your ROMs and your own apps in one place. The setup installs it if you want it.
 
+CyanNova is optimized for ClawTweaks:
+
+- Set performance settings right in the library
+- Apply community presets from other Claw users
+- Docked at a TV, use your external controller for TDP and many more settings, plus monitor settings, volume per app and more
+
 > [!NOTE]
 > The library is also available standalone for any Windows PC: [CyanNova](https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/latest).
 
