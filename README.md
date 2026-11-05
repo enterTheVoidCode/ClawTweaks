@@ -1,6 +1,15 @@
-<p align="center">
-  <img src="Doku/Readme/ctw-logo.jpg" width="600" alt="ClawTweaks">
-</p>
+<table>
+  <tr>
+    <td width="33%" valign="top"><img src="Doku/Readme/edition-essential.png" alt="ClawTweaks Essential"></td>
+    <td width="33%" valign="top"><img src="Doku/Readme/edition-full.png" alt="ClawTweaks Full"></td>
+    <td width="33%" valign="top"><img src="Doku/Readme/edition-custom.png" alt="ClawTweaks Custom"></td>
+  </tr>
+  <tr>
+    <td valign="top"><strong>Essential</strong><br>No extra drivers.<br>Hardware controller.<br>Per-game button remaps and macros in hardware.<br>Built-in overlay.<br>Intel FPS limiter (does not work in every game).</td>
+    <td valign="top"><strong>Full</strong><br>Everything in Essential.<br>Virtual controller: gyro, mouse mode, custom shortcuts.<br>RTSS overlay and RTSS FPS limiter. RTSS helps in some games, stutters or crashes in others.</td>
+    <td valign="top"><strong>Custom</strong><br>You choose: virtual or hardware controller, with or without RTSS.</td>
+  </tr>
+</table>
 
 <p align="center">
   <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases/latest"><img src="https://img.shields.io/github/v/release/enterTheVoidCode/ClawTweaks?display_name=tag&label=Latest%20Release&color=7C3AED&logo=github&logoColor=white" alt="Latest Release"></a>
@@ -19,8 +28,6 @@ The setup asks in detail what you want:
 
 - **Essential:** hardware controller only, no extra drivers
 - **Virtual controller:** smooth gyro with smoothing and anti-deadzone, powerful mouse remapping and keyboard shortcuts, everything MSI Center M cannot do
-
-See [Install Info](#install-info).
 
 ## Install
 
@@ -100,20 +107,39 @@ Use the Quick Access Menu, the Game Bar or both. Both save to the same profiles.
 - **Shortcuts:** button combos for tiles and actions, single and double click on the front button
 - **Overlay:** presets for RTSS or the built-in overlay
 - **Device:** charge limit, LED and battery calibration
-- **Library:** optional [CyanNova](https://github.com/enterTheVoidCode/ClawTweaksCenter) game library
+- **Library:** optional game library, see [Optional Library](#optional-library)
 
-## Install Info
+## Optional Library
+
+Steam, Epic, Xbox, Ubisoft, EA, Battle.net and GOG, your ROMs and your own apps in one place. The setup installs it if you want it.
+
+> [!NOTE]
+> The library is also available standalone for any Windows PC: [CyanNova](https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/latest).
 
 <table>
   <tr>
-    <td width="33%" valign="top"><img src="Doku/Readme/edition-essential.png" alt="ClawTweaks Essential"></td>
-    <td width="33%" valign="top"><img src="Doku/Readme/edition-full.png" alt="ClawTweaks Full"></td>
-    <td width="33%" valign="top"><img src="Doku/Readme/edition-custom.png" alt="ClawTweaks Custom"></td>
+    <td width="50%" valign="top"><img src="Doku/Readme/library-lockscreen.webp" alt="Lock screen"></td>
+    <td width="50%" valign="top"><img src="Doku/Readme/library-main.webp" alt="Library with recently played games"></td>
   </tr>
   <tr>
-    <td valign="top"><strong>Essential</strong><br>No extra drivers.<br>Hardware controller.<br>Per-game button remaps and macros in hardware.<br>Built-in overlay.<br>Intel FPS limiter (does not work in every game).</td>
-    <td valign="top"><strong>Full</strong><br>Everything in Essential.<br>Virtual controller: gyro, mouse mode, custom shortcuts.<br>RTSS overlay and RTSS FPS limiter. RTSS helps in some games, stutters or crashes in others.</td>
-    <td valign="top"><strong>Custom</strong><br>You choose: virtual or hardware controller, with or without RTSS.</td>
+    <td valign="top"><strong>Lock screen</strong><br>Your last game, battery and charge limit at a glance. Settings, sleep, hibernate, restart and shut down.</td>
+    <td valign="top"><strong>Recent games</strong><br>Your recently played games with score, game length and play time, in front of a live wallpaper.</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="Doku/Readme/library-saves.png" alt="Local and cloud saves"></td>
+    <td width="50%" valign="top"><img src="Doku/Readme/library-achievements.webp" alt="Achievements in gold, silver and bronze"></td>
+  </tr>
+  <tr>
+    <td valign="top"><strong>Local and cloud saves with Ludusavi</strong><br>For games without a built-in cloud sync, ROMs and PC ports. Get asked at game start when a newer save exists.</td>
+    <td valign="top"><strong>Achievements in gold, silver and bronze</strong><br>Ranked by rarity, with recent achievements right on the game.</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="Doku/Readme/library-updates.webp" alt="Game update history"></td>
+    <td width="50%" valign="middle"><strong>Connect to your PC</strong><br>Start your PC from the library, install games on the handheld or the PC, and choose a local or a streaming session.</td>
+  </tr>
+  <tr>
+    <td valign="top"><strong>Game update history</strong><br>Recent game updates across stores, with patch notes.</td>
+    <td></td>
   </tr>
 </table>
 
