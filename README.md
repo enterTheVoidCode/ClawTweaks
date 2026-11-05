@@ -127,6 +127,14 @@ CyanNova is optimized for ClawTweaks:
 
 > [!NOTE]
 > The library is also available standalone for any Windows PC: [CyanNova](https://github.com/enterTheVoidCode/ClawTweaksCenter/releases/latest).
+>
+> Use CyanNova as your library on the PC and on the handheld to get:
+>
+> - Direct game streaming from your PC to the handheld
+> - Save state exchange between your devices, also for games without cloud saves, PC ports and ROMs
+> - Cloud saves
+>
+> Play the Bloodborne PC port on your handheld and continue on your PC where you stopped, or the other way around.
 
 <table>
   <tr>
