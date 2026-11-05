@@ -1,269 +1,105 @@
-# ClawTweaks - CTW (Intel Only)
+<p align="center">
+  <img src="Doku/Readme/ctw-logo.jpg" width="600" alt="ClawTweaks">
+</p>
 
 <p align="center">
   <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases/latest"><img src="https://img.shields.io/github/v/release/enterTheVoidCode/ClawTweaks?display_name=tag&label=Latest%20Release&color=7C3AED&logo=github&logoColor=white" alt="Latest Release"></a>
   <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases"><img src="https://img.shields.io/github/downloads/enterTheVoidCode/ClawTweaks/total?label=Downloads&color=22C55E" alt="Downloads"></a>
   <a href="https://github.com/enterTheVoidCode/ClawTweaks/wiki"><img src="https://img.shields.io/badge/Wiki%20%26%20FAQ-Read%20the%20docs-2563EB?logo=readthedocs&logoColor=white" alt="Wiki & FAQ"></a>
-  <a href="https://discord.gg/3FWnMkJfk"><img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://discord.gg/WztXa3Krhf"><img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
   <a href="https://ko-fi.com/rifflash"><img src="https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-F59E0B" alt="License: AGPLv3"></a>
 </p>
 
-<p align="center">
-  <img src="Doku/ClawTweaks Logo Handheld.PNG" width="550" alt="Logo"><br>
-</p>
+**Optimized for Intel MSI Claw handhelds, with deep settings down to saturation and hue per colour channel. Everything works globally or per game.**
 
-A Game Bar widget for MSI Claw handheld gaming PCs. Built on the foundation of [GoTweaks](https://github.com/corando98/GoTweaks) (a Lenovo Legion Go widget), ClawTweaks replaces AMD-specific features with Intel equivalents, adds MSI Claw-specific hardware support, and introduces a wide range of new features alongside a streamlined UI.
+Use it in the Quick Access Menu or the Xbox Game Bar.
 
-> ### Supported Devices
-> | Device | Status |
-> |--------|--------|
-> | MSI Claw A1M (Meteor Lake) | ✅ Supported |
-> | **MSI Claw 8 AI+ A2VM** (Lunar Lake, MS-1T52) | ✅ Supported |
-> | **MSI Claw 7 AI+ A2VM / A2VMX** (Lunar Lake, MS-1T42) | ✅ Supported |
-> | MSI Claw A8 EX (AMD Z2E) | 🚫 not supported |
-> | MSI Claw 8 EX (Panther Lake) | ✅ Supported |
->
-> **The installer will abort with an error message if run on an unsupported device.**
-> **Before installing CTW - MSI Center M must be installed and running on your device**
->
+## Install
 
-> **📍 Center M needed as a base** — ClawTweaks is designed to completely disable/hide Center M (with one click). But Center is needed - Mostly for OEM Button and controller virtualization support. If you are coming from 3rd party Center M Replacements make sure to unistall everything and re-install center M properly.
-> 
+1. Install MSI Center M.
+2. Download `ClawTweaks_<version>_Setup.exe` from the [latest release](https://github.com/enterTheVoidCode/ClawTweaks/releases/latest) and run it.
 
-### Core Features
+| Device | Status |
+|---|---|
+| MSI Claw 8 AI+ A2VM | ✅ |
+| MSI Claw 7 AI+ A2VM / A2VMX | ✅ |
+| MSI Claw 8 EX (Panther Lake) | ✅ |
+| MSI Claw A1M (Meteor Lake) | ✅ |
+| MSI Claw A8 (AMD) | 🚫 |
+
+## QAM or Game Bar: your choice
+
+Use the Quick Access Menu, the Game Bar or both. Both save to the same profiles.
+
+- Choose in the setup what the Game Bar button opens
+- Change it later in the Game Bar under Controller / Front Buttons
+- In the QAM, Start always opens the Game Bar
+
+## Quick Access Menu (QAM)
+
+<img src="Doku/Readme/ctw-qam.png" width="700" alt="CTW QAM over The Witcher 3">
+
+- **Stay in your game:** the QAM opens over the running game
+- **One button:** open it with the Game Bar button on your device
+- **Controller first:** switch tabs with LB and RB, change values with the D-pad and A
+- **Your input stays in the menu:** the game does not react while the QAM is open
+- **Everything in one place:** performance, controller, display, sound, shortcuts, device and tiles
+- **Saved to the right profile:** changes go to the global profile or to the game's profile
+- **Your look:** themes, glass blur, panel colour and panel size
+
+> [!NOTE]
+> In Windows Full Screen (FSE / Xbox Mode), the QAM works only with the virtual controller.
 
 <table>
-  <colgroup>
-    <col style="width: 24%;">
-    <col style="width: 76%;">
-  </colgroup>
-  <thead>
-    <tr><th>Feature</th><th>Description</th></tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td><strong>OSD</strong></td>
-      <td>Overlay presets that don't break VRR — with handy extras like showing the active FPS cap or TDP setting.</td>
-    </tr>
-    <tr>
-      <td><strong>TDP</strong></td>
-      <td>Just one main TDP slider. Second slider is reserved for power users who need TDP boost and know what it does. ClawTweaks automatically adds +1&nbsp;W to PL2 so your TDP is applied correctly from a single slider.</td>
-    </tr>
-    <tr>
-      <td><strong>Global profiles</strong></td>
-      <td>Full performance, display and button-remapping settings — your baseline for most games.</td>
-    </tr>
-    <tr>
-      <td><strong>Per-game profiles</strong></td>
-      <td>Need different settings for a specific game? Just launch it and enable a Performance &amp; Display or Controller profile to fine-tune that game individually.</td>
-    </tr>
-    <tr>
-      <td><strong>Left front MSI button</strong></td>
-      <td>With Center M gone, this button gets a second life: single- and double-click detection lets you trigger almost any ClawTweaks action — open Steam, Playnite or Xbox, switch from game to Desktop mode, run keyboard shortcuts, launch your own EXE or PowerShell scripts, open a browser or a specific website, and more.</td>
-    </tr>
-  </tbody>
+  <tr>
+    <td width="50%" valign="top"><img src="Doku/Readme/ctw-remapping.png" alt="Controller page in the QAM"></td>
+    <td width="50%" valign="top"><img src="Doku/Readme/ctw-shortcuts.png" alt="Shortcuts page in the QAM"></td>
+  </tr>
+  <tr>
+    <td valign="top"><strong>Controller</strong><br>Button remapping, vibration and gyro, global or per game.</td>
+    <td valign="top"><strong>Shortcuts</strong><br>Button combos for actions and tiles.</td>
+  </tr>
 </table>
 
----
-## Feature Showcase
+## Game Bar
 
-<p align="left">
-  <img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/release/v0.3.98.0/Doku/Releases/0.3.0/01-cleaner-interface.png" width="320" alt="Overview — Tiles"><br>
-  <em>Quick setting — Tiles</em>
-</p>
+<table>
+  <tr>
+    <td width="50%" valign="top"><img src="Doku/Releases/0.3.0/01-cleaner-interface.png" alt="Tiles in the Game Bar"></td>
+    <td width="50%" valign="top"><img src="Doku/Releases/0.3.0/02-tiles-right-stick.png" alt="Performance settings in the Game Bar"></td>
+  </tr>
+  <tr>
+    <td valign="top"><strong>Tiles</strong><br>Your most-used settings and actions, one press away.</td>
+    <td valign="top"><strong>Performance</strong><br>FPS limit, TDP, CPU, fan, overlay and power mode, global or per game.</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><img src="Doku/Releases/0.3.0/03-controller-tiles.png" alt="Controller settings in the Game Bar"></td>
+    <td width="50%" valign="middle"><strong>Open the Game Bar</strong><br>Press the Game Bar button, or Start in the QAM.</td>
+  </tr>
+  <tr>
+    <td valign="top"><strong>Controller</strong><br>Button remapping, gyro, vibration and saved profiles, global or per game.</td>
+    <td></td>
+  </tr>
+</table>
 
+## Features
 
-<p align="left">
-  <img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/release/v0.3.98.0/Doku/Releases/0.3.0/02-tiles-right-stick.png" width="320" alt="Overview — Tiles"><br>
-  <em>Global - or per game performance settings</em>
-</p>
+- **Profiles:** global and per game, with separate values on battery and plugged in if you want them
+- **Performance:** TDP, FPS limit (Intel or RTSS), CPU boost, CPU limits and OS power mode
+- **Fan:** fan modes and your own fan curve
+- **Display:** saturation per colour, tints per channel, contrast, gamma, sharpness and Intel scaling
+- **Controller:** remap M1 and M2, gyro and mouse actions, per game
+- **Steam Input:** Steam can see an Xbox, Steam Deck or DualSense Edge pad
+- **Shortcuts:** button combos for tiles and actions, single and double click on the front button
+- **Overlay:** presets for RTSS or the built-in overlay
+- **Device:** charge limit, LED and battery calibration
+- **Library:** optional [CyanNova](https://github.com/enterTheVoidCode/ClawTweaksCenter) game library
 
+## Credits
 
-<p align="left">
-  <img src="https://raw.githubusercontent.com/enterTheVoidCode/ClawTweaks/release/v0.3.98.0/Doku/Releases/0.3.0/03-controller-tiles.png" width="320" alt="Overview — Tiles"><br>
-  <em>Global - or per game controller settings</em>
-</p>
-
-
-### Quick Settings
-Customizable dashboard with quick-access tiles for  most-used settings.
-
-- Gamebar widget settings for TDP, FPS Limit, Overlay, Profile, Charge Limiter and more
-- **Controller ↔ Mouse mode** — switch input mode quickly via tile ore controller shortcut
-- Custom keyboard shortcut tiles, predefined and user created action tiles (Brightness, Volume, Desktop,Launch Apps and own EXE (even Powershell), Gyro, Media: Play, Next Track etc.)
-
-**Controller shortcut support for every tile an in App-Actions:**
- You can adjust TDP, brightness, FPS cap, overlay level, or trigger any custom action mid-game using only the controller — no interruption to gameplay.
- Examples:
-- `M1 + D-Pad Up/Down` — raise or lower TDP by 1W on the fly
-- `M1 + D-Pad Left/Right` — cycle FPS limit up or down
-- `Select + A/B` — toggle brightness up/down
-- Any combination of 2+ buttons can be assigned to any tile
-
-
-<p align="center">
-  <img src="Doku/Homepage/2_Overview_Shortcuts.png" width="380" alt="Overview — Shortcuts"><br>
-  <em>Overview — Shortcuts: assign a controller button combo to any tile</em>
-</p>
-
----
-
-### Performance Control
-
-**TDP Management:**
-- Adjust power limits with real-time monitoring
-- TDP Boost (PL2 / Overboost) with separate slider
-
-**FPS Limiter:**
-- **Intel IGCL** — driver-level limiter built into the Intel GPU. Unlike RTSS it does not render and then discard a frame — the limit is applied before rendering, so it costs no extra GPU work and does not consume an FPS from your headroom. Tiers: Performance (60), Balanced (40), Efficiency (30).
-- **RTSS** — RivaTuner Statistics Server for finer-grained limits (30 / 40 / 60 / 90 / 120 FPS). Requires RTSS to be installed. Adds ~1 FPS of overhead compared to Intel IGCL.
-- Quick toggle between Intel and RTSS mode from the Quick Settings tile or the Performance tab
-
-**CPU Controls:**
-- CPU Boost enable/disable
-- OS Power Mode (Efficiency / Balanced / Performance)
-
-<p align="center">
-  <img src="Doku/Homepage/3_Global%20performance%20Profiles.png" width="360" alt="Global performance Profiles"><br>
-  <em>Global performance Profiles — FPS Limit, TDP Power Limit and Overboost (PL2)</em>
-</p>
-
-**Display & Color:**
-- Per-profile **Saturation / Hue / Contrast** applied live to the running game
-- Saved as part of the performance & display profile (global or per game)
-
-<p align="center">
-  <img src="Doku/Homepage/5_Per%20Game%20Color%20and%20Display%20Settings.png" width="300" alt="Per Game Color and Display Settings"><br>
-  <em>Per Game Color and Display Settings</em>
-</p>
-
----
-
-### Controller (MSI Claw)
-
-ClawTweaks implements software controller emulation: it hides the physical controller via HidHide. All  customfeatures run through this virtual device.
-
-**Button remapping — per game:**
-Every hardware button on the Claw is remappable independently for each game. Profiles switch automatically when a game launches.
-- **M1, M2** (right side back buttons) — remap to any gamepad button, D-pad direction, stick click, or keyboard/mouse input
-- **Left front OEM button** — assign a **single-click** action and an optional **double-click** action (with adjustable detection window), e.g. toggle Controller/Mouse mode on single press and cycle through apps on double press. By default single click switches between Controller and Mouse mode
-- All remaps are per-game: M1 can be "Jump" in one game and "Dodge" in another, applied automatically
-
-<p align="center">
-  <img src="Doku/Homepage/2_Front%20MSI%20Button%20Single%20and%20Double%20Click%20Actions.png" width="420" alt="Front MSI Button — Single and Double Click Actions"><br>
-  <em>Front MSI Button — Single and Double Click Actions</em>
-</p>
-
-<p align="center">
-  <img src="Doku/Homepage/4_Global%20Controller%20Profiles.png" width="340" alt="Global Controller Profiles">
-  <img src="Doku/Homepage/4_Per%20Game%20Controller%20Profiles.png" width="340" alt="Per Game Controller Profiles"><br>
-  <em>Global Controller Profiles (left) vs Per Game Controller Profiles (right) — incl. keyboard/mouse remaps</em>
-</p>
-
-**Gyroscope — per game:**
-- Gyro-to-right-stick — works with any game that supports stick-based aim (gyro aim in Steam, or natively)
-- Gyro-to-mouse — direct cursor movement, useful for desktop or mouse-driven games
-- Sensitivity X/Y, deadzone, and invert per axis
-- Activation: Always On, Hold a button, or Toggle — configurable button (LT, RT, LB, RB, face buttons)
-- Gyro settings saved per-game profile
-
-**Controller ↔ Mouse mode:**
-- **Controller mode** (default) — full virtual gamepad, all inputs forwarded
-- **Mouse mode** — left stick → scroll, right stick → cursor, , LT/RT → mouse buttons
-
-**Technical:**
-- Virtual Xbox 360 controller via ViGEm (DInput path). (VIIPER Support coming soon).
-- HidHide hides only the hw gamepad interface —  Win+G/Gamebar and long click App overview stay fully functional
-- MSI Center M detection — emulation suspends automatically when MSI Center M is active
-
-> Requires [ViGEmBus](https://github.com/nefarius/ViGEmBus) and [HidHide](https://github.com/nefarius/HidHide).
-
----
-
-### Per-Game Profiles
-Automatically apply your preferred settings the moment a game launches — no manual switching needed.
-
-- Automatic profile switching on game detection via Xbox Game Bar's focus API
-- Each profile saves independently: TDP, TDP Boost, FPS Limit, CPU Boost, EPP, OS Power Mode, controller mappings, gyro settings, and more
-- **Default game profile** — applies a single preset to any unknown game (useful for "always cap FPS + set TDP to X for every game I haven't configured yet")
-- Profile card shown in the widget header while a game is active, with the active profile name
-- Per-game controller button remapping — M1/M2 behave differently in each game without touching global settings
-- **Per power source (AC/DC)** — optionally store separate values for plugged-in (AC) vs battery (DC) within a profile
-
-<p align="center">
-  <img src="Doku/Homepage/3_Global%20vs%20Per%20Game%20Profile%20comparison.png" width="340" alt="Global vs Per Game Profile comparison">
-  <img src="Doku/Homepage/3.5_Per%20Game%20AC%20DC%20Profiles.png" width="340" alt="Per Game AC DC Profiles"><br>
-  <em>Global vs Per Game Profile comparison (left) &nbsp;·&nbsp; Per Game AC / DC Profiles (right)</em>
-</p>
-
----
-
-### Performance Overlay (OSD)
-Real-time on-screen display powered by RivaTuner Statistics Server.
-
-- FPS and frametime graph
-- CPU / GPU usage and temperatures
-- Power consumption, memory, VRAM
-- Battery level and charge status
-- Fan speed (supported devices)
-- TDP limits
-
----
-
-### Lossless Scaling Integration
-- Launch and manage Lossless Scaling from the widget
-- Configure scaling type, factor, and frame generation mode (LSFG2 / LSFG3)
-- Per-profile configurations
-
----
-
-### Fan Control (MSI Claw)
-Custom fan curve written directly to the EC (Lunar Lake).
-
-- Drag-to-edit fan curve with presets (Quiet / Default / Aggressive / Custom)
-- **Check applied values** — reads the live EC bytes back and verifies they match the graph
-- Live CPU package temperature indicator on the curve
-- Turn off to hand control back to MSI's firmware *(per-game fan profiles — coming soon; the curve is currently global)*
-
-<p align="center">
-  <img src="Doku/Homepage/6_Fan%20Settings%20with%20EC%20Value%20Check.%20Per%20Game%20Coming%20soon.png" width="360" alt="Fan Settings with EC Value Check (Per Game coming soon)"><br>
-  <em>Fan Settings with EC Value Check · Per Game coming soon</em>
-</p>
-
----
-
-### Battery Charge Limit (MSI Claw)
-Cap the battery charge level to extend long-term battery lifespan.
-
-- Granular limit slider, written to  EC via ACPI/WMI (firmware-level)
-- Enforced by the EC even while the device is asleep or shut down (as long as it stays plugged in)
-- Re-applied automatically on helper start / reboot, so it survives an EC reset
-
-<p align="center">
-  <img src="Doku/Homepage/9_Charge%20Limitter.png" width="480" alt="Charge Limiter"><br>
-  <em>Charge Limiter</em>
-</p>
-
----
-**Libraries used:**
-- **LibreHardwareMonitor** — hardware sensors
-- **RTSSSharedMemoryNET** — OSD overlay with frametime graph support
-- **USB/IP win 2 / HidHide** — virtual controller and HID suppression
-
----
+Built on [GoTweaks](https://github.com/corando98/GoTweaks). Uses [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor), RTSS, [HidHide](https://github.com/nefarius/HidHide), [usbip-win2](https://github.com/vadimgrn/usbip-win2) and [VIIPER](https://github.com/Alia5/VIIPER).
 
 ## License
 
-ClawTweaks is licensed under the **GNU Affero General Public License v3 (AGPLv3)** —
-see [`LICENSE`](LICENSE). In short: you are free to use, study, modify and share it,
-but any distributed or network-hosted derivative must also publish its complete
-source under AGPLv3. It cannot be turned into a closed-source product.
-
-Original portions derived from [GoTweaks](https://github.com/corando98/GoTweaks) /
-the Microsoft Game Bar widget sample remain under the MIT License
-([`LICENSE.MIT`](LICENSE.MIT)). See [`LICENSING.md`](LICENSING.md) for the full
-explanation, the trademark note, and contribution terms.
-
-> **No prebuilt binaries.** This repo does not ship ready-to-run signed packages
-> or the full packaging pipeline — building and signing is left to the user.
+[AGPLv3](LICENSE). Parts from GoTweaks and the Microsoft Game Bar sample stay under [MIT](LICENSE.MIT). See [LICENSING.md](LICENSING.md).
