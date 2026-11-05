@@ -1,3 +1,21 @@
+<p align="center">
+  <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases/latest"><img src="https://img.shields.io/github/v/release/enterTheVoidCode/ClawTweaks?display_name=tag&label=Latest%20Release&color=7C3AED&logo=github&logoColor=white" alt="Latest Release"></a>
+  <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases"><img src="https://img.shields.io/github/downloads/enterTheVoidCode/ClawTweaks/total?label=Downloads&color=22C55E" alt="Downloads"></a>
+  <a href="https://github.com/enterTheVoidCode/ClawTweaks/wiki"><img src="https://img.shields.io/badge/Wiki%20%26%20FAQ-Read%20the%20docs-2563EB?logo=readthedocs&logoColor=white" alt="Wiki & FAQ"></a>
+  <a href="https://discord.gg/WztXa3Krhf"><img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
+  <a href="https://ko-fi.com/rifflash"><img src="https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-F59E0B" alt="License: AGPLv3"></a>
+</p>
+
+**ClawTweaks replaces the OEM software on MSI Claw handhelds and extends it a lot.** Many Intel features are built in.
+
+- **Per-game profiles:** remap buttons and adjust deadzones, even with the Claw's hardware controller
+- **Optional virtual controller:** use gyro with smoothing and anti-deadzone
+- **Live in game:** set TDP, performance modes, CPU boost and Intel settings in the Game Bar or in our own Quick Access Menu, down to colour settings per channel, contrast and XeSS MFG
+- **Performance overlays:** far more presets, and you can customize their values
+
+The setup asks in detail what you want:
+
 <table>
   <tr>
     <td width="33%" valign="top"><img src="Doku/Readme/edition-essential.png" alt="ClawTweaks Essential"></td>
@@ -10,24 +28,6 @@
     <td valign="top"><strong>Custom</strong><br>You choose: virtual or hardware controller, with or without RTSS.</td>
   </tr>
 </table>
-
-<p align="center">
-  <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases/latest"><img src="https://img.shields.io/github/v/release/enterTheVoidCode/ClawTweaks?display_name=tag&label=Latest%20Release&color=7C3AED&logo=github&logoColor=white" alt="Latest Release"></a>
-  <a href="https://github.com/enterTheVoidCode/ClawTweaks/releases"><img src="https://img.shields.io/github/downloads/enterTheVoidCode/ClawTweaks/total?label=Downloads&color=22C55E" alt="Downloads"></a>
-  <a href="https://github.com/enterTheVoidCode/ClawTweaks/wiki"><img src="https://img.shields.io/badge/Wiki%20%26%20FAQ-Read%20the%20docs-2563EB?logo=readthedocs&logoColor=white" alt="Wiki & FAQ"></a>
-  <a href="https://discord.gg/WztXa3Krhf"><img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://ko-fi.com/rifflash"><img src="https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPLv3-F59E0B" alt="License: AGPLv3"></a>
-</p>
-
-**Optimized for Intel MSI Claw handhelds, with deep settings down to saturation and hue per colour channel. Everything works globally or per game.**
-
-Use it in the Quick Access Menu or the Xbox Game Bar.
-
-The setup asks in detail what you want:
-
-- **Essential:** hardware controller only, no extra drivers
-- **Virtual controller:** smooth gyro with smoothing and anti-deadzone, powerful mouse remapping and keyboard shortcuts, everything MSI Center M cannot do
 
 ## Install
 
