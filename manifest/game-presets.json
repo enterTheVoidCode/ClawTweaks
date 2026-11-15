@@ -124,15 +124,15 @@
       ],
       "upscaler": {
         "tool": "OptiClick",
-        "supportPath": "No - not supported on Intel",
+        "supportPath": "Yes - OptiClick official (Intel)",
         "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-05",
-        "available": false,
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Not Supported"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -200,10 +200,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -739,10 +739,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -1384,10 +1384,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "optiScalerWikiPage": "AI-Limit",
       "sources": [
@@ -1677,10 +1677,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -2114,10 +2114,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -2814,10 +2814,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -4021,10 +4021,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -7335,10 +7335,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -7472,10 +7472,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -8122,10 +8122,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -8568,10 +8568,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -9043,10 +9043,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -9404,10 +9404,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "optiScalerWikiPage": "Banishers-Ghosts-of-New-Eden",
       "sources": [
@@ -10841,10 +10841,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       }
     },
     {
@@ -10915,10 +10915,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -11789,10 +11789,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -13089,10 +13089,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -13663,10 +13663,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -16731,10 +16731,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -16815,10 +16815,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -17068,10 +17068,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -17645,10 +17645,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -17722,10 +17722,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -18269,10 +18269,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -18549,10 +18549,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -19645,10 +19645,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -20462,10 +20462,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -20763,10 +20763,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -21481,10 +21481,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -21978,10 +21978,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -22126,10 +22126,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -22582,10 +22582,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -22719,20 +22719,16 @@
         }
       ],
       "upscaler": {
-        "tool": "OptiScaler",
-        "supportPath": "Manual — OptiScaler tested working",
-        "status": "tested",
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
-        "preset": "Quality",
-        "fgOutput": "Off by default",
-        "requirements": "DX12 preferred / DX11 fallback • Fullscreen",
-        "policy": "Injection OFF by default in protected online / multiplayer modes",
-        "antiCheatRule": "Use stock rendering for protected online play; remove injected DLLs.",
-        "validation": "OptiScaler compatibility list • 2026-08-07",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
-        "recommended": false,
-        "intelOnly": false
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -22750,6 +22746,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Deep_Rock_Galactic%3A_Rogue_Core"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 60,
@@ -25122,10 +25122,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -27324,20 +27324,16 @@
         }
       ],
       "upscaler": {
-        "tool": "OptiScaler",
-        "supportPath": "Manual — OptiScaler tested working",
-        "status": "tested",
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
-        "preset": "Performance",
-        "fgOutput": "XeFG x3 → 116 FPS final",
-        "requirements": "DX12 • Borderless",
-        "policy": "Manual OptiScaler — tested; XeSS + XeFG recommended after validation",
-        "antiCheatRule": "Single-player/local use preferred; remove injection before anti-cheat protected online play.",
-        "validation": "OptiScaler compatibility list • 2026-08-07",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
-        "recommended": true,
-        "intelOnly": false
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -27347,6 +27343,10 @@
         {
           "label": "GitHub",
           "url": "https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 40,
@@ -29307,10 +29307,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       }
     },
     {
@@ -29450,10 +29450,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "optiScalerWikiPage": "DragonSword-Awakening",
       "sources": [
@@ -30287,10 +30287,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -30447,10 +30447,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -31908,10 +31908,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR",
@@ -34966,10 +34966,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -35890,10 +35890,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -36996,10 +36996,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -37746,6 +37746,10 @@
         {
           "label": "reddit.com",
           "url": "https://www.reddit.com/r/ROGAlly/comments/1c4dvdj/"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 60,
@@ -37772,6 +37776,18 @@
             "Graphics|Real-time Reflections": "On"
           }
         }
+      },
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       }
     },
     {
@@ -38105,10 +38121,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -38956,10 +38972,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -39126,10 +39142,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -39604,10 +39620,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -40474,10 +40490,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -40851,10 +40867,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -41053,10 +41069,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -41408,10 +41424,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -42787,10 +42803,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -43967,10 +43983,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -44328,10 +44344,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -45379,10 +45395,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -45560,10 +45576,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -45772,10 +45788,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -46570,10 +46586,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -46987,10 +47003,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -47933,19 +47949,16 @@
         }
       ],
       "upscaler": {
-        "tool": "OptiScaler",
-        "supportPath": "Manual — OptiScaler tested working",
-        "status": "tested",
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
-        "fgOutput": "FSR 3 Frame Generation",
-        "requirements": "DX12 • Borderless",
-        "policy": "OFF in protected online modes",
-        "antiCheatRule": "Macros OFF. Do not use DLL injectors in online or anti-cheat protected modes.",
-        "validation": "OptiScaler compatibility list • 2026-08-07",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
-        "recommended": false,
-        "intelOnly": false
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -47955,6 +47968,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Indiana_Jones_and_the_Great_Circle"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 30,
@@ -48180,10 +48197,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -48952,10 +48969,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -49624,10 +49641,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -49751,10 +49768,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -50204,10 +50221,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -51229,10 +51246,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -51711,10 +51728,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Lunar Lake, Panther Lake"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -52047,10 +52064,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -52757,10 +52774,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -53841,10 +53858,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -56113,10 +56130,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -57091,10 +57108,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -57482,10 +57499,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -57705,10 +57722,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -57929,10 +57946,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -58982,10 +58999,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -59749,6 +59766,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Metro_2033_Redux"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 60,
@@ -59777,6 +59798,21 @@
             "Display|Frame Rate Target": "30 FPS"
           }
         }
+      },
+      "aliases": [
+        "METRO 2033 Redux (NEXT GEN UPDATE)"
+      ],
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       }
     },
     {
@@ -59882,10 +59918,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -60022,6 +60058,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Metro%3A_Last_Light_Redux"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 60,
@@ -60050,6 +60090,21 @@
             "Display|Frame Rate Target": "30 FPS"
           }
         }
+      },
+      "aliases": [
+        "METRO Last Light Redux (NEXT GEN UPDATE)"
+      ],
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       }
     },
     {
@@ -61098,10 +61153,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -61968,10 +62023,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -62290,10 +62345,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -63519,10 +63574,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR",
@@ -63814,20 +63869,16 @@
         }
       ],
       "upscaler": {
-        "tool": "OptiScaler",
-        "supportPath": "Manual — OptiScaler tested working",
-        "status": "tested",
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
-        "preset": "Quality",
-        "fgOutput": "XeFG x2 → 116 FPS final",
-        "requirements": "DX12 preferred / DX11 fallback • Fullscreen",
-        "policy": "Manual OptiScaler — tested; XeSS/XeFG recommended after local validation",
-        "antiCheatRule": "Single-player/local use; keep native profile as rollback.",
-        "validation": "OptiScaler compatibility list • 2026-08-07",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
-        "recommended": true,
-        "intelOnly": false
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -63844,6 +63895,10 @@
         {
           "label": "GitHub",
           "url": "https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 60,
@@ -65736,10 +65791,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Lunar Lake, Panther Lake, Arc B Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "DLSS",
@@ -66797,10 +66852,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -66966,6 +67021,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Nioh_2%3A_The_Complete_Edition"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 60,
@@ -67006,6 +67065,18 @@
             "Graphics|Effects Quality": "High"
           }
         }
+      },
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       }
     },
     {
@@ -67105,20 +67176,16 @@
         }
       ],
       "upscaler": {
-        "tool": "OptiScaler",
-        "supportPath": "Manual — OptiScaler tested working",
-        "status": "tested",
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
-        "preset": "Performance",
-        "fgOutput": "XeFG x3 → 116 FPS final",
-        "requirements": "DX12 • Borderless",
-        "policy": "Manual OptiScaler — tested; XeSS + XeFG recommended after validation",
-        "antiCheatRule": "Single-player/local use preferred; remove injection before anti-cheat protected online play.",
-        "validation": "OptiScaler compatibility list • 2026-08-07",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
-        "recommended": true,
-        "intelOnly": false
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR",
@@ -67136,6 +67203,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Nioh_3"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 40,
@@ -67536,10 +67607,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -68337,10 +68408,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -68919,6 +68990,32 @@
       }
     },
     {
+      "key": "over hill",
+      "title": "over the hill",
+      "ids": {
+        "steam": 2929250
+      },
+      "verified": "2026-11-15",
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
+      },
+      "sources": [
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
+        }
+      ]
+    },
+    {
       "key": "overcooked",
       "title": "Overcooked!",
       "tier": "minimal",
@@ -69397,10 +69494,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -69707,10 +69804,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR",
@@ -70547,6 +70644,29 @@
       "optiScalerWikiPage": "PAYDAY-3"
     },
     {
+      "key": "pc building simulator 2",
+      "title": "PC Building Simulator 2",
+      "verified": "2026-11-15",
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
+      },
+      "sources": [
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
+        }
+      ]
+    },
+    {
       "key": "peak",
       "title": "PEAK",
       "tier": "core",
@@ -70814,6 +70934,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Persona_3_Reload"
+        },
+        {
+          "label": "OptiScaler",
+          "url": "https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List"
         }
       ],
       "graphicsTargetFps": 60,
@@ -70840,7 +70964,8 @@
             "Graphics|Shadow Quality": "High"
           }
         }
-      }
+      },
+      "optiScalerWikiPage": "Persona-3-Reload"
     },
     {
       "key": "persona 4 arena ultimax",
@@ -71371,6 +71496,37 @@
           }
         }
       }
+    },
+    {
+      "key": "phantom blade zero",
+      "title": "Phantom Blade Zero",
+      "ids": {
+        "steam": 4115450
+      },
+      "verified": "2026-11-15",
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
+      },
+      "sources": [
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
+        },
+        {
+          "label": "OptiScaler",
+          "url": "https://github.com/optiscaler/OptiScaler/wiki/Compatibility-List"
+        }
+      ],
+      "optiScalerWikiPage": "Phantom-Blade-Zero"
     },
     {
       "key": "phasmophobia",
@@ -72985,10 +73141,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -75524,10 +75680,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -75801,20 +75957,16 @@
         }
       ],
       "upscaler": {
-        "tool": "OptiScaler",
-        "supportPath": "Manual — OptiScaler tested working",
-        "status": "tested",
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
-        "preset": "Quality",
-        "fgOutput": "Off by default",
-        "requirements": "DX12 preferred / DX11 fallback • Fullscreen",
-        "policy": "Injection OFF by default in protected online / multiplayer modes",
-        "antiCheatRule": "Use stock rendering for protected online play; remove injected DLLs.",
-        "validation": "OptiScaler compatibility list • 2026-08-07",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
-        "recommended": false,
-        "intelOnly": false
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -75832,6 +75984,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Ready_or_Not"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 60,
@@ -76141,10 +76297,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -76441,10 +76597,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -76867,10 +77023,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -78669,10 +78825,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -79196,10 +79352,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -79436,10 +79592,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -79897,10 +80053,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -80092,6 +80248,32 @@
           }
         }
       }
+    },
+    {
+      "key": "rivage",
+      "title": "Rivage",
+      "ids": {
+        "steam": 4094660
+      },
+      "verified": "2026-11-15",
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
+      },
+      "sources": [
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
+        }
+      ]
     },
     {
       "key": "robocop rogue city",
@@ -80757,10 +80939,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -81005,10 +81187,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -81068,10 +81250,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "optiScalerWikiPage": "Sackboy-‐-A-Big-Adventure",
       "sources": [
@@ -81182,10 +81364,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -81272,10 +81454,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -82193,10 +82375,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -82361,10 +82543,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -82974,10 +83156,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -83162,10 +83344,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -85081,10 +85263,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -86939,10 +87121,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -87189,10 +87371,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -88013,10 +88195,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -88503,10 +88685,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -89346,10 +89528,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -89932,20 +90114,16 @@
         }
       ],
       "upscaler": {
-        "tool": "OptiScaler",
-        "supportPath": "Manual — OptiScaler tested working",
-        "status": "tested",
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
-        "preset": "Performance",
-        "fgOutput": "Off by default",
-        "requirements": "DX12 • Borderless",
-        "policy": "Injection OFF by default in protected online / multiplayer modes",
-        "antiCheatRule": "Use the stock game path for protected online play; remove injected DLLs.",
-        "validation": "OptiScaler compatibility list • 2026-08-07",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
-        "recommended": false,
-        "intelOnly": false
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -89963,6 +90141,10 @@
         {
           "label": "PCGamingWiki",
           "url": "https://www.pcgamingwiki.com/wiki/Subnautica_2"
+        },
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
         }
       ],
       "graphicsTargetFps": 40,
@@ -91059,10 +91241,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -92538,10 +92720,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -92693,10 +92875,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "optiScalerWikiPage": "The-Blood-of-Dawnwalker",
       "sources": [
@@ -94125,10 +94307,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -95042,10 +95224,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "XeSS"
@@ -95707,10 +95889,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -95992,10 +96174,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -96972,10 +97154,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -97358,6 +97540,32 @@
       }
     },
     {
+      "key": "sifu",
+      "title": "Sifu",
+      "ids": {
+        "steam": 2138710
+      },
+      "verified": "2026-11-15",
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
+      },
+      "sources": [
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
+        }
+      ]
+    },
+    {
       "key": "silent hill townfall",
       "title": "SILENT HILL: Townfall",
       "ids": {
@@ -97371,10 +97579,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -97397,10 +97605,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -97423,10 +97631,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -97819,10 +98027,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -98908,15 +99116,15 @@
       ],
       "upscaler": {
         "tool": "OptiClick",
-        "supportPath": "No - not supported on Intel",
+        "supportPath": "Yes - OptiClick official (Intel)",
         "status": "official",
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
-        "available": false,
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Not Supported"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -99314,10 +99522,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -101267,10 +101475,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -101929,10 +102137,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -102279,10 +102487,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -102663,10 +102871,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -103147,6 +103355,32 @@
           "targetFps": 30
         }
       }
+    },
+    {
+      "key": "void breaker",
+      "title": "VOID/BREAKER",
+      "ids": {
+        "steam": 2615540
+      },
+      "verified": "2026-11-15",
+      "upscaler": {
+        "tool": "OptiClick",
+        "supportPath": "Yes - OptiClick official (Intel)",
+        "status": "official",
+        "output": "XeSS",
+        "outputTechnology": "XeSS",
+        "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
+        "validation": "OptiClick supported game list - 2026-11-15",
+        "available": true,
+        "intelOnly": true,
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
+      },
+      "sources": [
+        {
+          "label": "OptiClick",
+          "url": "https://github.com/onehoon/OptiClick/wiki/Supported-Game-List"
+        }
+      ]
     },
     {
       "key": "war thunder",
@@ -105085,10 +105319,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR",
@@ -105177,10 +105411,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -107026,10 +107260,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -107147,10 +107381,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "nativeUpscalers": [
         "FSR"
@@ -108966,10 +109200,10 @@
         "output": "XeSS",
         "outputTechnology": "XeSS",
         "antiCheatRule": "Single-player or local play. Remove the injection before playing anything with anti-cheat online.",
-        "validation": "OptiClick supported game list - 2026-10-27",
+        "validation": "OptiClick supported game list - 2026-11-15",
         "available": true,
         "intelOnly": true,
-        "requirements": "Intel: Intel Arc Series"
+        "requirements": "Intel: Intel Arc Graphics, Arc A Series, Arc Pro Series"
       },
       "sources": [
         {
@@ -109127,6 +109361,27 @@
         "refreshedOptiClick": 123,
         "wikiPagesLinked": 2,
         "entriesAdded": 4
+      },
+      {
+        "on": "2026-11-15",
+        "opticlick": {
+          "source": "api",
+          "etag": "ec31520af294377a032f306429cde299",
+          "rows": 176,
+          "games": 149,
+          "wikiCommit": "51c61ba"
+        },
+        "optiscaler": {
+          "commit": "8d862ca",
+          "rows": 725,
+          "pages": 194
+        },
+        "intelChanged": 132,
+        "nowOptiClick": 11,
+        "aliasesAdded": 2,
+        "refreshedOptiClick": 0,
+        "wikiPagesLinked": 2,
+        "entriesAdded": 6
       }
     ]
   }
