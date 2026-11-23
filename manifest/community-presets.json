@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-22T09:52:21Z",
+  "generatedAt": "2026-11-23T09:30:15Z",
   "presets": [
     {
       "schemaVersion": "1",
@@ -3311,6 +3311,44 @@
       "threadId": "1573723117577052182",
       "url": "https://discord.com/channels/1513953677390512329/1573723117577052182",
       "code": "CTW-DTM95053-B"
+    },
+    {
+      "schemaVersion": "2",
+      "presetId": "DWZ7T33BCBY5EGRTP3ZXC229S8",
+      "createdAt": "2026-11-22T12:44:57Z",
+      "nonce": "ECDXP7",
+      "authorId": "VNW825M98F6FMKF1",
+      "author": "steady25fps",
+      "device": "a2vm8",
+      "gameStore": "steam",
+      "gameId": "1203620",
+      "gameTitle": "Enshrouded",
+      "fpsNative": "25",
+      "tdpW": "30",
+      "powerState": "battery",
+      "resolution": "1920x1080",
+      "graphicsPreset": "custom",
+      "upscaler": "off",
+      "upscalerPreset": "-",
+      "upscalerSource": "ingame",
+      "frameGen": "on",
+      "frameGenFactor": "2",
+      "pl2W": "-",
+      "cpuBoostMode": "1",
+      "osPowerMode": "balanced",
+      "fpsLimit": "-",
+      "fanCurve": "-",
+      "texture": "high",
+      "shadows": "low",
+      "aniso": "16x",
+      "lighting": "low",
+      "viewDistance": "medium",
+      "characters": "high",
+      "fpsCapMode": "-",
+      "seenMessageCount": 0,
+      "threadId": "1574043291555729459",
+      "url": "https://discord.com/channels/1513953677390512329/1574043291555729459",
+      "code": "CTW-43VBZ6N3-D"
     }
   ]
 }
